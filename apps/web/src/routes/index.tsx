@@ -1,214 +1,155 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Sidebar } from "../components/Sidebar";
 import { useAuth } from "../contexts/AuthContext";
-import { LoginPage } from "../pages/LoginPage";
-import { RegisterPage } from "../pages/RegisterPage";
-import { DashboardPage } from "../pages/DashboardPage";
-import { ProfilePage } from "../pages/ProfilePage";
-import { SettingsPage } from "../pages/SettingsPage";
+
+// Main Pages
+import DashboardPage from "../pages/DashboardPage";
+import { DiscoveryPage } from "../pages/DiscoveryPage";
 import { VocabularyPage } from "../pages/VocabularyPage";
 import { FlashcardPage } from "../pages/FlashcardPage";
 import { GrammarPage } from "../pages/GrammarPage";
 import { ExercisesPage } from "../pages/ExercisesPage";
+import { VoicePage } from "../pages/VoicePage";
+import { CommunitiesPage } from "../pages/CommunitiesPage";
 import { ProgressPage } from "../pages/ProgressPage";
+import { ProfilePage } from "../pages/ProfilePage";
+import { SettingsPage } from "../pages/SettingsPage";
+import { ChatPage } from "../pages/ChatPage";
+
+// ============================================================
+// ✅ MISSING COMPONENTS (added)
+// ============================================================
+import { LoginPage } from "../pages/LoginPage";
+import { RegisterPage } from "../pages/RegisterPage";
 import { FriendsPage } from "../pages/FriendsPage";
 import { SuggestionsPage } from "../pages/SuggestionsPage";
 import { BlockedPage } from "../pages/BlockedPage";
-import { ChatPage } from "../pages/ChatPage";
-import { VoicePage } from "../pages/VoicePage";
-// ❌ Remove VoiceRoomView import if not using it directly
-// import { VoiceRoomView } from "../components/voice/VoiceRoomView";
-import { CommunitiesPage } from "../pages/CommunitiesPage";
 import { CommunityPage } from "../pages/CommunityPage";
 import { JoinCommunityPage } from "../pages/JoinCommunityPage";
 import { NewConversationPage } from "../pages/NewConversationPage";
-import { DiscoveryPage } from "../pages/DiscoveryPage";
+import { useState } from "react";
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+// ============================================================
+// PROTECTED ROUTE
+// ============================================================
+const ProtectedRoute = () => {
   const { user, isLoading } = useAuth();
-  if (isLoading) return <div>Loading...</div>;
-  if (!user) return <Navigate to="/login" />;
-  return <>{children}</>;
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500" />
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <Outlet />;
 };
 
-export const AppRoutes = () => {
+// ============================================================
+// PUBLIC ROUTE (redirects to dashboard if already logged in)
+// ============================================================
+const PublicRoute = () => {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500" />
+      </div>
+    );
+  }
+  
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return <Outlet />;
+};
+
+// ============================================================
+// APP LAYOUT (with Sidebar)
+// ============================================================
+
+const AppLayout = () => {
+  const [isMinimized, setIsMinimized] = useState(false); // ✅ Local state
+
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-
-        {/* Protected Routes */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute>
-              <SettingsPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Learning Routes */}
-        <Route
-          path="/vocabulary"
-          element={
-            <ProtectedRoute>
-              <VocabularyPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/flashcards"
-          element={
-            <ProtectedRoute>
-              <FlashcardPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/grammar"
-          element={
-            <ProtectedRoute>
-              <GrammarPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/exercises"
-          element={
-            <ProtectedRoute>
-              <ExercisesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/progress"
-          element={
-            <ProtectedRoute>
-              <ProgressPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Social Routes */}
-        <Route
-          path="/friends"
-          element={
-            <ProtectedRoute>
-              <FriendsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/suggestions"
-          element={
-            <ProtectedRoute>
-              <SuggestionsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/blocked"
-          element={
-            <ProtectedRoute>
-              <BlockedPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Chat Routes */}
-        <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/chat/new"
-          element={
-            <ProtectedRoute>
-              <NewConversationPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* ✅ Voice Routes - Both use VoicePage */}
-        <Route
-          path="/voice"
-          element={
-            <ProtectedRoute>
-              <VoicePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/voice/:roomId"
-          element={
-            <ProtectedRoute>
-              <VoicePage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Community Routes */}
-        <Route
-          path="/communities"
-          element={
-            <ProtectedRoute>
-              <CommunitiesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/communities/:communityId"
-          element={
-            <ProtectedRoute>
-              <CommunityPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/communities/join/:code"
-          element={
-            <ProtectedRoute>
-              <JoinCommunityPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Discovery Route */}
-        <Route
-          path="/discover"
-          element={
-            <ProtectedRoute>
-              <DiscoveryPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Catch all */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </BrowserRouter>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+      <Sidebar isMinimized={isMinimized} onToggle={() => setIsMinimized(!isMinimized)} />
+      <div 
+        className={`min-h-screen transition-all duration-300 ${
+          isMinimized ? "lg:pl-[72px]" : "lg:pl-[260px]"
+        }`}
+      >
+        <main className="min-h-screen">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 };
+
+
+// ============================================================
+// MAIN ROUTES
+// ============================================================
+const AppRoutes = () => {
+  return (
+    <Routes>
+      {/* ===== PUBLIC ROUTES ===== */}
+      <Route element={<PublicRoute />}>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+      </Route>
+
+      {/* ===== PROTECTED ROUTES WITH SIDEBAR ===== */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppLayout />}>
+          {/* Redirects */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          {/* Main Pages */}
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/discover" element={<DiscoveryPage />} />
+          <Route path="/vocabulary" element={<VocabularyPage />} />
+          <Route path="/flashcards" element={<FlashcardPage />} />
+          <Route path="/grammar" element={<GrammarPage />} />
+          <Route path="/exercises" element={<ExercisesPage />} />
+          <Route path="/progress" element={<ProgressPage />} />
+          
+          {/* Profile & Settings */}
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+
+          {/* ===== ✅ CHAT ROUTES ===== */}
+          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/chat/new" element={<NewConversationPage />} />
+
+          {/* ===== ✅ VOICE ROUTES ===== */}
+          <Route path="/voice" element={<VoicePage />} />
+          <Route path="/voice/:roomId" element={<VoicePage />} />
+
+          {/* ===== ✅ COMMUNITY ROUTES (all added) ===== */}
+          <Route path="/communities" element={<CommunitiesPage />} />
+          <Route path="/communities/:communityId" element={<CommunityPage />} />
+          <Route path="/communities/join/:code" element={<JoinCommunityPage />} />
+
+          {/* ===== ✅ SOCIAL ROUTES (all added) ===== */}
+          <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/suggestions" element={<SuggestionsPage />} />
+          <Route path="/blocked" element={<BlockedPage />} />
+        </Route>
+      </Route>
+
+      {/* ===== CATCH ALL ===== */}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
+};
+
+export default AppRoutes;

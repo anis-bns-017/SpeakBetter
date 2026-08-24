@@ -1,62 +1,81 @@
+// server/src/main.ts
+
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import * as express from 'express'; // ✅ Add this import
+import * as express from 'express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
+  
+  try {
+    const app = await NestFactory.create(AppModule);
 
-  const config = app.get(ConfigService);
+    const config = app.get(ConfigService);
 
-  app.use(cookieParser());
+    app.use(cookieParser());
 
-  // ✅ Ensure uploads directory exists
-  const uploadsDir = join(process.cwd(), 'uploads', 'audio');
-  if (!existsSync(uploadsDir)) {
-    mkdirSync(uploadsDir, { recursive: true });
-    console.log(`📁 Created uploads directory: ${uploadsDir}`);
+    // ✅ Ensure uploads directory exists
+    const uploadsDir = join(process.cwd(), 'uploads', 'audio');
+    if (!existsSync(uploadsDir)) {
+      mkdirSync(uploadsDir, { recursive: true });
+      logger.log(`📁 Created uploads directory: ${uploadsDir}`);
+    }
+
+    // ✅ CORRECT WAY: Use express.static with app.use()
+    app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
+
+    const frontendUrl =
+      config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+
+    app.enableCors({
+      origin: frontendUrl,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'Cookie',
+        'Accept',
+        'X-Requested-With',
+      ],
+    });
+
+    // ✅ Get port from config or use 3000
+    const port = config.get<number>('PORT') || 3000;
+
+    // ✅ Try to listen on the port with error handling
+    await app.listen(port, '0.0.0.0', () => {
+      logger.log(`🚀 Server running on http://localhost:${port}`);
+      logger.log(`🔌 WebSocket endpoint: ws://localhost:${port}/chat`);
+      logger.log(`📁 Static files served from: /uploads/`);
+      logger.log(`✅ LiveKit status: ${config.get('LIVEKIT_HTTP_URL') ? 'Configured' : 'Not configured'}`);
+    });
+
+  } catch (error) {
+    if (error.code === 'EADDRINUSE') {
+      const logger = new Logger('Bootstrap');
+      logger.error(`❌ Port 3000 is already in use!`);
+      logger.error(`💡 To fix this:`);
+      logger.error(`   1. Find the process: lsof -i :3000 (Mac/Linux) or netstat -ano | findstr :3000 (Windows)`);
+      logger.error(`   2. Kill the process: kill -9 <PID> (Mac/Linux) or taskkill /PID <PID> /F (Windows)`);
+      logger.error(`   3. Or change the port in your .env file: PORT=3002`);
+      process.exit(1);
+    }
+    throw error;
   }
-
-  // ✅ CORRECT WAY: Use express.static with app.use()
-  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
-
-  app.enableCors({
-    origin: config.get<string[]>('CORS_ORIGIN') ?? [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:5173',
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'Cookie',
-      'Accept',
-      'X-Requested-With',
-    ],
-  });
-
-  const port = config.get<number>('PORT') ?? 3000;
-
-  await app.listen(port);
-  console.log(`🚀 Server running on http://localhost:${port}`);
-  console.log(`🔌 WebSocket endpoint: ws://localhost:${port}/chat`);
-  console.log(`📁 Static files served from: /uploads/`);
 }
 
 bootstrap();

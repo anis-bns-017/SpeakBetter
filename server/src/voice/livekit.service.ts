@@ -4,9 +4,8 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   RoomServiceClient,
   Room,
-  CreateOptions, // Changed from CreateRoomOptions
+  CreateOptions,
   AccessToken,
-  // Remove EgressService - it's not directly exported
 } from 'livekit-server-sdk';
 import { ConfigService } from '@nestjs/config';
 
@@ -15,7 +14,8 @@ export class LiveKitService implements OnModuleInit {
   private readonly logger = new Logger(LiveKitService.name);
   private roomService: RoomServiceClient;
   private isLiveKitAvailable = false;
-  private livekitUrl: string;
+  private livekitHttpUrl: string;
+  private livekitWsUrl: string;
   private livekitHost: string;
   private apiKey: string;
   private apiSecret: string;
@@ -23,40 +23,56 @@ export class LiveKitService implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    // Get configuration from .env
-    this.livekitHost =
-      this.configService.get('LIVEKIT_HOST') || 'localhost:7880';
-    this.livekitUrl =
-      this.configService.get('LIVEKIT_HTTP_URL') || 'http://localhost:7882';
-    this.apiKey = this.configService.get('LIVEKIT_API_KEY') || 'devkey';
-    this.apiSecret = this.configService.get('LIVEKIT_API_SECRET') || 'secret';
+    // Load configuration from .env
+    this.livekitHost = this.configService.get<string>('LIVEKIT_HOST') || 'localhost:7880';
+    this.livekitHttpUrl = this.configService.get<string>('LIVEKIT_HTTP_URL') || 'http://localhost:7882';
+    this.livekitWsUrl = this.configService.get<string>('LIVEKIT_WS_URL') || 'ws://localhost:7880';
+    this.apiKey = this.configService.get<string>('LIVEKIT_API_KEY') || 'devkey';
+    this.apiSecret = this.configService.get<string>('LIVEKIT_API_SECRET') || 'secret';
 
-    this.logger.log(`🔌 Connecting to LiveKit at: ${this.livekitUrl}`);
-    this.logger.log(`🔑 Using API Key: ${this.apiKey}`);
+    this.logger.log(`🔌 LiveKit Configuration:`);
+    this.logger.log(`   HTTP URL: ${this.livekitHttpUrl}`);
+    this.logger.log(`   WebSocket URL: ${this.livekitWsUrl}`);
+    this.logger.log(`   Host: ${this.livekitHost}`);
+    this.logger.log(`   API Key: ${this.apiKey.substring(0, 8)}...`);
+
+    // Validate configuration
+    if (!this.apiKey || !this.apiSecret || this.apiKey === 'devkey' && this.apiSecret === 'secret') {
+      this.logger.warn('⚠️ Using default dev credentials. For production, set proper API keys.');
+    }
 
     try {
       // Initialize RoomServiceClient with HTTP URL
       this.roomService = new RoomServiceClient(
-        this.livekitUrl,
+        this.livekitHttpUrl,
         this.apiKey,
         this.apiSecret,
       );
 
-      // Test connection by listing rooms
-      const rooms = await this.roomService.listRooms();
+      // Test connection with timeout
+      this.logger.log('🔄 Testing LiveKit connection...');
+      const rooms = await Promise.race([
+        this.roomService.listRooms(),
+        new Promise<Room[]>((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout after 5 seconds')), 5000)
+        )
+      ]) as Room[];
+
       this.logger.log(
-        `✅ LiveKit connected successfully! Found ${rooms.length} rooms`,
+        `✅ LiveKit connected successfully! Found ${rooms?.length || 0} rooms`,
       );
       this.isLiveKitAvailable = true;
     } catch (error) {
       this.logger.error(`❌ Failed to connect to LiveKit: ${error.message}`);
       this.logger.warn('⚠️ Voice features will run in MOCK MODE');
-      this.logger.warn(
-        '💡 To enable LiveKit, make sure LiveKit server is running on port 7882',
-      );
-      this.logger.warn(
-        '💡 Run: docker run -d --name livekit -p 7880:7880 -p 7881:7881 -p 7882:7882 -e LIVEKIT_KEYS=devkey:secret livekit/livekit-server:latest --dev',
-      );
+      this.logger.warn('💡 To enable LiveKit:');
+      this.logger.warn('   1️⃣ Start LiveKit server:');
+      this.logger.warn('      docker run -d --name livekit \\');
+      this.logger.warn('        -p 7880:7880 -p 7881:7881 -p 7882:7882 \\');
+      this.logger.warn('        -e LIVEKIT_KEYS=devkey:secret \\');
+      this.logger.warn('        livekit/livekit-server:latest --dev');
+      this.logger.warn('   2️⃣ Or use LiveKit Cloud: https://cloud.livekit.io');
+      this.logger.warn('   3️⃣ Update .env with your LiveKit configuration');
       this.isLiveKitAvailable = false;
     }
   }
@@ -81,7 +97,7 @@ export class LiveKitService implements OnModuleInit {
       return room;
     } catch (error) {
       this.logger.error(`❌ Failed to create LiveKit room: ${error.message}`);
-      return this.createMockRoom(roomName);
+      throw new Error(`Failed to create room: ${error.message}`);
     }
   }
 
@@ -97,7 +113,7 @@ export class LiveKitService implements OnModuleInit {
     } catch (error) {
       this.logger.error(`❌ Failed to delete LiveKit room: ${roomName}`);
       this.logger.error(`   Error: ${error.message}`);
-      // Don't throw - we want to continue even if LiveKit fails
+      throw new Error(`Failed to delete room: ${error.message}`);
     }
   }
 
@@ -138,44 +154,48 @@ export class LiveKitService implements OnModuleInit {
     userId: string,
     identity?: string,
   ): Promise<string> {
-    if (!this.isLiveKitAvailable) {
-      // Return mock token for development
-      const mockToken = `mock-token-${userId}-${roomName}-${Date.now()}`;
-      this.logger.warn(
-        `📝 MOCK: Generating mock token for ${userId} in ${roomName}`,
-      );
-      return mockToken;
+    // If LiveKit is available, generate REAL token
+    if (this.isLiveKitAvailable) {
+      try {
+        const token = new AccessToken(this.apiKey, this.apiSecret, {
+          identity: identity || userId,
+          name: userId,
+          metadata: JSON.stringify({
+            userId,
+            roomName,
+            timestamp: Date.now(),
+          }),
+        });
+
+        // Add grants for the user
+        token.addGrant({
+          room: roomName,
+          roomJoin: true,
+          canPublish: true,
+          canSubscribe: true,
+          canPublishData: true,
+          canUpdateOwnMetadata: true,
+        });
+
+        const jwt = await token.toJwt();
+        
+        // Validate token is not a mock
+        if (jwt.startsWith('mock-')) {
+          this.logger.warn('⚠️ Token generation returned mock format!');
+          throw new Error('Invalid token generated');
+        }
+        
+        this.logger.log(`✅ Real token generated for ${userId} in ${roomName}`);
+        return jwt;
+      } catch (error) {
+        this.logger.error(`❌ Failed to generate token: ${error.message}`);
+        throw new Error(`Failed to generate LiveKit token: ${error.message}`);
+      }
     }
 
-    try {
-      // Use AccessToken for generating tokens
-      const token = new AccessToken(this.apiKey, this.apiSecret, {
-        identity: identity || userId,
-        name: userId,
-        metadata: JSON.stringify({
-          userId,
-          roomName,
-          timestamp: Date.now(),
-        }),
-      });
-
-      token.addGrant({
-        room: roomName,
-        roomJoin: true,
-        canPublish: true,
-        canSubscribe: true,
-        canPublishData: true,
-        canUpdateOwnMetadata: true,
-      });
-
-      const jwt = await token.toJwt();
-      this.logger.log(`✅ Token generated for ${userId} in ${roomName}`);
-      return jwt;
-    } catch (error) {
-      this.logger.error(`❌ Failed to generate token: ${error.message}`);
-      // Fallback to mock token
-      return `mock-token-${userId}-${roomName}-${Date.now()}`;
-    }
+    // If LiveKit is not available, throw error
+    this.logger.error('❌ Cannot generate token: LiveKit is not available');
+    throw new Error('LiveKit server is not available. Please check your configuration.');
   }
 
   // ==================== PARTICIPANT MANAGEMENT ====================
@@ -195,7 +215,6 @@ export class LiveKitService implements OnModuleInit {
     }
   }
 
-  // Fixed: Only accept 3 arguments (roomName, userId, identity)
   async getParticipantToken(
     roomName: string,
     userId: string,
@@ -225,6 +244,7 @@ export class LiveKitService implements OnModuleInit {
       this.logger.log(`✅ Participant ${participantId} muted in ${roomName}`);
     } catch (error) {
       this.logger.error(`Failed to mute participant: ${error.message}`);
+      throw new Error(`Failed to mute participant: ${error.message}`);
     }
   }
 
@@ -249,6 +269,7 @@ export class LiveKitService implements OnModuleInit {
       this.logger.log(`✅ Participant ${participantId} unmuted in ${roomName}`);
     } catch (error) {
       this.logger.error(`Failed to unmute participant: ${error.message}`);
+      throw new Error(`Failed to unmute participant: ${error.message}`);
     }
   }
 
@@ -270,12 +291,12 @@ export class LiveKitService implements OnModuleInit {
       );
     } catch (error) {
       this.logger.error(`Failed to remove participant: ${error.message}`);
+      throw new Error(`Failed to remove participant: ${error.message}`);
     }
   }
 
   // ==================== RECORDING MANAGEMENT ====================
 
-  // Simplified recording - uses roomService if available
   async startRecording(roomName: string): Promise<any> {
     if (!this.isLiveKitAvailable) {
       this.logger.warn(`📝 MOCK: Starting recording for ${roomName}`);
@@ -293,7 +314,7 @@ export class LiveKitService implements OnModuleInit {
       return { success: true, roomName };
     } catch (error) {
       this.logger.error(`Failed to start recording: ${error.message}`);
-      throw error;
+      throw new Error(`Failed to start recording: ${error.message}`);
     }
   }
 
@@ -307,7 +328,7 @@ export class LiveKitService implements OnModuleInit {
       this.logger.log(`✅ Recording stopped for ${roomName}`);
     } catch (error) {
       this.logger.error(`Failed to stop recording: ${error.message}`);
-      throw error;
+      throw new Error(`Failed to stop recording: ${error.message}`);
     }
   }
 
@@ -325,7 +346,7 @@ export class LiveKitService implements OnModuleInit {
       return { success: true, roomName };
     } catch (error) {
       this.logger.error(`Failed to start egress: ${error.message}`);
-      throw error;
+      throw new Error(`Failed to start egress: ${error.message}`);
     }
   }
 
@@ -335,17 +356,31 @@ export class LiveKitService implements OnModuleInit {
     return this.isLiveKitAvailable;
   }
 
+  getWebSocketUrl(): string {
+    return this.livekitWsUrl;
+  }
+
+  getHttpUrl(): string {
+    return this.livekitHttpUrl;
+  }
+
+  getHost(): string {
+    return this.livekitHost;
+  }
+
   getStatus(): {
     available: boolean;
     host: string;
-    url: string;
+    httpUrl: string;
+    wsUrl: string;
     apiKey: string;
   } {
     return {
       available: this.isLiveKitAvailable,
       host: this.livekitHost,
-      url: this.livekitUrl,
-      apiKey: this.apiKey,
+      httpUrl: this.livekitHttpUrl,
+      wsUrl: this.livekitWsUrl,
+      apiKey: this.apiKey ? `${this.apiKey.substring(0, 8)}...` : 'not set',
     };
   }
 
@@ -437,6 +472,7 @@ export class LiveKitService implements OnModuleInit {
       this.logger.log(`✅ Metadata updated for ${roomName}`);
     } catch (error) {
       this.logger.error(`Failed to update room metadata: ${error.message}`);
+      throw new Error(`Failed to update room metadata: ${error.message}`);
     }
   }
 
@@ -470,6 +506,7 @@ export class LiveKitService implements OnModuleInit {
       this.logger.log(`✅ Data sent to ${roomName}`);
     } catch (error) {
       this.logger.error(`Failed to send data: ${error.message}`);
+      throw new Error(`Failed to send data: ${error.message}`);
     }
   }
 

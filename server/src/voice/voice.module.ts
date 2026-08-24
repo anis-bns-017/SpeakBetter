@@ -1,4 +1,5 @@
 // server/src/voice/voice.module.ts
+
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -22,6 +23,7 @@ import { ClapController } from './controllers/clap.controller';
 import { QueueController } from './controllers/queue.controller';
 import { InviteController } from './controllers/invite.controller';
 import { AnalyticsController } from './controllers/analytics.controller';
+
 @Module({
   imports: [
     JwtModule.registerAsync({
@@ -55,6 +57,7 @@ import { AnalyticsController } from './controllers/analytics.controller';
   ],
   exports: [
     VoiceService,
+    LiveKitService,   
     TranscriptionService,
     TranslationService,
     ClapService,
@@ -62,4 +65,4 @@ import { AnalyticsController } from './controllers/analytics.controller';
     AnalyticsService,
   ],
 })
-export class VoiceModule {} // ← MAKE SURE THIS EXISTS
+export class VoiceModule {}  

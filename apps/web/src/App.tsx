@@ -1,22 +1,21 @@
-import { Toaster } from 'sonner';  // 👈 ADD THIS
-import { AuthProvider } from './contexts/AuthContext';
-import { QueryProvider } from './providers/QueryProvider';
-import { AppRoutes } from './routes';
+import { BrowserRouter } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import { QueryProvider } from "./providers/QueryProvider";
+import { SidebarProvider } from "./contexts/SidebarContext"; // ✅ Import this
+import AppRoutes from "./routes";
 
-function App() {
+const App = () => {
   return (
     <QueryProvider>
-      <AuthProvider>
-        <AppRoutes />
-        <Toaster 
-          position="top-right" 
-          richColors 
-          closeButton 
-          duration={4000}
-        />
-      </AuthProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <SidebarProvider> {/* ✅ Wrap with SidebarProvider */}
+            <AppRoutes />
+          </SidebarProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </QueryProvider>
   );
-}
+};
 
 export default App;

@@ -1,5 +1,7 @@
 version: '3.8'
+
 services:
+
   postgres:
     image: postgres:16-alpine
     container_name: lingoverse_db
@@ -31,14 +33,14 @@ services:
   livekit:
     image: livekit/livekit-server:latest
     container_name: lingoverse_livekit
+    command: --dev
     ports:
       - "7880:7880"
       - "7881:7881"
+      - "7882:7882/udp"
     environment:
       LIVEKIT_API_KEY: devkey
       LIVEKIT_API_SECRET: secret
-      LIVEKIT_RTC_PORT: 7880
-      LIVEKIT_HTTP_RELAY_PORT: 7881
 
 volumes:
   postgres_data:

@@ -1,3 +1,5 @@
+// server/src/voice/dto/voice.dto.ts
+
 import {
   IsString,
   IsOptional,
@@ -10,7 +12,9 @@ import {
   Min,
   Max,
   IsNotEmpty,
+  IsObject,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 // ============ ROOM DTOS ============
 
@@ -41,7 +45,6 @@ export class CreateVoiceRoomDto {
   @IsUUID(4, { each: true })
   invitedUserIds?: string[];
 
-  // ✅ NEW FIELDS
   @IsOptional()
   @IsString()
   language?: string;
@@ -85,7 +88,6 @@ export class UpdateVoiceRoomDto {
   @Max(100)
   maxParticipants?: number;
 
-  // ✅ NEW FIELDS
   @IsOptional()
   @IsString()
   language?: string;
@@ -164,11 +166,17 @@ export class CreateStageDto {
 // ============ HAND DTOS ============
 
 export class RaiseHandDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  roomId: string;
+  roomId?: string;
 
   @IsBoolean()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value === 'true' || value === '1';
+    }
+    return Boolean(value);
+  })
   raise: boolean;
 }
 
@@ -360,4 +368,35 @@ export class LiveKitRoomDto {
   maxParticipants?: number;
   emptyTimeout?: number;
   creationTime?: bigint;
+}
+
+// ============ JOIN ROOM RESPONSE DTO ============
+
+export class JoinRoomResponseDto {
+  participant: VoiceParticipantResponseDto;
+  token: string;
+  liveKitRoomId: string;
+  room?: {
+    id: string;
+    name: string;
+    liveKitRoomId?: string;
+  };
+  alreadyJoined?: boolean;
+}
+
+// ============ LIVEKIT STATUS DTO ============
+
+export class LiveKitStatusDto {
+  available: boolean;
+  host: string;
+  httpUrl: string;
+  wsUrl: string;
+  apiKey: string;
+}
+
+// ============ VOICE ROOM WITH PARTICIPANTS DTO ============
+
+export class VoiceRoomWithParticipantsDto extends VoiceRoomResponseDto {
+  participantCount: number;
+  isLive: boolean;
 }

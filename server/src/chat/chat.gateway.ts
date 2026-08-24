@@ -16,7 +16,13 @@ import { PrismaService } from '../prisma.service';
 
 @WebSocketGateway({
   cors: {
-    origin: '*', // Allow all origins for testing
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000',
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: [
@@ -68,41 +74,54 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // 1. Try cookies
       const cookieHeader = client.handshake.headers.cookie;
+
       if (cookieHeader) {
         const cookies = parseCookie(String(cookieHeader)) as Record<
           string,
           string
         >;
+
         token = cookies['accessToken'] || null;
+
         this.logger.log(`📡 Token from cookies: ${!!token}`);
       }
 
       // 2. Try auth object
       if (!token && client.handshake.auth?.token) {
         token = client.handshake.auth.token as string;
+
         this.logger.log(`📡 Token from auth: ${!!token}`);
       }
 
       // 3. Try query params
       if (!token && client.handshake.query?.token) {
         token = client.handshake.query.token as string;
+
         this.logger.log(`📡 Token from query: ${!!token}`);
       }
 
       // 4. Try headers
       if (!token && client.handshake.headers?.authorization) {
         const authHeader = client.handshake.headers.authorization as string;
+
         if (authHeader.startsWith('Bearer ')) {
           token = authHeader.substring(7);
+
           this.logger.log(`📡 Token from authorization header: ${!!token}`);
         }
       }
 
       if (!token) {
         this.logger.warn('❌ No token found anywhere, disconnecting');
+
         clearTimeout(timeout);
-        client.emit('error', { message: 'Authentication required' });
+
+        client.emit('error', {
+          message: 'Authentication required',
+        });
+
         client.disconnect();
+
         return;
       }
 
@@ -112,6 +131,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const payload = this.jwtService.verify(token, {
           secret: process.env.JWT_SECRET,
         });
+
         const userId = payload.sub || payload.userId;
 
         if (!userId) {
@@ -120,6 +140,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         client.data.userId = userId;
         client.data.token = token;
+
         clearTimeout(timeout);
 
         this.logger.log(
@@ -128,7 +149,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         // Store socket
         const sockets = this.userSockets.get(userId) || [];
+
         sockets.push(client.id);
+
         this.userSockets.set(userId, sockets);
 
         // Send connection confirmation
@@ -151,8 +174,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
           for (const chat of chats) {
             const roomId = `chat:${chat.id}`;
+
             await client.join(roomId);
+
             this.logger.log(`📚 User ${userId} joined room ${roomId}`);
+
             client.to(roomId).emit('user:online', { userId });
           }
 
@@ -164,8 +190,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
           for (const member of communities) {
             const roomId = `community:${member.communityId}`;
+
             await client.join(roomId);
+
             this.logger.log(`📚 User ${userId} joined community ${roomId}`);
+
             client.to(roomId).emit('user:online', { userId });
           }
 
@@ -175,29 +204,44 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
           // Send initial online users list
           const onlineUsers = Array.from(this.userSockets.keys());
-          client.emit('users:online', { users: onlineUsers });
+
+          client.emit('users:online', {
+            users: onlineUsers,
+          });
         } catch (dbError) {
           this.logger.error('Database error during connection:', dbError);
+
           client.emit('warning', {
             message: 'Some features may be unavailable',
           });
         }
       } catch (jwtError) {
         this.logger.error('❌ JWT verification failed:', jwtError);
+
         clearTimeout(timeout);
-        client.emit('error', { message: 'Invalid token' });
+
+        client.emit('error', {
+          message: 'Invalid token',
+        });
+
         client.disconnect();
+
         return;
       }
     } catch (error) {
       this.logger.error('❌ WebSocket connection error:', error);
-      client.emit('error', { message: 'Connection failed' });
+
+      client.emit('error', {
+        message: 'Connection failed',
+      });
+
       client.disconnect();
     }
   }
 
   async handleDisconnect(client: Socket) {
     const userId = client.data.userId;
+
     this.logger.log(
       `🔴 Client ${client.id} disconnected (User: ${userId || 'unknown'})`,
     );
@@ -207,9 +251,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       for (const [roomId, users] of this.typingUsers.entries()) {
         if (users.has(userId)) {
           users.delete(userId);
+
           if (users.size === 0) {
             this.typingUsers.delete(roomId);
           }
+
           this.server.to(roomId).emit('typing:stop', {
             userId,
             chatId: roomId.startsWith('chat:')
@@ -224,6 +270,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Remove socket
       const sockets = this.userSockets.get(userId) || [];
+
       const index = sockets.indexOf(client.id);
 
       if (index > -1) {
@@ -231,14 +278,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         if (sockets.length === 0) {
           this.userSockets.delete(userId);
+
           this.logger.log(`👤 User ${userId} is now offline`);
 
           // Notify chat rooms
           try {
             const chats = await this.prisma.chat.findMany({
-              where: { participants: { some: { userId } } },
+              where: {
+                participants: {
+                  some: { userId },
+                },
+              },
               select: { id: true },
             });
+
             for (const chat of chats) {
               client.to(`chat:${chat.id}`).emit('user:offline', { userId });
             }
@@ -247,6 +300,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
               where: { userId },
               select: { communityId: true },
             });
+
             for (const member of communities) {
               client
                 .to(`community:${member.communityId}`)
@@ -272,30 +326,48 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { chatId: string },
   ) {
     const userId = client.data.userId;
+
     if (!userId || !data?.chatId) {
-      client.emit('error', { message: 'Invalid request' });
+      client.emit('error', {
+        message: 'Invalid request',
+      });
+
       return;
     }
 
     try {
       const participant = await this.prisma.chatParticipant.findUnique({
-        where: { chatId_userId: { chatId: data.chatId, userId } },
+        where: {
+          chatId_userId: {
+            chatId: data.chatId,
+            userId,
+          },
+        },
       });
+
       if (!participant) {
         client.emit('error', {
           message: 'You are not a participant in this chat',
         });
+
         return;
       }
 
       await client.join(`chat:${data.chatId}`);
+
       this.logger.log(`User ${userId} joined chat ${data.chatId}`);
-      client.emit('chat:joined', { chatId: data.chatId });
+
+      client.emit('chat:joined', {
+        chatId: data.chatId,
+      });
 
       client.to(`chat:${data.chatId}`).emit('user:online', { userId });
     } catch (error) {
       this.logger.error('Error joining chat:', error);
-      client.emit('error', { message: 'Failed to join chat' });
+
+      client.emit('error', {
+        message: 'Failed to join chat',
+      });
     }
   }
 
@@ -305,9 +377,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { chatId: string },
   ) {
     if (!data?.chatId) return;
+
     await client.leave(`chat:${data.chatId}`);
+
     this.logger.log(`User ${client.data.userId} left chat ${data.chatId}`);
-    client.emit('chat:left', { chatId: data.chatId });
+
+    client.emit('chat:left', {
+      chatId: data.chatId,
+    });
+
     client.to(`chat:${data.chatId}`).emit('user:offline', {
       userId: client.data.userId,
     });
@@ -319,33 +397,50 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { communityId: string },
   ) {
     const userId = client.data.userId;
+
     if (!userId || !data?.communityId) {
-      client.emit('error', { message: 'Invalid request' });
+      client.emit('error', {
+        message: 'Invalid request',
+      });
+
       return;
     }
 
     try {
       const member = await this.prisma.communityMember.findUnique({
         where: {
-          communityId_userId: { communityId: data.communityId, userId },
+          communityId_userId: {
+            communityId: data.communityId,
+            userId,
+          },
         },
       });
+
       if (!member) {
         client.emit('error', {
           message: 'You are not a member of this community',
         });
+
         return;
       }
 
       await client.join(`community:${data.communityId}`);
+
       client
         .to(`community:${data.communityId}`)
         .emit('user:online', { userId });
+
       this.logger.log(`User ${userId} joined community ${data.communityId}`);
-      client.emit('community:joined', { communityId: data.communityId });
+
+      client.emit('community:joined', {
+        communityId: data.communityId,
+      });
     } catch (error) {
       this.logger.error('Error joining community:', error);
-      client.emit('error', { message: 'Failed to join community' });
+
+      client.emit('error', {
+        message: 'Failed to join community',
+      });
     }
   }
 
@@ -355,11 +450,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { communityId: string },
   ) {
     if (!data?.communityId) return;
+
     await client.leave(`community:${data.communityId}`);
+
     this.logger.log(
       `User ${client.data.userId} left community ${data.communityId}`,
     );
-    client.emit('community:left', { communityId: data.communityId });
+
+    client.emit('community:left', {
+      communityId: data.communityId,
+    });
+
     client.to(`community:${data.communityId}`).emit('user:offline', {
       userId: client.data.userId,
     });
@@ -386,12 +487,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = client.data.userId;
 
     if (!userId) {
-      client.emit('message:error', { message: 'Unauthenticated' });
+      client.emit('message:error', {
+        message: 'Unauthenticated',
+      });
+
       return;
     }
 
     if (!data.content && !data.mediaUrl && !data.fileUrl) {
-      client.emit('message:error', { message: 'Message content is required' });
+      client.emit('message:error', {
+        message: 'Message content is required',
+      });
+
       return;
     }
 
@@ -399,11 +506,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('message:error', {
         message: 'chatId or communityId is required',
       });
+
       return;
     }
 
     try {
-      // Send message via service
       const message = await this.chatService.sendMessage(userId, {
         chatId: data.chatId,
         communityId: data.communityId,
@@ -415,6 +522,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       let roomId: string | null = null;
+
       if (data.chatId) {
         roomId = `chat:${data.chatId}`;
       } else if (data.communityId) {
@@ -423,11 +531,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       if (roomId) {
         this.server.to(roomId).emit('message:new', message);
+
         client.emit('message:sent', message);
+
         this.logger.log(`📤 Message sent to ${roomId} by user ${userId}`);
       }
     } catch (error: any) {
       this.logger.error('Error sending message:', error);
+
       client.emit('message:error', {
         error: error.message || 'Failed to send message',
       });
@@ -450,8 +561,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     const userId = client.data.userId;
+
     if (!userId) {
-      client.emit('message:error', { message: 'Unauthenticated' });
+      client.emit('message:error', {
+        message: 'Unauthenticated',
+      });
+
       return;
     }
 
@@ -459,6 +574,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('message:error', {
         message: 'chatId or communityId is required',
       });
+
       return;
     }
 
@@ -472,6 +588,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       let roomId: string | null = null;
+
       if (data.chatId) {
         roomId = `chat:${data.chatId}`;
       } else if (data.communityId) {
@@ -480,11 +597,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       if (roomId) {
         this.server.to(roomId).emit('voice:message:new', message);
+
         client.emit('voice:message:sent', message);
+
         this.logger.log(`🎤 Voice message sent to ${roomId} by user ${userId}`);
       }
     } catch (error: any) {
       this.logger.error('Error sending voice message:', error);
+
       client.emit('message:error', {
         error: error.message || 'Failed to send voice message',
       });
@@ -501,8 +621,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { messageId: string },
   ) {
     const userId = client.data.userId;
+
     if (!userId) {
-      client.emit('message:error', { message: 'Unauthenticated' });
+      client.emit('message:error', {
+        message: 'Unauthenticated',
+      });
+
       return;
     }
 
@@ -511,13 +635,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         userId,
         data.messageId,
       );
+
       if (message) {
         let roomId: string | null = null;
+
         if (message.chatId) {
           roomId = `chat:${message.chatId}`;
         } else if (message.communityId) {
           roomId = `community:${message.communityId}`;
         }
+
         if (roomId) {
           this.server.to(roomId).emit('message:deleted', {
             messageId: data.messageId,
@@ -525,6 +652,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             chatId: message.chatId,
             communityId: message.communityId,
           });
+
           client.emit('message:deleted', {
             messageId: data.messageId,
             success: true,
@@ -533,6 +661,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     } catch (error: any) {
       this.logger.error('Error deleting message:', error);
+
       client.emit('message:error', {
         error: error.message || 'Failed to delete message',
       });
@@ -546,16 +675,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('message:edit')
   async handleEditMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { messageId: string; content: string },
+    @MessageBody()
+    data: {
+      messageId: string;
+      content: string;
+    },
   ) {
     const userId = client.data.userId;
+
     if (!userId) {
-      client.emit('message:error', { message: 'Unauthenticated' });
+      client.emit('message:error', {
+        message: 'Unauthenticated',
+      });
+
       return;
     }
 
     if (!data.content) {
-      client.emit('message:error', { message: 'Content is required' });
+      client.emit('message:error', {
+        message: 'Content is required',
+      });
+
       return;
     }
 
@@ -565,20 +705,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data.messageId,
         data.content,
       );
+
       if (message) {
         let roomId: string | null = null;
+
         if (message.chatId) {
           roomId = `chat:${message.chatId}`;
         } else if (message.communityId) {
           roomId = `community:${message.communityId}`;
         }
+
         if (roomId) {
           this.server.to(roomId).emit('message:edited', message);
+
           client.emit('message:edited', message);
         }
       }
     } catch (error: any) {
       this.logger.error('Error editing message:', error);
+
       client.emit('message:error', {
         error: error.message || 'Failed to edit message',
       });
@@ -592,9 +737,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('typing:start')
   handleTypingStart(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { chatId?: string; communityId?: string },
+    @MessageBody()
+    data: {
+      chatId?: string;
+      communityId?: string;
+    },
   ) {
     const userId = client.data.userId;
+
     if (!userId) return;
 
     const roomId = data.chatId
@@ -602,11 +752,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       : data.communityId
         ? `community:${data.communityId}`
         : null;
+
     if (!roomId) return;
 
     if (!this.typingUsers.has(roomId)) {
       this.typingUsers.set(roomId, new Set());
     }
+
     this.typingUsers.get(roomId)!.add(userId);
 
     client.to(roomId).emit('typing:start', {
@@ -619,9 +771,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('typing:stop')
   handleTypingStop(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { chatId?: string; communityId?: string },
+    @MessageBody()
+    data: {
+      chatId?: string;
+      communityId?: string;
+    },
   ) {
     const userId = client.data.userId;
+
     if (!userId) return;
 
     const roomId = data.chatId
@@ -629,11 +786,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       : data.communityId
         ? `community:${data.communityId}`
         : null;
+
     if (!roomId) return;
 
     const users = this.typingUsers.get(roomId);
+
     if (users) {
       users.delete(userId);
+
       if (users.size === 0) {
         this.typingUsers.delete(roomId);
       }
@@ -660,8 +820,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     const userId = client.data.userId;
+
     if (!userId) {
-      client.emit('error', { message: 'Unauthenticated' });
+      client.emit('error', {
+        message: 'Unauthenticated',
+      });
+
       return;
     }
 
@@ -679,7 +843,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     } catch (error) {
       this.logger.error('Error marking message as read:', error);
-      client.emit('error', { message: 'Failed to mark message as read' });
+
+      client.emit('error', {
+        message: 'Failed to mark message as read',
+      });
     }
   }
 
@@ -697,8 +864,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     const userId = client.data.userId;
+
     if (!userId) {
-      client.emit('reaction:error', { message: 'Unauthenticated' });
+      client.emit('reaction:error', {
+        message: 'Unauthenticated',
+      });
+
       return;
     }
 
@@ -710,23 +881,31 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
 
       const message = await this.prisma.message.findUnique({
-        where: { id: data.messageId },
-        select: { chatId: true, communityId: true },
+        where: {
+          id: data.messageId,
+        },
+        select: {
+          chatId: true,
+          communityId: true,
+        },
       });
 
       if (message) {
         let roomId: string | null = null;
+
         if (message.chatId) {
           roomId = `chat:${message.chatId}`;
         } else if (message.communityId) {
           roomId = `community:${message.communityId}`;
         }
+
         if (roomId) {
           this.server.to(roomId).emit('reaction:new', reaction);
         }
       }
     } catch (error: any) {
       this.logger.error('Error adding reaction:', error);
+
       client.emit('reaction:error', {
         error: error.message || 'Failed to add reaction',
       });
@@ -743,8 +922,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     const userId = client.data.userId;
+
     if (!userId) {
-      client.emit('reaction:error', { message: 'Unauthenticated' });
+      client.emit('reaction:error', {
+        message: 'Unauthenticated',
+      });
+
       return;
     }
 
@@ -752,17 +935,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.chatService.removeReaction(userId, data.messageId, data.emoji);
 
       const message = await this.prisma.message.findUnique({
-        where: { id: data.messageId },
-        select: { chatId: true, communityId: true },
+        where: {
+          id: data.messageId,
+        },
+        select: {
+          chatId: true,
+          communityId: true,
+        },
       });
 
       if (message) {
         let roomId: string | null = null;
+
         if (message.chatId) {
           roomId = `chat:${message.chatId}`;
         } else if (message.communityId) {
           roomId = `community:${message.communityId}`;
         }
+
         if (roomId) {
           this.server.to(roomId).emit('reaction:removed', {
             messageId: data.messageId,
@@ -773,8 +963,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     } catch (error) {
       this.logger.error('Error removing reaction:', error);
+
       client.emit('reaction:error', {
-        error: error.message || 'Failed to remove reaction',
+        error: 'Failed to remove reaction',
       });
     }
   }
@@ -795,21 +986,33 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     const userId = client.data.userId;
+
     if (!userId) {
-      client.emit('message:error', { message: 'Unauthenticated' });
+      client.emit('message:error', {
+        message: 'Unauthenticated',
+      });
+
       return;
     }
 
     try {
       let messages;
+
       if (data.chatId) {
         const participant = await this.prisma.chatParticipant.findUnique({
-          where: { chatId_userId: { chatId: data.chatId, userId } },
+          where: {
+            chatId_userId: {
+              chatId: data.chatId,
+              userId,
+            },
+          },
         });
+
         if (!participant) {
           client.emit('message:error', {
             message: 'You are not a participant in this chat',
           });
+
           return;
         }
 
@@ -821,13 +1024,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       } else if (data.communityId) {
         const member = await this.prisma.communityMember.findUnique({
           where: {
-            communityId_userId: { communityId: data.communityId, userId },
+            communityId_userId: {
+              communityId: data.communityId,
+              userId,
+            },
           },
         });
+
         if (!member) {
           client.emit('message:error', {
             message: 'You are not a member of this community',
           });
+
           return;
         }
 
@@ -841,11 +1049,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit('message:error', {
           message: 'chatId or communityId is required',
         });
+
         return;
       }
+
       client.emit('messages:list', messages);
     } catch (error: any) {
       this.logger.error('Error fetching messages:', error);
+
       client.emit('message:error', {
         error: error.message || 'Failed to fetch messages',
       });
@@ -859,11 +1070,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('message:pin')
   async handlePinMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { messageId: string; pinned: boolean },
+    @MessageBody()
+    data: {
+      messageId: string;
+      pinned: boolean;
+    },
   ) {
     const userId = client.data.userId;
+
     if (!userId) {
-      client.emit('error', { message: 'Unauthenticated' });
+      client.emit('error', {
+        message: 'Unauthenticated',
+      });
+
       return;
     }
 
@@ -873,19 +1092,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data.messageId,
         data.pinned,
       );
+
       if (message) {
         let roomId: string | null = null;
+
         if (message.chatId) {
           roomId = `chat:${message.chatId}`;
         } else if (message.communityId) {
           roomId = `community:${message.communityId}`;
         }
+
         if (roomId) {
           this.server.to(roomId).emit('message:pinned', {
             messageId: data.messageId,
             pinned: data.pinned,
             userId,
           });
+
           client.emit('message:pinned', {
             messageId: data.messageId,
             pinned: data.pinned,
@@ -895,6 +1118,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     } catch (error: any) {
       this.logger.error('Error pinning message:', error);
+
       client.emit('error', {
         error: error.message || 'Failed to pin message',
       });
@@ -908,6 +1132,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('users:getOnline')
   handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
     const onlineUsers = Array.from(this.userSockets.keys());
-    client.emit('users:online', { users: onlineUsers });
+
+    client.emit('users:online', {
+      users: onlineUsers,
+    });
   }
 }

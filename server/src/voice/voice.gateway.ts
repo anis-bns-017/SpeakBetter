@@ -16,7 +16,7 @@ import { PrismaService } from '../prisma.service';
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true,
   },
   namespace: 'voice',
@@ -293,7 +293,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const existingParticipant = await this.prisma.voiceParticipant.findUnique(
         {
           where: {
-            roomId_userId: { roomId: data.roomId, userId },
+            roomId_userId: {
+              roomId: data.roomId,
+              userId,
+            },
           },
         },
       );
@@ -310,12 +313,17 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       } else if (existingParticipant.leftAt) {
         await this.prisma.voiceParticipant.update({
           where: {
-            roomId_userId: { roomId: data.roomId, userId },
+            roomId_userId: {
+              roomId: data.roomId,
+              userId,
+            },
           },
-          data: { leftAt: null, joinedAt: new Date() },
+          data: {
+            leftAt: null,
+            joinedAt: new Date(),
+          },
         });
       }
-
       // Join socket room
       await client.join(`voice:${data.roomId}`);
 
@@ -369,13 +377,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         userId,
         userName,
       });
-
-      // ✅ Send message history from database (will persist after refresh)
-      const messages = room.messages.reverse();
-
-      if (messages.length > 0) {
-        client.emit('voice:message-history', messages);
-      }
 
       // Also send messages via the regular query to ensure we have all
       const allMessages = await this.prisma.voiceRoomMessage.findMany({
