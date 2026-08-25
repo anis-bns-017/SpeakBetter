@@ -272,6 +272,140 @@ export class VoiceService {
       throw new BadRequestException('This room has ended');
     }
 
+    /*
+     * Find the user's existing participant record.
+     */
+    const existingParticipant = await this.prisma.voiceParticipant.findUnique({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId,
+        },
+      },
+    });
+
+    /*
+     * ============================================================
+     * CASE 1: USER IS ALREADY IN THE ROOM
+     * ============================================================
+     *
+     * Do NOT return 409.
+     *
+     * React development mode / StrictMode can cause the join
+     * effect to execute more than once.
+     *
+     * If the participant is already active, simply return a
+     * fresh LiveKit token.
+     */
+    if (existingParticipant && !existingParticipant.leftAt) {
+      this.logger.log(
+        `ℹ️ User ${userId} is already in room ${roomId}; reusing participant`,
+      );
+
+      let liveKitRoomId = room.liveKitRoomId;
+
+      /*
+       * Make sure the room has a LiveKit room ID.
+       */
+      if (!liveKitRoomId) {
+        liveKitRoomId = `voice-${room.id}`;
+
+        await this.prisma.voiceRoom.update({
+          where: {
+            id: roomId,
+          },
+          data: {
+            liveKitRoomId,
+            status: 'ACTIVE',
+            startedAt: room.startedAt || new Date(),
+          },
+        });
+      }
+
+      /*
+       * Generate a REAL LiveKit token.
+       */
+      const token = await this.liveKitService.getParticipantToken(
+        liveKitRoomId,
+        userId,
+        userId,
+      );
+
+      return {
+        room: {
+          id: room.id,
+          name: room.name,
+          liveKitRoomId,
+        },
+
+        participant: existingParticipant,
+
+        token,
+
+        liveKitRoomId,
+      };
+    }
+
+    /*
+     * ============================================================
+     * CASE 2: USER PREVIOUSLY LEFT
+     * ============================================================
+     */
+    if (existingParticipant && existingParticipant.leftAt) {
+      const participant = await this.prisma.voiceParticipant.update({
+        where: {
+          id: existingParticipant.id,
+        },
+        data: {
+          leftAt: null,
+          joinedAt: new Date(),
+        },
+      });
+
+      let liveKitRoomId = room.liveKitRoomId;
+
+      if (!liveKitRoomId) {
+        liveKitRoomId = `voice-${room.id}`;
+
+        await this.prisma.voiceRoom.update({
+          where: {
+            id: roomId,
+          },
+          data: {
+            liveKitRoomId,
+            status: 'ACTIVE',
+            startedAt: room.startedAt || new Date(),
+          },
+        });
+      }
+
+      const token = await this.liveKitService.getParticipantToken(
+        liveKitRoomId,
+        userId,
+        userId,
+      );
+
+      return {
+        room: {
+          id: room.id,
+          name: room.name,
+          liveKitRoomId,
+        },
+
+        participant,
+
+        token,
+
+        liveKitRoomId,
+      };
+    }
+
+    /*
+     * ============================================================
+     * CASE 3: BRAND NEW PARTICIPANT
+     * ============================================================
+     */
+
     const participantCount = await this.prisma.voiceParticipant.count({
       where: {
         roomId,
@@ -283,80 +417,22 @@ export class VoiceService {
       throw new BadRequestException('This room is full');
     }
 
-    const existingParticipant = await this.prisma.voiceParticipant.findUnique({
-      where: {
-        roomId_userId: {
-          roomId,
-          userId,
-        },
-      },
-    });
-
     /*
-     * If the user already exists but previously left,
-     * reactivate the participant.
+     * The first real participant starts
+     * the room.
      */
-    if (existingParticipant) {
-      if (existingParticipant.leftAt) {
-        const participant = await this.prisma.voiceParticipant.update({
-          where: {
-            id: existingParticipant.id,
-          },
-          data: {
-            leftAt: null,
-            joinedAt: new Date(),
-          },
-        });
+    const isFirstJoin = room.status === 'WAITING';
 
-        /*
-         * Make sure the room has a LiveKit room.
-         */
-        let liveKitRoomId = room.liveKitRoomId;
-
-        if (!liveKitRoomId) {
-          liveKitRoomId = `voice-${room.id}`;
-
-          await this.prisma.voiceRoom.update({
-            where: {
-              id: roomId,
-            },
-            data: {
-              liveKitRoomId,
-              status: 'ACTIVE',
-              startedAt: room.startedAt || new Date(),
-            },
-          });
-        }
-
-        const token = await this.liveKitService.getParticipantToken(
-          liveKitRoomId,
-          userId,
-          userId,
-        );
-
-        return {
-          participant,
-          token,
-          liveKitRoomId,
-        };
-      }
-
-      throw new ConflictException('User already in room');
-    }
-
-    /*
-     * IMPORTANT:
-     * A WAITING room becomes ACTIVE BEFORE we generate
-     * the LiveKit token.
-     */
     let liveKitRoomId = room.liveKitRoomId;
 
     if (!liveKitRoomId) {
       liveKitRoomId = `voice-${room.id}`;
     }
 
-    const isFirstJoin = room.status === 'WAITING';
-
+    /*
+     * Activate the room BEFORE generating
+     * the LiveKit token.
+     */
     if (isFirstJoin || !room.liveKitRoomId) {
       await this.prisma.voiceRoom.update({
         where: {
@@ -371,8 +447,7 @@ export class VoiceService {
     }
 
     /*
-     * NOW the room is definitely ACTIVE.
-     * Generate a real LiveKit token.
+     * Generate the LiveKit token.
      */
     const token = await this.liveKitService.getParticipantToken(
       liveKitRoomId,
@@ -381,19 +456,30 @@ export class VoiceService {
     );
 
     /*
-     * Create the database participant.
+     * Create participant.
      */
     const participant = await this.prisma.voiceParticipant.create({
       data: {
         roomId,
         userId,
+
         role: isFirstJoin ? 'MODERATOR' : 'LISTENER',
       },
     });
 
+    this.logger.log(`✅ User ${userId} joined room ${roomId}`);
+
     return {
+      room: {
+        id: room.id,
+        name: room.name,
+        liveKitRoomId,
+      },
+
       participant,
+
       token,
+
       liveKitRoomId,
     };
   }

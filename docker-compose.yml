@@ -35,9 +35,9 @@ services:
     container_name: lingoverse_livekit
     command: --dev
     ports:
-      - "7880:7880"
-      - "7881:7881"
-      - "7882:7882/udp"
+      - "18080:7880"
+      - "18081:7881"
+      - "18082:7882/udp"
     environment:
       LIVEKIT_API_KEY: devkey
       LIVEKIT_API_SECRET: secret

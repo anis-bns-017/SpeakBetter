@@ -255,9 +255,24 @@ export const voiceApi = {
 
   // Participants - ✅ Updated to handle LiveKit token properly
   joinRoom: (roomId: string) =>
-    apiClient.post<{ token: string; wsUrl?: string }>(
-      `/voice/rooms/${roomId}/join`,
-    ),
+  apiClient.post<{
+    success?: boolean;
+    token?: string;
+    wsUrl?: string;
+    liveKitRoomId?: string;
+    room?: {
+      liveKitRoomId?: string;
+    };
+    data?: {
+      token?: string;
+      wsUrl?: string;
+      liveKitRoomId?: string;
+      room?: {
+        liveKitRoomId?: string;
+      };
+    };
+  }>(`/voice/rooms/${roomId}/join`),
+  
   leaveRoom: (roomId: string) => apiClient.post(`/voice/rooms/${roomId}/leave`),
   getRoomParticipants: (roomId: string) =>
     apiClient.get(`/voice/rooms/${roomId}/participants`),
@@ -408,35 +423,96 @@ export const useCreateVoiceRoom = () => {
 
 export const useJoinVoiceRoom = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (roomId: string) => {
       const response = await voiceApi.joinRoom(roomId);
 
-      // ✅ Check for mock token
-      if (response.data?.token?.startsWith("mock-")) {
+      console.log("🎙️ JOIN ROOM RAW RESPONSE:", response.data);
+
+      /**
+       * Backend may return either:
+       *
+       * {
+       *   token,
+       *   wsUrl,
+       *   room
+       * }
+       *
+       * OR:
+       *
+       * {
+       *   success: true,
+       *   data: {
+       *     token,
+       *     wsUrl,
+       *     room
+       *   }
+       * }
+       */
+
+      const raw = response.data as any;
+
+      const joinData = raw?.data ?? raw;
+
+      const token = joinData?.token;
+      const wsUrl = joinData?.wsUrl;
+
+      const liveKitRoomId =
+        joinData?.room?.liveKitRoomId ?? joinData?.liveKitRoomId ?? roomId;
+
+      if (!token) {
+        console.error("❌ LiveKit token missing:", {
+          response: raw,
+          joinData,
+        });
+
+        throw new Error("LiveKit token was not returned by the server.");
+      }
+
+      if (typeof token === "string" && token.startsWith("mock-")) {
         throw new Error(
           "Voice service is currently unavailable. Please try again later.",
         );
       }
 
-      return response.data;
+      console.log("✅ LiveKit join data received:", {
+        hasToken: Boolean(token),
+        tokenLength: typeof token === "string" ? token.length : 0,
+        wsUrl,
+        roomName: liveKitRoomId,
+      });
+
+      return {
+        token,
+        wsUrl,
+        liveKitRoomId,
+        room: joinData?.room,
+      };
     },
+
     onSuccess: (_, roomId) => {
-      queryClient.invalidateQueries({ queryKey: ["voice-room", roomId] });
+      queryClient.invalidateQueries({
+        queryKey: ["voice-room", roomId],
+      });
+
       queryClient.invalidateQueries({
         queryKey: ["voice-participants", roomId],
       });
-      queryClient.invalidateQueries({ queryKey: ["voice-rooms"] });
+
+      queryClient.invalidateQueries({
+        queryKey: ["voice-rooms"],
+      });
+
       toast.success("🎧 Joined room!");
     },
+
     onError: (error: any) => {
-      if (error.message?.includes("unavailable")) {
-        toast.error(
-          "Voice service is currently unavailable. Please try again later.",
-        );
-      } else {
-        toast.error(error.response?.data?.message || "Failed to join room");
-      }
+      console.error("❌ Join voice room error:", error);
+
+      toast.error(
+        error.response?.data?.message || error.message || "Failed to join room",
+      );
     },
   });
 };
@@ -1059,43 +1135,86 @@ export const useLiveKitRoom = (
 ) => {
   const [room, setRoom] = useState<Room | null>(null);
   const [localTrack, setLocalTrack] = useState<LocalAudioTrack | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
 
   /*
-   * Key = participant identity
-   * Value = whether that participant currently has
-   * an audio track.
+   * Participant identity -> audio track exists
    */
   const [remoteTracks, setRemoteTracks] = useState<Record<string, boolean>>({});
+
+  /*
+   * Participant identity -> currently speaking
+   */
+  const [speakingParticipants, setSpeakingParticipants] = useState<
+    Record<string, boolean>
+  >({});
+
+  /*
+   * Participant identity -> actual audio level 0..1
+   */
+  const [remoteAudioLevels, setRemoteAudioLevels] = useState<
+    Record<string, number>
+  >({});
 
   const [participants, setParticipants] = useState<LiveKitParticipant[]>([]);
 
   const [isConnected, setIsConnected] = useState(false);
+
   const [isMockMode, setIsMockMode] = useState(false);
+
   const [audioLevel, setAudioLevel] = useState(0);
+
+  const [participantVoiceStates, setParticipantVoiceStates] = useState<
+    Record<string, LiveKitParticipantVoiceState>
+  >({});
+
   const [error, setError] = useState<string | null>(null);
 
-  const liveKitUrl = getEnvVar("VITE_LIVEKIT_URL", "ws://localhost:7880");
+  const liveKitUrl = getEnvVar("VITE_LIVEKIT_URL", "ws://localhost:18080");
 
-  const toggleMute = useCallback(() => {
-    if (!localTrack) {
+  /*
+   * ----------------------------
+   * MUTE / UNMUTE
+   * ----------------------------
+   */
+  const toggleMute = useCallback(async () => {
+    if (!room) {
+      console.warn("⚠️ Cannot toggle mute: LiveKit room is not connected");
       return false;
     }
 
-    if (localTrack.isMuted) {
-      localTrack.unmute();
-      return false;
-    }
+    try {
+      const nextMuted = !isMuted;
 
-    localTrack.mute();
-    return true;
-  }, [localTrack]);
+      await room.localParticipant.setMicrophoneEnabled(!nextMuted);
+
+      setIsMuted(nextMuted);
+
+      console.log(nextMuted ? "🔇 Microphone muted" : "🎤 Microphone unmuted");
+
+      return nextMuted;
+    } catch (error) {
+      console.error("❌ Failed to toggle microphone:", error);
+      return isMuted;
+    }
+  }, [room, isMuted]);
 
   useEffect(() => {
     if (!token || !roomName) {
       console.warn("⚠️ LiveKit skipped:", {
         roomName,
-        hasToken: !!token,
+        hasToken: Boolean(token),
       });
+
+      return;
+    }
+
+    if (token.startsWith("mock-")) {
+      console.error("❌ Mock LiveKit token detected.");
+
+      setIsMockMode(true);
+      setIsConnected(false);
+      setError("LiveKit returned a mock token.");
 
       return;
     }
@@ -1104,140 +1223,139 @@ export const useLiveKitRoom = (
     let mounted = true;
 
     /*
-     * Never allow mock mode to silently pretend
-     * that real audio is working.
+     * Keep track of attached audio elements.
      */
-    if (token.startsWith("mock-")) {
-      console.error(
-        "❌ LiveKit returned a MOCK token. Real-time audio cannot work.",
-      );
+    const attachedAudioElements = new Map<string, HTMLMediaElement[]>();
 
-      setIsConnected(false);
-      setIsMockMode(true);
-      setError("LiveKit is unavailable. Server returned a mock token.");
-
-      return;
-    }
-
+    /*
+     * ----------------------------
+     * CONNECT
+     * ----------------------------
+     */
     const connect = async () => {
       try {
-        console.log("🎙️ Starting LiveKit connection...");
-        console.log("🎙️ LiveKit URL:", liveKitUrl);
-        console.log("🎙️ Room:", roomName);
+        console.log("════════════════════════════════");
+
+        console.log("🎙️ LIVEKIT CONNECTION START");
+
+        console.log("🎙️ URL:", liveKitUrl);
+
+        console.log("🎙️ ROOM:", roomName);
+
+        console.log("🎙️ TOKEN:", token ? "YES" : "NO");
+
+        console.log("════════════════════════════════");
 
         livekitRoom = new Room({
+          adaptiveStream: true,
+          dynacast: true,
+
           audioCaptureDefaults: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
           },
-
-          adaptiveStream: true,
-          dynacast: true,
         });
 
         setRoom(livekitRoom);
 
         /*
          * ----------------------------
-         * ROOM CONNECT
+         * LIVEKIT EVENTS MUST BE
+         * REGISTERED BEFORE CONNECT
          * ----------------------------
          */
-        await livekitRoom.connect(liveKitUrl, token);
-
-        if (!mounted) {
-          livekitRoom.disconnect();
-          return;
-        }
-
-        console.log("✅ LiveKit connected:", livekitRoom.name);
-
-        setIsConnected(true);
-        setIsMockMode(false);
-        setError(null);
 
         /*
-         * ----------------------------
-         * REMOTE AUDIO
-         * ----------------------------
-         *
-         * THIS WAS MISSING.
-         *
-         * LiveKit delivers the remote audio track,
-         * but the browser needs the track attached
-         * to an audio element.
+         * REMOTE AUDIO TRACK
          */
         const attachRemoteAudio = (track: any, participant: Participant) => {
           if (track.kind !== Track.Kind.Audio) {
             return;
           }
 
-          console.log(
-            "🔊 Remote audio track subscribed:",
-            participant.identity,
-            track.sid,
-          );
+          const identity = participant.identity;
 
-          /*
-           * Attach creates an HTMLMediaElement.
-           */
-          const elements = track.attach();
+          console.log("🔊 REMOTE AUDIO TRACK:", identity, track.sid);
 
-          elements.forEach((element: HTMLMediaElement) => {
-            element.autoplay = true;
-            element.setAttribute("playsinline", "true");
+          try {
+            const elements = track.attach();
 
-            /*
-             * Give the audio element a predictable ID.
-             */
-            element.id = `livekit-audio-${participant.identity}-${track.sid}`;
+            const usableElements = elements.filter(
+              (element: any) =>
+                element instanceof HTMLAudioElement ||
+                element instanceof HTMLMediaElement,
+            );
 
-            element.volume = 1;
+            usableElements.forEach((element: HTMLMediaElement) => {
+              element.autoplay = true;
 
-            /*
-             * Remote audio should not be visible.
-             */
-            if (element instanceof HTMLAudioElement) {
+              element.setAttribute("playsinline", "true");
+
+              element.volume = 1;
+
+              element.muted = false;
+
               element.style.display = "none";
-            }
 
-            document.body.appendChild(element);
+              element.id = `livekit-audio-${identity}-${track.sid}`;
 
-            /*
-             * Explicitly attempt playback.
-             */
-            const playPromise = element.play();
+              document.body.appendChild(element);
 
-            if (playPromise) {
-              playPromise.catch((err) => {
-                console.warn("⚠️ Remote audio autoplay was blocked:", err);
-              });
-            }
-          });
+              /*
+               * Store it so we can clean
+               * it up later.
+               */
+              const existing = attachedAudioElements.get(identity) || [];
 
-          setRemoteTracks((prev) => ({
-            ...prev,
-            [participant.identity]: true,
+              existing.push(element);
+
+              attachedAudioElements.set(identity, existing);
+
+              /*
+               * Browser autoplay may reject.
+               */
+              element
+                .play()
+                .then(() => {
+                  console.log("🔊 Remote audio PLAYING:", identity);
+                })
+                .catch((error) => {
+                  console.warn(
+                    "⚠️ Remote audio autoplay blocked:",
+                    identity,
+                    error,
+                  );
+                });
+            });
+          } catch (error) {
+            console.error("❌ Failed to attach remote audio:", error);
+          }
+
+          setRemoteTracks((previous) => ({
+            ...previous,
+            [identity]: true,
+          }));
+
+          setRemoteAudioLevels((previous) => ({
+            ...previous,
+            [identity]: 0,
           }));
 
           options?.onTrackSubscribed?.(track);
         };
 
         /*
-         * ----------------------------
          * REMOTE AUDIO REMOVED
-         * ----------------------------
          */
         const detachRemoteAudio = (track: any, participant: Participant) => {
           if (track.kind !== Track.Kind.Audio) {
             return;
           }
 
-          console.log(
-            "🔇 Remote audio track unsubscribed:",
-            participant.identity,
-            track.sid,
-          );
+          const identity = participant.identity;
+
+          console.log("🔇 REMOTE AUDIO REMOVED:", identity, track.sid);
 
           try {
             const elements = track.detach();
@@ -1245,13 +1363,52 @@ export const useLiveKitRoom = (
             elements.forEach((element: HTMLElement) => {
               element.remove();
             });
-          } catch (err) {
-            console.warn("Failed to detach remote audio:", err);
+          } catch (error) {
+            console.warn("⚠️ Failed to detach audio:", error);
           }
 
-          setRemoteTracks((prev) => {
-            const next = { ...prev };
-            delete next[participant.identity];
+          /*
+           * Remove our stored elements.
+           */
+          const stored = attachedAudioElements.get(identity);
+
+          stored?.forEach((element) => {
+            try {
+              element.remove();
+            } catch {
+              // Ignore cleanup errors.
+            }
+          });
+
+          attachedAudioElements.delete(identity);
+
+          setRemoteTracks((previous) => {
+            const next = {
+              ...previous,
+            };
+
+            delete next[identity];
+
+            return next;
+          });
+
+          setSpeakingParticipants((previous) => {
+            const next = {
+              ...previous,
+            };
+
+            delete next[identity];
+
+            return next;
+          });
+
+          setRemoteAudioLevels((previous) => {
+            const next = {
+              ...previous,
+            };
+
+            delete next[identity];
+
             return next;
           });
         };
@@ -1264,6 +1421,12 @@ export const useLiveKitRoom = (
         livekitRoom.on(
           RoomEvent.TrackSubscribed,
           (track: any, publication: any, participant: Participant) => {
+            console.log("📡 TrackSubscribed:", {
+              participant: participant.identity,
+              kind: track.kind,
+              sid: track.sid,
+            });
+
             attachRemoteAudio(track, participant);
           },
         );
@@ -1288,33 +1451,21 @@ export const useLiveKitRoom = (
         livekitRoom.on(
           RoomEvent.ParticipantConnected,
           (participant: Participant) => {
-            console.log(
-              "👤 LiveKit participant connected:",
-              participant.identity,
-            );
+            console.log("👤 PARTICIPANT CONNECTED:", participant.identity);
 
-            setParticipants((prev) => {
-              if (prev.some((p) => p.identity === participant.identity)) {
-                return prev;
+            setParticipants((previous) => {
+              if (previous.some((p) => p.identity === participant.identity)) {
+                return previous;
               }
 
               return [
-                ...prev,
+                ...previous,
                 {
                   identity: participant.identity,
+
                   name: participant.name || participant.identity,
                 },
               ];
-            });
-
-            /*
-             * A participant may already have
-             * published tracks.
-             */
-            participant.trackPublications.forEach((publication: any) => {
-              if (publication.kind === Track.Kind.Audio && publication.track) {
-                attachRemoteAudio(publication.track, participant);
-              }
             });
           },
         );
@@ -1327,18 +1478,41 @@ export const useLiveKitRoom = (
         livekitRoom.on(
           RoomEvent.ParticipantDisconnected,
           (participant: Participant) => {
-            console.log(
-              "👋 LiveKit participant disconnected:",
-              participant.identity,
+            const identity = participant.identity;
+
+            console.log("👋 PARTICIPANT DISCONNECTED:", identity);
+
+            setParticipants((previous) =>
+              previous.filter((p) => p.identity !== identity),
             );
 
-            setParticipants((prev) =>
-              prev.filter((p) => p.identity !== participant.identity),
-            );
+            setRemoteTracks((previous) => {
+              const next = {
+                ...previous,
+              };
 
-            setRemoteTracks((prev) => {
-              const next = { ...prev };
-              delete next[participant.identity];
+              delete next[identity];
+
+              return next;
+            });
+
+            setSpeakingParticipants((previous) => {
+              const next = {
+                ...previous,
+              };
+
+              delete next[identity];
+
+              return next;
+            });
+
+            setRemoteAudioLevels((previous) => {
+              const next = {
+                ...previous,
+              };
+
+              delete next[identity];
+
               return next;
             });
           },
@@ -1346,23 +1520,165 @@ export const useLiveKitRoom = (
 
         /*
          * ----------------------------
+         * ACTIVE SPEAKERS
+         * ----------------------------
+         *
+         * This is the important part
+         * for your speaking effect.
+         */
+        livekitRoom.on(
+          RoomEvent.ActiveSpeakersChanged,
+          (speakers: Participant[]) => {
+            const nextSpeaking: Record<string, boolean> = {};
+
+            const nextLevels: Record<string, number> = {};
+
+            speakers.forEach((participant) => {
+              if (participant.isLocal) {
+                return;
+              }
+
+              nextSpeaking[participant.identity] = true;
+
+              /*
+               * LiveKit exposes audio level
+               * on the participant.
+               */
+              const level = Number((participant as any).audioLevel ?? 0);
+
+              nextLevels[participant.identity] = Math.max(
+                0,
+                Math.min(1, level),
+              );
+            });
+
+            setSpeakingParticipants(nextSpeaking);
+
+            setRemoteAudioLevels(nextLevels);
+          },
+        );
+
+        /*
+         * ----------------------------
+         * AUDIO LEVEL
+         * ----------------------------
+         */
+        livekitRoom.on(RoomEvent.AudioLevel, (levels: any[]) => {
+          const local = levels.find((item) => item.participant?.isLocal);
+
+          const level = Math.max(0, Math.min(1, Number(local?.level ?? 0)));
+
+          setAudioLevel(level);
+
+          options?.onAudioLevel?.(level);
+        });
+
+        /*
+         * ----------------------------
+         * CONNECT TO LIVEKIT
+         * ----------------------------
+         */
+        await livekitRoom.connect(liveKitUrl, token);
+
+        livekitRoom.on(
+          RoomEvent.ActiveSpeakersChanged,
+          (speakers: Participant[]) => {
+            setParticipantVoiceStates((previous) => {
+              const next = { ...previous };
+
+              // Reset speaking state
+              Object.keys(next).forEach((identity) => {
+                next[identity] = {
+                  ...next[identity],
+                  isSpeaking: false,
+                };
+              });
+
+              // Update currently speaking participants
+              speakers.forEach((participant) => {
+                const identity = participant.identity;
+
+                next[identity] = {
+                  userId: identity,
+                  isSpeaking: true,
+                  audioLevel: participant.audioLevel ?? 0,
+                  isMuted: participant.isLocal
+                    ? !livekitRoom!.localParticipant.isMicrophoneEnabled
+                    : false,
+                  hasAudioTrack: true,
+                  lastSpeakingAt: Date.now(),
+                };
+              });
+
+              return next;
+            });
+          },
+        );
+
+        livekitRoom.on(
+          RoomEvent.AudioLevelChanged,
+          (participant: Participant, level: number) => {
+            const identity = participant.identity;
+
+            setParticipantVoiceStates((previous) => ({
+              ...previous,
+              [identity]: {
+                ...(previous[identity] || {
+                  userId: identity,
+                  isSpeaking: false,
+                  isMuted: false,
+                  hasAudioTrack: true,
+                  lastSpeakingAt: 0,
+                }),
+                audioLevel: level,
+                isSpeaking: level > 0.02,
+                lastSpeakingAt:
+                  level > 0.02
+                    ? Date.now()
+                    : previous[identity]?.lastSpeakingAt || 0,
+              },
+            }));
+          },
+        );
+
+        if (!mounted) {
+          livekitRoom.disconnect();
+          return;
+        }
+
+        console.log("✅ LIVEKIT CONNECTED");
+
+        console.log(
+          "👥 Existing participants:",
+          livekitRoom.remoteParticipants.size,
+        );
+
+        setIsConnected(true);
+        setIsMockMode(false);
+        setError(null);
+
+        /*
+         * ----------------------------
          * INITIAL PARTICIPANTS
          * ----------------------------
          */
         const initialParticipants = Array.from(
-          livekitRoom.participants.values(),
-        ).map((p: Participant) => ({
-          identity: p.identity,
-          name: p.name || p.identity,
+          livekitRoom.remoteParticipants.values(),
+        ).map((participant) => ({
+          identity: participant.identity,
+
+          name: participant.name || participant.identity,
         }));
 
         setParticipants(initialParticipants);
 
         /*
-         * Attach already-subscribed audio tracks.
+         * ----------------------------
+         * EXISTING REMOTE TRACKS
+         * ----------------------------
          */
-        livekitRoom.participants.forEach((participant: Participant) => {
-          participant.trackPublications.forEach((publication: any) => {
+        livekitRoom.remoteParticipants.forEach((participant) => {
+          participant.trackPublications.forEach((publication) => {
             if (publication.kind === Track.Kind.Audio && publication.track) {
               attachRemoteAudio(publication.track, participant);
             }
@@ -1374,88 +1690,83 @@ export const useLiveKitRoom = (
          * LOCAL MICROPHONE
          * ----------------------------
          */
-        console.log("🎤 Enabling local microphone...");
+        console.log("🎤 Enabling microphone...");
 
         await livekitRoom.localParticipant.setMicrophoneEnabled(true);
+        setIsMuted(false);
 
         const microphonePublication =
           livekitRoom.localParticipant.getTrackPublication(
             Track.Source.Microphone,
           );
 
-        const microphoneTrack = microphonePublication?.track;
+        const microphone = microphonePublication?.track;
 
-        if (microphoneTrack && microphoneTrack.kind === Track.Kind.Audio) {
-          setLocalTrack(microphoneTrack as LocalAudioTrack);
+        if (microphone && microphone.kind === Track.Kind.Audio) {
+          setLocalTrack(microphone as LocalAudioTrack);
 
-          console.log("🎤 Microphone published:", microphoneTrack.sid);
+          console.log("🎤 MICROPHONE PUBLISHED:", microphone.sid);
         } else {
-          console.error("❌ Microphone track was not published.");
+          console.error("❌ MICROPHONE WAS NOT PUBLISHED");
         }
 
-        /*
-         * ----------------------------
-         * AUDIO LEVEL
-         * ----------------------------
-         */
-        livekitRoom.on(RoomEvent.AudioLevel, (levels: any[]) => {
-          const localLevel =
-            levels.find((item: any) => item.participant?.isLocal)?.level || 0;
-
-          setAudioLevel(localLevel);
-
-          options?.onAudioLevel?.(localLevel);
-        });
-
-        console.log("✅ LiveKit audio system ready.");
-      } catch (err) {
-        console.error("❌ LiveKit connection failed:", err);
+        console.log("🎧 REAL-TIME AUDIO READY");
+      } catch (error) {
+        console.error("❌ LIVEKIT CONNECTION ERROR:", error);
 
         if (!mounted) {
           return;
         }
 
         setIsConnected(false);
+
         setError(
-          err instanceof Error ? err.message : "LiveKit connection failed",
+          error instanceof Error ? error.message : "LiveKit connection failed",
         );
       }
     };
 
     connect();
 
+    /*
+     * ----------------------------
+     * CLEANUP
+     * ----------------------------
+     */
     return () => {
       mounted = false;
 
-      console.log("🧹 Cleaning up LiveKit room...");
+      console.log("🧹 Cleaning up LiveKit...");
+
+      attachedAudioElements.forEach((elements) => {
+        elements.forEach((element) => {
+          try {
+            element.remove();
+          } catch {
+            // Ignore.
+          }
+        });
+      });
+
+      attachedAudioElements.clear();
 
       if (livekitRoom) {
         try {
-          livekitRoom.remoteParticipants.forEach((participant: Participant) => {
-            participant.trackPublications.forEach((publication: any) => {
-              if (publication.track && publication.kind === Track.Kind.Audio) {
-                try {
-                  const elements = publication.track.detach();
-
-                  elements.forEach((element: HTMLElement) => element.remove());
-                } catch {
-                  // Ignore cleanup errors
-                }
-              }
-            });
-          });
-        } catch {
-          // Ignore cleanup errors
+          livekitRoom.disconnect();
+        } catch (error) {
+          console.warn("LiveKit disconnect error:", error);
         }
-
-        livekitRoom.disconnect();
       }
 
       setIsConnected(false);
       setRoom(null);
       setLocalTrack(null);
       setRemoteTracks({});
+      setSpeakingParticipants({});
+      setRemoteAudioLevels({});
       setParticipants([]);
+      setParticipantVoiceStates({});
+      setAudioLevel(0);
     };
   }, [token, roomName, liveKitUrl]);
 
@@ -1467,6 +1778,7 @@ export const useLiveKitRoom = (
     isConnected,
     isMockMode,
     audioLevel,
+    isMuted,
     toggleMute,
     error,
   };

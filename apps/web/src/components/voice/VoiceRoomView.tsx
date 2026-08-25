@@ -169,119 +169,6 @@ type LocalVoiceMessage = VoiceMessage & {
  * feedback. LiveKit remains responsible for the actual room audio transport.
  * This avoids fake/random speaker animation.
  */
-function useRealtimeMicLevel(enabled: boolean, muted: boolean) {
-  const [level, setLevel] = React.useState(0);
-  const rafRef = React.useRef<number | null>(null);
-  const streamRef = React.useRef<MediaStream | null>(null);
-  const contextRef = React.useRef<AudioContext | null>(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-
-    const stop = () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-
-      if (contextRef.current && contextRef.current.state !== "closed") {
-        contextRef.current.close().catch(() => {});
-      }
-      contextRef.current = null;
-      setLevel(0);
-    };
-
-    if (
-      !enabled ||
-      muted ||
-      typeof window === "undefined" ||
-      !navigator.mediaDevices?.getUserMedia
-    ) {
-      stop();
-      return stop;
-    }
-
-    const start = async () => {
-      try {
-        const media = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            channelCount: 1,
-          },
-          video: false,
-        });
-
-        if (cancelled) {
-          media.getTracks().forEach((track) => track.stop());
-          return;
-        }
-
-        const AudioContextCtor =
-          window.AudioContext || (window as any).webkitAudioContext;
-
-        if (!AudioContextCtor) return;
-
-        const ctx = new AudioContextCtor();
-        const analyser = ctx.createAnalyser();
-
-        analyser.fftSize = 512;
-        analyser.smoothingTimeConstant = 0.72;
-
-        const sourceNode = ctx.createMediaStreamSource(media);
-        sourceNode.connect(analyser);
-
-        const samples = new Float32Array(analyser.fftSize);
-
-        streamRef.current = media;
-        contextRef.current = ctx;
-
-        if (ctx.state === "suspended") {
-          await ctx.resume().catch(() => {});
-        }
-
-        const tick = () => {
-          if (cancelled) return;
-
-          analyser.getFloatTimeDomainData(samples);
-
-          let sum = 0;
-          let peak = 0;
-
-          for (const sample of samples) {
-            sum += sample * sample;
-            peak = Math.max(peak, Math.abs(sample));
-          }
-
-          const rms = Math.sqrt(sum / samples.length);
-
-          // Small noise gate + normalized visual level.
-          const gated = Math.max(0, rms - 0.008);
-          const normalized = Math.min(1, gated / 0.12 + peak * 0.12);
-
-          setLevel((previous) => previous * 0.72 + normalized * 0.28);
-
-          rafRef.current = requestAnimationFrame(tick);
-        };
-
-        tick();
-      } catch {
-        // Permission/device failure must never crash the room.
-        setLevel(0);
-      }
-    };
-
-    start();
-
-    return () => {
-      cancelled = true;
-      stop();
-    };
-  }, [enabled, muted]);
-
-  return level;
-}
 
 const THEME = {
   void: "#0A0A12",
@@ -2896,7 +2783,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const queryClient = useQueryClient();
   const [token, setToken] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+
   const [isDeafened, setIsDeafened] = useState(false);
   const [volume, setVolume] = useState(80);
   const [showChat, setShowChat] = useState(true);
@@ -2983,14 +2870,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     participants: livekitParticipants = [],
     remoteTracks = {},
     participantVoiceStates = {},
+    isMuted: liveKitIsMuted,
     toggleMute,
     isMockMode,
   } = liveKitResult;
 
-  const __fullVoiceLocalMicLevel = useRealtimeMicLevel(
-    Boolean(user?.id),
-    isMuted,
-  );
+  const isMuted = liveKitIsMuted;
 
   // Participants
   const allParticipants = useMemo(() => {
@@ -3547,18 +3432,16 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     }
   };
 
-  const handleToggleMute = () => {
-  const muted = toggleMute();
+  const handleToggleMute = async () => {
+    const muted = await toggleMute();
 
-  setIsMuted(muted);
-
-  if (socket && isConnected) {
-    socket.emit("voice:mute-self", {
-      roomId,
-      muted,
-    });
-  }
-};
+    if (socket && isConnected) {
+      socket.emit("voice:mute-self", {
+        roomId,
+        muted,
+      });
+    }
+  };
 
   const handleToggleDeafen = () => {
     setIsDeafened(!isDeafened);
