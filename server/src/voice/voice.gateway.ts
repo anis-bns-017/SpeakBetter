@@ -1,3 +1,5 @@
+// server/src/voice/voice.gateway.ts
+
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -26,10 +28,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   private readonly logger = new Logger(VoiceGateway.name);
-  private roomParticipants: Map<string, Set<string>> = new Map(); // roomId -> Set of userIds
-  private roomHosts: Map<string, string> = new Map(); // roomId -> hostUserId (creatorId)
-  private userSockets: Map<string, string[]> = new Map(); // userId -> socketIds[]
-  private userNames: Map<string, string> = new Map(); // userId -> userName
+  private roomParticipants: Map<string, Set<string>> = new Map();
+  private roomHosts: Map<string, string> = new Map();
+  private userSockets: Map<string, string[]> = new Map();
+  private userNames: Map<string, string> = new Map();
 
   constructor(
     private jwtService: JwtService,
@@ -60,7 +62,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const userId = payload.sub;
       client.data.userId = userId;
 
-      // Fetch user name for display
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { name: true },
@@ -71,7 +72,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.userNames.set(userId, user.name);
       }
 
-      // Store user socket
       const sockets = this.userSockets.get(userId) || [];
       sockets.push(client.id);
       this.userSockets.set(userId, sockets);
@@ -83,108 +83,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // ==================== BROADCAST METHODS ====================
-
-  broadcastTranscription(roomId: string, data: any) {
-    this.server.to(roomId).emit('transcription', {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastClap(roomId: string, data: any) {
-    this.server.to(roomId).emit('clap-received', {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastQueueUpdate(roomId: string, queue: any[]) {
-    this.server.to(roomId).emit('queue-updated', {
-      queue,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantJoined(roomId: string, participant: any) {
-    this.server.to(roomId).emit('participant-joined', {
-      participant,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantLeft(roomId: string, data: any) {
-    this.server.to(roomId).emit('participant-left', {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantMuted(roomId: string, userId: string) {
-    this.server.to(roomId).emit('participant-muted', {
-      userId,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantUnmuted(roomId: string, userId: string) {
-    this.server.to(roomId).emit('participant-unmuted', {
-      userId,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastMuteAll(roomId: string) {
-    this.server.to(roomId).emit('mute-all', {
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantKicked(roomId: string, userId: string) {
-    this.server.to(roomId).emit('participant-kicked', {
-      userId,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastHandRaised(roomId: string, userId: string) {
-    this.server.to(roomId).emit('hand-raised', {
-      userId,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastHandLowered(roomId: string, userId: string) {
-    this.server.to(roomId).emit('hand-lowered', {
-      userId,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastRecordingStarted(roomId: string) {
-    this.server.to(roomId).emit('recording-started', {
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastRecordingStopped(roomId: string) {
-    this.server.to(roomId).emit('recording-stopped', {
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantUpdate(roomId: string, data: any) {
-    this.server.to(roomId).emit('participant-updated', {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
   async handleDisconnect(client: Socket) {
     const userId = client.data.userId;
     if (!userId) return;
 
-    // Remove socket from userSockets
     const sockets = this.userSockets.get(userId) || [];
     const index = sockets.indexOf(client.id);
     if (index > -1) {
@@ -197,7 +99,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     }
 
-    // Remove from all rooms
     for (const [roomId, participants] of this.roomParticipants) {
       if (participants.has(userId)) {
         participants.delete(userId);
@@ -205,18 +106,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.roomParticipants.delete(roomId);
           this.roomHosts.delete(roomId);
         } else {
-          // ✅ FIX: Only transfer host if the host leaves
-          // Host is the creator (room.creatorId), not just any participant
           if (this.roomHosts.get(roomId) === userId) {
-            // Only transfer if the actual host (creator) leaves
-            // We need to check if this user is the creator
             const room = await this.prisma.voiceRoom.findUnique({
               where: { id: roomId },
               select: { creatorId: true },
             });
 
             if (room && room.creatorId === userId) {
-              // Creator left - assign first participant as new host
               const newHost = Array.from(participants)[0];
               if (newHost) {
                 this.roomHosts.set(roomId, newHost);
@@ -248,6 +144,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
+      // ✅ Ensure room exists in database
       const room = await this.prisma.voiceRoom.findUnique({
         where: { id: data.roomId },
         include: {
@@ -289,7 +186,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Check if user is already in the room
+      // ✅ Use consistent room name format
+      const roomName = `voice:${data.roomId}`;
+
+      // Check if user is already a participant
       const existingParticipant = await this.prisma.voiceParticipant.findUnique(
         {
           where: {
@@ -301,7 +201,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
       );
 
-      // Add or update participant in database
       if (!existingParticipant) {
         await this.prisma.voiceParticipant.create({
           data: {
@@ -324,8 +223,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           },
         });
       }
+
       // Join socket room
-      await client.join(`voice:${data.roomId}`);
+      await client.join(roomName);
 
       // Track participant in memory
       if (!this.roomParticipants.has(data.roomId)) {
@@ -333,17 +233,15 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
       this.roomParticipants.get(data.roomId)!.add(userId);
 
-      // ✅ FIX: Host is ALWAYS the room creator (never changes unless creator leaves)
       if (!this.roomHosts.has(data.roomId)) {
         this.roomHosts.set(data.roomId, room.creatorId);
       }
 
-      // Send current participants list to the joining client
+      // Send current participants
       const participants = Array.from(
         this.roomParticipants.get(data.roomId) || [],
       );
 
-      // Get full participant details from database
       const participantDetails = await this.prisma.voiceParticipant.findMany({
         where: {
           roomId: data.roomId,
@@ -365,20 +263,17 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         participantIds: participants,
       });
 
-      // Send host info
       const hostId = this.roomHosts.get(data.roomId) || room.creatorId;
       client.emit('voice:host', { hostId });
 
-      // Get user name for notification
       const userName = this.userNames.get(userId) || 'User';
 
-      // Notify others
-      client.to(`voice:${data.roomId}`).emit('participant:joined', {
+      client.to(roomName).emit('participant:joined', {
         userId,
         userName,
       });
 
-      // Also send messages via the regular query to ensure we have all
+      // Send message history
       const allMessages = await this.prisma.voiceRoomMessage.findMany({
         where: {
           roomId: data.roomId,
@@ -393,6 +288,17 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               avatarUrl: true,
             },
           },
+          replyTo: {
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -403,6 +309,101 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.error('Error joining voice room:', error);
       client.emit('voice:error', { message: 'Failed to join room' });
     }
+  }
+
+  broadcastTranscription(roomId: string, data: any) {
+    this.server.to(`voice:${roomId}`).emit('transcription', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastClap(roomId: string, data: any) {
+    this.server.to(`voice:${roomId}`).emit('clap-received', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastQueueUpdate(roomId: string, queue: any[]) {
+    this.server.to(`voice:${roomId}`).emit('queue-updated', {
+      queue,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastParticipantUpdate(roomId: string, data: any) {
+    this.server.to(`voice:${roomId}`).emit('participant-updated', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastParticipantJoined(roomId: string, participant: any) {
+    this.server.to(`voice:${roomId}`).emit('participant-joined', {
+      participant,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastParticipantLeft(roomId: string, data: any) {
+    this.server.to(`voice:${roomId}`).emit('participant-left', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastParticipantMuted(roomId: string, userId: string) {
+    this.server.to(`voice:${roomId}`).emit('participant-muted', {
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastParticipantUnmuted(roomId: string, userId: string) {
+    this.server.to(`voice:${roomId}`).emit('participant-unmuted', {
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastHandRaised(roomId: string, userId: string) {
+    this.server.to(`voice:${roomId}`).emit('hand-raised', {
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastHandLowered(roomId: string, userId: string) {
+    this.server.to(`voice:${roomId}`).emit('hand-lowered', {
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastRecordingStarted(roomId: string) {
+    this.server.to(`voice:${roomId}`).emit('recording-started', {
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastRecordingStopped(roomId: string) {
+    this.server.to(`voice:${roomId}`).emit('recording-stopped', {
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastParticipantKicked(roomId: string, userId: string) {
+    this.server.to(`voice:${roomId}`).emit('participant-kicked', {
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastMuteAll(roomId: string) {
+    this.server.to(`voice:${roomId}`).emit('mute-all', {
+      timestamp: new Date().toISOString(),
+    });
   }
 
   @SubscribeMessage('voice:leave')
@@ -417,7 +418,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      // Update database
       await this.prisma.voiceParticipant.update({
         where: {
           roomId_userId: { roomId: data.roomId, userId },
@@ -425,10 +425,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { leftAt: new Date() },
       });
 
-      // Leave socket room
-      await client.leave(`voice:${data.roomId}`);
+      const roomName = `voice:${data.roomId}`;
+      await client.leave(roomName);
 
-      // Remove from memory
       const participants = this.roomParticipants.get(data.roomId);
       if (participants) {
         participants.delete(userId);
@@ -436,7 +435,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.roomParticipants.delete(data.roomId);
           this.roomHosts.delete(data.roomId);
         } else {
-          // ✅ Only transfer host if the creator/host leaves
           if (this.roomHosts.get(data.roomId) === userId) {
             const room = await this.prisma.voiceRoom.findUnique({
               where: { id: data.roomId },
@@ -444,22 +442,19 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             });
 
             if (room && room.creatorId === userId) {
-              // Creator left - assign first participant as new host
               const newHost = Array.from(participants)[0];
               if (newHost) {
                 this.roomHosts.set(data.roomId, newHost);
-                this.server
-                  .to(`voice:${data.roomId}`)
-                  .emit('voice:host-changed', {
-                    newHostId: newHost,
-                  });
+                this.server.to(roomName).emit('voice:host-changed', {
+                  newHostId: newHost,
+                });
               }
             }
           }
         }
       }
 
-      client.to(`voice:${data.roomId}`).emit('participant:left', { userId });
+      client.to(roomName).emit('participant:left', { userId });
 
       this.logger.log(`User ${userId} left voice room ${data.roomId}`);
     } catch (error) {
@@ -468,7 +463,26 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // ============ CHAT MESSAGES (USING VOICEROOM MESSAGE MODEL) ============
+  // ============ SPEAKING STATUS ============
+
+  @SubscribeMessage('voice:speaking')
+  async handleSpeaking(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; isSpeaking: boolean },
+  ) {
+    const userId = client.data.userId;
+    if (!userId) return;
+
+    const roomName = `voice:${data.roomId}`;
+    this.server.to(roomName).emit('voice:speaking-status', {
+      userId,
+      isSpeaking: data.isSpeaking,
+    });
+
+    this.logger.log(`🎤 User ${userId} speaking: ${data.isSpeaking}`);
+  }
+
+  // ============ CHAT MESSAGES ============
 
   @SubscribeMessage('voice:chat')
   async handleChat(
@@ -477,6 +491,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     data: {
       roomId: string;
       content: string;
+      replyToId?: string;
     },
   ) {
     const userId = client.data.userId;
@@ -486,26 +501,43 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      // Verify user is in the room
+      // ✅ Check if user is in the room
       const participants = this.roomParticipants.get(data.roomId);
       if (!participants || !participants.has(userId)) {
         client.emit('voice:error', { message: 'You are not in this room' });
         return;
       }
 
-      // Save message to database
+      // ✅ Save to database
+      const messageData: any = {
+        roomId: data.roomId,
+        senderId: userId,
+        content: data.content,
+      };
+
+      if (data.replyToId) {
+        messageData.replyToId = data.replyToId;
+      }
+
       const message = await this.prisma.voiceRoomMessage.create({
-        data: {
-          roomId: data.roomId,
-          senderId: userId,
-          content: data.content,
-        },
+        data: messageData,
         include: {
           sender: {
             select: {
               id: true,
               name: true,
               avatarUrl: true,
+            },
+          },
+          replyTo: {
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatarUrl: true,
+                },
+              },
             },
           },
         },
@@ -520,15 +552,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         isPinned: false,
         isDeleted: false,
         type: 'TEXT',
-        mediaUrl: null,
-        fileUrl: null,
-        replyToId: null,
       };
 
       // ✅ Broadcast to ALL clients in the room (including sender)
-      this.server
-        .to(`voice:${data.roomId}`)
-        .emit('voice:chat', messageWithHost);
+      const roomName = `voice:${data.roomId}`;
+
+      // ✅ FIX: Use room name consistently
+      this.server.to(roomName).emit('voice:chat', messageWithHost);
 
       this.logger.log(`💬 Message from ${userId} in ${data.roomId}`);
     } catch (error) {
@@ -536,7 +566,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('voice:error', { message: 'Failed to send message' });
     }
   }
-
   // ============ TYPING INDICATOR ============
 
   @SubscribeMessage('voice:typing-start')
@@ -548,8 +577,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!userId) return;
 
     const userName = this.userNames.get(userId) || 'User';
+    const roomName = `voice:${data.roomId}`;
 
-    client.to(`voice:${data.roomId}`).emit('voice:typing-start', {
+    client.to(roomName).emit('voice:typing-start', {
       userId,
       userName,
     });
@@ -563,7 +593,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = client.data.userId;
     if (!userId) return;
 
-    client.to(`voice:${data.roomId}`).emit('voice:typing-stop', {
+    const roomName = `voice:${data.roomId}`;
+    client.to(roomName).emit('voice:typing-stop', {
       userId,
     });
   }
@@ -591,7 +622,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Check if sender is host (creator)
       if (room.creatorId !== userId) {
         client.emit('voice:error', {
           message: 'Only the host can kick members',
@@ -599,32 +629,28 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Check if target is host
       if (room.creatorId === data.userId) {
         client.emit('voice:error', { message: 'Cannot kick the host' });
         return;
       }
 
-      // Remove from database
       await this.prisma.voiceParticipant.delete({
         where: {
           roomId_userId: { roomId: data.roomId, userId: data.userId },
         },
       });
 
-      // Remove from memory
       const participants = this.roomParticipants.get(data.roomId);
       if (participants) {
         participants.delete(data.userId);
       }
 
-      // Notify room
-      this.server.to(`voice:${data.roomId}`).emit('voice:kicked', {
+      const roomName = `voice:${data.roomId}`;
+      this.server.to(roomName).emit('voice:kicked', {
         userId: data.userId,
         kickedBy: userId,
       });
 
-      // Notify the kicked user directly
       const kickedUserSockets = this.userSockets.get(data.userId);
       if (kickedUserSockets) {
         for (const socketId of kickedUserSockets) {
@@ -634,7 +660,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               roomId: data.roomId,
               reason: 'You were kicked by the host',
             });
-            socket.leave(`voice:${data.roomId}`);
+            socket.leave(roomName);
           }
         }
       }
@@ -667,7 +693,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Check if sender is host (creator)
       if (room.creatorId !== userId) {
         client.emit('voice:error', {
           message: 'Only the host can promote another host',
@@ -675,19 +700,16 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Check if target is already host
       if (room.creatorId === data.userId) {
         client.emit('voice:error', { message: 'User is already the host' });
         return;
       }
 
-      // ✅ Update room creator to new host
       await this.prisma.voiceRoom.update({
         where: { id: data.roomId },
         data: { creatorId: data.userId },
       });
 
-      // Update participant role to MODERATOR
       await this.prisma.voiceParticipant.update({
         where: {
           roomId_userId: { roomId: data.roomId, userId: data.userId },
@@ -695,7 +717,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { role: 'MODERATOR' },
       });
 
-      // Update old host to LISTENER
       await this.prisma.voiceParticipant.update({
         where: {
           roomId_userId: { roomId: data.roomId, userId },
@@ -703,11 +724,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { role: 'LISTENER' },
       });
 
-      // Update in-memory host
       this.roomHosts.set(data.roomId, data.userId);
 
-      // Notify all participants
-      this.server.to(`voice:${data.roomId}`).emit('voice:host-changed', {
+      const roomName = `voice:${data.roomId}`;
+      this.server.to(roomName).emit('voice:host-changed', {
         newHostId: data.userId,
         oldHostId: userId,
       });
@@ -742,7 +762,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Check if sender is host (creator)
       if (room.creatorId !== userId) {
         client.emit('voice:error', {
           message: 'Only the host can mute members',
@@ -750,13 +769,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Check if target is host
       if (room.creatorId === data.userId) {
         client.emit('voice:error', { message: 'Cannot mute the host' });
         return;
       }
 
-      // Update database
       await this.prisma.voiceParticipant.update({
         where: {
           roomId_userId: { roomId: data.roomId, userId: data.userId },
@@ -764,8 +781,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { isMuted: true },
       });
 
-      // Notify room
-      this.server.to(`voice:${data.roomId}`).emit('voice:muted', {
+      const roomName = `voice:${data.roomId}`;
+      this.server.to(roomName).emit('voice:muted', {
         userId: data.userId,
         mutedBy: userId,
       });
@@ -798,7 +815,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Check if sender is host (creator)
       if (room.creatorId !== userId) {
         client.emit('voice:error', {
           message: 'Only the host can unmute members',
@@ -806,7 +822,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Update database
       await this.prisma.voiceParticipant.update({
         where: {
           roomId_userId: { roomId: data.roomId, userId: data.userId },
@@ -814,8 +829,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { isMuted: false },
       });
 
-      // Notify room
-      this.server.to(`voice:${data.roomId}`).emit('voice:unmuted', {
+      const roomName = `voice:${data.roomId}`;
+      this.server.to(roomName).emit('voice:unmuted', {
         userId: data.userId,
         unmutedBy: userId,
       });
@@ -848,7 +863,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Check if sender is host (creator)
       if (room.creatorId !== userId) {
         client.emit('voice:error', {
           message: 'Only the host can promote members to moderator',
@@ -856,7 +870,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Promote to moderator
       await this.prisma.voiceParticipant.update({
         where: {
           roomId_userId: { roomId: data.roomId, userId: data.userId },
@@ -864,7 +877,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { role: 'MODERATOR' },
       });
 
-      this.server.to(`voice:${data.roomId}`).emit('voice:promoted', {
+      const roomName = `voice:${data.roomId}`;
+      this.server.to(roomName).emit('voice:promoted', {
         userId: data.userId,
         promotedBy: userId,
       });
@@ -899,7 +913,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Check if sender is host (creator)
       if (room.creatorId !== userId) {
         client.emit('voice:error', {
           message: 'Only the host can demote members',
@@ -907,7 +920,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Demote to listener
       await this.prisma.voiceParticipant.update({
         where: {
           roomId_userId: { roomId: data.roomId, userId: data.userId },
@@ -915,7 +927,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { role: 'LISTENER' },
       });
 
-      this.server.to(`voice:${data.roomId}`).emit('voice:demoted', {
+      const roomName = `voice:${data.roomId}`;
+      this.server.to(roomName).emit('voice:demoted', {
         userId: data.userId,
         demotedBy: userId,
       });
@@ -941,7 +954,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      // Update database
       await this.prisma.voiceParticipant.update({
         where: {
           roomId_userId: { roomId: data.roomId, userId },
@@ -949,7 +961,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { raisedHand: data.raise },
       });
 
-      this.server.to(`voice:${data.roomId}`).emit('voice:hand-raised', {
+      const roomName = `voice:${data.roomId}`;
+      this.server.to(roomName).emit('voice:hand-raised', {
         userId,
         raised: data.raise,
       });
@@ -1011,7 +1024,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         where: { id: data.messageId },
       });
 
-      this.server.to(`voice:${data.roomId}`).emit('voice:message-deleted', {
+      const roomName = `voice:${data.roomId}`;
+      this.server.to(roomName).emit('voice:message-deleted', {
         messageId: data.messageId,
         deletedBy: userId,
       });
@@ -1044,7 +1058,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { isMuted: data.muted },
       });
 
-      this.server.to(`voice:${data.roomId}`).emit('voice:self-muted', {
+      const roomName = `voice:${data.roomId}`;
+      this.server.to(roomName).emit('voice:self-muted', {
         userId,
         muted: data.muted,
       });
@@ -1105,6 +1120,17 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               id: true,
               name: true,
               avatarUrl: true,
+            },
+          },
+          replyTo: {
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatarUrl: true,
+                },
+              },
             },
           },
         },

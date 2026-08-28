@@ -11,7 +11,7 @@ import * as express from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  
+
   try {
     const app = await NestFactory.create(AppModule);
 
@@ -26,7 +26,7 @@ async function bootstrap() {
       logger.log(`📁 Created uploads directory: ${uploadsDir}`);
     }
 
-    // ✅ CORRECT WAY: Use express.static with app.use()
+    // ✅ Serve static files
     app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
     app.useGlobalPipes(
@@ -56,21 +56,42 @@ async function bootstrap() {
     // ✅ Get port from config or use 3000
     const port = config.get<number>('PORT') || 3000;
 
+    // ✅ Log all configuration on startup
+    const livekitHttpUrl = config.get<string>('LIVEKIT_HTTP_URL');
+    const livekitWsUrl = config.get<string>('LIVEKIT_WS_URL');
+    const livekitApiKey = config.get<string>('LIVEKIT_API_KEY');
+
+    logger.log('═══════════════════════════════════════════════');
+    logger.log('🚀 SERVER STARTING');
+    logger.log(`   HTTP Port: ${port}`);
+    logger.log(`   Frontend URL: ${frontendUrl}`);
+    logger.log(`   Uploads Directory: ${uploadsDir}`);
+    logger.log('───────────────────────────────────────────────');
+    logger.log('🎙️ LIVEKIT CONFIGURATION:');
+    logger.log(`   HTTP URL: ${livekitHttpUrl || 'NOT SET'}`);
+    logger.log(`   WebSocket URL: ${livekitWsUrl || 'NOT SET'}`);
+    logger.log(`   API Key: ${livekitApiKey ? '✅ SET' : '❌ NOT SET'}`);
+    logger.log('───────────────────────────────────────────────');
+    logger.log('🔌 WebSocket endpoint (Socket.IO):');
+    logger.log(`   http://localhost:${port}/voice`);
+    logger.log(`   ws://localhost:${port}/voice`);
+    logger.log('═══════════════════════════════════════════════');
+
     // ✅ Try to listen on the port with error handling
     await app.listen(port, '0.0.0.0', () => {
-      logger.log(`🚀 Server running on http://localhost:${port}`);
-      logger.log(`🔌 WebSocket endpoint: ws://localhost:${port}/chat`);
-      logger.log(`📁 Static files served from: /uploads/`);
-      logger.log(`✅ LiveKit status: ${config.get('LIVEKIT_HTTP_URL') ? 'Configured' : 'Not configured'}`);
+      logger.log(`✅ Server is running on http://localhost:${port}`);
     });
-
   } catch (error) {
     if (error.code === 'EADDRINUSE') {
       const logger = new Logger('Bootstrap');
       logger.error(`❌ Port 3000 is already in use!`);
       logger.error(`💡 To fix this:`);
-      logger.error(`   1. Find the process: lsof -i :3000 (Mac/Linux) or netstat -ano | findstr :3000 (Windows)`);
-      logger.error(`   2. Kill the process: kill -9 <PID> (Mac/Linux) or taskkill /PID <PID> /F (Windows)`);
+      logger.error(
+        `   1. Find the process: lsof -i :3000 (Mac/Linux) or netstat -ano | findstr :3000 (Windows)`,
+      );
+      logger.error(
+        `   2. Kill the process: kill -9 <PID> (Mac/Linux) or taskkill /PID <PID> /F (Windows)`,
+      );
       logger.error(`   3. Or change the port in your .env file: PORT=3002`);
       process.exit(1);
     }

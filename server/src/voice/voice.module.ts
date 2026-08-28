@@ -57,7 +57,7 @@ import { AnalyticsController } from './controllers/analytics.controller';
   ],
   exports: [
     VoiceService,
-    LiveKitService,   
+    LiveKitService,
     TranscriptionService,
     TranslationService,
     ClapService,
@@ -65,4 +65,4 @@ import { AnalyticsController } from './controllers/analytics.controller';
     AnalyticsService,
   ],
 })
-export class VoiceModule {}  
+export class VoiceModule {}

@@ -127,7 +127,6 @@ export class VoiceService {
       },
     });
 
-    // Add creator as participant with MODERATOR role
     await this.prisma.voiceParticipant.create({
       data: {
         roomId: room.id,
@@ -259,6 +258,7 @@ export class VoiceService {
 
   // ============ PARTICIPANTS ============
 
+  // ✅ FIX: Ensure LiveKit room exists before joining
   async joinRoom(userId: string, roomId: string) {
     const room = await this.prisma.voiceRoom.findUnique({
       where: { id: roomId },
@@ -272,9 +272,39 @@ export class VoiceService {
       throw new BadRequestException('This room has ended');
     }
 
-    /*
-     * Find the user's existing participant record.
-     */
+    // ✅ Ensure LiveKit room exists
+    let liveKitRoomId = room.liveKitRoomId;
+
+    if (!liveKitRoomId) {
+      liveKitRoomId = `voice-${room.id}`;
+      
+      // Create LiveKit room
+      try {
+        await this.liveKitService.createRoom(liveKitRoomId);
+        this.logger.log(`✅ LiveKit room created: ${liveKitRoomId}`);
+      } catch (error) {
+        this.logger.error(`❌ Failed to create LiveKit room: ${error.message}`);
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Failed to create voice room. Please try again.',
+            error: 'LIVEKIT_CREATE_FAILED',
+          },
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      // Update database with LiveKit room ID
+      await this.prisma.voiceRoom.update({
+        where: { id: roomId },
+        data: {
+          liveKitRoomId,
+          status: 'ACTIVE',
+          startedAt: room.startedAt || new Date(),
+        },
+      });
+    }
+
     const existingParticipant = await this.prisma.voiceParticipant.findUnique({
       where: {
         roomId_userId: {
@@ -284,47 +314,12 @@ export class VoiceService {
       },
     });
 
-    /*
-     * ============================================================
-     * CASE 1: USER IS ALREADY IN THE ROOM
-     * ============================================================
-     *
-     * Do NOT return 409.
-     *
-     * React development mode / StrictMode can cause the join
-     * effect to execute more than once.
-     *
-     * If the participant is already active, simply return a
-     * fresh LiveKit token.
-     */
+    // User already in room - return fresh token
     if (existingParticipant && !existingParticipant.leftAt) {
       this.logger.log(
         `ℹ️ User ${userId} is already in room ${roomId}; reusing participant`,
       );
 
-      let liveKitRoomId = room.liveKitRoomId;
-
-      /*
-       * Make sure the room has a LiveKit room ID.
-       */
-      if (!liveKitRoomId) {
-        liveKitRoomId = `voice-${room.id}`;
-
-        await this.prisma.voiceRoom.update({
-          where: {
-            id: roomId,
-          },
-          data: {
-            liveKitRoomId,
-            status: 'ACTIVE',
-            startedAt: room.startedAt || new Date(),
-          },
-        });
-      }
-
-      /*
-       * Generate a REAL LiveKit token.
-       */
       const token = await this.liveKitService.getParticipantToken(
         liveKitRoomId,
         userId,
@@ -337,20 +332,13 @@ export class VoiceService {
           name: room.name,
           liveKitRoomId,
         },
-
         participant: existingParticipant,
-
         token,
-
         liveKitRoomId,
       };
     }
 
-    /*
-     * ============================================================
-     * CASE 2: USER PREVIOUSLY LEFT
-     * ============================================================
-     */
+    // User previously left - reactivate
     if (existingParticipant && existingParticipant.leftAt) {
       const participant = await this.prisma.voiceParticipant.update({
         where: {
@@ -362,23 +350,6 @@ export class VoiceService {
         },
       });
 
-      let liveKitRoomId = room.liveKitRoomId;
-
-      if (!liveKitRoomId) {
-        liveKitRoomId = `voice-${room.id}`;
-
-        await this.prisma.voiceRoom.update({
-          where: {
-            id: roomId,
-          },
-          data: {
-            liveKitRoomId,
-            status: 'ACTIVE',
-            startedAt: room.startedAt || new Date(),
-          },
-        });
-      }
-
       const token = await this.liveKitService.getParticipantToken(
         liveKitRoomId,
         userId,
@@ -391,21 +362,13 @@ export class VoiceService {
           name: room.name,
           liveKitRoomId,
         },
-
         participant,
-
         token,
-
         liveKitRoomId,
       };
     }
 
-    /*
-     * ============================================================
-     * CASE 3: BRAND NEW PARTICIPANT
-     * ============================================================
-     */
-
+    // New participant
     const participantCount = await this.prisma.voiceParticipant.count({
       where: {
         roomId,
@@ -417,52 +380,20 @@ export class VoiceService {
       throw new BadRequestException('This room is full');
     }
 
-    /*
-     * The first real participant starts
-     * the room.
-     */
     const isFirstJoin = room.status === 'WAITING';
 
-    let liveKitRoomId = room.liveKitRoomId;
-
-    if (!liveKitRoomId) {
-      liveKitRoomId = `voice-${room.id}`;
-    }
-
-    /*
-     * Activate the room BEFORE generating
-     * the LiveKit token.
-     */
-    if (isFirstJoin || !room.liveKitRoomId) {
-      await this.prisma.voiceRoom.update({
-        where: {
-          id: roomId,
-        },
-        data: {
-          status: 'ACTIVE',
-          startedAt: room.startedAt || new Date(),
-          liveKitRoomId,
-        },
-      });
-    }
-
-    /*
-     * Generate the LiveKit token.
-     */
+    // Generate token
     const token = await this.liveKitService.getParticipantToken(
       liveKitRoomId,
       userId,
       userId,
     );
 
-    /*
-     * Create participant.
-     */
+    // Create participant
     const participant = await this.prisma.voiceParticipant.create({
       data: {
         roomId,
         userId,
-
         role: isFirstJoin ? 'MODERATOR' : 'LISTENER',
       },
     });
@@ -475,11 +406,8 @@ export class VoiceService {
         name: room.name,
         liveKitRoomId,
       },
-
       participant,
-
       token,
-
       liveKitRoomId,
     };
   }
@@ -527,6 +455,142 @@ export class VoiceService {
         },
       },
     });
+  }
+
+  // ============ MUTE/UNMUTE ============
+
+  async muteParticipant(
+    userId: string,
+    roomId: string,
+    targetUserId: string,
+  ) {
+    const room = await this.prisma.voiceRoom.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    const isCreator = room.creatorId === userId;
+    const isModerator = await this.prisma.voiceParticipant.findUnique({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId,
+        },
+      },
+    });
+
+    if (!isCreator && (!isModerator || isModerator.role !== 'MODERATOR')) {
+      throw new ForbiddenException(
+        'Only the creator or a moderator can mute participants',
+      );
+    }
+
+    if (room.creatorId === targetUserId) {
+      throw new ForbiddenException('Cannot mute the host');
+    }
+
+    const updated = await this.prisma.voiceParticipant.update({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId: targetUserId,
+        },
+      },
+      data: {
+        isMuted: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    if (room.liveKitRoomId) {
+      try {
+        await this.liveKitService.muteParticipant(
+          room.liveKitRoomId,
+          targetUserId,
+        );
+        this.logger.log(`🔇 Muted ${targetUserId} in LiveKit room ${roomId}`);
+      } catch (error) {
+        this.logger.warn(`LiveKit mute failed: ${error.message}`);
+      }
+    }
+
+    return updated;
+  }
+
+  async unmuteParticipant(
+    userId: string,
+    roomId: string,
+    targetUserId: string,
+  ) {
+    const room = await this.prisma.voiceRoom.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    const isCreator = room.creatorId === userId;
+    const isModerator = await this.prisma.voiceParticipant.findUnique({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId,
+        },
+      },
+    });
+
+    if (!isCreator && (!isModerator || isModerator.role !== 'MODERATOR')) {
+      throw new ForbiddenException(
+        'Only the creator or a moderator can unmute participants',
+      );
+    }
+
+    const updated = await this.prisma.voiceParticipant.update({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId: targetUserId,
+        },
+      },
+      data: {
+        isMuted: false,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    if (room.liveKitRoomId) {
+      try {
+        await this.liveKitService.unmuteParticipant(
+          room.liveKitRoomId,
+          targetUserId,
+        );
+        this.logger.log(`🔊 Unmuted ${targetUserId} in LiveKit room ${roomId}`);
+      } catch (error) {
+        this.logger.warn(`LiveKit unmute failed: ${error.message}`);
+      }
+    }
+
+    return updated;
   }
 
   async updateParticipantRole(
@@ -591,7 +655,6 @@ export class VoiceService {
       status: 'ACTIVE',
     };
 
-    // Search query
     if (query) {
       where.OR = [
         { name: { contains: query, mode: 'insensitive' } },
@@ -599,7 +662,6 @@ export class VoiceService {
       ];
     }
 
-    // Filter by type using RoomFilterType
     if (filter) {
       switch (filter) {
         case RoomFilterType.OPEN:
@@ -625,17 +687,14 @@ export class VoiceService {
       }
     }
 
-    // Category filter
     if (category) {
       where.categories = { has: category };
     }
 
-    // Language filter (if not already handled by filter)
     if (language && filter !== RoomFilterType.LANGUAGE) {
       where.language = language;
     }
 
-    // Sorting
     let orderBy: any = { createdAt: 'desc' };
 
     switch (sort) {
@@ -649,11 +708,7 @@ export class VoiceService {
         orderBy = { createdAt: 'desc' };
         break;
       case RoomSortType.NEARBY:
-        // For nearby, we'd need location data - fallback to trending
-        orderBy = { trendScore: 'desc' };
-        break;
       case RoomSortType.RECOMMENDED:
-        // For recommended, we'd need ML - fallback to trending
         orderBy = { trendScore: 'desc' };
         break;
       default:
@@ -691,7 +746,6 @@ export class VoiceService {
       this.prisma.voiceRoom.count({ where }),
     ]);
 
-    // Transform rooms to include participant count
     const transformedRooms = rooms.map((room) => ({
       ...room,
       participantCount: room.participants.length,
@@ -989,7 +1043,6 @@ export class VoiceService {
       );
     }
 
-    // Check if LiveKit is available
     if (!this.liveKitService.isAvailable()) {
       throw new HttpException(
         {
