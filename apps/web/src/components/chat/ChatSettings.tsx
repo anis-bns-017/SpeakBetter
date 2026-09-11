@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChatSettings as ChatSettingsType } from '@lingoverse/types';
+import { ChatSettings as ChatSettingsType } from '@speakbetter/types';
 import {
   Bell,
   BellOff,

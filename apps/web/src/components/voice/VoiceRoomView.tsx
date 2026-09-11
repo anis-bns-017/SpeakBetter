@@ -1,4 +1,18 @@
 // apps/web/src/components/voice/VoiceRoomView.tsx
+/**
+ * Improved VoiceRoomView
+ * - Chat ↔ room wiring fixed (sender names, reaction toggles, pin/delete optimistic UI)
+ * - Typing indicators fire while composing
+ * - Unread / new-message counts only when chat closed or scrolled up
+ * - Header passes isConnected; opening chat clears unread badge
+ * - Language chips in the participant grid actually filter people
+ * - Command center: fixed panel + backdrop dismiss
+ * - Deafened state uses functional setState; toast copy cleaned up
+ * - Works with the improved ChatPanel (participantNames, reactions as user lists)
+ * - Live speaker animation is driven by LiveKit + socket speaking state
+ * - Remote speaking state is preserved instead of being reset to false
+ * - Participant avatars pulse, glow, ripple and show a prominent SPEAKING badge
+ */
 
 import React, {
   useState,
@@ -7,21 +21,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import {
-  useVoiceRoom,
-  useVoiceSocket,
-  useLiveKitRoom,
-  voiceApi,
-  useRoomMessages,
-  useSendVoiceMessage,
-  useDeleteVoiceMessage,
-  useLeaveVoiceRoom,
-  useRefreshToken,
-  type VoiceMessage,
-} from "../../hooks/useVoice";
-import { useAuth } from "../../contexts/AuthContext";
-import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+
 import {
   Mic,
   MicOff,
@@ -77,56 +77,52 @@ import {
   Timer,
   UserRoundSearch,
   Volume1,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  Flag,
+  Heart,
+  Award,
+  Sparkles,
+  MapPin,
+  Calendar,
 } from "lucide-react";
+
+import {
+  useVoiceRoom,
+  useVoiceSocket,
+  useLiveKitRoom,
+  voiceApi,
+  useRoomMessages,
+  useSendVoiceMessage,
+  useDeleteVoiceMessage,
+  useLeaveVoiceRoom,
+  useRefreshToken,
+  type VoiceMessage,
+} from "../../hooks/useVoice";
+
+import { useAuth } from "../../contexts/AuthContext";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, isToday, isYesterday } from "date-fns";
 
-// ---- Types ----
-interface VoiceRoomViewProps {
-  roomId: string;
-  onLeave: () => void;
-  onMinimize?: (roomData: {
-    id: string;
-    name: string;
-    participants: any[];
-    type: string;
-    participantCount: number;
-  }) => void;
-}
+// Import all sub-components
+import { AudioControls } from "./AudioControls";
+import { ClapButton } from "./ClapButton";
+import { SpeakerQueue } from "./SpeakerQueue";
+import { StageSpeaker } from "./StageSpeaker";
+import { TranscriptionDisplay } from "./TranscriptionDisplay";
+import { VoiceCall } from "./VoiceCall";
+import { ChatPanel } from "./chat/ChatPanel";
 
-interface VoiceRoomListProps {
-  onJoinRoom: (roomId: string) => void;
-  onViewRoom?: (roomId: string) => void;
-}
-
-interface UserProfile {
-  id: string;
-  name: string;
-  avatarUrl?: string;
-  country?: string;
-  nativeLanguage?: string;
-  learningLanguage?: string;
-  level?: string;
-  bio?: string;
-  interests?: string[];
-  isOnline?: boolean;
-  lastActive?: string;
-  isVerified?: boolean;
-  isPremium?: boolean;
-  age?: number;
-  gender?: string;
-  timezone?: string;
-}
-
-interface RoomParticipant extends UserProfile {
-  isSpeaking: boolean;
-  isMuted: boolean;
-  raisedHand: boolean;
-  joinedAt: string;
-  role: "HOST" | "MODERATOR" | "MEMBER";
-  isListening: boolean;
-  audioLevel: number;
-}
+// Import theme and types
+import { THEME } from "./VoiceRoomView.theme";
+import type {
+  VoiceRoomViewProps,
+  MinimizedRoomData,
+  RoomParticipant,
+} from "./VoiceRoomView.types";
 
 interface LanguageFilter {
   nativeLanguage?: string;
@@ -135,221 +131,92 @@ interface LanguageFilter {
   country?: string;
 }
 
-type LocalMessageStatus = "sending" | "sent" | "failed" | undefined;
+/** Local chat message shape aligned with ChatPanel */
 type LocalVoiceMessage = VoiceMessage & {
-  status?: LocalMessageStatus;
+  status?: "sending" | "sent" | "delivered" | "read" | "failed";
+  isEdited?: boolean;
+  isHighlighted?: boolean;
+  /** userId lists per emoji — matches ChatPanel */
+  reactions?: Record<string, string[]>;
+  /** legacy count map — migrated on the fly */
   reactionTally?: Record<string, number>;
+  senderName?: string;
+  senderAvatar?: string;
+  replyToId?: string;
 };
 
-// ---- Theme ----
-const THEME = {
-  void: "#0A0A12",
-  surface: "#141425",
-  surfaceRaised: "#1E1E38",
-  surfaceHover: "#2A2A4A",
-  border: "#2A2A4A",
-  borderGlow: "rgba(120, 80, 255, 0.2)",
-  aurora: {
-    primary: "#7C6AFF",
-    secondary: "#A78BFA",
-    tertiary: "#6EE7B7",
-    quaternary: "#FCD34D",
-    pink: "#F472B6",
-    cyan: "#67E8F9",
-    purple: "#8B5CF6",
-    blue: "#3B82F6",
-    green: "#34D399",
-    red: "#EF4444",
-    orange: "#F59E0B",
-    yellow: "#FBBF24",
-  },
-  gradient: {
-    from: "rgba(124, 106, 255, 0.15)",
-    to: "rgba(167, 139, 250, 0.05)",
-  },
-  text: {
-    primary: "#F8F7FF",
-    secondary: "#B8B0D8",
-    muted: "#7A72A0",
-    accent: "#A78BFA",
-  },
-  status: {
-    live: "#6EE7B7",
-    liveGlow: "rgba(110, 231, 183, 0.3)",
-    muted: "#7A72A0",
-    speaking: "#A78BFA",
-    speakingGlow: "rgba(167, 139, 250, 0.4)",
-    waiting: "#FCD34D",
-    waitingGlow: "rgba(252, 211, 77, 0.3)",
-  },
-};
+function normalizeChatMessage(
+  msg: any,
+  currentUserId?: string,
+): LocalVoiceMessage {
+  const senderName =
+    msg.senderName ||
+    msg.sender?.name ||
+    msg.user?.name ||
+    (msg.senderId === currentUserId ? "You" : "Unknown User");
+
+  const senderAvatar =
+    msg.senderAvatar ||
+    msg.sender?.avatarUrl ||
+    msg.sender?.avatar ||
+    msg.user?.avatarUrl;
+
+  // Prefer reactions (user lists). Fall back from reactionTally with synthetic ids.
+  let reactions: Record<string, string[]> = {};
+  if (msg.reactions && typeof msg.reactions === "object") {
+    for (const [emoji, users] of Object.entries(msg.reactions)) {
+      if (Array.isArray(users)) reactions[emoji] = users.map(String);
+      else if (typeof users === "number") {
+        reactions[emoji] = Array.from({ length: users }, (_, i) => `anon-${i}`);
+      }
+    }
+  } else if (msg.reactionTally && typeof msg.reactionTally === "object") {
+    for (const [emoji, count] of Object.entries(msg.reactionTally)) {
+      const n = Number(count) || 0;
+      reactions[emoji] = Array.from({ length: n }, (_, i) => `anon-${i}`);
+    }
+  }
+
+  const replyTo = msg.replyTo
+    ? normalizeChatMessage(msg.replyTo, currentUserId)
+    : undefined;
+
+  return {
+    ...msg,
+    senderName,
+    senderAvatar,
+    reactions,
+    replyTo,
+    status: msg.status || "sent",
+  };
+}
+
+// Import helpers
+import {
+  initials,
+  hueFromString,
+  formatTime,
+  formatDateSeparator,
+  dayKey,
+  getCountryFlag,
+  renderMessageContent,
+  playNotificationBeep,
+} from "./VoiceRoomView.helpers";
+
+// ---- Types ----
+interface VoiceRoomListProps {
+  onJoinRoom: (roomId: string) => void;
+  onViewRoom?: (roomId: string) => void;
+}
 
 // ---- Helper Functions ----
-function initials(name: string) {
-  return (
-    name
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((n) => n[0]?.toUpperCase())
-      .join("") || "?"
-  );
+function cn(...classes: any[]) {
+  return classes.filter(Boolean).join(" ");
 }
 
-function hueFromString(str: string) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++)
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  return Math.abs(hash) % 360;
-}
-
-function formatTime(date: string) {
-  try {
-    return format(new Date(date), "h:mm a");
-  } catch {
-    return "";
-  }
-}
-
-function formatDateSeparator(date: string) {
-  try {
-    const d = new Date(date);
-    if (isToday(d)) return "Today";
-    if (isYesterday(d)) return "Yesterday";
-    return format(d, "MMMM d, yyyy");
-  } catch {
-    return "";
-  }
-}
-
-function dayKey(date: string) {
-  try {
-    const d = new Date(date);
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-  } catch {
-    return date;
-  }
-}
-
-function getCountryFlag(countryCode?: string): string {
-  if (!countryCode) return "🌍";
-  const flags: Record<string, string> = {
-    US: "🇺🇸",
-    GB: "🇬🇧",
-    FR: "🇫🇷",
-    DE: "🇩🇪",
-    ES: "🇪🇸",
-    IT: "🇮🇹",
-    JP: "🇯🇵",
-    KR: "🇰🇷",
-    CN: "🇨🇳",
-    IN: "🇮🇳",
-    BR: "🇧🇷",
-    RU: "🇷🇺",
-    AU: "🇦🇺",
-    CA: "🇨🇦",
-    MX: "🇲🇽",
-    ZA: "🇿🇦",
-    NG: "🇳🇬",
-    EG: "🇪🇬",
-    SA: "🇸🇦",
-    AE: "🇦🇪",
-    SG: "🇸🇬",
-    MY: "🇲🇾",
-    PH: "🇵🇭",
-    VN: "🇻🇳",
-    TH: "🇹🇭",
-    ID: "🇮🇩",
-    PK: "🇵🇰",
-    BD: "🇧🇩",
-    TR: "🇹🇷",
-    NL: "🇳🇱",
-    BE: "🇧🇪",
-    CH: "🇨🇭",
-    SE: "🇸🇪",
-    NO: "🇳🇴",
-    DK: "🇩🇰",
-    FI: "🇫🇮",
-    PL: "🇵🇱",
-    GR: "🇬🇷",
-    PT: "🇵🇹",
-    IE: "🇮🇪",
-    NZ: "🇳🇿",
-    AR: "🇦🇷",
-    CL: "🇨🇱",
-    CO: "🇨🇴",
-    PE: "🇵🇪",
-    VE: "🇻🇪",
-  };
-  return flags[countryCode] || "🌍";
-}
-
-const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
-
-function renderMessageContent(content: string) {
-  if (!content) return null;
-  const urlParts = content.split(URL_PATTERN);
-  return urlParts.map((chunk, ci) => {
-    if (URL_PATTERN.test(chunk)) {
-      URL_PATTERN.lastIndex = 0;
-      return (
-        <a
-          key={`u-${ci}`}
-          href={chunk}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="underline underline-offset-2 hover:opacity-80 break-all"
-          style={{ color: THEME.aurora.cyan }}
-        >
-          {chunk}
-        </a>
-      );
-    }
-    URL_PATTERN.lastIndex = 0;
-    const mentionParts = chunk.split(/(@[a-zA-Z0-9_]+)/g);
-    return mentionParts.map((part, i) =>
-      /^@[a-zA-Z0-9_]+$/.test(part) ? (
-        <span
-          key={`${ci}-${i}`}
-          className="font-semibold"
-          style={{ color: THEME.aurora.secondary }}
-        >
-          {part}
-        </span>
-      ) : (
-        <React.Fragment key={`${ci}-${i}`}>{part}</React.Fragment>
-      ),
-    );
-  });
-}
-
-function playNotificationBeep() {
-  try {
-    const AudioCtx =
-      (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.32);
-    osc.onended = () => ctx.close();
-  } catch {
-    // Ignore
-  }
-}
-
-// ============================
-// VOICE ROOM LIST COMPONENT
-// ============================
+// ============================================================
+// VOICE ROOM LIST - HelloTalk Style
+// ============================================================
 
 export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
   onJoinRoom,
@@ -432,34 +299,34 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
       <div className="flex items-center justify-center h-64">
         <Loader2
           className="w-8 h-8 animate-spin"
-          style={{ color: THEME.aurora.primary }}
+          style={{ color: THEME.colors.accent.primary }}
         />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      {/* Header - HelloTalk Style */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2
-            className="text-2xl font-serif"
-            style={{ color: THEME.text.primary }}
+            className="text-2xl font-bold tracking-tight"
+            style={{ color: THEME.colors.text.primary }}
           >
             Voice Rooms
           </h2>
-          <p className="text-sm" style={{ color: THEME.text.muted }}>
-            {activeRooms} active {activeRooms === 1 ? "room" : "rooms"} ·{" "}
-            {rooms.length} total
+          <p className="text-sm" style={{ color: THEME.colors.text.muted }}>
+            {activeRooms} live now · {rooms.length} total rooms
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="px-4 py-2 rounded-full flex items-center gap-2 text-sm font-semibold transition-all hover:scale-105 border"
+            className="px-4 py-2 rounded-full flex items-center gap-2 text-sm font-medium transition-all border"
             style={{
-              borderColor: THEME.border,
-              color: THEME.text.secondary,
+              borderColor: THEME.colors.border.primary,
+              color: THEME.colors.text.secondary,
             }}
           >
             <Filter className="w-4 h-4" />
@@ -467,9 +334,9 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           </button>
           <button
             onClick={() => toast.info("Create room feature coming soon")}
-            className="px-4 py-2 rounded-full flex items-center gap-2 text-sm font-semibold transition-all hover:scale-105"
+            className="px-4 py-2 rounded-full flex items-center gap-2 text-sm font-semibold transition-all"
             style={{
-              background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
+              background: THEME.colors.gradient.primary,
               color: "#fff",
             }}
           >
@@ -479,6 +346,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
         </div>
       </div>
 
+      {/* Filters - HelloTalk Style */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
@@ -490,30 +358,31 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
             <div
               className="p-4 rounded-xl border"
               style={{
-                background: THEME.surface,
-                borderColor: THEME.border,
+                background: THEME.colors.background.card,
+                borderColor: THEME.colors.border.primary,
               }}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <label
                     className="text-xs font-medium"
-                    style={{ color: THEME.text.muted }}
+                    style={{ color: THEME.colors.text.muted }}
                   >
                     Status
                   </label>
-                  <div className="flex gap-2 mt-1">
+                  <div className="flex gap-1.5 mt-1">
                     {(["all", "active", "waiting"] as const).map((f) => (
                       <button
                         key={f}
                         onClick={() => setFilter(f)}
-                        className="px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize"
+                        className="px-3 py-1 rounded-full text-xs font-medium transition-all capitalize"
                         style={{
                           background:
                             filter === f
-                              ? THEME.aurora.primary
-                              : THEME.surfaceHover,
-                          color: filter === f ? "#fff" : THEME.text.secondary,
+                              ? THEME.colors.accent.primary
+                              : THEME.colors.background.tertiary,
+                          color:
+                            filter === f ? "#fff" : THEME.colors.text.secondary,
                         }}
                       >
                         {f}
@@ -524,22 +393,23 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                 <div>
                   <label
                     className="text-xs font-medium"
-                    style={{ color: THEME.text.muted }}
+                    style={{ color: THEME.colors.text.muted }}
                   >
                     Sort By
                   </label>
-                  <div className="flex gap-2 mt-1">
+                  <div className="flex gap-1.5 mt-1">
                     {(["participants", "recent", "name"] as const).map((s) => (
                       <button
                         key={s}
                         onClick={() => setSortBy(s)}
-                        className="px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize"
+                        className="px-3 py-1 rounded-full text-xs font-medium transition-all capitalize"
                         style={{
                           background:
                             sortBy === s
-                              ? THEME.aurora.primary
-                              : THEME.surfaceHover,
-                          color: sortBy === s ? "#fff" : THEME.text.secondary,
+                              ? THEME.colors.accent.primary
+                              : THEME.colors.background.tertiary,
+                          color:
+                            sortBy === s ? "#fff" : THEME.colors.text.secondary,
                         }}
                       >
                         {s}
@@ -550,7 +420,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                 <div>
                   <label
                     className="text-xs font-medium"
-                    style={{ color: THEME.text.muted }}
+                    style={{ color: THEME.colors.text.muted }}
                   >
                     Native Language
                   </label>
@@ -563,19 +433,19 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                         nativeLanguage: e.target.value,
                       })
                     }
-                    placeholder="Filter by language..."
-                    className="w-full px-3 py-1.5 rounded-full text-xs outline-none border"
+                    placeholder="e.g., English"
+                    className="w-full px-3 py-1 rounded-full text-xs outline-none border"
                     style={{
-                      background: THEME.surfaceHover,
-                      color: THEME.text.primary,
-                      borderColor: THEME.border,
+                      background: THEME.colors.background.tertiary,
+                      color: THEME.colors.text.primary,
+                      borderColor: THEME.colors.border.primary,
                     }}
                   />
                 </div>
                 <div>
                   <label
                     className="text-xs font-medium"
-                    style={{ color: THEME.text.muted }}
+                    style={{ color: THEME.colors.text.muted }}
                   >
                     Learning Language
                   </label>
@@ -588,12 +458,12 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                         learningLanguage: e.target.value,
                       })
                     }
-                    placeholder="Filter by learning language..."
-                    className="w-full px-3 py-1.5 rounded-full text-xs outline-none border"
+                    placeholder="e.g., Spanish"
+                    className="w-full px-3 py-1 rounded-full text-xs outline-none border"
                     style={{
-                      background: THEME.surfaceHover,
-                      color: THEME.text.primary,
-                      borderColor: THEME.border,
+                      background: THEME.colors.background.tertiary,
+                      color: THEME.colors.text.primary,
+                      borderColor: THEME.colors.border.primary,
                     }}
                   />
                 </div>
@@ -603,38 +473,40 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
         )}
       </AnimatePresence>
 
+      {/* Search - HelloTalk Style */}
       <div className="relative">
         <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-          style={{ color: THEME.text.muted }}
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4"
+          style={{ color: THEME.colors.text.muted }}
         />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search rooms by name, description, or language..."
-          className="w-full px-10 py-3 rounded-xl outline-none transition-all border"
+          placeholder="Search rooms by name or language..."
+          className="w-full px-11 py-3 rounded-xl outline-none transition-all border"
           style={{
-            background: THEME.surface,
-            color: THEME.text.primary,
-            borderColor: THEME.border,
+            background: THEME.colors.background.card,
+            color: THEME.colors.text.primary,
+            borderColor: THEME.colors.border.primary,
           }}
         />
       </div>
 
+      {/* Room Cards - HelloTalk Style */}
       <div className="space-y-3">
         {filteredRooms.length === 0 ? (
           <div className="text-center py-12">
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: "rgba(167, 139, 250, 0.1)" }}
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ background: "rgba(99,102,241,0.1)" }}
             >
               <Radio
                 className="w-8 h-8"
-                style={{ color: THEME.aurora.primary }}
+                style={{ color: THEME.colors.accent.primary }}
               />
             </div>
-            <p className="text-sm" style={{ color: THEME.text.muted }}>
+            <p className="text-sm" style={{ color: THEME.colors.text.muted }}>
               {searchQuery
                 ? "No rooms match your search"
                 : "No voice rooms available"}
@@ -656,7 +528,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
   );
 };
 
-// ---- Room Card Component ----
+// ---- Room Card Component - HelloTalk Style ----
 const RoomCard: React.FC<{
   room: any;
   onJoin: () => void;
@@ -689,25 +561,35 @@ const RoomCard: React.FC<{
       whileHover={{ scale: 1.01, y: -2 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="p-4 rounded-2xl border transition-all cursor-pointer"
+      className="p-4 rounded-xl border transition-all cursor-pointer"
       style={{
-        background: isHovered ? THEME.surfaceHover : THEME.surface,
-        borderColor: isHovered ? THEME.aurora.primary : THEME.border,
-        boxShadow: isHovered ? `0 0 40px ${THEME.borderGlow}` : "none",
+        background: isHovered
+          ? THEME.colors.background.cardHover
+          : THEME.colors.background.card,
+        borderColor: isHovered
+          ? THEME.colors.accent.primary
+          : THEME.colors.border.primary,
       }}
       onClick={onView}
     >
       <div className="flex items-center gap-4">
+        {/* Room Icon */}
         <div
           className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0 relative"
           style={{
             background: `hsl(${hueFromString(room.name)}, 50%, 22%)`,
-            color: THEME.text.primary,
+            color: THEME.colors.text.primary,
           }}
         >
           {initials(room.name)}
           {isActive && (
-            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+            <span
+              className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full animate-pulse ring-2"
+              style={{
+                background: THEME.colors.status.online,
+                ringColor: THEME.colors.background.primary,
+              }}
+            />
           )}
         </div>
 
@@ -715,17 +597,18 @@ const RoomCard: React.FC<{
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className="font-semibold truncate"
-              style={{ color: THEME.text.primary }}
+              style={{ color: THEME.colors.text.primary }}
             >
               {room.name}
             </span>
+            {/* Language Tags */}
             {languages.slice(0, 2).map((lang) => (
               <span
                 key={lang}
-                className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+                className="text-[9px] px-2 py-0.5 rounded-full"
                 style={{
                   background: "rgba(167, 139, 250, 0.1)",
-                  color: THEME.aurora.secondary,
+                  color: THEME.colors.accent.tertiary,
                 }}
               >
                 {lang}
@@ -733,95 +616,57 @@ const RoomCard: React.FC<{
             ))}
             {languages.length > 2 && (
               <span
-                className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+                className="text-[9px] px-2 py-0.5 rounded-full"
                 style={{
                   background: "rgba(167, 139, 250, 0.1)",
-                  color: THEME.aurora.secondary,
+                  color: THEME.colors.accent.tertiary,
                 }}
               >
                 +{languages.length - 2}
               </span>
             )}
+            {/* Host Badge */}
             {isHost && (
               <span
-                className="text-[10px] font-mono tracking-wider uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
+                className="text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1"
                 style={{
-                  background: "rgba(245, 158, 11, 0.15)",
-                  color: "#FBBF24",
+                  background: "rgba(251, 191, 36, 0.15)",
+                  color: THEME.colors.accent.warning,
                 }}
               >
-                <Crown className="w-3 h-3" /> HOST
-              </span>
-            )}
-            {isUserInside && (
-              <span
-                className="text-[10px] font-mono tracking-wider uppercase px-2 py-0.5 rounded-full"
-                style={{
-                  background: "rgba(110, 231, 183, 0.15)",
-                  color: THEME.status.live,
-                }}
-              >
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1 animate-pulse" />
-                INSIDE
-              </span>
-            )}
-            {isActive && !isUserInside && (
-              <span
-                className="text-[10px] font-mono tracking-wider uppercase px-2 py-0.5 rounded-full"
-                style={{
-                  background: "rgba(110, 231, 183, 0.1)",
-                  color: THEME.status.live,
-                }}
-              >
-                ● LIVE
-              </span>
-            )}
-            {!isActive && (
-              <span
-                className="text-[10px] font-mono tracking-wider uppercase px-2 py-0.5 rounded-full"
-                style={{
-                  background: "rgba(251, 191, 36, 0.1)",
-                  color: "#FBBF24",
-                }}
-              >
-                ● WAITING
+                <Crown className="w-2.5 h-2.5" /> Host
               </span>
             )}
           </div>
+
+          {/* Room Stats */}
           <div
             className="flex items-center gap-3 mt-1 text-xs"
-            style={{ color: THEME.text.muted }}
+            style={{ color: THEME.colors.text.muted }}
           >
             <span className="flex items-center gap-1">
               <Users className="w-3.5 h-3.5" />
-              {participantCount}/{room.maxParticipants || 50}
+              {participantCount}
             </span>
             {hasActiveSpeakers && (
               <span className="flex items-center gap-1">
                 <span
                   className="w-1.5 h-1.5 rounded-full animate-pulse"
-                  style={{ background: THEME.status.speaking }}
+                  style={{ background: THEME.colors.accent.primary }}
                 />
                 Speaking
               </span>
             )}
-            {room.type && (
-              <span
-                className="px-2 py-0.5 rounded-full"
-                style={{ background: "rgba(255,255,255,0.05)" }}
-              >
-                {room.type}
-              </span>
-            )}
-            {room.nativeLanguage && (
+            {room.language && (
               <span className="flex items-center gap-1">
                 <Languages className="w-3 h-3" />
-                {room.nativeLanguage}
+                {room.language}
               </span>
             )}
           </div>
         </div>
 
+        {/* Join/Inside Button */}
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -836,15 +681,20 @@ const RoomCard: React.FC<{
           className="px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-1.5 shrink-0"
           style={{
             background: isUserInside
-              ? "rgba(110, 231, 183, 0.15)"
-              : `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-            color: isUserInside ? THEME.status.live : "#fff",
-            border: isUserInside ? `1px solid ${THEME.status.live}` : "none",
+              ? "rgba(52, 211, 153, 0.15)"
+              : THEME.colors.gradient.primary,
+            color: isUserInside ? THEME.colors.status.online : "#fff",
+            border: isUserInside
+              ? `1px solid ${THEME.colors.status.online}`
+              : "none",
           }}
         >
           {isUserInside ? (
             <>
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <span
+                className="w-1.5 h-1.5 rounded-full animate-pulse"
+                style={{ background: THEME.colors.status.online }}
+              />
               Inside
             </>
           ) : (
@@ -855,10 +705,12 @@ const RoomCard: React.FC<{
           )}
         </motion.button>
       </div>
+
+      {/* Description */}
       {room.description && (
         <p
           className="mt-2 text-sm truncate"
-          style={{ color: THEME.text.muted }}
+          style={{ color: THEME.colors.text.muted }}
         >
           {room.description}
         </p>
@@ -867,9 +719,1412 @@ const RoomCard: React.FC<{
   );
 };
 
-// ============================
-// ENHANCED VOICE ROOM VIEW
-// ============================
+// ============================================================
+// VOICE ROOM HEADER - HelloTalk Style
+// ============================================================
+
+const VoiceRoomHeader: React.FC<{
+  room: any;
+  isHost: boolean;
+  isLiveKitConnected: boolean;
+  isMockMode: boolean;
+  totalParticipants: number;
+  speakingCount: number;
+  onlineCount: number;
+  showChat: boolean;
+  unreadCount: number;
+  isConnected: boolean;
+  onToggleChat: () => void;
+  onToggleCommandCenter: () => void;
+  onMinimize?: (data: any) => void;
+  onShare: () => void;
+}> = ({
+  room,
+  isHost,
+  isLiveKitConnected,
+  isMockMode,
+  totalParticipants,
+  speakingCount,
+  onlineCount,
+  showChat,
+  unreadCount,
+  isConnected,
+  onToggleChat,
+  onToggleCommandCenter,
+  onMinimize,
+  onShare,
+}) => {
+  return (
+    <header
+      className="relative z-10 flex items-center justify-between px-4 py-3 border-b shrink-0"
+      style={{
+        background: `rgba(10, 10, 18, 0.92)`,
+        backdropFilter: "blur(20px)",
+        borderColor: THEME.colors.border.primary,
+      }}
+    >
+      {/* Left - Room Info */}
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+          style={{
+            background: THEME.colors.gradient.primary,
+          }}
+        >
+          <Radio className="w-5 h-5 text-white" />
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2
+              className="text-base font-bold truncate"
+              style={{ color: THEME.colors.text.primary }}
+            >
+              {room.name}
+            </h2>
+            <div
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-mono uppercase tracking-wider"
+              style={{
+                background: isLiveKitConnected
+                  ? "rgba(52, 211, 153, 0.15)"
+                  : THEME.colors.border.primary,
+                color: isLiveKitConnected
+                  ? THEME.colors.status.online
+                  : THEME.colors.text.muted,
+              }}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${isLiveKitConnected ? "animate-pulse" : ""}`}
+                style={{
+                  background: isLiveKitConnected
+                    ? THEME.colors.status.online
+                    : THEME.colors.text.muted,
+                }}
+              />
+              {isLiveKitConnected ? "Live" : isMockMode ? "Demo" : "Connecting"}
+            </div>
+            {isHost && (
+              <div
+                className="flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[8px] font-mono uppercase"
+                style={{
+                  background: "rgba(251, 191, 36, 0.15)",
+                  color: THEME.colors.accent.warning,
+                }}
+              >
+                <Crown className="w-2.5 h-2.5" /> Host
+              </div>
+            )}
+          </div>
+          <div
+            className="flex items-center gap-2 text-[10px]"
+            style={{ color: THEME.colors.text.muted }}
+          >
+            <span className="flex items-center gap-1">
+              <Users className="w-3 h-3" />
+              {totalParticipants}
+            </span>
+            <span>·</span>
+            <span>{speakingCount} speaking</span>
+            <span>·</span>
+            <span>{onlineCount} online</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right - Actions */}
+      <div className="flex items-center gap-1 shrink-0">
+        {/* Toggle Chat */}
+        <button
+          onClick={onToggleChat}
+          className="relative p-2 rounded-full hover:bg-white/5 transition-colors"
+          style={{
+            color: showChat
+              ? THEME.colors.accent.primary
+              : THEME.colors.text.muted,
+          }}
+          title="Toggle Chat"
+        >
+          <MessageCircle className="w-4 h-4" />
+          {unreadCount > 0 && (
+            <span
+              className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] text-[8px] rounded-full flex items-center justify-center px-1 font-bold"
+              style={{ background: THEME.colors.accent.error, color: "#fff" }}
+            >
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {/* Command Center - Settings Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleCommandCenter();
+          }}
+          className="p-2 rounded-full hover:bg-white/5 transition-colors relative"
+          style={{ color: THEME.colors.text.muted }}
+          title="Room controls"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+
+        {/* Minimize */}
+        {onMinimize && (
+          <button
+            onClick={() =>
+              onMinimize({
+                id: room.id,
+                name: room.name,
+                participants: [],
+                type: room.type,
+                participantCount: totalParticipants,
+              })
+            }
+            className="p-2 rounded-full hover:bg-white/5 transition-colors"
+            style={{ color: THEME.colors.text.muted }}
+            title="Minimize"
+          >
+            <Minimize2 className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Share */}
+        <button
+          onClick={onShare}
+          className="p-2 rounded-full hover:bg-white/5 transition-colors"
+          style={{ color: THEME.colors.text.muted }}
+          title="Share Room"
+        >
+          <Share2 className="w-4 h-4" />
+        </button>
+
+        {/* Connection Health */}
+        <ConnectionHealth
+          socketConnected={isConnected}
+          liveKitConnected={isLiveKitConnected}
+          isMockMode={isMockMode}
+        />
+      </div>
+    </header>
+  );
+};
+
+// ---- Connection Health ----
+const ConnectionHealth: React.FC<{
+  socketConnected: boolean;
+  liveKitConnected: boolean;
+  isMockMode?: boolean;
+}> = ({ socketConnected, liveKitConnected, isMockMode }) => {
+  const healthy = socketConnected && liveKitConnected;
+  return (
+    <div
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px]"
+      style={{
+        background: healthy ? "rgba(52,211,153,0.08)" : "rgba(251,191,36,0.08)",
+        borderColor: healthy ? "rgba(52,211,153,0.2)" : "rgba(251,191,36,0.2)",
+        color: healthy
+          ? THEME.colors.status.online
+          : THEME.colors.accent.warning,
+      }}
+    >
+      {healthy ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+      <span>
+        {isMockMode ? "Demo" : healthy ? "Connected" : "Reconnecting"}
+      </span>
+    </div>
+  );
+};
+
+// ---- Audio Level Meter ----
+const AudioLevelMeter: React.FC<{ level: number; muted: boolean }> = ({
+  level,
+  muted,
+}) => {
+  const safe = Math.max(0, Math.min(1, level || 0));
+  return (
+    <div className="flex items-center gap-1">
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <span
+          key={i}
+          className="w-1 rounded-full transition-all duration-100"
+          style={{
+            height: `${5 + i * 2}px`,
+            background:
+              !muted && safe > i / 6
+                ? THEME.colors.accent.primary
+                : THEME.colors.border.primary,
+            opacity: !muted && safe > i / 6 ? 1 : 0.4,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// ---- Participant Grid - HelloTalk Style ----
+const ParticipantGrid: React.FC<any> = ({
+  participants,
+  isHost,
+  isModerator,
+  currentUserId,
+  hostId,
+  searchQuery,
+  onSearchChange,
+  filter,
+  onFilterChange,
+  showSearch,
+  onToggleSearch,
+  favoriteParticipants,
+  onToggleFavorite,
+  onMuteUser,
+  onKickUser,
+  onPromoteHost,
+  onSendMessage,
+  onViewProfile,
+  showChat,
+  className,
+}) => {
+  const [langFilter, setLangFilter] = useState<string>("all");
+
+  const roomLanguages = useMemo(() => {
+    const set = new Set<string>();
+    participants.forEach((p: any) => {
+      if (p.nativeLanguage) set.add(String(p.nativeLanguage));
+      if (p.learningLanguage) set.add(String(p.learningLanguage));
+    });
+    return Array.from(set).sort();
+  }, [participants]);
+
+  // Filter participants
+  const filteredParticipants = participants
+    .filter((p: any) => {
+      const query = searchQuery.trim().toLowerCase();
+      if (!query) return true;
+      return [p.name, p.nativeLanguage, p.learningLanguage, p.country, p.level]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    })
+    .filter((p: any) => {
+      if (filter === "online") return p.isOnline === true;
+      if (filter === "speaking") return p.isSpeaking === true;
+      if (filter === "raised") return p.raisedHand === true;
+      return true;
+    })
+    .filter((p: any) => {
+      if (langFilter === "all") return true;
+      return (
+        p.nativeLanguage === langFilter || p.learningLanguage === langFilter
+      );
+    })
+    // REMOVED: Sorting by speaking status - this causes position changes
+    // Now sorting only by name for consistent positioning
+    .sort((a: any, b: any) => {
+      // Hosts first (optional - keeps host at top)
+      if (a.role === "HOST" && b.role !== "HOST") return -1;
+      if (b.role === "HOST" && a.role !== "HOST") return 1;
+
+      // Then sort by name alphabetically for consistent positions
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+
+  const onlineParticipants = participants.filter(
+    (p: any) => p.isOnline === true,
+  );
+
+  return (
+    <section
+      className={cn(
+        "flex-1 min-w-0 px-4 py-4 transition-all duration-300 overflow-y-auto",
+        className,
+      )}
+      style={{
+        background: `radial-gradient(ellipse at 50% 20%, rgba(99,102,241,0.04), transparent 70%)`,
+      }}
+    >
+      {/* REMOVED: ActiveSpeakerStrip - No longer showing speaking users at top */}
+
+      {/* Participant Toolbar - HelloTalk Style */}
+      <div
+        className="mb-4 rounded-xl border p-3"
+        style={{
+          background: THEME.colors.background.card,
+          borderColor: THEME.colors.border.primary,
+        }}
+      >
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 mr-auto">
+            <Users
+              className="w-4 h-4"
+              style={{ color: THEME.colors.accent.tertiary }}
+            />
+            <span
+              className="text-sm font-medium"
+              style={{ color: THEME.colors.text.primary }}
+            >
+              {participants.length} in room
+            </span>
+            <span
+              className="text-[10px] px-2 py-0.5 rounded-full"
+              style={{
+                background: "rgba(52, 211, 153, 0.1)",
+                color: THEME.colors.status.online,
+              }}
+            >
+              {onlineParticipants.length} online
+            </span>
+          </div>
+
+          {/* Filter Buttons */}
+          <div className="flex items-center gap-1">
+            {(["all", "online", "speaking", "raised"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => onFilterChange(f)}
+                className="px-2.5 py-1 rounded-full text-[9px] capitalize transition-all"
+                style={{
+                  background:
+                    filter === f ? "rgba(99,102,241,0.15)" : "transparent",
+                  color:
+                    filter === f
+                      ? THEME.colors.text.primary
+                      : THEME.colors.text.muted,
+                }}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {/* Search Toggle */}
+          <button
+            onClick={onToggleSearch}
+            className="p-1.5 rounded-lg hover:bg-white/5"
+            style={{
+              color: showSearch
+                ? THEME.colors.accent.primary
+                : THEME.colors.text.muted,
+            }}
+            title="Search participants"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Search Input */}
+        <AnimatePresence>
+          {showSearch && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="relative mt-2">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+                  style={{ color: THEME.colors.text.muted }}
+                />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  placeholder="Search by name, language, country..."
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none"
+                  style={{
+                    background: THEME.colors.background.primary,
+                    borderColor: THEME.colors.border.primary,
+                    color: THEME.colors.text.primary,
+                  }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Language filters from people currently in the room */}
+      {roomLanguages.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+          <span
+            className="text-[10px] font-medium"
+            style={{ color: THEME.colors.text.muted }}
+          >
+            Languages
+          </span>
+          <button
+            type="button"
+            onClick={() => setLangFilter("all")}
+            className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
+            style={{
+              background:
+                langFilter === "all"
+                  ? "rgba(129,140,248,0.18)"
+                  : THEME.colors.background.tertiary,
+              color:
+                langFilter === "all"
+                  ? THEME.colors.accent.primary
+                  : THEME.colors.text.secondary,
+              border: `1px solid ${
+                langFilter === "all"
+                  ? "rgba(129,140,248,0.35)"
+                  : THEME.colors.border.primary
+              }`,
+            }}
+          >
+            All
+          </button>
+          {roomLanguages.slice(0, 8).map((lang: string) => (
+            <button
+              type="button"
+              key={lang}
+              onClick={() =>
+                setLangFilter((prev) => (prev === lang ? "all" : lang))
+              }
+              className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
+              style={{
+                background:
+                  langFilter === lang
+                    ? "rgba(129,140,248,0.18)"
+                    : THEME.colors.background.tertiary,
+                color:
+                  langFilter === lang
+                    ? THEME.colors.accent.primary
+                    : THEME.colors.text.secondary,
+                border: `1px solid ${
+                  langFilter === lang
+                    ? "rgba(129,140,248,0.35)"
+                    : THEME.colors.border.primary
+                }`,
+              }}
+            >
+              {lang}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Participant Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-w-5xl mx-auto">
+        {filteredParticipants.length === 0 ? (
+          <div className="col-span-full text-center py-12">
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ background: "rgba(99,102,241,0.1)" }}
+            >
+              <UserRoundSearch
+                className="w-8 h-8"
+                style={{ color: THEME.colors.accent.primary }}
+              />
+            </div>
+            <p className="text-sm" style={{ color: THEME.colors.text.muted }}>
+              {searchQuery
+                ? "No participants match your search"
+                : "No one has joined yet"}
+            </p>
+          </div>
+        ) : (
+          filteredParticipants.map((p: any) => {
+            const isParticipantHost = hostId === p.id || p.role === "HOST";
+            const isCurrentUser = p.id === currentUserId;
+
+            return (
+              <ParticipantCard
+                key={p.id}
+                participant={p}
+                isHost={isParticipantHost}
+                isCurrentUser={isCurrentUser}
+                isModerator={isModerator}
+                isFavorite={favoriteParticipants.has(p.id)}
+                onMute={() => onMuteUser(p.id)}
+                onKick={() => onKickUser(p.id)}
+                onPromote={() => onPromoteHost(p.id)}
+                onFollow={() => onToggleFavorite(p.id)}
+                onSendMessage={() => onSendMessage(p.id)}
+                onViewProfile={() => onViewProfile(p.id)}
+                size="sm"
+              />
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
+};
+
+// ---- Participant Card - HelloTalk Style ----
+const ParticipantCard: React.FC<{
+  participant: any;
+  isHost: boolean;
+  isCurrentUser?: boolean;
+  isModerator?: boolean;
+  isFavorite?: boolean;
+  onMute?: () => void;
+  onKick?: () => void;
+  onPromote?: () => void;
+  onFollow?: () => void;
+  onSendMessage?: () => void;
+  onViewProfile?: () => void;
+  size?: "sm" | "md" | "lg";
+}> = ({
+  participant,
+  isHost,
+  isCurrentUser = false,
+  isModerator = false,
+  isFavorite = false,
+  onMute,
+  onKick,
+  onPromote,
+  onFollow,
+  onSendMessage,
+  onViewProfile,
+  size = "md",
+}) => {
+  const [showActions, setShowActions] = useState(false);
+
+  const hue = hueFromString(participant.name);
+  const sizeMap = {
+    sm: { avatar: 56, text: "text-xs", nameSize: "text-xs" },
+    md: { avatar: 72, text: "text-sm", nameSize: "text-sm" },
+    lg: { avatar: 88, text: "text-base", nameSize: "text-base" },
+  };
+  const s = sizeMap[size];
+
+  const countryFlag = getCountryFlag(participant.country);
+  const isOnline = participant.isOnline !== false;
+  const isMuted = participant.isMuted;
+  const isSpeaking = Boolean(participant.isSpeaking) && !isMuted;
+  const raisedHand = participant.raisedHand;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="relative flex flex-col items-center group"
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
+    >
+      <div className="cursor-pointer" onClick={onViewProfile}>
+        <div className="relative">
+          {/* ========================================================
+               LIVE SPEAKER EFFECT
+               This stays on the participant's avatar so EVERYONE in the
+               room can immediately see who is speaking.
+             ======================================================== */}
+          {isSpeaking && (
+            <>
+              {/* Wide outer pulse */}
+              <motion.div
+                className="absolute inset-[-22px] rounded-full pointer-events-none"
+                initial={{ scale: 0.82, opacity: 0 }}
+                animate={{
+                  scale: [0.82, 1.16, 1.34],
+                  opacity: [0, 0.28, 0],
+                }}
+                transition={{
+                  duration: 1.35,
+                  repeat: Infinity,
+                  ease: "easeOut",
+                }}
+                style={{
+                  border: `2px solid ${THEME.colors.accent.primary}`,
+                  boxShadow: `0 0 28px ${THEME.colors.accent.primary}55`,
+                }}
+              />
+
+              {/* Main pulsing ring */}
+              <motion.div
+                className="absolute inset-[-9px] rounded-full pointer-events-none"
+                animate={{
+                  scale: [1, 1.12, 1],
+                  opacity: [0.55, 1, 0.55],
+                }}
+                transition={{
+                  duration: 0.72,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                style={{
+                  border: `3px solid ${THEME.colors.accent.primary}`,
+                  boxShadow: `0 0 18px ${THEME.colors.accent.primary}AA, 0 0 42px ${THEME.colors.accent.primary}44`,
+                }}
+              />
+
+              {/* Secondary wave */}
+              <motion.div
+                className="absolute inset-[-15px] rounded-full pointer-events-none"
+                animate={{
+                  scale: [1, 1.08, 1],
+                  opacity: [0.18, 0.55, 0.18],
+                }}
+                transition={{
+                  duration: 1.05,
+                  repeat: Infinity,
+                  delay: 0.12,
+                  ease: "easeInOut",
+                }}
+                style={{
+                  border: `2px solid ${THEME.colors.accent.secondary}`,
+                }}
+              />
+
+              {/* Audio-reactive-looking glow */}
+              <motion.div
+                className="absolute inset-[-4px] rounded-full pointer-events-none"
+                animate={{
+                  boxShadow: [
+                    `0 0 8px ${THEME.colors.accent.primary}66`,
+                    `0 0 34px ${THEME.colors.accent.primary}CC`,
+                    `0 0 12px ${THEME.colors.accent.primary}77`,
+                  ],
+                }}
+                transition={{
+                  duration: 0.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+
+              {/* Small speaking particles */}
+              {[0, 1, 2, 3].map((i) => (
+                <motion.span
+                  key={`speaker-particle-${i}`}
+                  className="absolute left-1/2 top-1/2 w-1.5 h-1.5 rounded-full pointer-events-none"
+                  initial={{ x: "-50%", y: "-50%", opacity: 0, scale: 0.5 }}
+                  animate={{
+                    x: ["-50%", `${-50 + Math.cos((i * Math.PI) / 2) * 105}%`],
+                    y: ["-50%", `${-50 + Math.sin((i * Math.PI) / 2) * 105}%`],
+                    opacity: [0, 0.9, 0],
+                    scale: [0.5, 1, 0.2],
+                  }}
+                  transition={{
+                    duration: 1.05,
+                    repeat: Infinity,
+                    delay: i * 0.18,
+                    ease: "easeOut",
+                  }}
+                  style={{
+                    background: THEME.colors.accent.primary,
+                    boxShadow: `0 0 8px ${THEME.colors.accent.primary}`,
+                  }}
+                />
+              ))}
+            </>
+          )}
+
+          {/* Avatar */}
+          <motion.div
+            className="relative rounded-full flex items-center justify-center font-semibold border-2 shadow-lg transition-all"
+            animate={
+              isSpeaking
+                ? {
+                    scale: [1, 1.045, 1],
+                    y: [0, -1.5, 0],
+                  }
+                : { scale: 1, y: 0 }
+            }
+            transition={
+              isSpeaking
+                ? {
+                    duration: 0.42,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }
+                : { duration: 0.2 }
+            }
+            style={{
+              width: s.avatar,
+              height: s.avatar,
+              background: participant.avatarUrl
+                ? `url(${participant.avatarUrl}) center/cover`
+                : `hsl(${hue}, 50%, 22%)`,
+              borderColor: isOnline
+                ? isSpeaking
+                  ? THEME.colors.accent.primary
+                  : THEME.colors.status.online
+                : THEME.colors.border.primary,
+              color: participant.avatarUrl
+                ? "transparent"
+                : THEME.colors.text.primary,
+              fontSize: s.avatar / 3,
+              boxShadow:
+                isOnline && isSpeaking
+                  ? `0 0 30px ${THEME.colors.accent.primary}44`
+                  : "none",
+            }}
+          >
+            {!participant.avatarUrl && initials(participant.name)}
+          </motion.div>
+
+          {/* Online Status Dot */}
+          {isOnline && !isMuted && (
+            <div
+              className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
+              style={{
+                background: isSpeaking
+                  ? THEME.colors.accent.primary
+                  : "#22C55E",
+                borderColor: THEME.colors.background.primary,
+              }}
+            />
+          )}
+
+          {/* Muted Indicator */}
+          {isMuted && isOnline && (
+            <div
+              className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 flex items-center justify-center"
+              style={{
+                background: "#4B5563",
+                borderColor: THEME.colors.background.primary,
+              }}
+            >
+              <MicOff className="w-1.5 h-1.5" style={{ color: "#9CA3AF" }} />
+            </div>
+          )}
+
+          {/* Host Crown */}
+          {isHost && (
+            <motion.div
+              className="absolute -top-1 -right-1"
+              animate={{ rotate: [0, -5, 5, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <Crown className="w-3.5 h-3.5 text-yellow-400 drop-shadow-lg" />
+            </motion.div>
+          )}
+
+          {/* Raised Hand */}
+          {raisedHand && (
+            <motion.div
+              className="absolute -top-1 -left-1"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 0.8, repeat: Infinity }}
+            >
+              <Hand className="w-3.5 h-3.5 text-yellow-400 drop-shadow-lg" />
+            </motion.div>
+          )}
+
+          {/* Country Flag */}
+          <div className="absolute -bottom-0.5 -left-0.5 text-xs leading-none">
+            {countryFlag}
+          </div>
+
+          {/* Favorite Star */}
+          {isFavorite && (
+            <div className="absolute -top-1 -left-1">
+              <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400 drop-shadow-lg" />
+            </div>
+          )}
+
+          {/* Premium/Verified Badges */}
+          {participant.isPremium && (
+            <div className="absolute -bottom-1 right-6 text-[8px]">⭐</div>
+          )}
+          {participant.isVerified && (
+            <div className="absolute -bottom-1 right-0 text-[8px]">✅</div>
+          )}
+
+          {/* You Badge */}
+          {isCurrentUser && !isSpeaking && (
+            <div
+              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[7px] font-bold whitespace-nowrap"
+              style={{ background: THEME.colors.accent.primary, color: "#fff" }}
+            >
+              You
+            </div>
+          )}
+
+          {/* Speaking Badge */}
+          {isSpeaking && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full text-[7px] font-bold tracking-wider whitespace-nowrap border shadow-lg"
+              style={{
+                background: "rgba(99,102,241,0.95)",
+                borderColor: "rgba(196,181,253,0.5)",
+                color: "#fff",
+                boxShadow: `0 4px 14px ${THEME.colors.accent.primary}44`,
+              }}
+            >
+              <span className="inline-flex items-center gap-1">
+                <span className="flex items-end gap-[2px] h-2">
+                  {[0, 1, 2, 3].map((i) => (
+                    <motion.span
+                      key={i}
+                      className="w-[2px] rounded-full bg-white"
+                      animate={{ height: ["3px", "7px", "4px", "6px", "3px"] }}
+                      transition={{
+                        duration: 0.5,
+                        delay: i * 0.07,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    />
+                  ))}
+                </span>
+                SPEAKING
+              </span>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Name & Language Tags - HelloTalk Style */}
+        <div className="mt-1.5 text-center">
+          <span
+            className={`${s.nameSize} font-medium truncate max-w-[70px] block`}
+            style={{ color: THEME.colors.text.primary }}
+          >
+            {participant.name}
+          </span>
+
+          <div className="flex flex-col items-center gap-0.5 mt-0.5">
+            {participant.nativeLanguage && (
+              <span
+                className="text-[8px] px-1.5 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(167, 139, 250, 0.12)",
+                  color: THEME.colors.accent.tertiary,
+                }}
+              >
+                {participant.nativeLanguage}
+              </span>
+            )}
+            {participant.learningLanguage && (
+              <span
+                className="text-[8px] px-1.5 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(52, 211, 153, 0.12)",
+                  color: THEME.colors.accent.success,
+                }}
+              >
+                📚 {participant.learningLanguage}
+              </span>
+            )}
+          </div>
+
+          <span
+            className="text-[7px]"
+            style={{
+              color: isMuted
+                ? THEME.colors.accent.error
+                : isOnline
+                  ? isSpeaking
+                    ? THEME.colors.accent.primary
+                    : THEME.colors.text.muted
+                  : THEME.colors.text.muted,
+            }}
+          >
+            {isMuted
+              ? "🔇 Muted"
+              : isOnline
+                ? isSpeaking
+                  ? "🔊 Speaking"
+                  : "🎧 Listening"
+                : "💤 Away"}
+          </span>
+        </div>
+      </div>
+
+      {/* Action Buttons - HelloTalk Style */}
+      <AnimatePresence>
+        {showActions && !isCurrentUser && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: -8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: -8 }}
+            className="absolute -top-10 left-1/2 -translate-x-1/2 flex gap-0.5 p-1 rounded-xl border shadow-lg"
+            style={{
+              background: THEME.colors.background.card,
+              borderColor: THEME.colors.border.primary,
+            }}
+          >
+            <button
+              onClick={onFollow}
+              className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
+              title="Follow"
+              style={{
+                color: isFavorite
+                  ? THEME.colors.accent.primary
+                  : THEME.colors.text.muted,
+              }}
+            >
+              <UserPlus className="w-3 h-3" />
+            </button>
+            <button
+              onClick={onSendMessage}
+              className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
+              title="Send Message"
+              style={{ color: THEME.colors.text.muted }}
+            >
+              <MessageSquare className="w-3 h-3" />
+            </button>
+            {isModerator && (
+              <>
+                <button
+                  onClick={onMute}
+                  className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
+                  title="Toggle Mute"
+                  style={{ color: THEME.colors.text.muted }}
+                >
+                  <VolumeX className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={onKick}
+                  className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
+                  title="Kick"
+                  style={{ color: THEME.colors.text.muted }}
+                >
+                  <UserX className="w-3 h-3" />
+                </button>
+                {!isHost && (
+                  <button
+                    onClick={onPromote}
+                    className="p-1.5 rounded-lg hover:bg-yellow-500/20 transition-all"
+                    title="Make Host"
+                    style={{ color: THEME.colors.text.muted }}
+                  >
+                    <Crown className="w-3 h-3" />
+                  </button>
+                )}
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+// ---- Command Center ----
+const CommandCenter: React.FC<{
+  isHost: boolean;
+  isModerator: boolean;
+  isMuted: boolean;
+  isDeafened: boolean;
+  soundEnabled: boolean;
+  showChat: boolean;
+  showParticipants: boolean;
+  showLiveStats: boolean;
+  isRecording: boolean;
+  onMute: () => void;
+  onDeafen: () => void;
+  onToggleSound: () => void;
+  onToggleChat: () => void;
+  onToggleStats: () => void;
+  onRecord: () => void;
+  onClose: () => void;
+}> = ({
+  isHost,
+  isModerator,
+  isMuted,
+  isDeafened,
+  soundEnabled,
+  showChat,
+  showParticipants,
+  showLiveStats,
+  isRecording,
+  onMute,
+  onDeafen,
+  onToggleSound,
+  onToggleChat,
+  onToggleStats,
+  onRecord,
+  onClose,
+}) => {
+  const actions = [
+    {
+      label: isMuted ? "Unmute" : "Mute",
+      icon: isMuted ? MicOff : Mic,
+      active: isMuted,
+      onClick: onMute,
+    },
+    {
+      label: isDeafened ? "Undeafen" : "Deafen",
+      icon: isDeafened ? Volume2 : VolumeOff,
+      active: isDeafened,
+      onClick: onDeafen,
+    },
+    {
+      label: soundEnabled ? "Sounds on" : "Sounds off",
+      icon: soundEnabled ? Bell : BellOff,
+      active: !soundEnabled,
+      onClick: onToggleSound,
+    },
+    {
+      label: showChat ? "Hide chat" : "Show chat",
+      icon: MessageCircle,
+      active: showChat,
+      onClick: onToggleChat,
+    },
+    {
+      label: showLiveStats ? "Hide stats" : "Show stats",
+      icon: TrendingUp,
+      active: showLiveStats,
+      onClick: onToggleStats,
+    },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      className="fixed top-16 right-4 w-[min(92vw,360px)] rounded-2xl border p-4 shadow-2xl z-[999]"
+      style={{
+        background: "rgba(18, 18, 32, 0.96)",
+        borderColor: THEME.colors.border.primary,
+        backdropFilter: "blur(20px)",
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p
+            className="text-sm font-semibold"
+            style={{ color: THEME.colors.text.primary }}
+          >
+            Room controls
+          </p>
+          <p className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+            Quick actions & settings
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-full hover:bg-white/5 transition-colors"
+          style={{ color: THEME.colors.text.muted }}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {actions.map((action) => {
+          const Icon = action.icon;
+          const isActive = action.active;
+          return (
+            <button
+              key={action.label}
+              onClick={() => {
+                action.onClick();
+              }}
+              className="rounded-lg border px-3 py-3 text-center transition-all hover:scale-[1.02] active:scale-95"
+              style={{
+                background: isActive
+                  ? "rgba(99,102,241,0.15)"
+                  : "rgba(255,255,255,0.03)",
+                borderColor: isActive
+                  ? "rgba(99,102,241,0.3)"
+                  : THEME.colors.border.primary,
+              }}
+            >
+              <Icon
+                className="w-5 h-5 mx-auto mb-1.5"
+                style={{
+                  color: isActive
+                    ? THEME.colors.accent.primary
+                    : THEME.colors.text.muted,
+                }}
+              />
+              <span
+                className="block text-[9px] leading-tight"
+                style={{
+                  color: isActive
+                    ? THEME.colors.text.primary
+                    : THEME.colors.text.muted,
+                }}
+              >
+                {action.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {(isHost || isModerator) && (
+        <div
+          className="mt-3 pt-3 border-t"
+          style={{ borderColor: THEME.colors.border.primary }}
+        >
+          <p
+            className="text-[9px] uppercase tracking-wider font-semibold mb-2"
+            style={{ color: THEME.colors.text.muted }}
+          >
+            Moderation
+          </p>
+          <div className="flex gap-2">
+            <span
+              className="flex-1 px-3 py-1.5 rounded-lg text-[10px] flex items-center gap-1.5"
+              style={{
+                background: "rgba(251, 191, 36, 0.08)",
+                color: THEME.colors.accent.warning,
+                border: `1px solid rgba(251, 191, 36, 0.15)`,
+              }}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              {isHost ? "Host" : "Moderator"}
+            </span>
+            {isHost && isRecording && (
+              <span
+                className="px-3 py-1.5 rounded-lg text-[10px] flex items-center gap-1.5"
+                style={{
+                  background: "rgba(239, 68, 68, 0.08)",
+                  color: THEME.colors.accent.error,
+                  border: `1px solid rgba(239, 68, 68, 0.15)`,
+                }}
+              >
+                <Radio className="w-4 h-4" />
+                Recording
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={onRecord}
+        disabled={!isHost}
+        className="w-full mt-3 py-2 rounded-lg text-[10px] font-semibold border transition-all disabled:opacity-40 hover:scale-[1.02] active:scale-95"
+        style={{
+          borderColor: isRecording
+            ? "rgba(239,68,68,0.35)"
+            : THEME.colors.border.primary,
+          color: isRecording
+            ? THEME.colors.accent.error
+            : THEME.colors.text.secondary,
+          background: isRecording ? "rgba(239,68,68,0.05)" : "transparent",
+        }}
+      >
+        {isRecording ? (
+          <span className="flex items-center justify-center gap-2">
+            <div
+              className="w-2 h-2 rounded-full animate-pulse"
+              style={{ background: THEME.colors.accent.error }}
+            />
+            Recording...
+          </span>
+        ) : (
+          <span className="flex items-center justify-center gap-2">
+            <Radio className="w-4 h-4" />
+            Start recording
+          </span>
+        )}
+      </button>
+    </motion.div>
+  );
+};
+
+// ---- Room Details Panel ----
+const RoomDetailsPanel: React.FC<{
+  room: any;
+  totalParticipants: number;
+  speakingCount: number;
+  onlineCount: number;
+  messages: number;
+  duration: number;
+  premiumCount: number;
+  verifiedCount: number;
+  languages: string[];
+  onClose: () => void;
+  onCopyLink: () => void;
+}> = ({
+  room,
+  totalParticipants,
+  speakingCount,
+  onlineCount,
+  messages,
+  duration,
+  premiumCount,
+  verifiedCount,
+  languages,
+  onClose,
+  onCopyLink,
+}) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      className="fixed right-4 bottom-20 z-30 w-72 rounded-xl border p-4 shadow-2xl"
+      style={{
+        background: THEME.colors.background.card,
+        borderColor: THEME.colors.border.primary,
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p
+            className="text-xs font-semibold"
+            style={{ color: THEME.colors.text.primary }}
+          >
+            Room details
+          </p>
+          <p className="text-[9px]" style={{ color: THEME.colors.text.muted }}>
+            Live session stats
+          </p>
+        </div>
+        <button onClick={onClose} style={{ color: THEME.colors.text.muted }}>
+          <PanelRightClose className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <SectionPill
+          icon={<Users className="w-3 h-3" />}
+          label="People"
+          value={totalParticipants}
+        />
+        <SectionPill
+          icon={<Mic className="w-3 h-3" />}
+          label="Speaking"
+          value={speakingCount}
+        />
+        <SectionPill
+          icon={<Clock className="w-3 h-3" />}
+          label="Minutes"
+          value={Math.floor(duration / 60)}
+        />
+        <SectionPill
+          icon={<MessageCircle className="w-3 h-3" />}
+          label="Messages"
+          value={messages}
+        />
+      </div>
+      <div className="space-y-1.5 text-[10px]">
+        <div className="flex justify-between">
+          <span style={{ color: THEME.colors.text.muted }}>Languages</span>
+          <span style={{ color: THEME.colors.text.secondary }}>
+            {languages.length ? languages.join(", ") : "None"}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: THEME.colors.text.muted }}>Premium</span>
+          <span style={{ color: THEME.colors.text.secondary }}>
+            {premiumCount}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: THEME.colors.text.muted }}>Verified</span>
+          <span style={{ color: THEME.colors.text.secondary }}>
+            {verifiedCount}
+          </span>
+        </div>
+        <button
+          onClick={onCopyLink}
+          className="w-full mt-2 py-2 rounded-lg border text-[10px] font-medium hover:bg-white/5"
+          style={{
+            borderColor: THEME.colors.border.primary,
+            color: THEME.colors.text.secondary,
+          }}
+        >
+          <Copy className="inline w-3 h-3 mr-1.5" /> Copy link
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
+// ---- Section Pill ----
+const SectionPill: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value?: string | number;
+}> = ({ icon, label, value }) => (
+  <div
+    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px]"
+    style={{
+      borderColor: THEME.colors.border.primary,
+      background: "rgba(255,255,255,0.02)",
+      color: THEME.colors.text.muted,
+    }}
+  >
+    {icon}
+    <span>{label}</span>
+    {value !== undefined && (
+      <strong style={{ color: THEME.colors.text.primary }}>{value}</strong>
+    )}
+  </div>
+);
+
+// ---- Shortcut Panel ----
+const ShortcutPanel: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
+  isOpen,
+  onClose,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 8, scale: 0.98 }}
+      className="fixed inset-0 z-[80] flex items-center justify-center px-4 bg-black/60 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-xl border p-5 shadow-2xl"
+        style={{
+          background: THEME.colors.background.card,
+          borderColor: THEME.colors.border.primary,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Keyboard
+              className="w-4 h-4"
+              style={{ color: THEME.colors.accent.tertiary }}
+            />
+            <h3
+              className="font-semibold text-sm"
+              style={{ color: THEME.colors.text.primary }}
+            >
+              Keyboard shortcuts
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-full hover:bg-white/5"
+            style={{ color: THEME.colors.text.muted }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="space-y-2">
+          {[
+            ["Ctrl/Cmd + Shift + M", "Mute / unmute"],
+            ["Ctrl/Cmd + Shift + H", "Raise hand"],
+            ["Enter", "Send message"],
+            ["Shift + Enter", "New line"],
+            ["Esc", "Close chat"],
+          ].map(([key, action]) => (
+            <div
+              key={key}
+              className="flex items-center justify-between gap-4 rounded-lg px-3 py-2"
+              style={{ background: "rgba(255,255,255,0.02)" }}
+            >
+              <span
+                className="text-xs"
+                style={{ color: THEME.colors.text.secondary }}
+              >
+                {action}
+              </span>
+              <kbd
+                className="text-[9px] px-2 py-1 rounded-lg border"
+                style={{
+                  borderColor: THEME.colors.border.primary,
+                  color: THEME.colors.text.primary,
+                  background: THEME.colors.background.tertiary,
+                }}
+              >
+                {key}
+              </kbd>
+            </div>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 // ---- Leave Confirmation Modal ----
 const LeaveConfirmationModal: React.FC<{
@@ -891,33 +2146,40 @@ const LeaveConfirmationModal: React.FC<{
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="rounded-3xl w-full max-w-md p-6 border"
-        style={{ background: THEME.surface, borderColor: THEME.border }}
+        className="rounded-xl w-full max-w-md p-6 border"
+        style={{
+          background: THEME.colors.background.card,
+          borderColor: THEME.colors.border.primary,
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-center">
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
             style={{ background: "rgba(239, 68, 68, 0.15)" }}
           >
-            <PhoneOff className="w-8 h-8" style={{ color: "#EF4444" }} />
+            <PhoneOff
+              className="w-8 h-8"
+              style={{ color: THEME.colors.accent.error }}
+            />
           </div>
           <h3
-            className="font-serif text-xl mb-2"
-            style={{ color: THEME.text.primary }}
+            className="text-xl font-bold mb-2"
+            style={{ color: THEME.colors.text.primary }}
           >
             Leave Room?
           </h3>
-          <p className="text-sm mb-6" style={{ color: THEME.text.muted }}>
-            Are you sure you want to leave this room? You can always join back
-            later.
+          <p
+            className="text-sm mb-6"
+            style={{ color: THEME.colors.text.muted }}
+          >
+            You can always come back to this room later.
           </p>
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-white/5"
-              style={{ color: THEME.text.muted }}
+              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-white/5"
+              style={{ color: THEME.colors.text.muted }}
             >
               Stay
             </button>
@@ -926,10 +2188,10 @@ const LeaveConfirmationModal: React.FC<{
                 onConfirm();
                 onClose();
               }}
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors hover:opacity-80"
-              style={{ background: "#EF4444", color: "#fff" }}
+              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold hover:opacity-80"
+              style={{ background: THEME.colors.accent.error, color: "#fff" }}
             >
-              Leave Room
+              Leave
             </button>
           </div>
         </div>
@@ -938,1540 +2200,10 @@ const LeaveConfirmationModal: React.FC<{
   );
 };
 
-// ---- Sub-components ----
+// ============================================================
+// MAIN VOICE ROOM VIEW - HelloTalk Style
+// ============================================================
 
-// 1. ParticleBackground - ✅ FIXED: No token reference
-const ParticleBackground: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
-
-    const particles: {
-      x: number;
-      y: number;
-      radius: number;
-      speed: number;
-      angle: number;
-      opacity: number;
-    }[] = [];
-    const count = 80;
-
-    for (let i = 0; i < count; i++) {
-      particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        radius: Math.random() * 2 + 1,
-        speed: Math.random() * 0.5 + 0.1,
-        angle: Math.random() * Math.PI * 2,
-        opacity: Math.random() * 0.5 + 0.1,
-      });
-    }
-
-    const animate = () => {
-      ctx.clearRect(0, 0, width, height);
-
-      particles.forEach((p) => {
-        p.x += Math.cos(p.angle) * p.speed;
-        p.y += Math.sin(p.angle) * p.speed;
-        p.angle += 0.01;
-
-        if (p.x < 0) p.x = width;
-        if (p.x > width) p.x = 0;
-        if (p.y < 0) p.y = height;
-        if (p.y > height) p.y = 0;
-
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(167, 139, 250, ${p.opacity})`;
-        ctx.fill();
-      });
-
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance < 150) {
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(167, 139, 250, ${0.05 * (1 - distance / 150)})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-          }
-        }
-      }
-
-      requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    const handleResize = () => {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 pointer-events-none"
-      style={{ zIndex: 0 }}
-    />
-  );
-};
-
-// 2. EnergyOrbs
-const EnergyOrbs: React.FC<{ count?: number }> = ({ count = 3 }) => {
-  const orbs = useMemo(() => {
-    return Array.from({ length: count }, (_, i) => ({
-      id: i,
-      x: 10 + Math.random() * 80,
-      y: 10 + Math.random() * 80,
-      size: 100 + Math.random() * 200,
-      duration: 15 + Math.random() * 20,
-      delay: Math.random() * 5,
-      opacity: 0.02 + Math.random() * 0.03,
-    }));
-  }, [count]);
-
-  return (
-    <div
-      className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 0 }}
-    >
-      {orbs.map((orb) => (
-        <motion.div
-          key={orb.id}
-          className="absolute rounded-full blur-3xl"
-          style={{
-            width: orb.size,
-            height: orb.size,
-            left: `${orb.x}%`,
-            top: `${orb.y}%`,
-            background: `radial-gradient(circle, ${THEME.aurora.primary}, transparent)`,
-            opacity: orb.opacity,
-          }}
-          animate={{
-            x: [0, 30, -20, 10, 0],
-            y: [0, -20, 30, -10, 0],
-            scale: [1, 1.1, 0.9, 1.05, 1],
-          }}
-          transition={{
-            duration: orb.duration,
-            delay: orb.delay,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-      ))}
-    </div>
-  );
-};
-
-// 3. ActiveSpeakerAvatarEffect
-const ActiveSpeakerAvatarEffect: React.FC<{
-  speaking: boolean;
-  level: number;
-  size: number;
-}> = ({ speaking, level, size }) => {
-  const safeLevel = Math.max(0, Math.min(1, level || 0));
-  if (!speaking) return null;
-
-  const intensity = 0.45 + safeLevel * 0.55;
-
-  return (
-    <>
-      <motion.div
-        aria-hidden="true"
-        className="absolute rounded-full pointer-events-none"
-        style={{
-          inset: -12,
-          background: `radial-gradient(circle, rgba(167,139,250,${0.18 * intensity}) 0%, rgba(124,106,255,${0.1 * intensity}) 42%, transparent 72%)`,
-          filter: "blur(4px)",
-        }}
-        animate={{
-          scale: [0.92, 1.08 + safeLevel * 0.12, 0.96, 1.12, 0.92],
-          opacity: [0.55, 1, 0.7, 0.95, 0.55],
-        }}
-        transition={{ duration: 1.15, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      <motion.div
-        aria-hidden="true"
-        className="absolute rounded-full pointer-events-none"
-        style={{
-          inset: -7,
-          border: `2px solid rgba(167,139,250,${0.65 * intensity})`,
-          boxShadow: `0 0 ${18 + safeLevel * 22}px rgba(167,139,250,${0.42 * intensity})`,
-        }}
-        animate={{
-          scale: [1, 1.16 + safeLevel * 0.1, 1],
-          opacity: [0.95, 0.18, 0.95],
-        }}
-        transition={{ duration: 0.9, repeat: Infinity, ease: "easeOut" }}
-      />
-
-      <motion.div
-        aria-hidden="true"
-        className="absolute rounded-full pointer-events-none"
-        style={{
-          inset: -3,
-          border: "2px solid rgba(110,231,183,.95)",
-        }}
-        animate={{
-          scale: [1, 1.07 + safeLevel * 0.06, 1],
-          opacity: [1, 0.35, 1],
-        }}
-        transition={{ duration: 0.55, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      {[0, 1, 2, 3].map((i) => (
-        <motion.span
-          key={i}
-          aria-hidden="true"
-          className="absolute rounded-full pointer-events-none"
-          style={{
-            width: size + 18 + i * 8,
-            height: size + 18 + i * 8,
-            left: -(9 + i * 4),
-            top: -(9 + i * 4),
-            border: `1px solid rgba(167,139,250,${0.42 - i * 0.07})`,
-          }}
-          animate={{
-            scale: [0.88, 1.02, 1.12],
-            opacity: [0.55, 0.28, 0],
-          }}
-          transition={{
-            duration: 1.35,
-            delay: i * 0.2,
-            repeat: Infinity,
-            ease: "easeOut",
-          }}
-        />
-      ))}
-    </>
-  );
-};
-
-// 4. ParticipantCard
-const ParticipantCard: React.FC<{
-  participant: RoomParticipant;
-  isHost: boolean;
-  isCurrentUser?: boolean;
-  isModerator?: boolean;
-  onMute?: () => void;
-  onKick?: () => void;
-  onPromote?: () => void;
-  onFollow?: () => void;
-  onSendMessage?: () => void;
-  onViewProfile?: () => void;
-  size?: "sm" | "md" | "lg";
-}> = ({
-  participant,
-  isHost,
-  isCurrentUser = false,
-  isModerator = false,
-  onMute,
-  onKick,
-  onPromote,
-  onFollow,
-  onSendMessage,
-  onViewProfile,
-  size = "md",
-}) => {
-  const [showActions, setShowActions] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(false);
-
-  const hue = hueFromString(participant.name);
-  const sizeMap = {
-    sm: { avatar: 48, text: "text-xs", gap: "gap-1", nameSize: "text-xs" },
-    md: { avatar: 64, text: "text-sm", gap: "gap-1.5", nameSize: "text-sm" },
-    lg: { avatar: 80, text: "text-base", gap: "gap-2", nameSize: "text-base" },
-  };
-  const s = sizeMap[size];
-
-  const countryFlag = getCountryFlag(participant.country);
-  const isOnline = participant.isOnline !== false;
-  const isMuted = participant.isMuted;
-
-  const isSpeaking = Boolean(participant.isSpeaking) && !isMuted;
-  const raisedHand = participant.raisedHand;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.96 }}
-      transition={{ duration: 0.18 }}
-      className="relative flex flex-col items-center group"
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-    >
-      <div className="cursor-pointer" onClick={onViewProfile}>
-        <div className="relative">
-          <ActiveSpeakerAvatarEffect
-            speaking={isSpeaking}
-            level={participant.audioLevel}
-            size={s.avatar}
-          />
-
-          <div
-            className="relative rounded-full flex items-center justify-center font-semibold border-2 shadow-lg transition-all"
-            style={{
-              width: s.avatar,
-              height: s.avatar,
-              background: participant.avatarUrl
-                ? `url(${participant.avatarUrl}) center/cover`
-                : `hsl(${hue}, 50%, 22%)`,
-              borderColor: isOnline
-                ? isSpeaking
-                  ? THEME.aurora.primary
-                  : THEME.status.live
-                : THEME.border,
-              color: participant.avatarUrl ? "transparent" : THEME.text.primary,
-              fontSize: s.avatar / 3,
-              transform: isSpeaking
-                ? `scale(${1 + Math.min(0.055, (participant.audioLevel || 0) * 0.055)})`
-                : "scale(1)",
-              boxShadow: isOnline
-                ? isSpeaking
-                  ? `0 0 ${34 + Math.round((participant.audioLevel || 0) * 24)}px rgba(167,139,250,.62), 0 0 12px rgba(110,231,183,.38)`
-                  : `0 0 15px ${THEME.status.liveGlow}`
-                : "none",
-            }}
-          >
-            {!participant.avatarUrl && initials(participant.name)}
-          </div>
-
-          {isOnline && !isMuted && (
-            <div
-              className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
-              style={{
-                background: isSpeaking ? THEME.aurora.primary : "#22C55E",
-                borderColor: THEME.surface,
-              }}
-            />
-          )}
-
-          {isMuted && isOnline && (
-            <div
-              className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 flex items-center justify-center"
-              style={{ background: "#4B5563", borderColor: THEME.surface }}
-            >
-              <MicOff className="w-1.5 h-1.5" style={{ color: "#9CA3AF" }} />
-            </div>
-          )}
-
-          {isHost && (
-            <motion.div
-              className="absolute -top-1 -right-1"
-              animate={{ rotate: [0, -5, 5, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              <Crown className="w-3.5 h-3.5 text-yellow-400 drop-shadow-lg" />
-            </motion.div>
-          )}
-
-          {raisedHand && (
-            <motion.div
-              className="absolute -top-1 -left-1"
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 0.8, repeat: Infinity }}
-            >
-              <Hand className="w-3.5 h-3.5 text-yellow-400 drop-shadow-lg" />
-            </motion.div>
-          )}
-
-          <div className="absolute -bottom-0.5 -left-0.5 text-xs leading-none">
-            {countryFlag}
-          </div>
-
-          {isSpeaking && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.7, y: 4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[7px] font-black tracking-wider whitespace-nowrap border"
-              style={{
-                background: "rgba(124,106,255,.96)",
-                borderColor: "rgba(196,181,253,.65)",
-                color: "#fff",
-                boxShadow: "0 4px 14px rgba(124,106,255,.35)",
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                <span className="flex items-end gap-[2px] h-2">
-                  {[0, 1, 2, 3].map((i) => (
-                    <motion.span
-                      key={i}
-                      className="w-[2px] rounded-full bg-white"
-                      animate={{ height: ["3px", "8px", "4px", "7px", "3px"] }}
-                      transition={{
-                        duration: 0.55,
-                        delay: i * 0.08,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                    />
-                  ))}
-                </span>
-                SPEAKING
-              </span>
-            </motion.div>
-          )}
-
-          {isCurrentUser && !isSpeaking && (
-            <div
-              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full text-[7px] font-bold whitespace-nowrap"
-              style={{ background: THEME.aurora.primary, color: "#fff" }}
-            >
-              You
-            </div>
-          )}
-        </div>
-
-        <div className={`mt-1.5 text-center ${s.gap}`}>
-          <span
-            className={`${s.nameSize} font-medium truncate max-w-[70px] block`}
-            style={{ color: THEME.text.primary }}
-          >
-            {participant.name}
-          </span>
-
-          <div className="flex flex-col items-center gap-0.5 mt-0.5">
-            {participant.nativeLanguage && (
-              <span
-                className="text-[8px] px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: "rgba(167, 139, 250, 0.15)",
-                  color: THEME.aurora.secondary,
-                }}
-              >
-                {participant.nativeLanguage}
-              </span>
-            )}
-            {participant.learningLanguage && (
-              <span
-                className="text-[8px] px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: "rgba(110, 231, 183, 0.15)",
-                  color: THEME.status.live,
-                }}
-              >
-                {participant.learningLanguage}
-              </span>
-            )}
-          </div>
-
-          <span className="text-[8px]" style={{ color: THEME.text.muted }}>
-            {isMuted
-              ? "🔇 Muted"
-              : isOnline
-                ? isSpeaking
-                  ? "🔊 Speaking"
-                  : "🎧 Listening"
-                : "💤 Away"}
-          </span>
-        </div>
-      </div>
-
-      {showActions && !isCurrentUser && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8, y: -10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.8, y: -10 }}
-          className="absolute -top-10 left-1/2 -translate-x-1/2 flex gap-0.5 p-1 rounded-xl backdrop-blur-xl border"
-          style={{
-            background: "rgba(20, 20, 37, 0.95)",
-            borderColor: THEME.border,
-          }}
-        >
-          <button
-            onClick={() => {
-              setIsFollowing(!isFollowing);
-              onFollow?.();
-            }}
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
-            title="Follow"
-            style={{
-              color: isFollowing ? THEME.aurora.primary : THEME.text.secondary,
-            }}
-          >
-            <UserPlus className="w-3 h-3" />
-          </button>
-          <button
-            onClick={onSendMessage}
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
-            title="Send Message"
-            style={{ color: THEME.text.secondary }}
-          >
-            <MessageSquare className="w-3 h-3" />
-          </button>
-          {isModerator && (
-            <>
-              <button
-                onClick={onMute}
-                className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
-                title="Toggle Mute"
-                style={{ color: THEME.text.secondary }}
-              >
-                <VolumeX className="w-3 h-3" />
-              </button>
-              <button
-                onClick={onKick}
-                className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
-                title="Kick"
-                style={{ color: THEME.text.secondary }}
-              >
-                <UserX className="w-3 h-3" />
-              </button>
-              {!isHost && (
-                <button
-                  onClick={onPromote}
-                  className="p-1.5 rounded-lg hover:bg-yellow-500/20 transition-all"
-                  title="Make Host"
-                  style={{ color: THEME.text.secondary }}
-                >
-                  <Crown className="w-3 h-3" />
-                </button>
-              )}
-            </>
-          )}
-        </motion.div>
-      )}
-    </motion.div>
-  );
-};
-
-// 5. GlassMessage
-const GlassMessage: React.FC<{
-  message: LocalVoiceMessage;
-  isOwn: boolean;
-  isHost: boolean;
-  showHeader: boolean;
-  isLastInGroup: boolean;
-  onReply: () => void;
-  onPin: () => void;
-  onDelete: () => void;
-  onKick: () => void;
-  onMute: () => void;
-  onTranslate?: () => void;
-  onReaction?: (emoji: string) => void;
-  onRetry?: () => void;
-}> = ({
-  message,
-  isOwn,
-  isHost,
-  showHeader,
-  isLastInGroup,
-  onReply,
-  onPin,
-  onDelete,
-  onKick,
-  onMute,
-  onTranslate,
-  onReaction,
-  onRetry,
-}) => {
-  const [showActions, setShowActions] = useState(false);
-  const [showEmojiGrid, setShowEmojiGrid] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-
-  const closeMenus = () => {
-    setShowEmojiGrid(false);
-    setShowMoreMenu(false);
-  };
-
-  if (message.isDeleted) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className={`flex ${isOwn ? "justify-end" : "justify-start"} mb-1`}
-      >
-        <div className="px-3 py-2 rounded-xl backdrop-blur-sm border border-white/5">
-          <p className="text-sm italic" style={{ color: THEME.text.muted }}>
-            This message was deleted
-          </p>
-        </div>
-      </motion.div>
-    );
-  }
-
-  const isFailed = message.status === "failed";
-  const isSending = message.status === "sending";
-
-  const tightCorner = isOwn ? "rounded-br-md" : "rounded-bl-md";
-  const tailCorner = isOwn ? "rounded-br-sm" : "rounded-bl-sm";
-
-  const reactionEntries = message.reactionTally
-    ? Object.entries(message.reactionTally).filter(([, count]) => count > 0)
-    : [];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      className={`flex ${isOwn ? "justify-end" : "justify-start"} ${
-        showHeader ? "mt-3" : "mt-0.5"
-      } mb-0.5 group`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => {
-        setShowActions(false);
-        closeMenus();
-      }}
-    >
-      <div className="relative max-w-[85%]">
-        <motion.div
-          className={`relative px-4 py-2.5 rounded-2xl backdrop-blur-sm border transition-all ${
-            message.isPinned
-              ? "border-amber-500/30 bg-amber-500/10 shadow-[0_0_30px_rgba(245,158,11,0.1)]"
-              : isOwn
-                ? "border-purple-500/30 bg-purple-500/10"
-                : "border-white/5 bg-white/5"
-          } ${isLastInGroup ? tailCorner : tightCorner}`}
-          style={{ opacity: isSending ? 0.65 : 1 }}
-          whileHover={{ scale: 1.005 }}
-        >
-          {message.isPinned && (
-            <div className="flex items-center gap-1 text-xs font-medium text-amber-400 mb-1">
-              <Pin className="w-3 h-3" /> Pinned
-            </div>
-          )}
-
-          {showHeader && (
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className="text-sm font-semibold"
-                style={{
-                  color: isOwn ? THEME.text.primary : THEME.aurora.secondary,
-                }}
-              >
-                {message.sender?.name || "Unknown"}
-              </span>
-              {isHost && <Crown className="w-3.5 h-3.5 text-yellow-400" />}
-            </div>
-          )}
-
-          {message.replyTo && message.replyTo.sender && (
-            <div
-              className="mb-1.5 pl-2 border-l-2 text-xs"
-              style={{
-                borderColor: THEME.aurora.primary,
-                color: THEME.text.muted,
-              }}
-            >
-              <div
-                className="font-medium"
-                style={{ color: THEME.aurora.secondary }}
-              >
-                {message.replyTo.sender.name}
-              </div>
-              <span className="truncate block max-w-[220px]">
-                {message.replyTo.content}
-              </span>
-            </div>
-          )}
-
-          <p
-            className="text-sm leading-relaxed whitespace-pre-wrap break-words"
-            style={{ color: THEME.text.primary }}
-          >
-            {renderMessageContent(message.content)}
-          </p>
-
-          <div className="mt-1 flex items-center justify-end gap-1.5">
-            {isSending && (
-              <span
-                className="flex items-center gap-1 text-[10px]"
-                style={{ color: THEME.text.muted }}
-              >
-                <Loader2 className="w-2.5 h-2.5 animate-spin" /> Sending
-              </span>
-            )}
-            {isFailed && (
-              <button
-                onClick={onRetry}
-                className="flex items-center gap-1 text-[10px] hover:underline"
-                style={{ color: "#EF4444" }}
-              >
-                <RotateCcw className="w-2.5 h-2.5" /> Failed · Retry
-              </button>
-            )}
-            <span className="text-[10px]" style={{ color: THEME.text.muted }}>
-              {formatTime(message.createdAt)}
-            </span>
-            {isOwn && !isSending && !isFailed && (
-              <CheckCheck
-                className="w-3 h-3"
-                style={{ color: THEME.aurora.tertiary }}
-              />
-            )}
-          </div>
-        </motion.div>
-
-        {reactionEntries.length > 0 && (
-          <div
-            className={`flex flex-wrap gap-1 mt-1 ${
-              isOwn ? "justify-end" : "justify-start"
-            }`}
-          >
-            {reactionEntries.map(([emoji, count]) => (
-              <button
-                key={emoji}
-                onClick={() => onReaction?.(emoji)}
-                className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs border hover:scale-110 transition-transform"
-                style={{
-                  background: "rgba(124, 106, 255, 0.12)",
-                  borderColor: THEME.border,
-                }}
-              >
-                <span>{emoji}</span>
-                <span
-                  className="text-[10px] font-medium"
-                  style={{ color: THEME.text.secondary }}
-                >
-                  {count}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <AnimatePresence>
-          {showActions && (
-            <motion.div
-              initial={{ opacity: 0, y: 4, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 4, scale: 0.96 }}
-              transition={{ duration: 0.12 }}
-              className={`absolute -top-9 ${isOwn ? "right-0" : "left-0"} z-20`}
-            >
-              <div
-                className="flex items-center gap-0.5 p-1 rounded-full backdrop-blur-xl border shadow-lg"
-                style={{
-                  background: "rgba(20, 20, 37, 0.96)",
-                  borderColor: THEME.border,
-                }}
-              >
-                {["❤️", "🔥", "😂"].map((emoji) => (
-                  <button
-                    key={emoji}
-                    onClick={() => onReaction?.(emoji)}
-                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 hover:scale-110 transition-all text-sm"
-                    title={`React with ${emoji}`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-
-                <button
-                  onClick={() => {
-                    setShowEmojiGrid((v) => !v);
-                    setShowMoreMenu(false);
-                  }}
-                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 transition-all"
-                  title="More reactions"
-                  style={{
-                    color: showEmojiGrid
-                      ? THEME.aurora.primary
-                      : THEME.text.secondary,
-                  }}
-                >
-                  <Smile className="w-3.5 h-3.5" />
-                </button>
-
-                <div
-                  className="w-px h-4 mx-0.5"
-                  style={{ background: THEME.border }}
-                />
-
-                <button
-                  onClick={onReply}
-                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 transition-all"
-                  title="Reply"
-                  style={{ color: THEME.text.secondary }}
-                >
-                  <Reply className="w-3.5 h-3.5" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(message.content || "");
-                    toast.success("Copied to clipboard");
-                  }}
-                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 transition-all"
-                  title="Copy text"
-                  style={{ color: THEME.text.secondary }}
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-
-                {(isHost || isOwn || onTranslate) && (
-                  <button
-                    onClick={() => {
-                      setShowMoreMenu((v) => !v);
-                      setShowEmojiGrid(false);
-                    }}
-                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 transition-all"
-                    title="More actions"
-                    style={{
-                      color: showMoreMenu
-                        ? THEME.aurora.primary
-                        : THEME.text.secondary,
-                    }}
-                  >
-                    <MoreVertical className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <AnimatePresence>
-                {showEmojiGrid && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
-                    transition={{ duration: 0.12 }}
-                    className={`absolute top-full mt-1 ${
-                      isOwn ? "right-0" : "left-0"
-                    } grid grid-cols-5 gap-0.5 p-1.5 rounded-xl backdrop-blur-xl border shadow-lg`}
-                    style={{
-                      background: "rgba(20, 20, 37, 0.96)",
-                      borderColor: THEME.border,
-                      width: 172,
-                    }}
-                  >
-                    {[
-                      "❤️",
-                      "🔥",
-                      "👏",
-                      "🎉",
-                      "😂",
-                      "🥺",
-                      "💯",
-                      "✨",
-                      "👍",
-                      "🙏",
-                    ].map((emoji) => (
-                      <button
-                        key={emoji}
-                        onClick={() => {
-                          onReaction?.(emoji);
-                          setShowEmojiGrid(false);
-                        }}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 hover:scale-125 transition-all text-base"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <AnimatePresence>
-                {showMoreMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
-                    transition={{ duration: 0.12 }}
-                    className={`absolute top-full mt-1 ${
-                      isOwn ? "right-0" : "left-0"
-                    } flex flex-col gap-0.5 p-1 rounded-xl backdrop-blur-xl border shadow-lg min-w-[160px]`}
-                    style={{
-                      background: "rgba(20, 20, 37, 0.96)",
-                      borderColor: THEME.border,
-                    }}
-                  >
-                    {onTranslate && (
-                      <button
-                        onClick={() => {
-                          onTranslate();
-                          setShowMoreMenu(false);
-                        }}
-                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/10 transition-all text-xs text-left"
-                        style={{ color: THEME.text.secondary }}
-                      >
-                        <Languages className="w-3.5 h-3.5" /> Translate
-                      </button>
-                    )}
-                    {isHost && (
-                      <button
-                        onClick={() => {
-                          onPin();
-                          setShowMoreMenu(false);
-                        }}
-                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/10 transition-all text-xs text-left"
-                        style={{
-                          color: message.isPinned
-                            ? "#FCD34D"
-                            : THEME.text.secondary,
-                        }}
-                      >
-                        <Pin className="w-3.5 h-3.5" />{" "}
-                        {message.isPinned ? "Unpin" : "Pin message"}
-                      </button>
-                    )}
-                    {isHost && (
-                      <button
-                        onClick={() => {
-                          onMute();
-                          setShowMoreMenu(false);
-                        }}
-                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 transition-all text-xs text-left"
-                        style={{ color: THEME.text.secondary }}
-                      >
-                        <VolumeX className="w-3.5 h-3.5" /> Mute sender
-                      </button>
-                    )}
-                    {isHost && (
-                      <button
-                        onClick={() => {
-                          onKick();
-                          setShowMoreMenu(false);
-                        }}
-                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 transition-all text-xs text-left"
-                        style={{ color: THEME.text.secondary }}
-                      >
-                        <UserX className="w-3.5 h-3.5" /> Remove sender
-                      </button>
-                    )}
-                    {(isOwn || isHost) && (
-                      <button
-                        onClick={() => {
-                          onDelete();
-                          setShowMoreMenu(false);
-                        }}
-                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 transition-all text-xs text-left"
-                        style={{ color: "#EF4444" }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> Delete message
-                      </button>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.div>
-  );
-};
-
-// 6. DateSeparator
-const DateSeparator: React.FC<{ label: string }> = ({ label }) => (
-  <div className="flex items-center justify-center my-3 select-none">
-    <span
-      className="text-[11px] font-medium px-3 py-1 rounded-full backdrop-blur-sm border"
-      style={{
-        color: THEME.text.muted,
-        borderColor: THEME.border,
-        background: "rgba(20, 20, 37, 0.6)",
-      }}
-    >
-      {label}
-    </span>
-  </div>
-);
-
-// 7. AdvancedAudioControls
-const AdvancedAudioControls: React.FC<{
-  isMuted: boolean;
-  onToggleMute: () => void;
-  isDeafened: boolean;
-  onToggleDeafen: () => void;
-  volume: number;
-  onVolumeChange: (volume: number) => void;
-  onLeave: () => void;
-  isHost: boolean;
-  onStartRecording?: () => void;
-  onStopRecording?: () => void;
-  isRecording?: boolean;
-}> = ({
-  isMuted,
-  onToggleMute,
-  isDeafened,
-  onToggleDeafen,
-  volume,
-  onVolumeChange,
-  onLeave,
-  isHost,
-  onStartRecording,
-  onStopRecording,
-  isRecording,
-}) => {
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-
-  return (
-    <div
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-xl border"
-      style={{
-        background: "rgba(20, 20, 37, 0.8)",
-        borderColor: THEME.border,
-        boxShadow: "0 0 30px rgba(0,0,0,0.3)",
-      }}
-    >
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={onToggleMute}
-        className="relative p-1.5 rounded-full transition-all"
-        style={{
-          background: isMuted
-            ? "rgba(239, 68, 68, 0.2)"
-            : "rgba(110, 231, 183, 0.15)",
-        }}
-      >
-        {isMuted ? (
-          <MicOff className="w-4 h-4 text-red-400" />
-        ) : (
-          <Mic className="w-4 h-4 text-green-400" />
-        )}
-        {!isMuted && (
-          <motion.span
-            className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-green-500"
-            animate={{ scale: [1, 1.3, 1] }}
-            transition={{ duration: 1, repeat: Infinity }}
-          />
-        )}
-      </motion.button>
-
-      <div
-        className="relative flex items-center"
-        onMouseEnter={() => setShowVolumeSlider(true)}
-        onMouseLeave={() => setShowVolumeSlider(false)}
-      >
-        <button
-          onClick={onToggleDeafen}
-          className="p-1 rounded-full hover:bg-white/5 transition-colors"
-          style={{
-            color: isDeafened ? THEME.text.muted : THEME.text.secondary,
-          }}
-        >
-          {isDeafened ? (
-            <VolumeOff className="w-3.5 h-3.5" />
-          ) : (
-            <Volume2 className="w-3.5 h-3.5" />
-          )}
-        </button>
-
-        <AnimatePresence>
-          {showVolumeSlider && (
-            <motion.div
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: 60 }}
-              exit={{ opacity: 0, width: 0 }}
-              className="overflow-hidden"
-            >
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={isDeafened ? 0 : volume}
-                onChange={(e) => onVolumeChange(parseInt(e.target.value))}
-                className="w-16 h-1 rounded-full appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, ${THEME.aurora.primary} ${isDeafened ? 0 : volume}%, ${THEME.border} ${isDeafened ? 0 : volume}%)`,
-                }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      <div className="w-px h-5" style={{ background: THEME.border }} />
-
-      {isHost && (
-        <>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={isRecording ? onStopRecording : onStartRecording}
-            className="p-1 rounded-full hover:bg-white/5 transition-colors relative"
-            style={{ color: isRecording ? "#EF4444" : THEME.text.muted }}
-            title={isRecording ? "Stop Recording" : "Start Recording"}
-          >
-            {isRecording ? (
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 0.8, repeat: Infinity }}
-              >
-                <Circle className="w-3.5 h-3.5" />
-              </motion.div>
-            ) : (
-              <Circle className="w-3.5 h-3.5" />
-            )}
-          </motion.button>
-          <div className="w-px h-5" style={{ background: THEME.border }} />
-        </>
-      )}
-
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => {
-          navigator.clipboard.writeText(window.location.href);
-          toast.success("📋 Room link copied!");
-        }}
-        className="p-1 rounded-full hover:bg-white/5 transition-colors"
-        style={{ color: THEME.text.muted }}
-        title="Share Room"
-      >
-        <Share2 className="w-3.5 h-3.5" />
-      </motion.button>
-
-      <div className="w-px h-5" style={{ background: THEME.border }} />
-
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={onLeave}
-        className="p-1.5 rounded-full transition-colors hover:bg-red-500/20"
-        style={{ color: "#EF4444" }}
-        title="Leave Room"
-      >
-        <PhoneOff className="w-4 h-4" />
-      </motion.button>
-    </div>
-  );
-};
-
-// ============================
-// ROOM COMMAND CENTER
-// ============================
-const RoomCommandCenter: React.FC<{
-  isHost: boolean;
-  isModerator: boolean;
-  isMuted: boolean;
-  isDeafened: boolean;
-  soundEnabled: boolean;
-  showChat: boolean;
-  showParticipants: boolean;
-  showLiveStats: boolean;
-  isRecording: boolean;
-  onMute: () => void;
-  onDeafen: () => void;
-  onToggleSound: () => void;
-  onToggleChat: () => void;
-  onToggleParticipants: () => void;
-  onToggleStats: () => void;
-  onRecord: () => void;
-  onClose: () => void;
-}> = ({
-  isHost,
-  isModerator,
-  isMuted,
-  isDeafened,
-  soundEnabled,
-  showChat,
-  showParticipants,
-  showLiveStats,
-  isRecording,
-  onMute,
-  onDeafen,
-  onToggleSound,
-  onToggleChat,
-  onToggleParticipants,
-  onToggleStats,
-  onRecord,
-  onClose,
-}) => {
-  const actions = [
-    {
-      label: isMuted ? "Unmute" : "Mute",
-      icon: isMuted ? MicOff : Mic,
-      active: isMuted,
-      onClick: onMute,
-      hint: "Ctrl/Cmd + Shift + M",
-    },
-    {
-      label: isDeafened ? "Undeafen" : "Deafen",
-      icon: isDeafened ? Volume2 : VolumeOff,
-      active: isDeafened,
-      onClick: onDeafen,
-      hint: "Local output",
-    },
-    {
-      label: soundEnabled ? "Sounds on" : "Sounds off",
-      icon: soundEnabled ? Bell : BellOff,
-      active: soundEnabled,
-      onClick: onToggleSound,
-      hint: "Notifications",
-    },
-    {
-      label: showChat ? "Hide chat" : "Show chat",
-      icon: MessageCircle,
-      active: showChat,
-      onClick: onToggleChat,
-      hint: "Chat panel",
-    },
-    {
-      label: showParticipants ? "Hide people" : "Show people",
-      icon: Users,
-      active: showParticipants,
-      onClick: onToggleParticipants,
-      hint: "Participant panel",
-    },
-    {
-      label: showLiveStats ? "Hide stats" : "Show stats",
-      icon: TrendingUp,
-      active: showLiveStats,
-      onClick: onToggleStats,
-      hint: "Live metrics",
-    },
-  ];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -6, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-      className="absolute top-full right-0 mt-2 w-[min(92vw,360px)] rounded-3xl border p-3 shadow-2xl backdrop-blur-2xl z-[65]"
-      style={{ background: "rgba(15,15,28,.97)", borderColor: THEME.border }}
-    >
-      <div className="flex items-center justify-between px-1 mb-3">
-        <div>
-          <p
-            className="text-xs font-semibold"
-            style={{ color: THEME.text.primary }}
-          >
-            Room controls
-          </p>
-          <p className="text-[9px]" style={{ color: THEME.text.muted }}>
-            Everything you need without leaving the conversation
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-full hover:bg-white/5"
-          style={{ color: THEME.text.muted }}
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-3 gap-1.5">
-        {actions.map((action) => {
-          const Icon = action.icon;
-          return (
-            <button
-              key={action.label}
-              onClick={action.onClick}
-              className="rounded-2xl border px-2 py-2.5 text-left transition-all hover:-translate-y-0.5"
-              style={{
-                background: action.active
-                  ? "rgba(124,106,255,.13)"
-                  : "rgba(255,255,255,.025)",
-                borderColor: action.active
-                  ? "rgba(124,106,255,.35)"
-                  : THEME.border,
-              }}
-              title={action.hint}
-            >
-              <Icon
-                className="w-3.5 h-3.5 mb-2"
-                style={{
-                  color: action.active
-                    ? THEME.aurora.secondary
-                    : THEME.text.muted,
-                }}
-              />
-              <span
-                className="block text-[9px] leading-tight"
-                style={{ color: THEME.text.secondary }}
-              >
-                {action.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {(isHost || isModerator) && (
-        <div
-          className="mt-3 pt-3 border-t"
-          style={{ borderColor: THEME.border }}
-        >
-          <p
-            className="text-[9px] uppercase tracking-wider font-semibold mb-2"
-            style={{ color: THEME.text.muted }}
-          >
-            Moderation
-          </p>
-          <div className="flex gap-2">
-            <span
-              className="flex-1 px-2.5 py-2 rounded-xl text-[9px]"
-              style={{ background: "rgba(245,158,11,.08)", color: "#FBBF24" }}
-            >
-              <ShieldCheck className="inline w-3 h-3 mr-1" />
-              {isHost ? "Host controls enabled" : "Moderator controls enabled"}
-            </span>
-            {isHost && isRecording && (
-              <span
-                className="px-2.5 py-2 rounded-xl text-[9px]"
-                style={{ background: "rgba(239,68,68,.08)", color: "#F87171" }}
-              >
-                <Radio className="inline w-3 h-3 mr-1" />
-                Recording
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      <button
-        onClick={onRecord}
-        disabled={!isHost}
-        className="w-full mt-3 py-2 rounded-xl text-[10px] font-semibold border transition-all disabled:opacity-40"
-        style={{
-          borderColor: isRecording ? "rgba(239,68,68,.35)" : THEME.border,
-          color: isRecording ? "#F87171" : THEME.text.secondary,
-          background: isRecording ? "rgba(239,68,68,.07)" : "transparent",
-        }}
-      >
-        {isRecording ? (
-          <>
-            <Circle className="inline w-3 h-3 mr-1.5 fill-current" />
-            Recording active
-          </>
-        ) : (
-          <>
-            <Radio className="inline w-3 h-3 mr-1.5" />
-            Start room recording
-          </>
-        )}
-      </button>
-    </motion.div>
-  );
-};
-
-// ============================
-// ACTIVE SPEAKER STRIP
-// ============================
-const ActiveSpeakerStrip: React.FC<{
-  participants: any[];
-  onSelect?: (id: string) => void;
-}> = ({ participants, onSelect }) => {
-  const speakers = participants.filter((p: any) => p.isSpeaking).slice(0, 6);
-  if (!speakers.length) return null;
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-3 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin"
-    >
-      <span
-        className="shrink-0 inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-semibold"
-        style={{
-          background: "rgba(167,139,250,.12)",
-          color: THEME.aurora.secondary,
-        }}
-      >
-        <Volume1 className="w-3 h-3" />
-        Speaking now
-      </span>
-      {speakers.map((p: any) => (
-        <button
-          key={p.userId}
-          onClick={() => onSelect?.(p.userId)}
-          className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-full border hover:bg-white/5 transition-all"
-          style={{
-            borderColor: "rgba(167,139,250,.25)",
-            background: "rgba(255,255,255,.02)",
-          }}
-        >
-          <span
-            className="relative w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold"
-            style={{
-              background: p.avatarUrl
-                ? `url(${p.avatarUrl}) center/cover`
-                : `hsl(${hueFromString(p.name || "speaker")},50%,22%)`,
-              color: "#fff",
-            }}
-          >
-            {!p.avatarUrl && initials(p.name || "?")}
-            <span
-              className="absolute -right-0.5 -bottom-0.5 w-1.5 h-1.5 rounded-full border"
-              style={{
-                background: THEME.status.speaking,
-                borderColor: THEME.surface,
-              }}
-            />
-          </span>
-          <span
-            className="max-w-[90px] truncate text-[9px]"
-            style={{ color: THEME.text.secondary }}
-          >
-            {p.name || "Anonymous"}
-          </span>
-        </button>
-      ))}
-    </motion.div>
-  );
-};
-
-// ============================
-// SESSION INSIGHTS
-// ============================
-const SessionInsights: React.FC<{
-  totalParticipants: number;
-  onlineParticipants: number;
-  speakingCount: number;
-  messages: number;
-  duration: number;
-  premium: number;
-  verified: number;
-  languages: string[];
-}> = ({
-  totalParticipants,
-  onlineParticipants,
-  speakingCount,
-  messages,
-  duration,
-  premium,
-  verified,
-  languages,
-}) => {
-  const participation = totalParticipants
-    ? Math.round((onlineParticipants / totalParticipants) * 100)
-    : 0;
-  const engagement = Math.min(
-    100,
-    Math.round(speakingCount * 25 + Math.min(messages, 40) * 1.5),
-  );
-  return (
-    <div className="grid grid-cols-2 gap-2">
-      {[
-        {
-          label: "Presence",
-          value: `${participation}%`,
-          icon: Users,
-          note: `${onlineParticipants} online`,
-        },
-        {
-          label: "Engagement",
-          value: `${engagement}%`,
-          icon: Zap,
-          note: `${speakingCount} speaking`,
-        },
-        {
-          label: "Messages",
-          value: messages,
-          icon: MessageCircle,
-          note: "room chat",
-        },
-        {
-          label: "Duration",
-          value: `${Math.floor(duration / 60)}m`,
-          icon: Timer,
-          note: `${duration % 60}s`,
-        },
-        { label: "Premium", value: premium, icon: Star, note: "members" },
-        {
-          label: "Verified",
-          value: verified,
-          icon: ShieldCheck,
-          note: "members",
-        },
-      ].map((item) => {
-        const Icon = item.icon;
-        return (
-          <div
-            key={item.label}
-            className="rounded-2xl border p-2.5"
-            style={{
-              background: "rgba(255,255,255,.02)",
-              borderColor: THEME.border,
-            }}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <Icon
-                className="w-3 h-3"
-                style={{ color: THEME.aurora.secondary }}
-              />
-              <span
-                className="text-sm font-semibold"
-                style={{ color: THEME.text.primary }}
-              >
-                {item.value}
-              </span>
-            </div>
-            <p
-              className="text-[9px] font-medium"
-              style={{ color: THEME.text.secondary }}
-            >
-              {item.label}
-            </p>
-            <p className="text-[8px]" style={{ color: THEME.text.muted }}>
-              {item.note}
-            </p>
-          </div>
-        );
-      })}
-      <div
-        className="col-span-2 rounded-2xl border p-2.5"
-        style={{
-          background: "rgba(255,255,255,.02)",
-          borderColor: THEME.border,
-        }}
-      >
-        <div className="flex items-center justify-between mb-1">
-          <span
-            className="text-[9px] font-medium"
-            style={{ color: THEME.text.secondary }}
-          >
-            Languages detected
-          </span>
-          <Languages
-            className="w-3 h-3"
-            style={{ color: THEME.aurora.secondary }}
-          />
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {languages.length ? (
-            languages.map((lang) => (
-              <span
-                key={lang}
-                className="text-[8px] px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: "rgba(167,139,250,.1)",
-                  color: THEME.text.secondary,
-                }}
-              >
-                {lang}
-              </span>
-            ))
-          ) : (
-            <span className="text-[8px]" style={{ color: THEME.text.muted }}>
-              No language data yet
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================
-// MAIN VOICE ROOM VIEW
-// ============================
 export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   roomId,
   onLeave,
@@ -2479,11 +2211,15 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // ============================================================
+  // STATE - ALL HOOKS MUST BE CALLED BEFORE CONDITIONAL RETURNS
+  // ============================================================
+
   const [token, setToken] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
-  const [tokenRefreshAttempts, setTokenRefreshAttempts] = useState(0);
-  const [joinError, setJoinError] = useState<string | null>(null);
   const [liveKitRoomId, setLiveKitRoomId] = useState<string>("");
+  const [tokenRefreshAttempts, setTokenRefreshAttempts] = useState(0);
 
   const [isDeafened, setIsDeafened] = useState(false);
   const [volume, setVolume] = useState(80);
@@ -2502,7 +2238,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [roomDuration, setRoomDuration] = useState(0);
   const [showLiveStats, setShowLiveStats] = useState(false);
-  const [showParticipants, setShowParticipants] = useState(true);
   const [activeTab, setActiveTab] = useState<"chat" | "participants">("chat");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -2534,8 +2269,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingStopTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRefreshedRef = useRef(false);
 
-  // Data queries
+  // ============================================================
+  // DATA QUERIES
+  // ============================================================
+
   const { data: room, isLoading, refetch, error } = useVoiceRoom(roomId);
   const { data: initialMessages, isLoading: isLoadingMessages } =
     useRoomMessages(roomId);
@@ -2544,7 +2283,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const leaveRoomMutation = useLeaveVoiceRoom();
   const refreshTokenMutation = useRefreshToken();
 
-  // WebSocket hook
+  // ============================================================
+  // WEBSOCKET HOOK
+  // ============================================================
+
   const {
     socket,
     isConnected,
@@ -2562,31 +2304,11 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     broadcastSpeaking,
   } = useVoiceSocket(roomId, user?.id || "");
 
-  // ✅ DEBUG: Token state logging (placed in VoiceRoomView, NOT in ParticleBackground)
-  useEffect(() => {
-    console.log("🔍 TOKEN DEBUG:", {
-      token: token ? `${token.substring(0, 30)}...` : null,
-      hasToken: Boolean(token),
-      tokenLength: token?.length || 0,
-      isJoining,
-      roomId,
-      liveKitRoomId,
-      roomLiveKitId: room?.liveKitRoomId,
-      roomExists: Boolean(room),
-      userExists: Boolean(user),
-    });
-  }, [token, isJoining, roomId, liveKitRoomId, room, user]);
+  // ============================================================
+  // LIVEKIT HOOK
+  // ============================================================
 
-  // LiveKit hook
   const liveKitRoomIdFromRoom = room?.liveKitRoomId || "";
-  console.log("🔍 TOKEN DEBUG before LiveKit:", {
-    hasToken: Boolean(token),
-    tokenLength: token?.length || 0,
-    liveKitRoomId: liveKitRoomId || liveKitRoomIdFromRoom,
-    roomLiveKitId: room?.liveKitRoomId,
-  });
-
-  // ✅ FIX: Only connect if token exists
   const shouldConnect = Boolean(
     token && (liveKitRoomId || liveKitRoomIdFromRoom),
   );
@@ -2594,6 +2316,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const liveKitOptions = useMemo(
     () => ({
       onAudioLevel: (level: number) => setAudioLevel(level),
+      // LiveKit detects the microphone state locally. The socket broadcast
+      // distributes that state to the other people in the room.
       onSpeakingStatusChange: (userId: string, isSpeaking: boolean) => {
         if (userId === user?.id) {
           broadcastSpeaking(isSpeaking);
@@ -2608,10 +2332,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     shouldConnect ? token : null,
     liveKitOptions,
   );
+
   const {
     isConnected: isLiveKitConnected,
     participants: livekitParticipants = [],
-    remoteTracks = {},
     participantVoiceStates = {},
     isMuted: liveKitIsMuted,
     toggleMute,
@@ -2622,132 +2346,235 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 
   const isMuted = liveKitIsMuted;
 
-  useEffect(() => {
-    // ✅ Only refresh if token is missing AND we haven't tried too many times
-    if (!token && room && !isJoining && tokenRefreshAttempts === 0) {
-      console.log("🔄 Token missing, attempting refresh...");
-      const refreshToken = async () => {
-        try {
-          const result = await refreshTokenMutation.mutateAsync(roomId);
-          if (result.data?.token) {
-            setToken(result.data.token);
-            setTokenRefreshAttempts(0);
-            toast.success("🔄 Voice connection refreshed");
-          }
-        } catch (error) {
-          console.error("❌ Token refresh failed:", error);
-          setTokenRefreshAttempts(1); // ✅ Set to 1 to stop retrying
-          toast.error(
-            "Unable to establish voice connection. Please refresh the page.",
-          );
-        }
-      };
-      refreshToken();
-    }
-  }, [
-    token,
-    room,
-    isJoining,
-    tokenRefreshAttempts,
-    roomId,
-    refreshTokenMutation,
-  ]);
+  // ============================================================
+  // DERIVED STATE
+  // ============================================================
 
-  useEffect(() => {
-    if (liveKitError && !hasRefreshedRef.current) {
-      console.error("❌ LiveKit error:", liveKitError);
-      // ✅ Only refresh if the error is token-related AND we haven't refreshed
-      if (
-        (liveKitError.includes("token") ||
-          liveKitError.includes("unauthorized")) &&
-        !hasRefreshedRef.current
-      ) {
-        hasRefreshedRef.current = true;
-        setToken(null);
-        // ✅ Let the other useEffect handle the refresh
-      }
-    }
-  }, [liveKitError]);
+  const allParticipants = useMemo<RoomParticipant[]>(() => {
+    const map = new Map<string, RoomParticipant>();
 
-  // Participants
-  const allParticipants = useMemo(() => {
-    const wsMap = new Map();
     (wsParticipants || []).forEach((p: any) => {
-      wsMap.set(p.userId, {
-        ...p,
-        source: "ws",
-        isSpeaking: false,
-        isMuted: false,
-        raisedHand: p.raisedHand || false,
+      map.set(p.userId, {
+        id: p.userId,
+        userId: p.userId,
+        name: p.name || p.user?.name || "Anonymous",
+        avatarUrl: p.avatarUrl || p.user?.avatarUrl,
+        country: p.country || p.user?.country,
+        nativeLanguage: p.nativeLanguage || p.user?.nativeLanguage,
+        learningLanguage: p.learningLanguage || p.user?.learningLanguage,
+        level: p.level || p.user?.level,
+        bio: p.bio || p.user?.bio,
+        interests: p.interests || p.user?.interests,
         isOnline: true,
+        // IMPORTANT: keep the server/socket speaking state. Previously this was
+        // hard-coded to false, so remote speaker animations could never start
+        // from the websocket state.
+        isSpeaking: Boolean(p.isSpeaking) && !Boolean(p.isMuted),
+        isMuted: Boolean(p.isMuted),
+        raisedHand: p.raisedHand || false,
+        joinedAt: p.joinedAt || new Date().toISOString(),
+        role: p.role || "MEMBER",
         isListening: true,
-        audioLevel: 0,
+        audioLevel: Number(p.audioLevel || 0),
+        isVerified: p.isVerified || p.user?.isVerified,
+        isPremium: p.isPremium || p.user?.isPremium,
       });
     });
+
     (room?.participants || []).forEach((p: any) => {
-      if (!wsMap.has(p.userId)) {
-        wsMap.set(p.userId, {
-          ...p,
-          source: "db",
-          isSpeaking: false,
-          isMuted: false,
-          raisedHand: p.raisedHand || false,
-          isOnline: false,
-          isListening: false,
-          audioLevel: 0,
+      if (!map.has(p.userId)) {
+        map.set(p.userId, {
+          id: p.userId,
+          userId: p.userId,
           name: p.user?.name || "Anonymous",
           avatarUrl: p.user?.avatarUrl,
           country: p.user?.country,
           nativeLanguage: p.user?.nativeLanguage,
           learningLanguage: p.user?.learningLanguage,
           level: p.user?.level,
+          isOnline: false,
+          isSpeaking: Boolean(p.isSpeaking) && !Boolean(p.isMuted),
+          isMuted: Boolean(p.isMuted),
+          raisedHand: p.raisedHand || false,
+          joinedAt: p.joinedAt || new Date().toISOString(),
+          role: p.role || "MEMBER",
+          isListening: false,
+          audioLevel: 0,
+          isVerified: p.user?.isVerified,
+          isPremium: p.user?.isPremium,
         });
       }
     });
+
     livekitParticipants?.forEach((p: any) => {
-      const wsUser = wsMap.get(p.identity);
-      if (!wsUser) return;
-
-      const voiceState = participantVoiceStates?.[p.identity];
-
-      wsUser.isOnline = true;
-      wsUser.isMuted = Boolean(voiceState?.isMuted);
-      wsUser.isSpeaking = Boolean(
-        voiceState?.isSpeaking && !voiceState?.isMuted,
+      const liveKitIdentity = String(
+        p.identity ?? p.userId ?? p.sid ?? p.participantIdentity ?? "",
       );
-      wsUser.audioLevel = wsUser.isSpeaking
-        ? Number(voiceState?.audioLevel || 0)
+
+      const metadataUserId = (() => {
+        try {
+          const metadata =
+            typeof p.metadata === "string"
+              ? JSON.parse(p.metadata)
+              : p.metadata;
+          return metadata?.userId || metadata?.user?.id;
+        } catch {
+          return undefined;
+        }
+      })();
+
+      const candidateIds = [
+        liveKitIdentity,
+        metadataUserId ? String(metadataUserId) : "",
+      ].filter(Boolean);
+
+      const participant =
+        candidateIds.map((id) => map.get(id)).find(Boolean) || undefined;
+
+      if (!participant) return;
+
+      const voiceState =
+        participantVoiceStates?.[liveKitIdentity] ||
+        participantVoiceStates?.[participant.id] ||
+        (metadataUserId
+          ? participantVoiceStates?.[String(metadataUserId)]
+          : undefined);
+
+      const liveKitSpeaking = Boolean(voiceState?.isSpeaking ?? p.isSpeaking);
+      const liveKitMuted = Boolean(
+        voiceState?.isMuted ?? p.isMuted ?? participant.isMuted,
+      );
+      const liveKitAudioLevel = Number(
+        voiceState?.audioLevel ?? p.audioLevel ?? participant.audioLevel ?? 0,
+      );
+
+      participant.isOnline = true;
+      participant.isMuted = liveKitMuted;
+      participant.isSpeaking = liveKitSpeaking && !liveKitMuted;
+      participant.audioLevel = participant.isSpeaking
+        ? Math.max(0, Math.min(1, liveKitAudioLevel))
         : 0;
     });
 
-    const currentUser = wsMap.get(user?.id);
+    const currentUser = map.get(user?.id || "");
     if (currentUser) {
-      currentUser.isCurrentUser = true;
       currentUser.isOnline = isConnected || isLiveKitConnected;
       currentUser.isListening = currentUser.isOnline;
-      currentUser.isSpeaking = audioLevel > 0.1;
-      currentUser.audioLevel = audioLevel;
+      currentUser.isSpeaking = !isMuted && Number(audioLevel || 0) > 0.08;
+      currentUser.audioLevel = Math.max(
+        0,
+        Math.min(1, Number(audioLevel || 0)),
+      );
       currentUser.isMuted = isMuted;
     }
-    return Array.from(wsMap.values());
+
+    return Array.from(map.values());
   }, [
     wsParticipants,
     room?.participants,
     livekitParticipants,
-    remoteTracks,
+    participantVoiceStates,
     user?.id,
     audioLevel,
     isMuted,
     isConnected,
     isLiveKitConnected,
-    participantVoiceStates,
   ]);
 
-  const speakingCount = useMemo(() => {
-    return allParticipants.filter((p: any) => p.isSpeaking).length;
-  }, [allParticipants]);
+  const speakingCount = allParticipants.filter((p) => p.isSpeaking).length;
+  const totalParticipants = allParticipants.length;
+  const onlineParticipants = allParticipants.filter((p) => p.isOnline === true);
+  const isHost = hostId === user?.id || room?.creatorId === user?.id;
+  const isModerator =
+    isHost ||
+    allParticipants.some(
+      (p) =>
+        p.userId === user?.id && (p.role === "MODERATOR" || p.role === "HOST"),
+    );
 
-  // Scroll to bottom
+  // ============================================================
+  // HANDLERS - useCallback
+  // ============================================================
+
+  const handleToggleMute = useCallback(async () => {
+    const muted = await toggleMute();
+    if (socket && isConnected) {
+      socket.emit("voice:mute-self", { roomId, muted });
+    }
+  }, [toggleMute, socket, isConnected, roomId]);
+
+  const handleToggleDeafen = useCallback(() => {
+    setIsDeafened((prev) => {
+      const next = !prev;
+      toast.info(next ? "Deafened — room audio muted" : "Audio restored");
+      return next;
+    });
+  }, []);
+
+  const handleRaiseHand = useCallback(() => {
+    setIsRaisingHand(true);
+    raiseHand(true);
+    toast.success("Hand raised — waiting for the host");
+    setTimeout(() => setIsRaisingHand(false), 3000);
+  }, [raiseHand]);
+
+  const handleLeave = useCallback(() => {
+    setShowLeaveConfirm(true);
+  }, []);
+
+  const handleConfirmLeave = useCallback(async () => {
+    try {
+      await leaveRoomMutation.mutateAsync(roomId);
+      socket?.emit("voice:leave", { roomId, userId: user?.id });
+      toast.success("Left room");
+      onLeave();
+    } catch (error) {
+      toast.error("Failed to leave room");
+    }
+  }, [leaveRoomMutation, roomId, socket, user?.id, onLeave]);
+
+  const handleStartRecording = useCallback(async () => {
+    try {
+      await voiceApi.startRecording(roomId);
+      setIsRecording(true);
+      toast.success("Recording started");
+      refetch();
+    } catch (error) {
+      toast.error("Failed to start recording");
+    }
+  }, [roomId, refetch]);
+
+  const handleStopRecording = useCallback(async () => {
+    try {
+      await voiceApi.stopRecording(roomId);
+      setIsRecording(false);
+      toast.success("Recording stopped");
+      refetch();
+    } catch (error) {
+      toast.error("Failed to stop recording");
+    }
+  }, [roomId, refetch]);
+
+  const handleCopyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Room link copied");
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  }, []);
+
+  const handleChatScroll = useCallback(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    setIsNearBottom(nearBottom);
+    if (nearBottom) {
+      setHasNewMessages(false);
+      setNewMessageCount(0);
+    }
+  }, []);
+
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
       if (chatScrollRef.current) {
@@ -2762,53 +2589,330 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     }, 50);
   }, []);
 
-  // Load messages from database
-  useEffect(() => {
-    if (initialMessages) {
-      console.log(`📥 Loaded ${initialMessages.length} messages from database`);
-      const messagesWithStatus = [...initialMessages]
-        .sort(
-          (a: VoiceMessage, b: VoiceMessage) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        )
-        .map((msg: VoiceMessage) => ({
-          ...msg,
-          status: "sent" as LocalMessageStatus,
-        }));
-      setMessages(messagesWithStatus);
-      setTimeout(scrollToBottom, 100);
+  const handleSendMessage = useCallback(() => {
+    const content = newMessage.trim();
+    if (!content || !user?.id) return;
+
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const messageData: { content: string; type: string; replyToId?: string } = {
+      content,
+      type: "TEXT",
+    };
+
+    if (replyTo && replyTo.id) {
+      messageData.replyToId = replyTo.id;
     }
-  }, [initialMessages, scrollToBottom]);
 
-  // Socket message history
-  useEffect(() => {
-    if (!socket) return;
+    const optimisticMessage = normalizeChatMessage(
+      {
+        id: tempId,
+        content,
+        senderId: user.id,
+        sender: {
+          id: user.id,
+          name: (user as any).name || "You",
+          avatarUrl: (user as any).avatarUrl,
+        },
+        senderName: (user as any).name || "You",
+        senderAvatar: (user as any).avatarUrl,
+        createdAt: new Date().toISOString(),
+        isPinned: false,
+        isDeleted: false,
+        replyTo: replyTo || undefined,
+        replyToId: replyTo?.id,
+        status: "sending",
+        reactions: {},
+      },
+      user.id,
+    );
 
-    const handleMessageHistory = (historyMessages: VoiceMessage[]) => {
-      if (historyMessages && historyMessages.length > 0) {
-        setMessages((prev) => {
-          const existingIds = new Set(prev.map((m) => m.id));
-          const newMessages = historyMessages
-            .filter((m) => !existingIds.has(m.id))
-            .map((m) => ({ ...m, status: "sent" as LocalMessageStatus }));
-          if (newMessages.length > 0) {
-            return [...prev, ...newMessages].sort(
-              (a, b) =>
-                new Date(a.createdAt).getTime() -
-                new Date(b.createdAt).getTime(),
+    setMessages((prev) => [...prev, optimisticMessage]);
+
+    if (socket && isConnected) {
+      sendChatMessage(messageData);
+    } else {
+      sendMessageMutation.mutate(
+        { roomId, ...messageData },
+        {
+          onSuccess: (res: any) => {
+            const realMessage = res?.data || res;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === tempId
+                  ? { ...(realMessage || m), status: "sent" as const }
+                  : m,
+              ),
             );
+            queryClient.invalidateQueries({
+              queryKey: ["voice-messages", roomId],
+            });
+          },
+          onError: () => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === tempId ? { ...m, status: "failed" as const } : m,
+              ),
+            );
+            toast.error("Failed to send message");
+          },
+        },
+      );
+    }
+
+    setNewMessage("");
+    setReplyTo(null);
+    sendTyping(false);
+    if (typingStopTimerRef.current) {
+      clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+  }, [
+    newMessage,
+    replyTo,
+    socket,
+    isConnected,
+    sendChatMessage,
+    sendMessageMutation,
+    sendTyping,
+    roomId,
+    user,
+    queryClient,
+  ]);
+
+  const handleEditMessage = useCallback(
+    (messageId: string, newContent: string) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...m, content: newContent, isEdited: true }
+            : m,
+        ),
+      );
+      toast.success("Message edited");
+    },
+    [],
+  );
+
+  const handleMessageReaction = useCallback(
+    (messageId: string, emoji: string) => {
+      if (!user?.id) return;
+
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId) return m;
+
+          const reactions: Record<string, string[]> = {};
+          if (m.reactions) {
+            for (const [e, users] of Object.entries(m.reactions)) {
+              reactions[e] = Array.isArray(users) ? [...users] : [];
+            }
+          } else if (m.reactionTally) {
+            for (const [e, count] of Object.entries(m.reactionTally)) {
+              const n = Number(count) || 0;
+              reactions[e] = Array.from({ length: n }, (_, i) => `anon-${i}`);
+            }
           }
-          return prev;
+
+          const users = new Set(reactions[emoji] || []);
+          if (users.has(user.id)) users.delete(user.id);
+          else users.add(user.id);
+
+          if (users.size > 0) reactions[emoji] = Array.from(users);
+          else delete reactions[emoji];
+
+          return { ...m, reactions, reactionTally: undefined };
+        }),
+      );
+
+      if (socket && isConnected) {
+        socket.emit("voice:message-reaction", {
+          roomId,
+          messageId,
+          emoji,
+          userId: user.id,
         });
-        setTimeout(scrollToBottom, 100);
+      }
+    },
+    [socket, isConnected, roomId, user?.id],
+  );
+
+  // ============================================================
+  // CHAT PANEL ADAPTERS
+  // ============================================================
+
+  const chatPanelMessages = useMemo(
+    () => messages.map((m) => normalizeChatMessage(m, user?.id)),
+    [messages, user?.id],
+  );
+
+  const handleComposerChange = useCallback(
+    (text: string) => {
+      setNewMessage(text);
+      if (!user?.id) return;
+
+      if (text.trim()) {
+        sendTyping(true);
+        if (typingStopTimerRef.current) {
+          clearTimeout(typingStopTimerRef.current);
+        }
+        typingStopTimerRef.current = setTimeout(() => {
+          sendTyping(false);
+          typingStopTimerRef.current = null;
+        }, 1400);
+      } else {
+        sendTyping(false);
+        if (typingStopTimerRef.current) {
+          clearTimeout(typingStopTimerRef.current);
+          typingStopTimerRef.current = null;
+        }
+      }
+    },
+    [sendTyping, user?.id],
+  );
+
+  // ============================================================
+  // EFFECTS - ALL EFFECTS HERE
+  // ============================================================
+
+  // Token fetching
+  useEffect(() => {
+    const getToken = async () => {
+      if (!roomId || !user?.id || isJoining || token) return;
+
+      try {
+        setIsJoining(true);
+        const response = await voiceApi.joinRoom(roomId);
+        const raw = response.data as any;
+
+        let extractedToken =
+          raw?.data?.token || raw?.token || raw?.data?.data?.token;
+        const extractedRoomId =
+          raw?.data?.liveKitRoomId || raw?.liveKitRoomId || roomId;
+
+        if (!extractedToken) {
+          throw new Error("No token returned from server");
+        }
+
+        setToken(extractedToken);
+        setLiveKitRoomId(extractedRoomId);
+        setTokenRefreshAttempts(0);
+        toast.success("Connected to voice");
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || "Failed to join room");
+      } finally {
+        setIsJoining(false);
       }
     };
 
-    socket.on("voice:message-history", handleMessageHistory);
-    return () => {
-      socket.off("voice:message-history", handleMessageHistory);
+    getToken();
+  }, [roomId, user?.id, token]);
+
+  // Messages — normalize for ChatPanel (senderName, reactions)
+  useEffect(() => {
+    if (initialMessages) {
+      const sorted = [...initialMessages]
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        )
+        .map((msg) =>
+          normalizeChatMessage({ ...msg, status: "sent" as const }, user?.id),
+        );
+      setMessages(sorted);
+    }
+  }, [initialMessages, user?.id]);
+
+  // Socket message handlers
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (message: any) => {
+      setMessages((prev) => {
+        const exists = prev.some((m) => {
+          if (m.id === message.id) return true;
+          if (
+            m.senderId === message.senderId &&
+            m.content === message.content &&
+            Math.abs(
+              new Date(m.createdAt).getTime() -
+                new Date(message.createdAt).getTime(),
+            ) < 2000
+          ) {
+            return true;
+          }
+          return false;
+        });
+        if (exists) return prev;
+
+        if (message.senderId === user?.id) {
+          const tempIndex = prev.findIndex(
+            (m) =>
+              m.id.startsWith("temp-") &&
+              m.senderId === message.senderId &&
+              m.content === message.content,
+          );
+          if (tempIndex !== -1) {
+            const updated = [...prev];
+            updated[tempIndex] = normalizeChatMessage(
+              { ...message, status: "sent" as const },
+              user?.id,
+            );
+            return updated;
+          }
+        }
+
+        if (!showChat) {
+          setUnreadCount((c) => c + 1);
+        }
+        if (soundEnabled && (document.hidden || !showChat)) {
+          playNotificationBeep();
+        }
+
+        const normalized = normalizeChatMessage(
+          { ...message, status: "sent" as const },
+          user?.id,
+        );
+
+        return [...prev, normalized];
+      });
+
+      setTimeout(() => {
+        if (isNearBottom && showChat) scrollToBottom();
+        else if (showChat) {
+          setHasNewMessages(true);
+          setNewMessageCount((c) => c + 1);
+        }
+      }, 50);
     };
-  }, [socket, scrollToBottom]);
+
+    const handleTypingStart = (data: { userId: string }) => {
+      if (data.userId !== user?.id) {
+        setTypingUsers((prev) => new Set(prev).add(data.userId));
+      }
+    };
+
+    const handleTypingStop = (data: { userId: string }) => {
+      setTypingUsers((prev) => {
+        const next = new Set(prev);
+        next.delete(data.userId);
+        return next;
+      });
+    };
+
+    socket.on("voice:chat", handleNewMessage);
+    socket.on("voice:typing-start", handleTypingStart);
+    socket.on("voice:typing-stop", handleTypingStop);
+
+    return () => {
+      socket.off("voice:chat", handleNewMessage);
+      socket.off("voice:typing-start", handleTypingStart);
+      socket.off("voice:typing-stop", handleTypingStop);
+    };
+  }, [socket, user?.id, showChat, soundEnabled, scrollToBottom, isNearBottom]);
 
   // Room duration
   useEffect(() => {
@@ -2823,177 +2927,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       };
     }
   }, [room?.startedAt]);
-
-  // Retry logic
-  useEffect(() => {
-    if (retryTimer) {
-      clearTimeout(retryTimer);
-      setRetryTimer(null);
-    }
-    if ((error || !room) && retryCount < maxRetries && !isLoading) {
-      const delay = 1000 * (retryCount + 1);
-      const timer = setTimeout(() => {
-        setRetryCount((prev) => prev + 1);
-        refetch();
-      }, delay);
-      setRetryTimer(timer);
-    }
-    return () => {
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-        setRetryTimer(null);
-      }
-    };
-  }, [error, room, retryCount, isLoading, refetch]);
-
-  useEffect(() => {
-    if (room) {
-      setRetryCount(0);
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-        setRetryTimer(null);
-      }
-    }
-  }, [room]);
-
-  // ✅ FIX: Join room - get token with multiple extraction methods
-  useEffect(() => {
-    const getToken = async () => {
-      if (!roomId || !user?.id) return;
-      if (isJoining) return;
-      if (token) return; // ✅ Skip if we already have a token
-
-      try {
-        setIsJoining(true);
-        console.log("🎙️ Fetching token for room:", roomId);
-
-        const response = await voiceApi.joinRoom(roomId);
-        console.log("🎙️ Full response:", response);
-
-        // ✅ Try multiple ways to extract token
-        const raw = response.data as any;
-
-        // Format 1: { data: { token } }
-        let extractedToken = raw?.data?.token;
-
-        // Format 2: { token }
-        if (!extractedToken) extractedToken = raw?.token;
-
-        // Format 3: { data: { data: { token } } } (nested)
-        if (!extractedToken) extractedToken = raw?.data?.data?.token;
-
-        // Format 4: { success: true, data: { token } }
-        if (!extractedToken && raw?.success) extractedToken = raw?.data?.token;
-
-        const extractedRoomId =
-          raw?.data?.liveKitRoomId ||
-          raw?.liveKitRoomId ||
-          raw?.data?.room?.liveKitRoomId ||
-          roomId;
-
-        console.log("🎙️ Extracted token:", {
-          hasToken: Boolean(extractedToken),
-          tokenLength: extractedToken?.length || 0,
-          roomId: extractedRoomId,
-        });
-
-        if (!extractedToken) {
-          console.error("❌ No token found in response:", raw);
-          throw new Error("No token returned from server");
-        }
-
-        setToken(extractedToken);
-        setLiveKitRoomId(extractedRoomId);
-        setTokenRefreshAttempts(0);
-        toast.success("🎧 Connected to voice");
-      } catch (error: any) {
-        console.error("❌ Join room error:", error);
-        setJoinError(error?.message || "Failed to join room");
-        toast.error(error?.response?.data?.message || "Failed to join room");
-      } finally {
-        setIsJoining(false);
-      }
-    };
-
-    getToken();
-  }, [roomId, user?.id]);
-
-  // Socket message handlers
-  // VoiceRoomView.tsx - Find the socket message handler
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleNewMessage = (message: VoiceMessage) => {
-      setMessages((prev) => {
-        // ✅ FIX: Check by ID AND by content+time to prevent duplicates
-        const isDuplicate = prev.some((m) => {
-          // Check by ID
-          if (m.id === message.id) return true;
-          // Check by content + sender + time (within 2 seconds)
-          if (
-            m.senderId === message.senderId &&
-            m.content === message.content &&
-            Math.abs(
-              new Date(m.createdAt).getTime() -
-                new Date(message.createdAt).getTime(),
-            ) < 2000
-          ) {
-            return true;
-          }
-          return false;
-        });
-
-        if (isDuplicate) {
-          return prev; // ✅ Skip duplicate
-        }
-
-        // If it's our own temporary message, replace it
-        if (message.senderId === user?.id) {
-          const tempIndex = prev.findIndex(
-            (m) =>
-              typeof m.id === "string" &&
-              m.id.startsWith("temp-") &&
-              m.senderId === message.senderId &&
-              m.content === message.content,
-          );
-          if (tempIndex !== -1) {
-            const updated = [...prev];
-            updated[tempIndex] = {
-              ...updated[tempIndex],
-              ...message,
-              status: "sent" as LocalMessageStatus,
-            };
-            return updated;
-          }
-        }
-
-        if (!showChat) {
-          setUnreadCount((prevCount) => prevCount + 1);
-        }
-        if (soundEnabled && (document.hidden || !showChat)) {
-          playNotificationBeep();
-        }
-
-        const merged = [
-          ...prev,
-          { ...message, status: "sent" as LocalMessageStatus },
-        ];
-        merged.sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        );
-        return merged;
-      });
-
-      setTimeout(scrollToBottom, 50);
-    };
-
-    socket.on("voice:chat", handleNewMessage);
-    return () => {
-      socket.off("voice:chat", handleNewMessage);
-    };
-  }, [socket, showChat, user?.id, soundEnabled, scrollToBottom]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -3017,11 +2950,20 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         e.preventDefault();
         handleRaiseHand();
       }
+      if (
+        e.key === "Enter" &&
+        !e.shiftKey &&
+        document.activeElement === textareaRef.current
+      ) {
+        e.preventDefault();
+        handleSendMessage();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showChat]);
+  }, [showChat, handleToggleMute, handleRaiseHand, handleSendMessage]);
 
+  // Cleanup
   useEffect(() => {
     return () => {
       if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
@@ -3031,489 +2973,15 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     };
   }, [retryTimer]);
 
-  // Auto-scroll
-  useEffect(() => {
-    if (isNearBottom && messages.length > 0) {
-      chatScrollRef.current?.scrollTo({
-        top: chatScrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-      setHasNewMessages(false);
-      setNewMessageCount(0);
-    } else if (messages.length > 0) {
-      setHasNewMessages(true);
-      setNewMessageCount((c) => c + 1);
-    }
-  }, [messages]);
+  // ============================================================
+  // RENDER - NOW AFTER ALL HOOKS
+  // ============================================================
 
-  const handleChatScroll = useCallback(() => {
-    const el = chatScrollRef.current;
-    if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    setIsNearBottom(nearBottom);
-    if (nearBottom) {
-      setHasNewMessages(false);
-      setNewMessageCount(0);
-    }
-  }, []);
-
-  // Send message
-
-  const handleSendMessage = useCallback(() => {
-    const content = newMessage.trim();
-    if (!content || !user?.id) return;
-
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    const messageData: {
-      content: string;
-      type: string;
-      replyToId?: string;
-    } = {
-      content,
-      type: "TEXT",
-    };
-
-    if (replyTo && replyTo.id) {
-      messageData.replyToId = replyTo.id;
-    }
-
-    const optimisticMessage: LocalVoiceMessage = {
-      id: tempId,
-      content,
-      senderId: user.id,
-      sender: {
-        id: user.id,
-        name: (user as any).name || "You",
-        avatarUrl: (user as any).avatarUrl,
-      } as any,
-      createdAt: new Date().toISOString(),
-      isPinned: false,
-      isDeleted: false,
-      replyTo: replyTo || undefined,
-      replyToId: replyTo?.id,
-      status: "sending",
-    } as unknown as LocalVoiceMessage;
-
-    setMessages((prev) => [...prev, optimisticMessage]);
-
-    // ✅ FIX: Only send via ONE method (either socket OR API), not both!
-
-    // Option 1: Send via Socket.IO (recommended)
-    if (socket && isConnected) {
-      sendChatMessage(messageData);
-    } else {
-      // Fallback: Send via API if socket is not connected
-      sendMessageMutation.mutate(
-        { roomId, ...messageData },
-        {
-          onSuccess: (res: any) => {
-            const realMessage = res?.data || res;
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === tempId
-                  ? {
-                      ...(realMessage || m),
-                      status: "sent" as LocalMessageStatus,
-                    }
-                  : m,
-              ),
-            );
-            queryClient.invalidateQueries({
-              queryKey: ["voice-messages", roomId],
-            });
-          },
-          onError: (error) => {
-            console.error("❌ Failed to save message:", error);
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === tempId ? { ...m, status: "failed" } : m,
-              ),
-            );
-            toast.error("Failed to send message");
-          },
-        },
-      );
-    }
-
-    setTimeout(scrollToBottom, 50);
-    setNewMessage("");
-    setReplyTo(null);
-    sendTyping(false);
-    if (typingStopTimerRef.current) {
-      clearTimeout(typingStopTimerRef.current);
-      typingStopTimerRef.current = null;
-    }
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
-  }, [
-    newMessage,
-    replyTo,
-    socket,
-    isConnected,
-    sendChatMessage,
-    sendMessageMutation,
-    sendTyping,
-    roomId,
-    user,
-    queryClient,
-    scrollToBottom,
-  ]);
-
-  // Retry failed message
-  const handleRetryMessage = useCallback(
-    (msg: LocalVoiceMessage) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === msg.id ? { ...m, status: "sending" } : m)),
-      );
-
-      const messageData: {
-        content: string;
-        type: string;
-        replyToId?: string;
-      } = {
-        content: msg.content,
-        type: "TEXT",
-      };
-
-      if ((msg as any).replyToId) {
-        messageData.replyToId = (msg as any).replyToId;
-      }
-
-      if (socket && isConnected) {
-        sendChatMessage(messageData);
-      }
-
-      sendMessageMutation.mutate(
-        { roomId, ...messageData },
-        {
-          onSuccess: (res: any) => {
-            const realMessage = res?.data || res;
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === msg.id ? { ...(realMessage || m), status: "sent" } : m,
-              ),
-            );
-          },
-          onError: () => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === msg.id && m.status === "sending"
-                  ? { ...m, status: "failed" }
-                  : m,
-              ),
-            );
-            toast.error("Failed to send message");
-          },
-        },
-      );
-    },
-    [socket, isConnected, sendChatMessage, sendMessageMutation, roomId],
-  );
-
-  // Send reaction
-  const sendReaction = useCallback(
-    (emoji: string) => {
-      if (socket && isConnected) {
-        socket.emit("voice:reaction", { roomId, emoji });
-      }
-      const id = `${Date.now()}-${Math.random()}`;
-      setReactions((prev) => [...prev, { id, emoji }]);
-      setTimeout(() => {
-        setReactions((prev) => prev.filter((r) => r.id !== id));
-      }, 2000);
-    },
-    [socket, isConnected, roomId],
-  );
-
-  // Message reaction
-  const handleMessageReaction = useCallback(
-    (messageId: string, emoji: string) => {
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (m.id !== messageId) return m;
-          const tally = { ...(m.reactionTally || {}) };
-          tally[emoji] = (tally[emoji] || 0) + 1;
-          return { ...m, reactionTally: tally };
-        }),
-      );
-      if (socket && isConnected) {
-        socket.emit("voice:message-reaction", { roomId, messageId, emoji });
-      }
-    },
-    [socket, isConnected, roomId],
-  );
-
-  const handleRaiseHand = () => {
-    setIsRaisingHand(true);
-    raiseHand(true);
-    toast.success("✋ Hand raised!");
-    setTimeout(() => setIsRaisingHand(false), 3000);
-  };
-
-  const handleLeave = () => {
-    setShowLeaveConfirm(true);
-  };
-
-  const handleConfirmLeave = async () => {
-    try {
-      await leaveRoomMutation.mutateAsync(roomId);
-      socket?.emit("voice:leave", {
-        roomId,
-        userId: user?.id,
-      });
-      toast.success("Left room");
-      onLeave();
-    } catch (error) {
-      toast.error("Failed to leave room");
-    }
-  };
-
-  // ✅ FIX: Toggle mute with proper broadcasting
-  const handleToggleMute = async () => {
-    const muted = await toggleMute();
-
-    if (socket && isConnected) {
-      socket.emit("voice:mute-self", {
-        roomId,
-        muted,
-      });
-    }
-
-    // Broadcast mute status to others
-    if (socket && isConnected) {
-      socket.emit("voice:speaking", {
-        roomId,
-        isSpeaking: !muted && audioLevel > 0.1,
-      });
-    }
-  };
-
-  const handleToggleDeafen = () => {
-    setIsDeafened(!isDeafened);
-    if (!isDeafened) {
-      toast.info("🔇 Audio muted for all speakers");
-    } else {
-      toast.info("🔊 Audio restored");
-    }
-  };
-
-  const handleStartRecording = async () => {
-    try {
-      await voiceApi.startRecording(roomId);
-      setIsRecording(true);
-      toast.success("🎙️ Recording started");
-      refetch();
-    } catch (error) {
-      toast.error("Failed to start recording");
-    }
-  };
-
-  const handleStopRecording = async () => {
-    try {
-      await voiceApi.stopRecording(roomId);
-      setIsRecording(false);
-      toast.success("⏹️ Recording stopped");
-      refetch();
-    } catch (error) {
-      toast.error("Failed to stop recording");
-    }
-  };
-
-  const handleMessageInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const value = e.target.value;
-      setNewMessage(value);
-      sendTyping(value.length > 0);
-      if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
-      typingStopTimerRef.current = setTimeout(() => sendTyping(false), 2000);
-      const el = e.target;
-      el.style.height = "auto";
-      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-    },
-    [sendTyping],
-  );
-
-  const handleMessageKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSendMessage();
-      }
-    },
-    [handleSendMessage],
-  );
-
-  const toggleFavoriteParticipant = useCallback((participantId: string) => {
-    setFavoriteParticipants((prev) => {
-      const next = new Set(prev);
-      if (next.has(participantId)) next.delete(participantId);
-      else next.add(participantId);
-      return next;
-    });
-  }, []);
-
-  const copyRoomLink = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(
-        `${window.location.origin}/voice/${roomId}`,
-      );
-      setSessionNotice("Room link copied to clipboard");
-      toast.success("📋 Room link copied!");
-    } catch {
-      toast.error("Could not copy the room link");
-    }
-  }, [roomId]);
-
-  const isHost = hostId === user?.id || room?.creatorId === user?.id;
-  const isModerator =
-    isHost ||
-    allParticipants.some(
-      (p: any) => p.userId === user?.id && p.role === "MODERATOR",
-    );
-  const totalParticipants = allParticipants.length;
-  const onlineParticipants = useMemo(
-    () => allParticipants.filter((p: any) => p.isOnline === true),
-    [allParticipants],
-  );
-
-  const filteredParticipants = useMemo(() => {
-    const query = participantSearch.trim().toLowerCase();
-    return allParticipants
-      .filter((p: any) => {
-        const matchesQuery =
-          !query ||
-          [p.name, p.nativeLanguage, p.learningLanguage, p.country, p.level]
-            .filter(Boolean)
-            .some((value) => String(value).toLowerCase().includes(query));
-        if (!matchesQuery) return false;
-        if (participantFilter === "online") return p.isOnline === true;
-        if (participantFilter === "speaking") return p.isSpeaking === true;
-        if (participantFilter === "raised") return p.raisedHand === true;
-        return true;
-      })
-      .sort((a: any, b: any) => {
-        if (a.isSpeaking !== b.isSpeaking) return a.isSpeaking ? -1 : 1;
-        if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
-        return String(a.name || "").localeCompare(String(b.name || ""));
-      });
-  }, [allParticipants, participantSearch, participantFilter]);
-
-  const favoriteCount = favoriteParticipants.size;
-  const roomLanguages = useMemo(() => {
-    const set = new Set<string>();
-    allParticipants.forEach((p: any) => {
-      if (p.nativeLanguage) set.add(p.nativeLanguage);
-      if (p.learningLanguage) set.add(p.learningLanguage);
-    });
-    return Array.from(set).slice(0, 8);
-  }, [allParticipants]);
-
-  const typingUsersNames = useMemo(() => {
-    return Array.from(typingUsers)
-      .map((id) => {
-        const participant = allParticipants.find((p) => p.userId === id);
-        return participant?.name || id;
-      })
-      .filter(Boolean);
-  }, [typingUsers, allParticipants]);
-
-  const filteredMessages = useMemo(() => {
-    const sorted = [...messages].sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    );
-    if (!chatSearch.trim()) return sorted;
-    const q = chatSearch.toLowerCase();
-    return sorted.filter(
-      (m) =>
-        m.content?.toLowerCase().includes(q) ||
-        m.sender?.name?.toLowerCase().includes(q),
-    );
-  }, [messages, chatSearch]);
-
-  const renderItems = useMemo(() => {
-    const items: Array<
-      | { kind: "date"; key: string; label: string }
-      | {
-          kind: "message";
-          key: string;
-          message: LocalVoiceMessage;
-          showHeader: boolean;
-          isLastInGroup: boolean;
-        }
-    > = [];
-
-    let lastDayKey: string | null = null;
-    const GROUP_WINDOW_MS = 5 * 60 * 1000;
-
-    filteredMessages.forEach((msg, i) => {
-      const currentDayKey = dayKey(msg.createdAt);
-      if (currentDayKey !== lastDayKey) {
-        items.push({
-          kind: "date",
-          key: `date-${currentDayKey}-${i}`,
-          label: formatDateSeparator(msg.createdAt),
-        });
-        lastDayKey = currentDayKey;
-      }
-
-      const prevMsg = filteredMessages[i - 1];
-      const nextMsg = filteredMessages[i + 1];
-
-      const sameSenderAsPrev =
-        prevMsg &&
-        prevMsg.senderId === msg.senderId &&
-        currentDayKey === dayKey(prevMsg.createdAt) &&
-        new Date(msg.createdAt).getTime() -
-          new Date(prevMsg.createdAt).getTime() <
-          GROUP_WINDOW_MS;
-
-      const sameSenderAsNext =
-        nextMsg &&
-        nextMsg.senderId === msg.senderId &&
-        currentDayKey === dayKey(nextMsg.createdAt) &&
-        new Date(nextMsg.createdAt).getTime() -
-          new Date(msg.createdAt).getTime() <
-          GROUP_WINDOW_MS;
-
-      items.push({
-        kind: "message",
-        key: String(msg.id),
-        message: msg,
-        showHeader: !sameSenderAsPrev,
-        isLastInGroup: !sameSenderAsNext,
-      });
-    });
-
-    return items;
-  }, [filteredMessages]);
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [messages.length, scrollToBottom]);
-
-  useEffect(() => {
-    if (!isLoadingMessages && messages.length > 0) {
-      setTimeout(scrollToBottom, 200);
-    }
-  }, [isLoadingMessages, messages.length, scrollToBottom]);
-
-  // ✅ FIX: Show connecting state
-  if (
-    isLoading ||
-    isJoining ||
-    isConnecting ||
-    (!token && !isJoining) ||
-    (retryCount < maxRetries && !room)
-  ) {
+  if (isLoading || isJoining || isConnecting || (!token && !isJoining)) {
     return (
       <div
         className="h-screen flex items-center justify-center"
-        style={{ background: THEME.void, color: THEME.text.muted }}
+        style={{ background: THEME.colors.background.primary }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -3526,66 +2994,59 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           >
             <Loader2
               className="w-12 h-12 mx-auto mb-4"
-              style={{ color: THEME.aurora.primary }}
+              style={{ color: THEME.colors.accent.primary }}
             />
           </motion.div>
-          <p className="text-sm" style={{ color: THEME.text.secondary }}>
+          <p className="text-sm" style={{ color: THEME.colors.text.secondary }}>
             {isConnecting
               ? "🎧 Connecting to voice..."
               : isJoining
                 ? "🎧 Joining the conversation..."
                 : !token
                   ? "⏳ Waiting for voice connection..."
-                  : retryCount > 0
-                    ? "⏳ Room is being prepared..."
-                    : "Loading room..."}
+                  : "Loading room..."}
           </p>
           {!token && !isJoining && !isConnecting && (
             <button
               onClick={() => window.location.reload()}
               className="mt-4 px-4 py-2 rounded-full text-sm font-medium transition-all hover:scale-105"
-              style={{ background: THEME.aurora.primary, color: "#fff" }}
+              style={{ background: THEME.colors.accent.primary, color: "#fff" }}
             >
               Retry Connection
             </button>
-          )}
-          {retryCount > 0 && retryCount < maxRetries && (
-            <p className="text-xs mt-2" style={{ color: THEME.text.muted }}>
-              Retrying... ({retryCount}/{maxRetries})
-            </p>
           )}
         </motion.div>
       </div>
     );
   }
 
-  // Room not found
-  if (!room && retryCount >= maxRetries) {
+  if (!room) {
     return (
       <div
         className="h-screen flex items-center justify-center px-6"
-        style={{ background: THEME.void, color: THEME.text.muted }}
+        style={{ background: THEME.colors.background.primary }}
       >
         <div className="text-center max-w-sm">
           <AlertCircle
             className="w-12 h-12 mx-auto mb-4 opacity-50"
-            style={{ color: THEME.text.muted }}
+            style={{ color: THEME.colors.text.muted }}
           />
           <h2
-            className="text-2xl font-serif mb-2"
-            style={{ color: THEME.text.primary }}
+            className="text-2xl font-bold mb-2"
+            style={{ color: THEME.colors.text.primary }}
           >
             Room Not Found
           </h2>
-          <p className="text-sm mb-6">
-            {error
-              ? "Unable to load this room. It may have been deleted or you don't have access."
-              : "This room may have ended or the link is incorrect."}
+          <p
+            className="text-sm mb-6"
+            style={{ color: THEME.colors.text.muted }}
+          >
+            This room may have ended or the link is incorrect.
           </p>
           <button
             onClick={onLeave}
             className="px-6 py-3 rounded-full font-semibold text-sm transition-all hover:scale-105"
-            style={{ background: THEME.aurora.primary, color: "#fff" }}
+            style={{ background: THEME.colors.accent.primary, color: "#fff" }}
           >
             Back to Rooms
           </button>
@@ -3594,261 +3055,48 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     );
   }
 
-  if (!room) {
-    return (
-      <div
-        className="h-screen flex items-center justify-center"
-        style={{ background: THEME.void, color: THEME.text.muted }}
-      >
-        <div className="text-center">
-          <Loader2
-            className="w-12 h-12 mx-auto mb-4 animate-spin"
-            style={{ color: THEME.aurora.primary }}
-          />
-          <p className="text-sm" style={{ color: THEME.text.secondary }}>
-            Loading room...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // ============================================================
+  // MAIN RENDER
+  // ============================================================
 
-  // ============================================================
-  // RENDER
-  // ============================================================
   return (
     <div
       className="h-screen flex flex-col overflow-hidden relative"
-      style={{ background: THEME.void }}
+      style={{ background: THEME.colors.background.primary }}
     >
-      <ParticleBackground />
-      <EnergyOrbs count={4} />
+      {/* Background Glow */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: THEME.colors.gradient.glow }}
+      />
 
-      <AnimatePresence>
-        {reactions.map((reaction) => (
-          <motion.div
-            key={reaction.id}
-            initial={{ opacity: 1, scale: 0.5, y: 0 }}
-            animate={{ opacity: 0, scale: 1.5, y: -80 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5, ease: "easeOut" }}
-            className="fixed pointer-events-none text-3xl z-50"
-            style={{
-              left: `${30 + Math.random() * 40}%`,
-              top: `${30 + Math.random() * 40}%`,
-            }}
-          >
-            {reaction.emoji}
-          </motion.div>
-        ))}
-      </AnimatePresence>
-
-      {/* Top Bar */}
-      <header
-        className="relative z-10 flex items-center justify-between px-4 sm:px-6 py-2.5 border-b shrink-0 backdrop-blur-xl"
-        style={{
-          background: "rgba(20, 20, 37, 0.8)",
-          borderColor: THEME.border,
+      {/* Room Header */}
+      <VoiceRoomHeader
+        room={room}
+        isHost={isHost}
+        isLiveKitConnected={isLiveKitConnected}
+        isMockMode={isMockMode}
+        totalParticipants={totalParticipants}
+        speakingCount={speakingCount}
+        onlineCount={onlineParticipants.length}
+        showChat={showChat}
+        unreadCount={unreadCount}
+        isConnected={isConnected}
+        onToggleChat={() => {
+          setShowChat((v) => {
+            const next = !v;
+            if (next) {
+              setUnreadCount(0);
+              setHasNewMessages(false);
+              setNewMessageCount(0);
+            }
+            return next;
+          });
         }}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <motion.div
-            whileHover={{ rotate: 360 }}
-            transition={{ duration: 0.6 }}
-            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-            style={{
-              background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-            }}
-          >
-            <Radio className="w-4 h-4 text-white" />
-          </motion.div>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h2
-                className="text-sm font-semibold truncate"
-                style={{ color: THEME.text.primary }}
-              >
-                {room.name}
-              </h2>
-              <span
-                className="text-[9px] font-mono tracking-wider uppercase px-1.5 py-0.5 rounded-full flex items-center gap-1"
-                style={{
-                  background: isLiveKitConnected
-                    ? "rgba(110, 231, 183, 0.15)"
-                    : THEME.border,
-                  color: isLiveKitConnected
-                    ? THEME.status.live
-                    : THEME.text.muted,
-                }}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${isLiveKitConnected ? "animate-pulse" : ""}`}
-                  style={{
-                    background: isLiveKitConnected
-                      ? THEME.status.live
-                      : THEME.text.muted,
-                  }}
-                />
-                {isLiveKitConnected
-                  ? "Live"
-                  : isMockMode
-                    ? "Demo"
-                    : "Connecting"}
-              </span>
-              {isHost && (
-                <span
-                  className="text-[9px] font-mono tracking-wider uppercase px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
-                  style={{
-                    background: "rgba(245, 158, 11, 0.15)",
-                    color: "#FBBF24",
-                  }}
-                >
-                  <Crown className="w-2.5 h-2.5" /> Host
-                </span>
-              )}
-            </div>
-            <div
-              className="flex items-center gap-2 text-[10px]"
-              style={{ color: THEME.text.muted }}
-            >
-              <span>{totalParticipants} participants</span>
-              <span>·</span>
-              <span>{speakingCount} speaking</span>
-              <span>·</span>
-              <span>{onlineParticipants.length} online</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={() => setShowChat(!showChat)}
-            className="relative p-1.5 rounded-full hover:bg-white/5 transition-colors"
-            style={{
-              color: showChat ? THEME.aurora.primary : THEME.text.muted,
-            }}
-            title="Toggle Chat"
-          >
-            <MessageCircle className="w-4 h-4" />
-            {unreadCount > 0 && (
-              <span
-                className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 text-[8px] rounded-full flex items-center justify-center px-1 font-bold"
-                style={{ background: "#EF4444", color: "#fff" }}
-              >
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </button>
-
-          <div className="relative">
-            <button
-              onClick={() => setShowCommandCenter((v) => !v)}
-              className="p-1.5 rounded-full hover:bg-white/5 transition-colors"
-              style={{
-                color: showCommandCenter
-                  ? THEME.aurora.primary
-                  : THEME.text.muted,
-              }}
-              title="Room controls"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-            <AnimatePresence>
-              {showCommandCenter && (
-                <RoomCommandCenter
-                  isHost={isHost}
-                  isModerator={isModerator}
-                  isMuted={isMuted}
-                  isDeafened={isDeafened}
-                  soundEnabled={soundEnabled}
-                  showChat={showChat}
-                  showParticipants={showParticipants}
-                  showLiveStats={showLiveStats}
-                  isRecording={isRecording}
-                  onMute={handleToggleMute}
-                  onDeafen={handleToggleDeafen}
-                  onToggleSound={() => setSoundEnabled((v) => !v)}
-                  onToggleChat={() => setShowChat((v) => !v)}
-                  onToggleParticipants={() => setShowParticipants((v) => !v)}
-                  onToggleStats={() => setShowLiveStats((v) => !v)}
-                  onRecord={
-                    isRecording ? handleStopRecording : handleStartRecording
-                  }
-                  onClose={() => setShowCommandCenter(false)}
-                />
-              )}
-            </AnimatePresence>
-          </div>
-          <button
-            onClick={() => {
-              if (onMinimize) {
-                onMinimize({
-                  id: roomId,
-                  name: room?.name || "Voice Room",
-                  participants: allParticipants,
-                  type: room?.type || "OPEN",
-                  participantCount: totalParticipants,
-                });
-              }
-            }}
-            className="p-1.5 rounded-full hover:bg-white/5 transition-colors"
-            style={{ color: THEME.text.muted }}
-            title="Minimize Room"
-          >
-            <Minimize2 className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => {
-              copyRoomLink();
-            }}
-            className="p-1.5 rounded-full hover:bg-white/5 transition-colors"
-            style={{ color: THEME.text.muted }}
-            title="Share Room"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-          </button>
-          <ConnectionHealth
-            socketConnected={isConnected}
-            liveKitConnected={isLiveKitConnected}
-            isMockMode={isMockMode}
-          />
-          <div className="relative">
-            <button
-              onClick={() => setShowQualityPanel((v) => !v)}
-              className="p-1.5 rounded-full hover:bg-white/5 transition-colors"
-              style={{
-                color: showQualityPanel
-                  ? THEME.aurora.primary
-                  : THEME.text.muted,
-              }}
-              title="Connection quality"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
-            <AnimatePresence>
-              {showQualityPanel && (
-                <RoomQualityPanel
-                  socketConnected={isConnected}
-                  liveKitConnected={isLiveKitConnected}
-                  isMockMode={isMockMode}
-                  audioLevel={audioLevel}
-                  volume={volume}
-                />
-              )}
-            </AnimatePresence>
-          </div>
-          <button
-            onClick={() => setShowShortcuts(true)}
-            className="hidden sm:block p-1.5 rounded-full hover:bg-white/5 transition-colors"
-            style={{ color: THEME.text.muted }}
-            title="Keyboard shortcuts"
-          >
-            <Keyboard className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </header>
+        onToggleCommandCenter={() => setShowCommandCenter(!showCommandCenter)}
+        onMinimize={onMinimize}
+        onShare={handleCopyLink}
+      />
 
       {/* Live Stats Bar */}
       <AnimatePresence>
@@ -3857,10 +3105,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="px-4 py-1.5 border-b backdrop-blur-sm"
+            className="px-4 py-1.5 border-b"
             style={{
-              borderColor: THEME.border,
-              background: "rgba(20, 20, 37, 0.3)",
+              borderColor: THEME.colors.border.primary,
+              background: THEME.colors.background.secondary,
             }}
           >
             <div className="flex items-center gap-4 flex-wrap text-xs">
@@ -3874,10 +3122,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
                 { label: "Messages", value: messages.length },
               ].map((stat, i) => (
                 <div key={i} className="flex items-center gap-1">
-                  <span style={{ color: THEME.text.muted }}>{stat.label}:</span>
+                  <span style={{ color: THEME.colors.text.muted }}>
+                    {stat.label}:
+                  </span>
                   <span
                     className="font-medium"
-                    style={{ color: THEME.text.primary }}
+                    style={{ color: THEME.colors.text.primary }}
                   >
                     {stat.value}
                   </span>
@@ -3888,985 +3138,232 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Main Layout */}
+      {/* Main Content */}
       <main className="flex flex-1 min-h-0 relative z-10">
         {/* Participants Grid */}
-        <section
-          className={`flex-1 min-w-0 px-4 sm:px-6 py-4 transition-all duration-300 overflow-y-auto ${
-            showChat ? "md:w-2/3" : "w-full"
-          }`}
-          style={{
-            backgroundImage: `radial-gradient(ellipse 60% 40% at 50% 20%, ${THEME.gradient.from}, transparent 70%)`,
+        <ParticipantGrid
+          participants={allParticipants}
+          isHost={isHost}
+          isModerator={isModerator}
+          currentUserId={user?.id}
+          hostId={hostId}
+          searchQuery={participantSearch}
+          onSearchChange={setParticipantSearch}
+          filter={participantFilter}
+          onFilterChange={setParticipantFilter}
+          showSearch={showParticipantSearch}
+          onToggleSearch={() =>
+            setShowParticipantSearch(!showParticipantSearch)
+          }
+          favoriteParticipants={favoriteParticipants}
+          onToggleFavorite={(userId) => {
+            setFavoriteParticipants((prev) => {
+              const next = new Set(prev);
+              if (next.has(userId)) next.delete(userId);
+              else next.add(userId);
+              return next;
+            });
           }}
-        >
-          <ActiveSpeakerStrip participants={allParticipants} />
+          onMuteUser={muteUser}
+          onKickUser={kickUser}
+          onPromoteHost={promoteHost}
+          onSendMessage={(userId) => {
+            const participant = allParticipants.find((p) => p.id === userId);
+            if (participant) {
+              setShowChat(true);
+              setActiveTab("chat");
+              setNewMessage(`@${participant.name} `);
+            }
+          }}
+          onViewProfile={(userId) => toast.info(`👤 Viewing profile`)}
+          showChat={showChat}
+          className={showChat ? "md:w-2/3" : "w-full"}
+        />
 
-          {/* Participant intelligence toolbar */}
-          <div
-            className="mb-3 rounded-2xl border p-2.5 backdrop-blur-xl"
-            style={{
-              background: "rgba(20,20,37,.62)",
-              borderColor: THEME.border,
-            }}
-          >
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5 mr-auto">
-                <Users
-                  className="w-3.5 h-3.5"
-                  style={{ color: THEME.aurora.secondary }}
-                />
-                <span
-                  className="text-xs font-semibold"
-                  style={{ color: THEME.text.primary }}
-                >
-                  People in room
-                </span>
-                <span
-                  className="text-[9px] px-1.5 py-0.5 rounded-full"
-                  style={{
-                    background: "rgba(110,231,183,.1)",
-                    color: THEME.status.live,
-                  }}
-                >
-                  {onlineParticipants.length} online
-                </span>
-              </div>
-              <button
-                onClick={() => setShowParticipantSearch((v) => !v)}
-                className="p-1.5 rounded-lg hover:bg-white/5"
-                style={{
-                  color: showParticipantSearch
-                    ? THEME.aurora.primary
-                    : THEME.text.muted,
-                }}
-                title="Search participants"
-              >
-                <Search className="w-3.5 h-3.5" />
-              </button>
-              <div className="flex items-center gap-1">
-                {(["all", "online", "speaking", "raised"] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setParticipantFilter(f)}
-                    className="px-2 py-1 rounded-full text-[9px] capitalize transition-all"
-                    style={{
-                      background:
-                        participantFilter === f
-                          ? "rgba(124,106,255,.18)"
-                          : "transparent",
-                      color:
-                        participantFilter === f
-                          ? THEME.text.primary
-                          : THEME.text.muted,
-                    }}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <AnimatePresence>
-              {showParticipantSearch && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="relative mt-2">
-                    <UserRoundSearch
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
-                      style={{ color: THEME.text.muted }}
-                    />
-                    <input
-                      value={participantSearch}
-                      onChange={(e) => setParticipantSearch(e.target.value)}
-                      placeholder="Search by name, language, country or level..."
-                      className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none"
-                      style={{
-                        background: THEME.void,
-                        borderColor: THEME.border,
-                        color: THEME.text.primary,
-                      }}
-                    />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Language filter */}
-          <div className="flex items-center gap-1.5 mb-4 px-1 flex-wrap">
-            <span
-              className="text-[10px] font-medium"
-              style={{ color: THEME.text.muted }}
-            >
-              🌍 Languages:
-            </span>
-            {["All", "🇺🇸", "🇪🇸", "🇫🇷", "🇯🇵", "🇰🇷", "🇨🇳"].map((lang) => (
-              <button
-                key={lang}
-                className="px-2 py-0.5 rounded-full text-[9px] transition-all hover:scale-105"
-                style={{
-                  background: THEME.surfaceHover,
-                  color: THEME.text.secondary,
-                  border: `1px solid ${THEME.border}`,
-                }}
-              >
-                {lang}
-              </button>
-            ))}
-          </div>
-
-          <div
-            className="mb-2 px-1 text-[9px]"
-            style={{ color: THEME.text.muted }}
-          >
-            {filteredParticipants.length} shown · {favoriteCount} favorites
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-w-5xl mx-auto">
-            {filteredParticipants.length === 0 ? (
-              <EmptyParticipantState query={participantSearch} />
-            ) : (
-              filteredParticipants.map((p: any) => {
-                const isParticipantHost =
-                  hostId === p.userId || p.role === "HOST";
-                const isCurrentUser = p.userId === user?.id;
-
-                const participant: RoomParticipant = {
-                  id: p.userId,
-                  name: p.name || p.user?.name || "Anonymous",
-                  avatarUrl: p.avatarUrl || p.user?.avatarUrl,
-                  country: p.country || p.user?.country,
-                  nativeLanguage: p.nativeLanguage || p.user?.nativeLanguage,
-                  learningLanguage:
-                    p.learningLanguage || p.user?.learningLanguage,
-                  level: p.level || p.user?.level,
-                  bio: p.bio || p.user?.bio,
-                  interests: p.interests || p.user?.interests,
-                  isOnline: p.isOnline === true,
-                  isVerified: p.isVerified || p.user?.isVerified,
-                  isPremium: p.isPremium || p.user?.isPremium,
-                  isSpeaking: p.isSpeaking || false,
-                  isMuted: Boolean(p.isMuted),
-                  raisedHand: p.raisedHand || false,
-                  joinedAt: p.joinedAt || new Date().toISOString(),
-                  role: p.role || (isParticipantHost ? "HOST" : "MEMBER"),
-                  isListening: p.isListening === true,
-                  audioLevel: p.audioLevel || 0,
-                  age: p.age || p.user?.age,
-                  gender: p.gender || p.user?.gender,
-                  timezone: p.timezone || p.user?.timezone,
-                };
-
-                return (
-                  <ParticipantCard
-                    key={p.userId}
-                    participant={participant}
-                    isHost={isParticipantHost}
-                    isCurrentUser={isCurrentUser}
-                    isModerator={isModerator}
-                    onMute={() => muteUser(p.userId)}
-                    onKick={() => kickUser(p.userId)}
-                    onPromote={() => promoteHost(p.userId)}
-                    onFollow={() => toast.success(`👋 Following ${p.name}`)}
-                    onSendMessage={() => {
-                      setShowChat(true);
-                      setActiveTab("chat");
-                      setNewMessage((prev) => (prev ? prev : `@${p.name} `));
-                      toast.info(`💬 Send a message to ${p.name}`);
-                    }}
-                    onViewProfile={() =>
-                      toast.info(`👤 Viewing ${p.name}'s profile`)
-                    }
-                    size="sm"
-                  />
-                );
-              })
-            )}
-
-            {allParticipants.length === 0 && (
-              <div className="col-span-full text-center py-12">
-                <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                  style={{ background: "rgba(167, 139, 250, 0.1)" }}
-                >
-                  <Users
-                    className="w-8 h-8"
-                    style={{ color: THEME.aurora.primary }}
-                  />
-                </div>
-                <p className="text-sm" style={{ color: THEME.text.muted }}>
-                  Waiting for participants...
-                </p>
-                <p className="text-xs mt-1" style={{ color: THEME.text.muted }}>
-                  Share the room link to invite others
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Chat Sidebar */}
+        {/* Chat Panel */}
         <AnimatePresence>
           {showChat && (
-            <motion.aside
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.25, type: "spring", damping: 25 }}
-              className="w-full md:w-[380px] border-l flex flex-col min-h-0 shrink-0 backdrop-blur-xl"
-              style={{
-                background: "rgba(20, 20, 37, 0.9)",
-                borderColor: THEME.border,
+            <ChatPanel
+              messages={chatPanelMessages}
+              newMessage={newMessage}
+              replyTo={
+                replyTo
+                  ? (normalizeChatMessage(replyTo, user?.id) as any)
+                  : null
+              }
+              typingUsers={typingUsers}
+              currentUserId={user?.id || ""}
+              isHost={isHost}
+              isModerator={isModerator}
+              showEmojiPicker={showEmojiPicker}
+              onEmojiPickerToggle={() => setShowEmojiPicker(!showEmojiPicker)}
+              onMessageChange={handleComposerChange}
+              onSendMessage={handleSendMessage}
+              onReply={(msg) => setReplyTo(msg as any)}
+              onPinMessage={(messageId, pinned) => {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === messageId ? { ...m, isPinned: pinned } : m,
+                  ),
+                );
+                try {
+                  pinMessage?.(messageId, pinned);
+                } catch {
+                  pinMessage?.(messageId);
+                }
               }}
-            >
-              {/* Chat Header */}
-              <div
-                className="px-4 py-2 border-b flex items-center justify-between shrink-0"
-                style={{ borderColor: THEME.border }}
-              >
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setActiveTab("chat")}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1.5`}
-                    style={{
-                      background:
-                        activeTab === "chat"
-                          ? THEME.aurora.primary
-                          : "transparent",
-                      color: activeTab === "chat" ? "#fff" : THEME.text.muted,
-                    }}
-                  >
-                    <MessageCircle className="w-3 h-3" />
-                    Chat
-                    <span
-                      className="text-[8px] px-1 py-0.5 rounded-full"
-                      style={{
-                        background:
-                          activeTab === "chat"
-                            ? "rgba(255,255,255,0.2)"
-                            : THEME.border,
-                      }}
-                    >
-                      {messages.length}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("participants")}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1.5`}
-                    style={{
-                      background:
-                        activeTab === "participants"
-                          ? THEME.aurora.primary
-                          : "transparent",
-                      color:
-                        activeTab === "participants"
-                          ? "#fff"
-                          : THEME.text.muted,
-                    }}
-                  >
-                    <Users className="w-3 h-3" />
-                    People
-                    <span
-                      className="text-[8px] px-1 py-0.5 rounded-full"
-                      style={{
-                        background:
-                          activeTab === "participants"
-                            ? "rgba(255,255,255,0.2)"
-                            : THEME.border,
-                      }}
-                    >
-                      {totalParticipants}
-                    </span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  {activeTab === "chat" && (
-                    <button
-                      onClick={() => setShowChatSearch((v) => !v)}
-                      className="p-1 rounded-lg hover:bg-white/5 transition-colors"
-                      style={{
-                        color: showChatSearch
-                          ? THEME.aurora.primary
-                          : THEME.text.muted,
-                      }}
-                    >
-                      <Search className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setShowChat(false)}
-                    className="p-1 rounded hover:bg-white/5 transition-colors"
-                    style={{ color: THEME.text.muted }}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Chat Search */}
-              <AnimatePresence>
-                {activeTab === "chat" && showChatSearch && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="px-3 py-1.5 border-b shrink-0"
-                    style={{ borderColor: THEME.border }}
-                  >
-                    <div className="relative">
-                      <Search
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3"
-                        style={{ color: THEME.text.muted }}
-                      />
-                      <input
-                        autoFocus
-                        type="text"
-                        value={chatSearch}
-                        onChange={(e) => setChatSearch(e.target.value)}
-                        placeholder="Search messages..."
-                        className="w-full pl-7 pr-3 py-1 rounded-full text-xs outline-none border"
-                        style={{
-                          background: "rgba(10, 10, 18, 0.5)",
-                          color: THEME.text.primary,
-                          borderColor: THEME.border,
-                        }}
-                      />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {activeTab === "chat" ? (
-                <>
-                  {/* Typing indicator */}
-                  {typingUsers.size > 0 && (
-                    <div
-                      className="px-4 py-1 text-xs italic border-b"
-                      style={{
-                        color: THEME.text.muted,
-                        borderColor: THEME.border,
-                      }}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <span className="flex gap-0.5">
-                          {Array.from({ length: 3 }).map((_, i) => (
-                            <motion.span
-                              key={i}
-                              className="w-1 h-1 rounded-full"
-                              style={{ background: THEME.aurora.primary }}
-                              animate={{ y: [0, -4, 0] }}
-                              transition={{
-                                duration: 0.6,
-                                delay: i * 0.15,
-                                repeat: Infinity,
-                              }}
-                            />
-                          ))}
-                        </span>
-                        {typingUsersNames.length > 0 && (
-                          <span>
-                            {typingUsersNames.join(", ")}{" "}
-                            {typingUsersNames.length === 1 ? "is" : "are"}{" "}
-                            typing...
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Messages */}
-                  <div
-                    ref={chatScrollRef}
-                    onScroll={handleChatScroll}
-                    className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3"
-                    style={{
-                      scrollbarWidth: "thin",
-                      scrollbarColor: `${THEME.border} transparent`,
-                    }}
-                  >
-                    {isLoadingMessages && messages.length === 0 ? (
-                      <div className="flex items-center justify-center h-full">
-                        <Loader2
-                          className="w-6 h-6 animate-spin"
-                          style={{ color: THEME.aurora.primary }}
-                        />
-                      </div>
-                    ) : renderItems.length > 0 ? (
-                      renderItems.map((item) =>
-                        item.kind === "date" ? (
-                          <DateSeparator key={item.key} label={item.label} />
-                        ) : (
-                          <GlassMessage
-                            key={item.key}
-                            message={item.message}
-                            isOwn={item.message.senderId === user?.id}
-                            isHost={isHost}
-                            showHeader={item.showHeader}
-                            isLastInGroup={item.isLastInGroup}
-                            onReply={() => setReplyTo(item.message)}
-                            onPin={() =>
-                              pinMessage(
-                                item.message.id,
-                                !item.message.isPinned,
-                              )
-                            }
-                            onDelete={() => {
-                              if (socket && isConnected) {
-                                deleteSocketMessage(item.message.id);
-                              } else {
-                                deleteMessageMutation.mutate({
-                                  roomId,
-                                  messageId: item.message.id,
-                                });
-                              }
-                            }}
-                            onKick={() => kickUser(item.message.senderId)}
-                            onMute={() => muteUser(item.message.senderId)}
-                            onTranslate={() =>
-                              toast.info("🌐 Translation coming soon")
-                            }
-                            onReaction={(emoji) =>
-                              handleMessageReaction(
-                                String(item.message.id),
-                                emoji,
-                              )
-                            }
-                            onRetry={() => handleRetryMessage(item.message)}
-                          />
-                        ),
-                      )
-                    ) : chatSearch.trim() ? (
-                      <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                        <p
-                          className="text-sm"
-                          style={{ color: THEME.text.muted }}
-                        >
-                          No messages match "{chatSearch}"
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                        <div
-                          className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                          style={{ background: "rgba(167, 139, 250, 0.1)" }}
-                        >
-                          <MessageCircle
-                            className="w-8 h-8"
-                            style={{ color: THEME.aurora.primary }}
-                          />
-                        </div>
-                        <p
-                          className="text-sm font-medium"
-                          style={{ color: THEME.text.primary }}
-                        >
-                          No messages yet
-                        </p>
-                        <p
-                          className="text-xs mt-1"
-                          style={{ color: THEME.text.muted }}
-                        >
-                          Be the first to start the conversation ✨
-                        </p>
-                      </div>
-                    )}
-                    <div ref={chatEndRef} />
-                  </div>
-
-                  {/* Jump to latest */}
-                  <AnimatePresence>
-                    {hasNewMessages && (
-                      <motion.button
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        onClick={scrollToBottom}
-                        className="self-center mb-1.5 px-3 py-1 rounded-full text-[10px] font-medium flex items-center gap-1.5 shrink-0 mx-auto"
-                        style={{
-                          background: THEME.aurora.primary,
-                          color: "#fff",
-                          boxShadow: `0 0 20px ${THEME.borderGlow}`,
-                        }}
-                      >
-                        <ArrowDown className="w-3 h-3" />
-                        {newMessageCount > 0
-                          ? `${newMessageCount} new message${newMessageCount > 1 ? "s" : ""}`
-                          : "New messages"}
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Reply Bar */}
-                  <AnimatePresence>
-                    {replyTo && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="px-3 py-1.5 border-t flex items-center justify-between shrink-0"
-                        style={{
-                          borderColor: THEME.border,
-                          background: "rgba(20, 20, 37, 0.5)",
-                        }}
-                      >
-                        <div className="flex items-center gap-2 text-sm min-w-0">
-                          <Reply
-                            className="w-3.5 h-3.5 shrink-0"
-                            style={{ color: THEME.aurora.primary }}
-                          />
-                          <div className="min-w-0">
-                            <div
-                              className="text-[9px] font-mono uppercase tracking-wider"
-                              style={{ color: THEME.text.muted }}
-                            >
-                              Replying to {replyTo.sender?.name}
-                            </div>
-                            <span
-                              className="text-xs truncate block max-w-[180px]"
-                              style={{ color: THEME.text.secondary }}
-                            >
-                              {replyTo.content}
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setReplyTo(null)}
-                          className="p-1 rounded hover:bg-white/10 transition-colors shrink-0"
-                          style={{ color: THEME.text.muted }}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Input Bar */}
-                  <div
-                    className="p-2.5 border-t flex gap-2 items-end shrink-0"
-                    style={{ borderColor: THEME.border }}
-                  >
-                    <button
-                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className="p-1.5 rounded-full hover:bg-white/5 transition-colors shrink-0"
-                      style={{ color: THEME.text.muted }}
-                    >
-                      <Smile className="w-4 h-4" />
-                    </button>
-
-                    <textarea
-                      ref={textareaRef}
-                      rows={1}
-                      value={newMessage}
-                      onChange={handleMessageInputChange}
-                      onKeyDown={handleMessageKeyDown}
-                      maxLength={2000}
-                      placeholder="Type a message..."
-                      className="flex-1 min-w-0 px-3 py-2 rounded-2xl text-sm outline-none transition-all border resize-none leading-normal"
-                      style={{
-                        background: "rgba(10, 10, 18, 0.5)",
-                        color: THEME.text.primary,
-                        borderColor: THEME.border,
-                        maxHeight: 100,
-                      }}
-                    />
-
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim()}
-                      className="p-2 rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
-                      style={{
-                        background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-                        color: "#fff",
-                      }}
-                    >
-                      <Send className="w-4 h-4" />
-                    </motion.button>
-                  </div>
-
-                  {/* Emoji Picker */}
-                  <AnimatePresence>
-                    {showEmojiPicker && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="p-2 border-t flex flex-wrap gap-1"
-                        style={{
-                          borderColor: THEME.border,
-                          background: "rgba(10, 10, 18, 0.5)",
-                        }}
-                      >
-                        {[
-                          "😊",
-                          "😂",
-                          "❤️",
-                          "🔥",
-                          "👍",
-                          "👏",
-                          "🙏",
-                          "🎉",
-                          "😍",
-                          "🤔",
-                          "😭",
-                          "🥺",
-                          "💯",
-                          "✨",
-                          "🌟",
-                          "🎊",
-                          "🚀",
-                          "💪",
-                          "🤗",
-                          "🥰",
-                          "😎",
-                          "🤩",
-                          "😇",
-                          "🤣",
-                          "🥳",
-                          "😘",
-                          "🤝",
-                          "🌍",
-                          "🎯",
-                          "💡",
-                          "🌈",
-                          "⭐",
-                          "💎",
-                          "🎵",
-                          "🎶",
-                        ].map((emoji) => (
-                          <button
-                            key={emoji}
-                            onClick={() => {
-                              setNewMessage((prev) => prev + emoji);
-                              setShowEmojiPicker(false);
-                              textareaRef.current?.focus();
-                            }}
-                            className="p-1 hover:bg-white/10 rounded-lg text-lg transition-all hover:scale-125"
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </>
-              ) : (
-                <>
-                  {/* Participants List */}
-                  <AnimatePresence>
-                    {audioLevel > 0.045 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="mx-3 mt-2 flex items-center gap-2 px-3 py-2 rounded-xl border"
-                        style={{
-                          background: "rgba(110,231,183,.08)",
-                          borderColor: "rgba(110,231,183,.28)",
-                        }}
-                        aria-live="polite"
-                      >
-                        <span className="w-2 h-2 rounded-full animate-pulse bg-emerald-300" />
-                        <span className="text-[10px] font-semibold text-emerald-300">
-                          Your microphone is picking up your voice
-                        </span>
-                        <div
-                          className="ml-auto flex items-end gap-[2px] h-3"
-                          aria-hidden="true"
-                        >
-                          {[0, 1, 2, 3, 4, 5].map((i) => (
-                            <motion.span
-                              key={i}
-                              className="w-[2px] rounded-full bg-emerald-300"
-                              animate={{
-                                height: `${Math.max(3, 3 + audioLevel * (6 + i * 2))}px`,
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <div className="flex-1 overflow-y-auto p-3">
-                    <div className="space-y-1.5">
-                      {allParticipants.map((p: any) => {
-                        const isParticipantHost =
-                          hostId === p.userId || p.role === "HOST";
-                        const isCurrentUser = p.userId === user?.id;
-                        const countryFlag = getCountryFlag(
-                          p.country || p.user?.country,
-                        );
-                        return (
-                          <div
-                            key={p.userId}
-                            className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer"
-                            onClick={() =>
-                              toast.info(`👤 Viewing ${p.name}'s profile`)
-                            }
-                          >
-                            <div className="relative">
-                              <div
-                                className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold"
-                                style={{
-                                  background: p.avatarUrl
-                                    ? `url(${p.avatarUrl}) center/cover`
-                                    : `hsl(${hueFromString(p.name)}, 50%, 22%)`,
-                                  color: p.avatarUrl
-                                    ? "transparent"
-                                    : THEME.text.primary,
-                                }}
-                              >
-                                {!p.avatarUrl && initials(p.name)}
-                              </div>
-                              {p.isSpeaking && (
-                                <>
-                                  <motion.span
-                                    className="absolute -inset-1 rounded-full pointer-events-none"
-                                    animate={{
-                                      scale: [0.9, 1.22, 0.9],
-                                      opacity: [0.7, 0, 0.7],
-                                    }}
-                                    transition={{
-                                      duration: 1,
-                                      repeat: Infinity,
-                                    }}
-                                    style={{
-                                      border: `1.5px solid ${THEME.aurora.primary}`,
-                                      boxShadow: `0 0 12px ${THEME.aurora.primary}88`,
-                                    }}
-                                  />
-                                  <span
-                                    className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border animate-pulse"
-                                    style={{
-                                      background: THEME.status.speaking,
-                                      borderColor: THEME.surface,
-                                      boxShadow: `0 0 8px ${THEME.status.speaking}`,
-                                    }}
-                                  />
-                                </>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span
-                                  className="text-sm font-medium truncate"
-                                  style={{ color: THEME.text.primary }}
-                                >
-                                  {p.name}
-                                </span>
-                                {isParticipantHost && (
-                                  <Crown className="w-3 h-3 text-yellow-400" />
-                                )}
-                                {isCurrentUser && (
-                                  <span
-                                    className="text-[7px] px-1 py-0.5 rounded-full"
-                                    style={{
-                                      background: THEME.aurora.primary,
-                                      color: "#fff",
-                                    }}
-                                  >
-                                    You
-                                  </span>
-                                )}
-                                <span className="text-sm">{countryFlag}</span>
-                              </div>
-                              <div
-                                className="flex items-center gap-2 text-[9px]"
-                                style={{ color: THEME.text.muted }}
-                              >
-                                {p.nativeLanguage && (
-                                  <span>{p.nativeLanguage}</span>
-                                )}
-                                {p.learningLanguage && (
-                                  <span>→ {p.learningLanguage}</span>
-                                )}
-                                {p.level && <span>· {p.level}</span>}
-                              </div>
-                            </div>
-                            <div className="flex gap-0.5">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleFavoriteParticipant(p.userId);
-                                }}
-                                className="p-1 rounded-lg hover:bg-white/10 transition-all"
-                                style={{
-                                  color: favoriteParticipants.has(p.userId)
-                                    ? THEME.aurora.quaternary
-                                    : THEME.text.muted,
-                                }}
-                                title={
-                                  favoriteParticipants.has(p.userId)
-                                    ? "Remove favorite"
-                                    : "Favorite participant"
-                                }
-                              >
-                                <Star
-                                  className="w-3 h-3"
-                                  fill={
-                                    favoriteParticipants.has(p.userId)
-                                      ? "currentColor"
-                                      : "none"
-                                  }
-                                />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowChat(true);
-                                  setActiveTab("chat");
-                                  toast.info(`💬 Send a message to ${p.name}`);
-                                }}
-                                className="p-1 rounded-lg hover:bg-white/10 transition-all"
-                                style={{ color: THEME.text.muted }}
-                              >
-                                <MessageSquare className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </motion.aside>
+              onDeleteMessage={(messageId) => {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === messageId ? { ...m, isDeleted: true } : m,
+                  ),
+                );
+                if (socket && isConnected) {
+                  deleteSocketMessage(messageId);
+                } else {
+                  deleteMessageMutation.mutate({ roomId, messageId });
+                }
+              }}
+              onEditMessage={handleEditMessage}
+              onReactToMessage={handleMessageReaction}
+              onKickUser={kickUser}
+              onMuteUser={muteUser}
+              onTranslateMessage={() =>
+                toast.info("Translation will connect to your i18n API")
+              }
+              onSendGift={() =>
+                toast.info("Gifts can be wired to your economy API")
+              }
+              chatSearch={chatSearch}
+              onChatSearchChange={setChatSearch}
+              showChatSearch={showChatSearch}
+              onToggleChatSearch={() => setShowChatSearch(!showChatSearch)}
+              totalParticipants={totalParticipants}
+              scrollRef={chatScrollRef}
+              endRef={chatEndRef}
+              textareaRef={textareaRef}
+              isNearBottom={isNearBottom}
+              onScroll={handleChatScroll}
+              hasNewMessages={hasNewMessages}
+              newMessageCount={newMessageCount}
+              onScrollToBottom={() => {
+                setHasNewMessages(false);
+                setNewMessageCount(0);
+                scrollToBottom();
+              }}
+              onAttachFile={() =>
+                toast.info("File uploads can be connected to your media API")
+              }
+              onRecordAudio={() =>
+                toast.info("Voice notes can be connected to your audio API")
+              }
+              roomId={roomId}
+              participantNames={allParticipants
+                .map((p) => p.name)
+                .filter(Boolean)}
+              className="w-full md:w-[400px] border-l"
+            />
           )}
         </AnimatePresence>
       </main>
 
-      {/* Control Bar */}
-      <footer
-        className="relative z-10 px-4 py-2 border-t flex items-center justify-center gap-3 shrink-0 flex-wrap backdrop-blur-xl"
-        style={{
-          background: "rgba(20, 20, 37, 0.8)",
-          borderColor: THEME.border,
-        }}
-      >
-        <div
-          className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-full border"
-          style={{
-            borderColor: THEME.border,
-            background: "rgba(255,255,255,.02)",
-          }}
-        >
-          <Mic
-            className="w-3 h-3"
-            style={{
-              color: isMuted ? THEME.text.muted : THEME.status.speaking,
-            }}
+      {/* Audio Controls */}
+      <AudioControls
+        isMuted={isMuted}
+        isDeafened={isDeafened}
+        volume={volume}
+        audioLevel={audioLevel}
+        isHost={isHost}
+        isRecording={isRecording}
+        isRaisingHand={isRaisingHand}
+        onToggleMute={handleToggleMute}
+        onToggleDeafen={handleToggleDeafen}
+        onVolumeChange={setVolume}
+        onLeave={handleLeave}
+        onStartRecording={handleStartRecording}
+        onStopRecording={handleStopRecording}
+        onShare={handleCopyLink}
+        onRaiseHand={handleRaiseHand}
+        participantCount={totalParticipants}
+        onShowParticipants={() => setShowParticipants(true)}
+        connectionQuality="excellent"
+        isCallActive={isLiveKitConnected}
+      />
+
+      {/* Command Center */}
+      <AnimatePresence>
+        {showCommandCenter && (
+          <>
+            <motion.div
+              key="cc-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[998] bg-black/30"
+              onClick={() => setShowCommandCenter(false)}
+            />
+            <CommandCenter
+              isHost={isHost}
+              isModerator={isModerator}
+              isMuted={isMuted}
+              isDeafened={isDeafened}
+              soundEnabled={soundEnabled}
+              showChat={showChat}
+              showParticipants={true}
+              showLiveStats={showLiveStats}
+              isRecording={isRecording}
+              onMute={handleToggleMute}
+              onDeafen={handleToggleDeafen}
+              onToggleSound={() => setSoundEnabled(!soundEnabled)}
+              onToggleChat={() => setShowChat(!showChat)}
+              onToggleStats={() => setShowLiveStats(!showLiveStats)}
+              onRecord={
+                isRecording ? handleStopRecording : handleStartRecording
+              }
+              onClose={() => setShowCommandCenter(false)}
+            />
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Room Details */}
+      <AnimatePresence>
+        {showRoomDetails && (
+          <RoomDetailsPanel
+            room={room}
+            totalParticipants={totalParticipants}
+            speakingCount={speakingCount}
+            onlineCount={onlineParticipants.length}
+            messages={messages.length}
+            duration={roomDuration}
+            premiumCount={allParticipants.filter((p) => p.isPremium).length}
+            verifiedCount={allParticipants.filter((p) => p.isVerified).length}
+            languages={Array.from(
+              new Set(
+                allParticipants
+                  .flatMap((p) => [p.nativeLanguage, p.learningLanguage])
+                  .filter(Boolean),
+              ),
+            )}
+            onClose={() => setShowRoomDetails(false)}
+            onCopyLink={handleCopyLink}
           />
-          <AudioLevelMeter level={audioLevel} muted={isMuted} />
-        </div>
+        )}
+      </AnimatePresence>
 
-        <AdvancedAudioControls
-          isMuted={isMuted}
-          onToggleMute={handleToggleMute}
-          isDeafened={isDeafened}
-          onToggleDeafen={handleToggleDeafen}
-          volume={volume}
-          onVolumeChange={setVolume}
-          onLeave={handleLeave}
-          isHost={isHost}
-          onStartRecording={handleStartRecording}
-          onStopRecording={handleStopRecording}
-          isRecording={isRecording}
-        />
+      {/* Modals */}
+      <LeaveConfirmationModal
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={handleConfirmLeave}
+      />
 
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleRaiseHand}
-          disabled={isRaisingHand}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium text-xs transition-all disabled:opacity-50"
-          style={{
-            background: `linear-gradient(135deg, #FCD34D, #F59E0B)`,
-            color: "#0A0A12",
-            boxShadow: "0 0 20px rgba(251, 191, 36, 0.15)",
-          }}
-        >
-          <Hand className="w-3.5 h-3.5" />
-          {isRaisingHand ? "Raised!" : "Raise Hand"}
-        </motion.button>
+      <ShortcutPanel
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
 
-        <div className="flex items-center gap-1.5">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="p-1.5 rounded-full border hover:bg-white/5 transition-all"
-            style={{ borderColor: THEME.border, color: THEME.text.muted }}
-            title="Live Translation"
-          >
-            <Languages className="w-3.5 h-3.5" />
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="p-1.5 rounded-full border hover:bg-white/5 transition-all"
-            style={{ borderColor: THEME.border, color: THEME.text.muted }}
-            title="Send Gift"
-            onClick={() => toast.info("🎁 Gift feature coming soon!")}
-          >
-            <Gift className="w-3.5 h-3.5" />
-          </motion.button>
-          <button
-            onClick={() => setShowRoomDetails((v) => !v)}
-            className="p-1.5 rounded-full hover:bg-white/5 transition-colors"
-            style={{
-              color: showRoomDetails ? THEME.aurora.primary : THEME.text.muted,
-            }}
-            title="Room details"
-          >
-            <PanelRight className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setShowLiveStats(!showLiveStats)}
-            className="p-1.5 rounded-full hover:bg-white/5 transition-colors"
-            style={{
-              color: showLiveStats ? THEME.aurora.primary : THEME.text.muted,
-            }}
-            title="Live Stats"
-          >
-            <TrendingUp className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </footer>
-
-      {/* Mobile Quick Actions */}
-      <div className="md:hidden fixed bottom-20 right-4 z-20 flex flex-col gap-2">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={handleRaiseHand}
-          className="p-2.5 rounded-full shadow-lg"
-          style={{ background: THEME.aurora.quaternary, color: THEME.void }}
-        >
-          <Hand className="w-4 h-4" />
-        </motion.button>
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={handleToggleMute}
-          className="p-2.5 rounded-full shadow-lg"
-          style={{
-            background: isMuted
-              ? "rgba(239, 68, 68, 0.2)"
-              : THEME.aurora.primary,
-            color: isMuted ? "#EF4444" : "#fff",
-          }}
-        >
-          {isMuted ? (
-            <MicOff className="w-4 h-4" />
-          ) : (
-            <Mic className="w-4 h-4" />
-          )}
-        </motion.button>
-      </div>
-
+      {/* Session Notice */}
       <AnimatePresence>
         {sessionNotice && (
           <motion.div
@@ -4875,15 +3372,15 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             exit={{ opacity: 0, y: 10 }}
             className="fixed top-20 left-1/2 -translate-x-1/2 z-[75] px-4 py-2 rounded-full border shadow-xl backdrop-blur-xl text-xs"
             style={{
-              background: "rgba(20,20,37,.94)",
-              borderColor: THEME.border,
-              color: THEME.text.primary,
+              background: THEME.colors.background.card,
+              borderColor: THEME.colors.border.primary,
+              color: THEME.colors.text.primary,
             }}
           >
             <span className="inline-flex items-center gap-2">
               <CheckCheck
                 className="w-3.5 h-3.5"
-                style={{ color: THEME.status.live }}
+                style={{ color: THEME.colors.accent.success }}
               />
               {sessionNotice}
             </span>
@@ -4891,402 +3388,21 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showShortcuts && (
-          <ShortcutPanel onClose={() => setShowShortcuts(false)} />
-        )}
-      </AnimatePresence>
-
-      <LeaveConfirmationModal
-        isOpen={showLeaveConfirm}
-        onClose={() => setShowLeaveConfirm(false)}
-        onConfirm={handleConfirmLeave}
-      />
-
-      <AnimatePresence>
-        {showRoomDetails && (
-          <motion.aside
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="fixed right-4 bottom-20 z-30 w-72 rounded-2xl border p-4 shadow-2xl backdrop-blur-2xl"
-            style={{
-              background: "rgba(20,20,37,.95)",
-              borderColor: THEME.border,
-            }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p
-                  className="text-xs font-semibold"
-                  style={{ color: THEME.text.primary }}
-                >
-                  Room details
-                </p>
-                <p className="text-[9px]" style={{ color: THEME.text.muted }}>
-                  Live session overview
-                </p>
-              </div>
-              <button
-                onClick={() => setShowRoomDetails(false)}
-                style={{ color: THEME.text.muted }}
-              >
-                <PanelRightClose className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <SectionPill
-                icon={<Users className="w-3 h-3" />}
-                label="People"
-                value={totalParticipants}
-              />
-              <SectionPill
-                icon={<Mic className="w-3 h-3" />}
-                label="Speaking"
-                value={speakingCount}
-              />
-              <SectionPill
-                icon={<Clock className="w-3 h-3" />}
-                label="Minutes"
-                value={Math.floor(roomDuration / 60)}
-              />
-              <SectionPill
-                icon={<MessageCircle className="w-3 h-3" />}
-                label="Messages"
-                value={messages.length}
-              />
-            </div>
-            <SessionInsights
-              totalParticipants={totalParticipants}
-              onlineParticipants={onlineParticipants.length}
-              speakingCount={speakingCount}
-              messages={messages.length}
-              duration={roomDuration}
-              premium={allParticipants.filter((p: any) => p.isPremium).length}
-              verified={allParticipants.filter((p: any) => p.isVerified).length}
-              languages={roomLanguages}
-            />
-            <div className="space-y-2 text-[10px] mt-3">
-              <div className="flex justify-between">
-                <span style={{ color: THEME.text.muted }}>Languages</span>
-                <span style={{ color: THEME.text.secondary }}>
-                  {roomLanguages.length
-                    ? roomLanguages.join(", ")
-                    : "Not specified"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span style={{ color: THEME.text.muted }}>
-                  Session activity
-                </span>
-                <span style={{ color: THEME.text.secondary }}>
-                  {Math.max(
-                    0,
-                    Math.floor((Date.now() - lastActivityAt) / 1000),
-                  )}
-                  s ago
-                </span>
-              </div>
-              <button
-                onClick={copyRoomLink}
-                className="w-full mt-2 py-2 rounded-xl border text-[10px] font-semibold hover:bg-white/5"
-                style={{
-                  borderColor: THEME.border,
-                  color: THEME.text.secondary,
-                }}
-              >
-                <Copy className="inline w-3 h-3 mr-1.5" />
-                Copy room link
-              </button>
-            </div>
-          </motion.aside>
-        )}
-      </AnimatePresence>
-
       {/* Keyboard shortcut hint */}
       <div className="fixed bottom-24 left-4 z-20 hidden md:block">
-        <div className="text-[9px] text-slate-500/60 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-full">
+        <div
+          className="text-[9px] px-2.5 py-1 rounded-full"
+          style={{
+            color: THEME.colors.text.muted,
+            background: `rgba(10, 10, 15, 0.8)`,
+            backdropFilter: "blur(10px)",
+          }}
+        >
           ⌘+⇧+M mute · Enter send · Esc close chat
         </div>
       </div>
-
-      {/* Room info */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="fixed top-16 left-4 z-20 hidden lg:block"
-      >
-        <div
-          className="p-2.5 rounded-xl backdrop-blur-xl border max-w-[180px]"
-          style={{
-            background: "rgba(20, 20, 37, 0.8)",
-            borderColor: THEME.border,
-          }}
-        >
-          <div className="text-[10px] space-y-0.5">
-            <div
-              className="flex items-center gap-1.5"
-              style={{ color: THEME.text.secondary }}
-            >
-              <Globe className="w-3 h-3" />
-              <span>{room.nativeLanguage || "English"}</span>
-              <span>→</span>
-              <span>{room.learningLanguage || "Spanish"}</span>
-            </div>
-            <div style={{ color: THEME.text.muted }}>
-              ⭐ {allParticipants.filter((p: any) => p.isPremium).length}{" "}
-              Premium
-            </div>
-            <div style={{ color: THEME.text.muted }}>
-              🏆 {allParticipants.filter((p: any) => p.isVerified).length}{" "}
-              Verified
-            </div>
-          </div>
-        </div>
-      </motion.div>
     </div>
   );
 };
 
-// ============================
-// MISSING COMPONENTS
-// ============================
-
-const ConnectionHealth: React.FC<{
-  socketConnected: boolean;
-  liveKitConnected: boolean;
-  isMockMode?: boolean;
-}> = ({ socketConnected, liveKitConnected, isMockMode }) => {
-  const healthy = socketConnected && liveKitConnected;
-  return (
-    <div
-      className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full border text-[10px]"
-      style={{
-        background: healthy ? "rgba(110,231,183,.08)" : "rgba(251,191,36,.08)",
-        borderColor: healthy ? "rgba(110,231,183,.2)" : "rgba(251,191,36,.2)",
-        color: healthy ? THEME.status.live : THEME.status.waiting,
-      }}
-      title={`Socket: ${socketConnected ? "connected" : "offline"} · Audio: ${liveKitConnected ? "connected" : "offline"}`}
-    >
-      {healthy ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-      <span>
-        {isMockMode ? "Demo audio" : healthy ? "Connected" : "Reconnecting"}
-      </span>
-    </div>
-  );
-};
-
-const AudioLevelMeter: React.FC<{ level: number; muted: boolean }> = ({
-  level,
-  muted,
-}) => {
-  const safe = Math.max(0, Math.min(1, level || 0));
-  return (
-    <div
-      className="flex items-center gap-1"
-      title={muted ? "Microphone muted" : "Microphone level"}
-    >
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <span
-          key={i}
-          className="w-1 rounded-full transition-all duration-100"
-          style={{
-            height: `${5 + i * 2}px`,
-            background:
-              !muted && safe > i / 6 ? THEME.status.speaking : THEME.border,
-            opacity: !muted && safe > i / 6 ? 1 : 0.7,
-          }}
-        />
-      ))}
-    </div>
-  );
-};
-
-const SectionPill: React.FC<{
-  icon: React.ReactNode;
-  label: string;
-  value?: string | number;
-  active?: boolean;
-  onClick?: () => void;
-}> = ({ icon, label, value, active, onClick }) => (
-  <button
-    onClick={onClick}
-    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] transition-all hover:-translate-y-0.5"
-    style={{
-      background: active ? "rgba(124,106,255,.14)" : "rgba(255,255,255,.025)",
-      borderColor: active ? "rgba(124,106,255,.45)" : THEME.border,
-      color: active ? THEME.text.primary : THEME.text.muted,
-    }}
-  >
-    {icon}
-    <span>{label}</span>
-    {value !== undefined && <strong>{value}</strong>}
-  </button>
-);
-
-const RoomQualityPanel: React.FC<{
-  socketConnected: boolean;
-  liveKitConnected: boolean;
-  isMockMode?: boolean;
-  audioLevel: number;
-  volume: number;
-}> = ({
-  socketConnected,
-  liveKitConnected,
-  isMockMode,
-  audioLevel,
-  volume,
-}) => {
-  const quality =
-    socketConnected && liveKitConnected
-      ? "Excellent"
-      : socketConnected || liveKitConnected
-        ? "Fair"
-        : "Poor";
-  return (
-    <div
-      className="absolute right-0 top-full mt-2 w-64 p-3 rounded-2xl border backdrop-blur-2xl shadow-2xl z-50"
-      style={{ background: "rgba(15,15,28,.96)", borderColor: THEME.border }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p
-            className="text-xs font-semibold"
-            style={{ color: THEME.text.primary }}
-          >
-            Connection quality
-          </p>
-          <p className="text-[10px]" style={{ color: THEME.text.muted }}>
-            Realtime room diagnostics
-          </p>
-        </div>
-        <span
-          className="text-[10px] font-semibold"
-          style={{
-            color:
-              quality === "Excellent"
-                ? THEME.status.live
-                : THEME.status.waiting,
-          }}
-        >
-          {quality}
-        </span>
-      </div>
-      <div className="space-y-2 text-[10px]">
-        <div className="flex justify-between">
-          <span style={{ color: THEME.text.muted }}>Realtime socket</span>
-          <span
-            style={{ color: socketConnected ? THEME.status.live : "#EF4444" }}
-          >
-            {socketConnected ? "Connected" : "Offline"}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span style={{ color: THEME.text.muted }}>Voice transport</span>
-          <span
-            style={{ color: liveKitConnected ? THEME.status.live : "#EF4444" }}
-          >
-            {isMockMode ? "Demo" : liveKitConnected ? "Connected" : "Offline"}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span style={{ color: THEME.text.muted }}>Output volume</span>
-          <span style={{ color: THEME.text.primary }}>{volume}%</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span style={{ color: THEME.text.muted }}>Mic level</span>
-          <AudioLevelMeter level={audioLevel} muted={false} />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const EmptyParticipantState: React.FC<{ query?: string }> = ({ query }) => (
-  <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
-    <div
-      className="w-16 h-16 rounded-3xl flex items-center justify-center mb-4 border"
-      style={{ background: THEME.surface, borderColor: THEME.border }}
-    >
-      <UserRoundSearch
-        className="w-7 h-7"
-        style={{ color: THEME.aurora.secondary }}
-      />
-    </div>
-    <p className="text-sm font-semibold" style={{ color: THEME.text.primary }}>
-      {query ? "No matching participants" : "No participants found"}
-    </p>
-    <p className="text-xs mt-1 max-w-xs" style={{ color: THEME.text.muted }}>
-      {query
-        ? "Try another name, language or status filter."
-        : "Participants will appear here when they join the room."}
-    </p>
-  </div>
-);
-
-const ShortcutPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 8, scale: 0.98 }}
-    animate={{ opacity: 1, y: 0, scale: 1 }}
-    exit={{ opacity: 0, y: 8, scale: 0.98 }}
-    className="fixed inset-0 z-[80] flex items-center justify-center px-4 bg-black/60 backdrop-blur-md"
-    onClick={onClose}
-  >
-    <div
-      className="w-full max-w-md rounded-3xl border p-5 shadow-2xl"
-      style={{ background: THEME.surface, borderColor: THEME.border }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
-          <Keyboard
-            className="w-4 h-4"
-            style={{ color: THEME.aurora.secondary }}
-          />
-          <h3
-            className="font-semibold text-sm"
-            style={{ color: THEME.text.primary }}
-          >
-            Keyboard shortcuts
-          </h3>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-full hover:bg-white/5"
-          style={{ color: THEME.text.muted }}
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="space-y-2">
-        {[
-          ["Ctrl / Cmd + Shift + M", "Mute / unmute microphone"],
-          ["Ctrl / Cmd + Shift + H", "Raise your hand"],
-          ["Enter", "Send chat message"],
-          ["Shift + Enter", "New line in chat"],
-          ["Esc", "Close chat / modal"],
-        ].map(([key, action]) => (
-          <div
-            key={key}
-            className="flex items-center justify-between gap-4 rounded-xl px-3 py-2"
-            style={{ background: "rgba(255,255,255,.025)" }}
-          >
-            <span className="text-xs" style={{ color: THEME.text.secondary }}>
-              {action}
-            </span>
-            <kbd
-              className="text-[9px] px-2 py-1 rounded-lg border whitespace-nowrap"
-              style={{
-                borderColor: THEME.border,
-                color: THEME.text.primary,
-                background: THEME.surfaceRaised,
-              }}
-            >
-              {key}
-            </kbd>
-          </div>
-        ))}
-      </div>
-    </div>
-  </motion.div>
-);
+export default VoiceRoomView;

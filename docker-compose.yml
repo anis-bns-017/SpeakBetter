@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_USER: lingo
       POSTGRES_PASSWORD: lingopass
-      POSTGRES_DB: lingoverse
+      POSTGRES_DB: speakbetter
     ports:
       - "5432:5432"
     volumes:

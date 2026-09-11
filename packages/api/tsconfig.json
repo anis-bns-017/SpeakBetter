@@ -1,5 +1,5 @@
 {
-  "extends": "@lingoverse/config/typescript/base.json",
+  "extends": "@speakbetter/config/typescript/base.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src"

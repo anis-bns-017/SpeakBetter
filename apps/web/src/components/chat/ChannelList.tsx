@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Chat } from '@lingoverse/types';
+import { Chat } from '@speakbetter/types';
 import {
   Hash,
   Volume2,

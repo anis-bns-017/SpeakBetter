@@ -1,0 +1,121 @@
+// apps/web/src/components/voice/VoiceRoomView.theme.ts
+
+export const THEME = {
+  colors: {
+    background: {
+      primary: '#0A0A0F',
+      secondary: '#111118',
+      tertiary: '#181825',
+      card: '#1C1C2E',
+      cardHover: '#252540',
+      elevated: '#222238',
+      modal: 'rgba(10, 10, 15, 0.95)',
+    },
+    border: {
+      primary: 'rgba(255,255,255,0.06)',
+      secondary: 'rgba(255,255,255,0.04)',
+      hover: 'rgba(255,255,255,0.1)',
+      glow: 'rgba(99, 102, 241, 0.15)',
+      accent: 'rgba(99, 102, 241, 0.3)',
+    },
+    accent: {
+      primary: '#6366F1',
+      primaryLight: '#818CF8',
+      primaryDark: '#4F46E5',
+      secondary: '#8B5CF6',
+      tertiary: '#A78BFA',
+      success: '#34D399',
+      warning: '#FBBF24',
+      error: '#F87171',
+      info: '#60A5FA',
+      pink: '#EC4899',
+      cyan: '#22D3EE',
+    },
+    text: {
+      primary: '#FFFFFF',
+      secondary: '#A1A1B9',
+      muted: '#6B6B8D',
+      inverse: '#0A0A0F',
+      accent: '#818CF8',
+    },
+    gradient: {
+      primary: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #A78BFA 100%)',
+      secondary: 'linear-gradient(135deg, #1A1A2E 0%, #12121F 100%)',
+      glow: 'radial-gradient(ellipse at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 70%)',
+      card: 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, transparent 100%)',
+    },
+    status: {
+      online: '#34D399',
+      offline: '#6B6B8D',
+      speaking: '#8B5CF6',
+      muted: '#F87171',
+      live: '#34D399',
+      waiting: '#FBBF24',
+      recording: '#EF4444',
+      raised: '#FBBF24',
+      verified: '#60A5FA',
+      premium: '#FBBF24',
+    },
+  },
+  spacing: {
+    xs: '4px',
+    sm: '8px',
+    md: '12px',
+    lg: '16px',
+    xl: '24px',
+    '2xl': '32px',
+    '3xl': '48px',
+  },
+  radius: {
+    sm: '6px',
+    md: '10px',
+    lg: '14px',
+    xl: '20px',
+    '2xl': '28px',
+    full: '9999px',
+  },
+  shadow: {
+    sm: '0 1px 2px rgba(0,0,0,0.3)',
+    md: '0 4px 12px rgba(0,0,0,0.4)',
+    lg: '0 8px 32px rgba(0,0,0,0.5)',
+    xl: '0 16px 48px rgba(0,0,0,0.6)',
+    glow: '0 0 40px rgba(99, 102, 241, 0.15)',
+    glowStrong: '0 0 60px rgba(99, 102, 241, 0.25)',
+  },
+  animation: {
+    duration: {
+      fast: '150ms',
+      normal: '250ms',
+      slow: '400ms',
+    },
+    easing: {
+      ease: 'cubic-bezier(0.4, 0, 0.2, 1)',
+      easeIn: 'cubic-bezier(0.4, 0, 1, 1)',
+      easeOut: 'cubic-bezier(0, 0, 0.2, 1)',
+      spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+    },
+  },
+  typography: {
+    fontFamily: {
+      sans: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      mono: 'JetBrains Mono, "Fira Code", monospace',
+    },
+    size: {
+      xs: '10px',
+      sm: '12px',
+      md: '14px',
+      lg: '16px',
+      xl: '18px',
+      '2xl': '24px',
+      '3xl': '32px',
+    },
+    weight: {
+      normal: 400,
+      medium: 500,
+      semibold: 600,
+      bold: 700,
+    },
+  },
+} as const;
+
+export type Theme = typeof THEME;

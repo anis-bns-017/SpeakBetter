@@ -1,5 +1,5 @@
 {
-  "name": "@lingoverse/ui",
+  "name": "@speakbetter/ui",
   "version": "0.0.1",
   "main": "./src/index.ts",
   "dependencies": {
@@ -8,8 +8,8 @@
     "react-dom": "^19.0.0-beta"
   },
   "devDependencies": {
-    "@lingoverse/config": "workspace:*",
-    "@lingoverse/types": "workspace:*",
+    "@speakbetter/config": "workspace:*",
+    "@speakbetter/types": "workspace:*",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
     "typescript": "^5.4.5"

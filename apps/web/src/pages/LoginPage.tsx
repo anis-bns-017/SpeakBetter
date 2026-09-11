@@ -56,7 +56,7 @@ export const LoginPage = () => {
           </div>
           <div className="space-y-1">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-200 to-blue-200 bg-clip-text text-transparent tracking-tight">
-              LingoVerse
+              SpeakBetter
             </h1>
             <p className="text-sm text-slate-400 font-medium flex items-center justify-center gap-2">
               <Sparkles className="w-4 h-4 text-purple-400" />

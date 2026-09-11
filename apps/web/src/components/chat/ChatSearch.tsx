@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Message } from '@lingoverse/types';
+import { Message } from '@speakbetter/types';
 import { Search, X, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 import { useDebounce } from '../../hooks/useDebounce';
 

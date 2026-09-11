@@ -105,7 +105,7 @@ export const RegisterPage = () => {
         nativeLanguage: formData.nativeLanguage,
         learningLanguages: ["en"],
       });
-      toast.success("Account created! Welcome to LingoVerse 🚀");
+      toast.success("Account created! Welcome to SpeakBetter 🚀");
       navigate("/");
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Registration failed");
@@ -196,7 +196,7 @@ export const RegisterPage = () => {
                       Create Account
                     </h2>
                     <p className="text-sm text-slate-400">
-                      Join LingoVerse and start learning today
+                      Join SpeakBetter and start learning today
                     </p>
                   </div>
 

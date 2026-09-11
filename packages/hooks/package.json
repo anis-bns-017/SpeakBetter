@@ -1,13 +1,13 @@
 {
-  "name": "@lingoverse/hooks",
+  "name": "@speakbetter/hooks",
   "version": "0.0.1",
   "main": "./src/index.ts",
   "peerDependencies": {
     "react": "^19.0.0-beta"
   },
   "devDependencies": {
-    "@lingoverse/api": "workspace:*",
-    "@lingoverse/types": "workspace:*",
+    "@speakbetter/api": "workspace:*",
+    "@speakbetter/types": "workspace:*",
     "typescript": "^5.4.5"
   }
 }

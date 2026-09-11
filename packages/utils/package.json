@@ -1,9 +1,9 @@
 {
-  "name": "@lingoverse/utils",
+  "name": "@speakbetter/utils",
   "version": "0.0.1",
   "main": "./src/index.ts",
   "devDependencies": {
-    "@lingoverse/types": "workspace:*",
+    "@speakbetter/types": "workspace:*",
     "typescript": "^5.4.5"
   }
 }

@@ -94,7 +94,7 @@ export const Sidebar = () => {
   const location = useLocation();
 
   const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem("lingoverse-sidebar-collapsed") === "true";
+    return localStorage.getItem("speakbetter-sidebar-collapsed") === "true";
   });
 
   
@@ -103,7 +103,7 @@ export const Sidebar = () => {
     setCollapsed((previous) => {
       const next = !previous;
 
-      localStorage.setItem("lingoverse-sidebar-collapsed", String(next));
+      localStorage.setItem("speakbetter-sidebar-collapsed", String(next));
 
       return next;
     });

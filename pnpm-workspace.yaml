@@ -5,7 +5,7 @@ packages:
 allowBuilds:
   '@prisma/engines': false
   '@scarf/scarf': true
-  bcrypt: set this to true or false
+  bcrypt: true
   msgpackr-extract: set this to true or false
   prisma: false
   unrs-resolver: true

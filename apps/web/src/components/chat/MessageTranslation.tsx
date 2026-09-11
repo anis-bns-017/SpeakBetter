@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Translation } from '@lingoverse/types';
+import { Translation } from '@speakbetter/types';
 import { Languages, ChevronDown, ChevronUp, Loader2, RotateCcw } from 'lucide-react';
 
 interface MessageTranslationProps {

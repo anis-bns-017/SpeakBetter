@@ -10,7 +10,7 @@ import type {
   MarkReadDto,
   AddReactionDto,
   UpdateChatSettingsDto,
-} from '@lingoverse/types';
+} from '@speakbetter/types';
 
 // ============ CHAT API ============
 
