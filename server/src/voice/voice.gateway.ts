@@ -18,11 +18,12 @@ import { PrismaService } from '../prisma.service';
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/,
     credentials: true,
   },
   namespace: 'voice',
 })
+
 export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;

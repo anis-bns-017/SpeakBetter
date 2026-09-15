@@ -40,8 +40,36 @@ async function bootstrap() {
     const frontendUrl =
       config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
 
+    const allowedOrigins = [
+      frontendUrl,
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+    ];
+
     app.enableCors({
-      origin: frontendUrl,
+      origin: (origin, callback) => {
+        // Requests without an Origin header (Postman, server-side requests, etc.)
+        if (!origin) {
+          return callback(null, true);
+        }
+
+        // Configured frontend or known local development origins
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        // Allow any localhost/127.0.0.1 development port
+        const isLocalDevelopment =
+          /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+
+        if (isLocalDevelopment) {
+          return callback(null, true);
+        }
+
+        callback(new Error(`CORS blocked origin: ${origin}`));
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: [
