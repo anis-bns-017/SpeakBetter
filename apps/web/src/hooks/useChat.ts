@@ -150,6 +150,27 @@ export const chatApi = {
   ) => apiClient.post<Message>(`/communities/${communityId}/messages`, data),
 };
 
+// ---------- Message Cache Helpers ----------
+const updateMessageInAllCaches = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  messageId: string,
+  updater: (message: Message) => Message,
+) => {
+  queryClient.setQueriesData<Message[]>({ queryKey: ["messages"] }, (old) =>
+    old?.map((message) =>
+      message.id === messageId ? updater(message) : message,
+    ),
+  );
+
+  queryClient.setQueriesData<Message[]>(
+    { queryKey: ["community-messages"] },
+    (old) =>
+      old?.map((message) =>
+        message.id === messageId ? updater(message) : message,
+      ),
+  );
+};
+
 // ---------- Query hooks ----------
 
 export const useChats = () => {
@@ -279,17 +300,11 @@ export const useDeleteMessage = () => {
       await chatApi.deleteMessage(messageId);
     },
     onSuccess: (_, messageId) => {
-      queryClient.setQueriesData<Message[]>(
-        { queryKey: ["messages"] },
-        (old) => {
-          if (!old) return old;
-          return old.map((m) =>
-            m.id === messageId
-              ? { ...m, isDeleted: true, content: "Message deleted" }
-              : m,
-          );
-        },
-      );
+      updateMessageInAllCaches(queryClient, messageId, (message) => ({
+        ...message,
+        isDeleted: true,
+        content: "Message deleted",
+      }));
       toast.success("Message deleted");
     },
     onError: (error: any) => {
@@ -312,17 +327,12 @@ export const useEditMessage = () => {
       return response.data;
     },
     onSuccess: (message) => {
-      queryClient.setQueriesData<Message[]>(
-        { queryKey: ["messages"] },
-        (old) => {
-          if (!old) return old;
-          return old.map((m) =>
-            m.id === message.id
-              ? { ...m, content: message.content, isEdited: true }
-              : m,
-          );
-        },
-      );
+      updateMessageInAllCaches(queryClient, message.id, (oldMessage) => ({
+        ...oldMessage,
+        content: message.content,
+        isEdited: true,
+        updatedAt: message.updatedAt,
+      }));
       toast.success("Message edited");
     },
     onError: (error: any) => {
@@ -345,15 +355,10 @@ export const usePinMessage = () => {
       return response.data;
     },
     onSuccess: (message) => {
-      queryClient.setQueriesData<Message[]>(
-        { queryKey: ["messages"] },
-        (old) => {
-          if (!old) return old;
-          return old.map((m) =>
-            m.id === message.id ? { ...m, isPinned: message.isPinned } : m,
-          );
-        },
-      );
+      updateMessageInAllCaches(queryClient, message.id, (oldMessage) => ({
+        ...oldMessage,
+        isPinned: message.isPinned,
+      }));
       toast.success(message.isPinned ? "Message pinned" : "Message unpinned");
     },
     onError: (error: any) => {
@@ -464,25 +469,13 @@ export const useAddReaction = () => {
       return response.data;
     },
     onSuccess: (reaction) => {
-      queryClient.setQueriesData<Message[]>(
-        { queryKey: ["messages"] },
-        (old) => {
-          if (!old) return old;
-          return old.map((m) =>
-            m.id === reaction.messageId
-              ? {
-                  ...m,
-                  reactions: [
-                    ...m.reactions.filter(
-                      (r: any) => r.userId !== reaction.userId,
-                    ),
-                    reaction,
-                  ],
-                }
-              : m,
-          );
-        },
-      );
+      updateMessageInAllCaches(queryClient, reaction.messageId, (message) => ({
+        ...message,
+        reactions: [
+          ...message.reactions.filter((r) => r.userId !== reaction.userId),
+          reaction,
+        ],
+      }));
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to add reaction");
@@ -503,20 +496,12 @@ export const useRemoveReaction = () => {
       await chatApi.removeReaction(messageId, emoji);
     },
     onSuccess: (_, { messageId, emoji }) => {
-      queryClient.setQueriesData<Message[]>(
-        { queryKey: ["messages"] },
-        (old) => {
-          if (!old) return old;
-          return old.map((m) =>
-            m.id === messageId
-              ? {
-                  ...m,
-                  reactions: m.reactions.filter((r: any) => r.emoji !== emoji),
-                }
-              : m,
-          );
-        },
-      );
+      updateMessageInAllCaches(queryClient, messageId, (message) => ({
+        ...message,
+        reactions: message.reactions.filter(
+          (reaction) => reaction.emoji !== emoji,
+        ),
+      }));
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to remove reaction");
@@ -950,34 +935,39 @@ export const useChatSocket = (
 
     // ---------- Reaction Events ----------
 
-    s.on("reaction:new", (reaction: Reaction) => {
-      console.log("❤️ New reaction:", reaction);
+    s.on(
+      "reaction:new",
+      (payload: Reaction | { messageId: string; reaction: Reaction }) => {
+        const reaction = "reaction" in payload ? payload.reaction : payload;
 
-      options?.onReaction?.(reaction);
+        console.log("❤️ New reaction:", reaction);
 
-      if (!reaction?.messageId) return;
+        options?.onReaction?.(reaction);
 
-      queryClient.setQueriesData<Message[]>(
-        { queryKey: ["messages"] },
-        (old) => {
-          if (!old) return old;
+        if (!reaction?.messageId) return;
 
-          return old.map((message) =>
-            message.id === reaction.messageId
-              ? {
-                  ...message,
-                  reactions: [
-                    ...message.reactions.filter(
-                      (item) => item.userId !== reaction.userId,
-                    ),
-                    reaction,
-                  ],
-                }
-              : message,
-          );
-        },
-      );
-    });
+        queryClient.setQueriesData<Message[]>(
+          { queryKey: ["messages"] },
+          (old) => {
+            if (!old) return old;
+
+            return old.map((message) =>
+              message.id === reaction.messageId
+                ? {
+                    ...message,
+                    reactions: [
+                      ...message.reactions.filter(
+                        (item) => item.userId !== reaction.userId,
+                      ),
+                      reaction,
+                    ],
+                  }
+                : message,
+            );
+          },
+        );
+      },
+    );
 
     s.on(
       "reaction:removed",

@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Flame,
   Award,
+  LogOut,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { SpeakBetterLogo } from "../components/common/SpeakBetterLogo";
@@ -88,7 +89,7 @@ const bottomNavigation = [
 ];
 
 export const Sidebar = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -104,9 +105,12 @@ export const Sidebar = () => {
     });
   };
 
-  const handleLogout = () => {
-    // If your AuthContext has a logout function, use it here.
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      navigate("/login");
+    }
   };
 
   const isActive = (path: string) => {
@@ -185,9 +189,7 @@ export const Sidebar = () => {
           </div>
 
           {/* Brand text */}
-          {!collapsed && (
-            <SpeakBetterLogo /> 
-          )}
+          {!collapsed && <SpeakBetterLogo />}
         </button>
       </div>
 
@@ -520,7 +522,7 @@ export const Sidebar = () => {
                 </span>
               </div>
               <span className="text-[13px] font-bold text-slate-800 tabular-nums">
-                12 days
+                {user?.profile?.streak ?? 0} days
               </span>
             </div>
 
@@ -534,12 +536,41 @@ export const Sidebar = () => {
                 </span>
               </div>
               <span className="text-[13px] font-bold text-slate-800 tabular-nums">
-                2,450
+                {(user?.profile?.xp ?? 0).toLocaleString()}
               </span>
             </div>
           </div>
         </div>
       )}
+
+      {/* =========================================================
+          LOGOUT
+      ========================================================= */}
+      <div className="px-3 pb-2">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className={`
+            group relative w-full h-11 rounded-xl
+            flex items-center transition-all duration-200
+            text-rose-500 hover:text-rose-600
+            hover:bg-rose-50
+            ${collapsed ? "justify-center" : "gap-3 px-3"}
+          `}
+          title={collapsed ? "Logout" : undefined}
+        >
+          <LogOut className="w-[19px] h-[19px] shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+          {!collapsed && (
+            <span className="text-[13.5px] font-semibold">Logout</span>
+          )}
+
+          {collapsed && (
+            <span className="pointer-events-none absolute left-[64px] z-[100] whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 shadow-xl">
+              Logout
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* =========================================================
           COLLAPSE BUTTON

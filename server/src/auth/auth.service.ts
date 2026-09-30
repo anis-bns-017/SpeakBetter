@@ -1,13 +1,15 @@
 import {
   Injectable,
   UnauthorizedException,
-  BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+
 import { PrismaService } from '../prisma.service';
+
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -20,38 +22,38 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    // Check if user exists
     const existingUser = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: {
+        email: dto.email,
+      },
     });
 
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
 
-    // Hash password
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(dto.password, saltRounds);
+    const passwordHash = await bcrypt.hash(dto.password, 10);
 
-    // Create user with profile
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
         passwordHash,
         name: dto.name,
+
         profile: {
           create: {
             nativeLanguage: dto.nativeLanguage || 'en',
+
             learningLanguages: dto.learningLanguages || ['en'],
           },
         },
       },
+
       include: {
         profile: true,
       },
     });
 
-    // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email);
 
     return {
@@ -61,36 +63,40 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    // Find user
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      include: { profile: true },
+      where: {
+        email: dto.email,
+      },
+
+      include: {
+        profile: true,
+      },
     });
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Verify password
     if (!user.passwordHash) {
       throw new UnauthorizedException('Please use social login');
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      dto.password,
-      user.passwordHash,
-    );
-    if (!isPasswordValid) {
+    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+
+    if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Update last active
     await this.prisma.profile.update({
-      where: { userId: user.id },
-      data: { lastActive: new Date() },
+      where: {
+        userId: user.id,
+      },
+
+      data: {
+        lastActive: new Date(),
+      },
     });
 
-    // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email);
 
     return {
@@ -99,9 +105,62 @@ export class AuthService {
     };
   }
 
+  // ===============================
+  // GOOGLE LOGIN
+  // ===============================
+
+  async googleLogin(googleUser: {
+    email: string;
+    name: string;
+    googleId: string;
+    avatarUrl?: string;
+  }) {
+    const { email, name, googleId, avatarUrl } = googleUser;
+
+    let user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { profile: true },
+    });
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          name,
+          googleId,
+          avatarUrl, // ✅ matches schema
+          profile: {
+            create: {
+              nativeLanguage: 'en',
+              learningLanguages: ['en'],
+            },
+          },
+        },
+        include: { profile: true },
+      });
+    } else if (!user.googleId) {
+      // Existing email user signing in with Google for the first time
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { googleId, avatarUrl: avatarUrl ?? user.avatarUrl },
+        include: { profile: true },
+      });
+    }
+
+    // ✅ Explicit non-null guard — satisfies TS
+    if (!user) {
+      throw new UnauthorizedException('Failed to create or fetch user');
+    }
+
+    const tokens = await this.generateTokens(user.id, user.email);
+
+    return {
+      user: this.sanitizeUser(user),
+      ...tokens,
+    };
+  }
   async refreshToken(refreshToken: string) {
     try {
-      // Verify refresh token
       const payload = this.jwtService.verify<{
         sub: string;
         email: string;
@@ -109,38 +168,46 @@ export class AuthService {
         secret: this.configService.getOrThrow<string>('REFRESH_TOKEN_SECRET'),
       });
 
-      // Find user
       const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-        include: { profile: true },
+        where: {
+          id: payload.sub,
+        },
+
+        include: {
+          profile: true,
+        },
       });
 
       if (!user) {
-        throw new UnauthorizedException('Invalid refresh token');
+        throw new UnauthorizedException();
       }
 
-      // Generate new tokens
       const tokens = await this.generateTokens(user.id, user.email);
 
       return {
         user: this.sanitizeUser(user),
         ...tokens,
       };
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
   async logout(userId: string) {
-    // Invalidate sessions (we'll implement session management later)
-    // For now, just return success
-    return { success: true };
+    return {
+      success: true,
+    };
   }
 
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { profile: true },
+      where: {
+        id: userId,
+      },
+
+      include: {
+        profile: true,
+      },
     });
 
     if (!user) {
@@ -158,15 +225,22 @@ export class AuthService {
 
     const accessToken = await this.jwtService.signAsync(payload);
 
-    const refreshToken = await this.jwtService.signAsync(payload, {
-      secret: this.configService.getOrThrow<string>('REFRESH_TOKEN_SECRET'),
-      expiresIn: this.configService.getOrThrow<'30d'>('REFRESH_EXPIRES_IN'),
-    });
+    const refreshToken = await this.jwtService.signAsync(
+      payload,
+
+      {
+        secret: this.configService.getOrThrow<string>('REFRESH_TOKEN_SECRET'),
+
+        expiresIn: this.configService.getOrThrow<'30d'>('REFRESH_EXPIRES_IN'),
+      },
+    );
 
     await this.prisma.session.create({
       data: {
         userId,
+
         token: refreshToken,
+
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
@@ -176,8 +250,10 @@ export class AuthService {
       refreshToken,
     };
   }
+
   private sanitizeUser(user: any) {
     const { passwordHash, ...safeUser } = user;
+
     return safeUser;
   }
 }

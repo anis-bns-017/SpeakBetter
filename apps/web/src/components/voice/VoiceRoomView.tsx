@@ -12,6 +12,8 @@
  * - Live speaker animation is driven by LiveKit + socket speaking state
  * - Remote speaking state is preserved instead of being reset to false
  * - Participant avatars pulse, glow, ripple and show a prominent SPEAKING badge
+ * - Header has separate Leave (member) / End Room (host) actions
+ * - Reactions survive refresh: HTTP-first writes + cache merge
  */
 
 import React, {
@@ -27,6 +29,7 @@ import {
   MicOff,
   Hand,
   PhoneOff,
+  LogOut,
   Users,
   MessageCircle,
   X,
@@ -64,7 +67,6 @@ import {
   BellOff,
   RotateCcw,
   ArrowDown,
-  CheckCheck,
   Copy,
   Wifi,
   WifiOff,
@@ -96,14 +98,16 @@ import {
   useRoomMessages,
   useSendVoiceMessage,
   useDeleteVoiceMessage,
+  useEditVoiceMessage,
+  useReactToVoiceMessage,
+  usePinVoiceMessage,
   useLeaveVoiceRoom,
-  useRefreshToken,
   type VoiceMessage,
 } from "../../hooks/useVoice";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, isToday, isYesterday } from "date-fns";
 
@@ -161,9 +165,28 @@ function normalizeChatMessage(
     msg.sender?.avatar ||
     msg.user?.avatarUrl;
 
-  // Prefer reactions (user lists). Fall back from reactionTally with synthetic ids.
+  // Normalize reactions from database/API format and legacy UI format.
+  // Prisma returns:
+  // [{ emoji, userId, user: { id } }]
+  // Chat UI expects:
+  // { emoji: [userId1, userId2] }
   let reactions: Record<string, string[]> = {};
-  if (msg.reactions && typeof msg.reactions === "object") {
+
+  if (Array.isArray(msg.reactions)) {
+    for (const reaction of msg.reactions) {
+      const emoji = reaction?.emoji;
+      const userId =
+        reaction?.userId || reaction?.user?.id || reaction?.user?.userId;
+
+      if (emoji && userId) {
+        reactions[emoji] = [...(reactions[emoji] || []), String(userId)];
+      }
+    }
+
+    for (const emoji of Object.keys(reactions)) {
+      reactions[emoji] = [...new Set(reactions[emoji])];
+    }
+  } else if (msg.reactions && typeof msg.reactions === "object") {
     for (const [emoji, users] of Object.entries(msg.reactions)) {
       if (Array.isArray(users)) reactions[emoji] = users.map(String);
       else if (typeof users === "number") {
@@ -233,31 +256,39 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
   );
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>({});
   const [showFilters, setShowFilters] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const fetchRooms = async () => {
       try {
         setIsLoading(true);
+        setLoadError(null);
         const response = await voiceApi.getRooms();
         setRooms(response.data || []);
         setActiveRooms(
           response.data?.filter((r: any) => r.status === "ACTIVE").length || 0,
         );
       } catch (error) {
+        setLoadError(
+          "We couldn't load the voice rooms. Check your connection and try again.",
+        );
         toast.error("Failed to load rooms");
       } finally {
         setIsLoading(false);
       }
     };
     fetchRooms();
-  }, []);
+  }, [reloadKey]);
 
   const filteredRooms = useMemo(() => {
-    let filtered = rooms;
+    let filtered = [...rooms];
     if (searchQuery) {
       filtered = filtered.filter(
         (room) =>
-          room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          String(room.name || "")
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
           room.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           room.language?.toLowerCase().includes(searchQuery.toLowerCase()),
       );
@@ -274,6 +305,18 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           languageFilter.nativeLanguage?.toLowerCase(),
       );
     }
+    if (languageFilter.learningLanguage) {
+      filtered = filtered.filter(
+        (room) =>
+          room.learningLanguage?.toLowerCase() ===
+            languageFilter.learningLanguage?.toLowerCase() ||
+          room.participants?.some(
+            (participant: any) =>
+              participant.learningLanguage?.toLowerCase() ===
+              languageFilter.learningLanguage?.toLowerCase(),
+          ),
+      );
+    }
     switch (sortBy) {
       case "participants":
         filtered = filtered.sort(
@@ -288,7 +331,9 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
         );
         break;
       case "name":
-        filtered = filtered.sort((a, b) => a.name.localeCompare(b.name));
+        filtered = filtered.sort((a, b) =>
+          String(a.name || "").localeCompare(String(b.name || "")),
+        );
         break;
     }
     return filtered;
@@ -301,6 +346,46 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           className="w-8 h-8 animate-spin"
           style={{ color: THEME.colors.accent.primary }}
         />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-[18rem] flex items-center justify-center px-4">
+        <div
+          className="w-full max-w-md rounded-2xl border p-6 text-center shadow-xl"
+          style={{
+            background: THEME.colors.background.card,
+            borderColor: THEME.colors.border.primary,
+          }}
+          role="alert"
+        >
+          <WifiOff
+            className="w-9 h-9 mx-auto mb-3"
+            style={{ color: THEME.colors.accent.warning }}
+          />
+          <h3
+            className="font-semibold"
+            style={{ color: THEME.colors.text.primary }}
+          >
+            Rooms are unavailable
+          </h3>
+          <p
+            className="mt-1 text-sm"
+            style={{ color: THEME.colors.text.muted }}
+          >
+            {loadError}
+          </p>
+          <button
+            type="button"
+            onClick={() => setReloadKey((value) => value + 1)}
+            className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:scale-[1.02] active:scale-95"
+            style={{ background: THEME.colors.gradient.primary }}
+          >
+            <RotateCcw className="w-4 h-4" /> Try again
+          </button>
+        </div>
       </div>
     );
   }
@@ -601,7 +686,6 @@ const RoomCard: React.FC<{
             >
               {room.name}
             </span>
-            {/* Language Tags */}
             {languages.slice(0, 2).map((lang) => (
               <span
                 key={lang}
@@ -625,7 +709,6 @@ const RoomCard: React.FC<{
                 +{languages.length - 2}
               </span>
             )}
-            {/* Host Badge */}
             {isHost && (
               <span
                 className="text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1"
@@ -639,7 +722,6 @@ const RoomCard: React.FC<{
             )}
           </div>
 
-          {/* Room Stats */}
           <div
             className="flex items-center gap-3 mt-1 text-xs"
             style={{ color: THEME.colors.text.muted }}
@@ -666,7 +748,6 @@ const RoomCard: React.FC<{
           </div>
         </div>
 
-        {/* Join/Inside Button */}
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -706,7 +787,6 @@ const RoomCard: React.FC<{
         </motion.button>
       </div>
 
-      {/* Description */}
       {room.description && (
         <p
           className="mt-2 text-sm truncate"
@@ -736,8 +816,12 @@ const VoiceRoomHeader: React.FC<{
   isConnected: boolean;
   onToggleChat: () => void;
   onToggleCommandCenter: () => void;
+  onShowDetails: () => void;
+  onShowShortcuts: () => void;
   onMinimize?: (data: any) => void;
   onShare: () => void;
+  onLeave: () => void;
+  onEndRoom: () => void;
 }> = ({
   room,
   isHost,
@@ -751,25 +835,26 @@ const VoiceRoomHeader: React.FC<{
   isConnected,
   onToggleChat,
   onToggleCommandCenter,
+  onShowDetails,
+  onShowShortcuts,
   onMinimize,
   onShare,
+  onLeave,
+  onEndRoom,
 }) => {
   return (
     <header
-      className="relative z-10 flex items-center justify-between px-4 py-3 border-b shrink-0"
+      className="relative z-10 flex items-center justify-between gap-3 px-3 sm:px-4 py-3 border-b shrink-0"
       style={{
         background: `rgba(10, 10, 18, 0.92)`,
         backdropFilter: "blur(20px)",
         borderColor: THEME.colors.border.primary,
       }}
     >
-      {/* Left - Room Info */}
       <div className="flex items-center gap-3 min-w-0">
         <div
           className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{
-            background: THEME.colors.gradient.primary,
-          }}
+          style={{ background: THEME.colors.gradient.primary }}
         >
           <Radio className="w-5 h-5 text-white" />
         </div>
@@ -831,10 +916,9 @@ const VoiceRoomHeader: React.FC<{
         </div>
       </div>
 
-      {/* Right - Actions */}
-      <div className="flex items-center gap-1 shrink-0">
-        {/* Toggle Chat */}
+      <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
         <button
+          type="button"
           onClick={onToggleChat}
           className="relative p-2 rounded-full hover:bg-white/5 transition-colors"
           style={{
@@ -843,6 +927,8 @@ const VoiceRoomHeader: React.FC<{
               : THEME.colors.text.muted,
           }}
           title="Toggle Chat"
+          aria-label={showChat ? "Hide chat" : "Show chat"}
+          aria-pressed={showChat}
         >
           <MessageCircle className="w-4 h-4" />
           {unreadCount > 0 && (
@@ -855,8 +941,8 @@ const VoiceRoomHeader: React.FC<{
           )}
         </button>
 
-        {/* Command Center - Settings Button */}
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onToggleCommandCenter();
@@ -864,13 +950,36 @@ const VoiceRoomHeader: React.FC<{
           className="p-2 rounded-full hover:bg-white/5 transition-colors relative"
           style={{ color: THEME.colors.text.muted }}
           title="Room controls"
+          aria-label="Open room controls"
         >
           <Settings className="w-4 h-4" />
         </button>
 
-        {/* Minimize */}
+        <button
+          type="button"
+          onClick={onShowDetails}
+          className="hidden sm:inline-flex p-2 rounded-full hover:bg-white/5 transition-colors"
+          style={{ color: THEME.colors.text.muted }}
+          title="Room details"
+          aria-label="Open room details"
+        >
+          <PanelRight className="w-4 h-4" />
+        </button>
+
+        <button
+          type="button"
+          onClick={onShowShortcuts}
+          className="hidden md:inline-flex p-2 rounded-full hover:bg-white/5 transition-colors"
+          style={{ color: THEME.colors.text.muted }}
+          title="Keyboard shortcuts"
+          aria-label="Open keyboard shortcuts"
+        >
+          <Keyboard className="w-4 h-4" />
+        </button>
+
         {onMinimize && (
           <button
+            type="button"
             onClick={() =>
               onMinimize({
                 id: room.id,
@@ -883,27 +992,55 @@ const VoiceRoomHeader: React.FC<{
             className="p-2 rounded-full hover:bg-white/5 transition-colors"
             style={{ color: THEME.colors.text.muted }}
             title="Minimize"
+            aria-label="Minimize room"
           >
             <Minimize2 className="w-4 h-4" />
           </button>
         )}
 
-        {/* Share */}
         <button
+          type="button"
           onClick={onShare}
           className="p-2 rounded-full hover:bg-white/5 transition-colors"
           style={{ color: THEME.colors.text.muted }}
           title="Share Room"
+          aria-label="Copy room link"
         >
           <Share2 className="w-4 h-4" />
         </button>
 
-        {/* Connection Health */}
-        <ConnectionHealth
-          socketConnected={isConnected}
-          liveKitConnected={isLiveKitConnected}
-          isMockMode={isMockMode}
-        />
+        {/* Host: End room for everyone. Member: Leave room. */}
+        {isHost ? (
+          <button
+            type="button"
+            onClick={onEndRoom}
+            className="p-2 rounded-full hover:bg-red-500/15 transition-colors"
+            style={{ color: THEME.colors.accent.error }}
+            title="End room for everyone"
+            aria-label="End room"
+          >
+            <PhoneOff className="w-4 h-4" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onLeave}
+            className="p-2 rounded-full hover:bg-white/5 transition-colors"
+            style={{ color: THEME.colors.text.muted }}
+            title="Leave room"
+            aria-label="Leave room"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
+
+        <div className="hidden lg:block">
+          <ConnectionHealth
+            socketConnected={isConnected}
+            liveKitConnected={isLiveKitConnected}
+            isMockMode={isMockMode}
+          />
+        </div>
       </div>
     </header>
   );
@@ -977,6 +1114,7 @@ const ParticipantGrid: React.FC<any> = ({
   favoriteParticipants,
   onToggleFavorite,
   onMuteUser,
+  onUnmuteUser,
   onKickUser,
   onPromoteHost,
   onSendMessage,
@@ -995,7 +1133,6 @@ const ParticipantGrid: React.FC<any> = ({
     return Array.from(set).sort();
   }, [participants]);
 
-  // Filter participants
   const filteredParticipants = participants
     .filter((p: any) => {
       const query = searchQuery.trim().toLowerCase();
@@ -1016,14 +1153,9 @@ const ParticipantGrid: React.FC<any> = ({
         p.nativeLanguage === langFilter || p.learningLanguage === langFilter
       );
     })
-    // REMOVED: Sorting by speaking status - this causes position changes
-    // Now sorting only by name for consistent positioning
     .sort((a: any, b: any) => {
-      // Hosts first (optional - keeps host at top)
       if (a.role === "HOST" && b.role !== "HOST") return -1;
       if (b.role === "HOST" && a.role !== "HOST") return 1;
-
-      // Then sort by name alphabetically for consistent positions
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
 
@@ -1041,9 +1173,6 @@ const ParticipantGrid: React.FC<any> = ({
         background: `radial-gradient(ellipse at 50% 20%, rgba(99,102,241,0.04), transparent 70%)`,
       }}
     >
-      {/* REMOVED: ActiveSpeakerStrip - No longer showing speaking users at top */}
-
-      {/* Participant Toolbar - HelloTalk Style */}
       <div
         className="mb-4 rounded-xl border p-3"
         style={{
@@ -1074,7 +1203,6 @@ const ParticipantGrid: React.FC<any> = ({
             </span>
           </div>
 
-          {/* Filter Buttons */}
           <div className="flex items-center gap-1">
             {(["all", "online", "speaking", "raised"] as const).map((f) => (
               <button
@@ -1095,7 +1223,6 @@ const ParticipantGrid: React.FC<any> = ({
             ))}
           </div>
 
-          {/* Search Toggle */}
           <button
             onClick={onToggleSearch}
             className="p-1.5 rounded-lg hover:bg-white/5"
@@ -1110,7 +1237,6 @@ const ParticipantGrid: React.FC<any> = ({
           </button>
         </div>
 
-        {/* Search Input */}
         <AnimatePresence>
           {showSearch && (
             <motion.div
@@ -1141,7 +1267,6 @@ const ParticipantGrid: React.FC<any> = ({
         </AnimatePresence>
       </div>
 
-      {/* Language filters from people currently in the room */}
       {roomLanguages.length > 0 && (
         <div className="flex items-center gap-1.5 mb-4 flex-wrap">
           <span
@@ -1202,7 +1327,6 @@ const ParticipantGrid: React.FC<any> = ({
         </div>
       )}
 
-      {/* Participant Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-w-5xl mx-auto">
         {filteredParticipants.length === 0 ? (
           <div className="col-span-full text-center py-12">
@@ -1234,7 +1358,9 @@ const ParticipantGrid: React.FC<any> = ({
                 isCurrentUser={isCurrentUser}
                 isModerator={isModerator}
                 isFavorite={favoriteParticipants.has(p.id)}
-                onMute={() => onMuteUser(p.id)}
+                onMute={() =>
+                  p.isMuted ? onUnmuteUser(p.id) : onMuteUser(p.id)
+                }
                 onKick={() => onKickUser(p.id)}
                 onPromote={() => onPromoteHost(p.id)}
                 onFollow={() => onToggleFavorite(p.id)}
@@ -1302,17 +1428,29 @@ const ParticipantCard: React.FC<{
       className="relative flex flex-col items-center group"
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
+      onFocus={() => setShowActions(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setShowActions(false);
+        }
+      }}
     >
-      <div className="cursor-pointer" onClick={onViewProfile}>
+      <div
+        className="cursor-pointer"
+        role="button"
+        tabIndex={0}
+        aria-label={`View ${participant.name}'s profile`}
+        onClick={onViewProfile}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onViewProfile?.();
+          }
+        }}
+      >
         <div className="relative">
-          {/* ========================================================
-               LIVE SPEAKER EFFECT
-               This stays on the participant's avatar so EVERYONE in the
-               room can immediately see who is speaking.
-             ======================================================== */}
           {isSpeaking && (
             <>
-              {/* Wide outer pulse */}
               <motion.div
                 className="absolute inset-[-22px] rounded-full pointer-events-none"
                 initial={{ scale: 0.82, opacity: 0 }}
@@ -1331,7 +1469,6 @@ const ParticipantCard: React.FC<{
                 }}
               />
 
-              {/* Main pulsing ring */}
               <motion.div
                 className="absolute inset-[-9px] rounded-full pointer-events-none"
                 animate={{
@@ -1349,7 +1486,6 @@ const ParticipantCard: React.FC<{
                 }}
               />
 
-              {/* Secondary wave */}
               <motion.div
                 className="absolute inset-[-15px] rounded-full pointer-events-none"
                 animate={{
@@ -1367,7 +1503,6 @@ const ParticipantCard: React.FC<{
                 }}
               />
 
-              {/* Audio-reactive-looking glow */}
               <motion.div
                 className="absolute inset-[-4px] rounded-full pointer-events-none"
                 animate={{
@@ -1384,7 +1519,6 @@ const ParticipantCard: React.FC<{
                 }}
               />
 
-              {/* Small speaking particles */}
               {[0, 1, 2, 3].map((i) => (
                 <motion.span
                   key={`speaker-particle-${i}`}
@@ -1411,7 +1545,6 @@ const ParticipantCard: React.FC<{
             </>
           )}
 
-          {/* Avatar */}
           <motion.div
             className="relative rounded-full flex items-center justify-center font-semibold border-2 shadow-lg transition-all"
             animate={
@@ -1455,7 +1588,6 @@ const ParticipantCard: React.FC<{
             {!participant.avatarUrl && initials(participant.name)}
           </motion.div>
 
-          {/* Online Status Dot */}
           {isOnline && !isMuted && (
             <div
               className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
@@ -1468,7 +1600,6 @@ const ParticipantCard: React.FC<{
             />
           )}
 
-          {/* Muted Indicator */}
           {isMuted && isOnline && (
             <div
               className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 flex items-center justify-center"
@@ -1481,7 +1612,6 @@ const ParticipantCard: React.FC<{
             </div>
           )}
 
-          {/* Host Crown */}
           {isHost && (
             <motion.div
               className="absolute -top-1 -right-1"
@@ -1492,7 +1622,6 @@ const ParticipantCard: React.FC<{
             </motion.div>
           )}
 
-          {/* Raised Hand */}
           {raisedHand && (
             <motion.div
               className="absolute -top-1 -left-1"
@@ -1503,19 +1632,16 @@ const ParticipantCard: React.FC<{
             </motion.div>
           )}
 
-          {/* Country Flag */}
           <div className="absolute -bottom-0.5 -left-0.5 text-xs leading-none">
             {countryFlag}
           </div>
 
-          {/* Favorite Star */}
           {isFavorite && (
             <div className="absolute -top-1 -left-1">
               <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400 drop-shadow-lg" />
             </div>
           )}
 
-          {/* Premium/Verified Badges */}
           {participant.isPremium && (
             <div className="absolute -bottom-1 right-6 text-[8px]">⭐</div>
           )}
@@ -1523,7 +1649,6 @@ const ParticipantCard: React.FC<{
             <div className="absolute -bottom-1 right-0 text-[8px]">✅</div>
           )}
 
-          {/* You Badge */}
           {isCurrentUser && !isSpeaking && (
             <div
               className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[7px] font-bold whitespace-nowrap"
@@ -1533,7 +1658,6 @@ const ParticipantCard: React.FC<{
             </div>
           )}
 
-          {/* Speaking Badge */}
           {isSpeaking && (
             <motion.div
               initial={{ opacity: 0, scale: 0.8, y: 4 }}
@@ -1568,7 +1692,6 @@ const ParticipantCard: React.FC<{
           )}
         </div>
 
-        {/* Name & Language Tags - HelloTalk Style */}
         <div className="mt-1.5 text-center">
           <span
             className={`${s.nameSize} font-medium truncate max-w-[70px] block`}
@@ -1625,7 +1748,6 @@ const ParticipantCard: React.FC<{
         </div>
       </div>
 
-      {/* Action Buttons - HelloTalk Style */}
       <AnimatePresence>
         {showActions && !isCurrentUser && (
           <motion.div
@@ -1639,9 +1761,13 @@ const ParticipantCard: React.FC<{
             }}
           >
             <button
+              type="button"
               onClick={onFollow}
               className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
-              title="Follow"
+              title={isFavorite ? "Unfollow" : "Follow"}
+              aria-label={
+                isFavorite ? "Unfollow participant" : "Follow participant"
+              }
               style={{
                 color: isFavorite
                   ? THEME.colors.accent.primary
@@ -1651,6 +1777,7 @@ const ParticipantCard: React.FC<{
               <UserPlus className="w-3 h-3" />
             </button>
             <button
+              type="button"
               onClick={onSendMessage}
               className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
               title="Send Message"
@@ -1661,14 +1788,19 @@ const ParticipantCard: React.FC<{
             {isModerator && (
               <>
                 <button
+                  type="button"
                   onClick={onMute}
                   className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
-                  title="Toggle Mute"
+                  title={isMuted ? "Unmute" : "Mute"}
+                  aria-label={
+                    isMuted ? "Unmute participant" : "Mute participant"
+                  }
                   style={{ color: THEME.colors.text.muted }}
                 >
                   <VolumeX className="w-3 h-3" />
                 </button>
                 <button
+                  type="button"
                   onClick={onKick}
                   className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
                   title="Kick"
@@ -1678,6 +1810,7 @@ const ParticipantCard: React.FC<{
                 </button>
                 {!isHost && (
                   <button
+                    type="button"
                     onClick={onPromote}
                     className="p-1.5 rounded-lg hover:bg-yellow-500/20 transition-all"
                     title="Make Host"
@@ -2213,13 +2346,14 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const queryClient = useQueryClient();
 
   // ============================================================
-  // STATE - ALL HOOKS MUST BE CALLED BEFORE CONDITIONAL RETURNS
+  // STATE
   // ============================================================
 
   const [token, setToken] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinAttempt, setJoinAttempt] = useState(0);
   const [liveKitRoomId, setLiveKitRoomId] = useState<string>("");
-  const [tokenRefreshAttempts, setTokenRefreshAttempts] = useState(0);
 
   const [isDeafened, setIsDeafened] = useState(false);
   const [volume, setVolume] = useState(80);
@@ -2232,17 +2366,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const [isRaisingHand, setIsRaisingHand] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [reactions, setReactions] = useState<{ id: string; emoji: string }[]>(
-    [],
-  );
   const [isRecording, setIsRecording] = useState(false);
   const [roomDuration, setRoomDuration] = useState(0);
   const [showLiveStats, setShowLiveStats] = useState(false);
-  const [activeTab, setActiveTab] = useState<"chat" | "participants">("chat");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const [retryTimer, setRetryTimer] = useState<NodeJS.Timeout | null>(null);
-  const maxRetries = 3;
   const [chatSearch, setChatSearch] = useState("");
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -2251,37 +2378,43 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     "all" | "online" | "speaking" | "raised"
   >("all");
   const [showParticipantSearch, setShowParticipantSearch] = useState(false);
-  const [showQualityPanel, setShowQualityPanel] = useState(false);
+  // BUG FIX: `showParticipants` state was missing but referenced in the JSX
+  const [showParticipants, setShowParticipants] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showRoomDetails, setShowRoomDetails] = useState(false);
   const [showCommandCenter, setShowCommandCenter] = useState(false);
   const [favoriteParticipants, setFavoriteParticipants] = useState<Set<string>>(
     new Set(),
   );
-  const [lastActivityAt, setLastActivityAt] = useState(Date.now());
-  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [newMessageCount, setNewMessageCount] = useState(0);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
-  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const typingStopTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const hasRefreshedRef = useRef(false);
+  const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ============================================================
   // DATA QUERIES
   // ============================================================
 
-  const { data: room, isLoading, refetch, error } = useVoiceRoom(roomId);
-  const { data: initialMessages, isLoading: isLoadingMessages } =
-    useRoomMessages(roomId);
+  const { data: room, isLoading, refetch } = useVoiceRoom(roomId);
+  const { data: initialMessages } = useRoomMessages(roomId);
   const sendMessageMutation = useSendVoiceMessage();
   const deleteMessageMutation = useDeleteVoiceMessage();
+  const editMessageMutation = useEditVoiceMessage();
+  const reactMessageMutation = useReactToVoiceMessage();
+  const pinMessageMutation = usePinVoiceMessage();
   const leaveRoomMutation = useLeaveVoiceRoom();
-  const refreshTokenMutation = useRefreshToken();
+
+  const { data: cachedMessages } = useQuery<VoiceMessage[]>({
+    queryKey: ["voice-messages", roomId],
+    enabled: false,
+  });
 
   // ============================================================
   // WEBSOCKET HOOK
@@ -2301,6 +2434,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     pinMessage,
     deleteMessage: deleteSocketMessage,
     promoteHost,
+    editMessage,
+    reactMessage,
     broadcastSpeaking,
   } = useVoiceSocket(roomId, user?.id || "");
 
@@ -2316,8 +2451,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const liveKitOptions = useMemo(
     () => ({
       onAudioLevel: (level: number) => setAudioLevel(level),
-      // LiveKit detects the microphone state locally. The socket broadcast
-      // distributes that state to the other people in the room.
       onSpeakingStatusChange: (userId: string, isSpeaking: boolean) => {
         if (userId === user?.id) {
           broadcastSpeaking(isSpeaking);
@@ -2340,7 +2473,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     isMuted: liveKitIsMuted,
     toggleMute,
     isMockMode,
-    error: liveKitError,
     isConnecting,
   } = liveKitResult;
 
@@ -2366,9 +2498,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         bio: p.bio || p.user?.bio,
         interests: p.interests || p.user?.interests,
         isOnline: true,
-        // IMPORTANT: keep the server/socket speaking state. Previously this was
-        // hard-coded to false, so remote speaker animations could never start
-        // from the websocket state.
         isSpeaking: Boolean(p.isSpeaking) && !Boolean(p.isMuted),
         isMuted: Boolean(p.isMuted),
         raisedHand: p.raisedHand || false,
@@ -2493,7 +2622,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     );
 
   // ============================================================
-  // HANDLERS - useCallback
+  // HANDLERS
   // ============================================================
 
   const handleToggleMute = useCallback(async () => {
@@ -2532,6 +2661,21 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       toast.error("Failed to leave room");
     }
   }, [leaveRoomMutation, roomId, socket, user?.id, onLeave]);
+
+  const handleEndRoom = useCallback(async () => {
+    if (!roomId) return;
+    if (!window.confirm("End this room for everyone? This cannot be undone.")) {
+      return;
+    }
+    try {
+      await voiceApi.endRoom(roomId);
+      socket?.emit("voice:leave", { roomId, userId: user?.id });
+      toast.success("Room ended");
+      onLeave();
+    } catch {
+      toast.error("Failed to end room");
+    }
+  }, [roomId, socket, user?.id, onLeave]);
 
   const handleStartRecording = useCallback(async () => {
     try {
@@ -2685,6 +2829,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 
   const handleEditMessage = useCallback(
     (messageId: string, newContent: string) => {
+      if (!roomId) return;
+
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
@@ -2692,15 +2838,27 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             : m,
         ),
       );
-      toast.success("Message edited");
+
+      editMessageMutation.mutate(
+        { roomId, messageId, content: newContent },
+        {
+          onSuccess: () => {
+            if (socket && isConnected) {
+              editMessage(messageId, newContent);
+            }
+            toast.success("Message edited");
+          },
+        },
+      );
     },
-    [],
+    [roomId, editMessageMutation, socket, isConnected, editMessage],
   );
 
   const handleMessageReaction = useCallback(
     (messageId: string, emoji: string) => {
-      if (!user?.id) return;
+      if (!user?.id || !roomId) return;
 
+      // Optimistic local toggle
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== messageId) return m;
@@ -2728,16 +2886,40 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         }),
       );
 
-      if (socket && isConnected) {
-        socket.emit("voice:message-reaction", {
-          roomId,
-          messageId,
-          emoji,
-          userId: user.id,
-        });
-      }
+      // Persist via HTTP — this fixes the "reaction disappears on refresh" bug
+      reactMessageMutation.mutate(
+        { roomId, messageId, emoji, userId: user.id },
+        {
+          onSuccess: () => {
+            if (socket && isConnected) {
+              reactMessage(messageId, emoji);
+            }
+          },
+          onError: () => {
+            // Roll back optimistic toggle on failure
+            setMessages((prev) =>
+              prev.map((m) => {
+                if (m.id !== messageId) return m;
+                const reactions: Record<string, string[]> = {};
+                if (m.reactions) {
+                  for (const [e, users] of Object.entries(m.reactions)) {
+                    reactions[e] = Array.isArray(users) ? [...users] : [];
+                  }
+                }
+                const users = new Set(reactions[emoji] || []);
+                if (users.has(user.id)) users.delete(user.id);
+                else users.add(user.id);
+                if (users.size > 0) reactions[emoji] = Array.from(users);
+                else delete reactions[emoji];
+                return { ...m, reactions };
+              }),
+            );
+            toast.error("Failed to react");
+          },
+        },
+      );
     },
-    [socket, isConnected, roomId, user?.id],
+    [user?.id, roomId, reactMessageMutation, socket, isConnected, reactMessage],
   );
 
   // ============================================================
@@ -2775,7 +2957,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   );
 
   // ============================================================
-  // EFFECTS - ALL EFFECTS HERE
+  // EFFECTS
   // ============================================================
 
   // Token fetching
@@ -2785,6 +2967,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 
       try {
         setIsJoining(true);
+        setJoinError(null);
         const response = await voiceApi.joinRoom(roomId);
         const raw = response.data as any;
 
@@ -2799,32 +2982,55 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 
         setToken(extractedToken);
         setLiveKitRoomId(extractedRoomId);
-        setTokenRefreshAttempts(0);
         toast.success("Connected to voice");
       } catch (error: any) {
-        toast.error(error?.response?.data?.message || "Failed to join room");
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to join room";
+        setJoinError(message);
+        toast.error(message);
       } finally {
         setIsJoining(false);
       }
     };
 
     getToken();
-  }, [roomId, user?.id, token]);
+  }, [roomId, user?.id, token, joinAttempt]);
 
-  // Messages — normalize for ChatPanel (senderName, reactions)
+  // Cache → local mirror with reaction preservation
   useEffect(() => {
-    if (initialMessages) {
-      const sorted = [...initialMessages]
+    const source = cachedMessages ?? initialMessages;
+    if (!source) return;
+
+    setMessages((prev) => {
+      const prevById = new Map(prev.map((m) => [m.id, m]));
+
+      const sorted = [...source]
         .sort(
           (a, b) =>
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
         )
-        .map((msg) =>
-          normalizeChatMessage({ ...msg, status: "sent" as const }, user?.id),
-        );
-      setMessages(sorted);
-    }
-  }, [initialMessages, user?.id]);
+        .map((msg) => {
+          const prior = prevById.get(msg.id);
+          const normalized = normalizeChatMessage(
+            { ...msg, status: "sent" as const },
+            user?.id,
+          );
+          const incomingHasReactions =
+            normalized.reactions &&
+            Object.keys(normalized.reactions).length > 0;
+          const priorHasReactions =
+            prior?.reactions && Object.keys(prior.reactions).length > 0;
+          if (!incomingHasReactions && priorHasReactions) {
+            return { ...normalized, reactions: prior!.reactions };
+          }
+          return normalized;
+        });
+
+      return sorted;
+    });
+  }, [cachedMessages, initialMessages, user?.id]);
 
   // Socket message handlers
   useEffect(() => {
@@ -2969,15 +3175,70 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
       if (durationIntervalRef.current)
         clearInterval(durationIntervalRef.current);
-      if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [retryTimer]);
+  }, []);
 
   // ============================================================
-  // RENDER - NOW AFTER ALL HOOKS
+  // RENDER
   // ============================================================
 
-  if (isLoading || isJoining || isConnecting || (!token && !isJoining)) {
+  if (joinError && !token && !isJoining) {
+    return (
+      <div
+        className="h-screen flex items-center justify-center px-6"
+        style={{ background: THEME.colors.background.primary }}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl border p-6 text-center shadow-2xl"
+          style={{
+            background: THEME.colors.background.card,
+            borderColor: THEME.colors.border.primary,
+          }}
+          role="alert"
+        >
+          <WifiOff
+            className="w-11 h-11 mx-auto mb-4"
+            style={{ color: THEME.colors.accent.warning }}
+          />
+          <h2
+            className="text-xl font-bold"
+            style={{ color: THEME.colors.text.primary }}
+          >
+            Couldn’t connect to voice
+          </h2>
+          <p
+            className="mt-2 text-sm"
+            style={{ color: THEME.colors.text.muted }}
+          >
+            {joinError}
+          </p>
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={onLeave}
+              className="flex-1 rounded-full border px-4 py-2.5 text-sm font-medium"
+              style={{
+                borderColor: THEME.colors.border.primary,
+                color: THEME.colors.text.secondary,
+              }}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => setJoinAttempt((attempt) => attempt + 1)}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white"
+              style={{ background: THEME.colors.gradient.primary }}
+            >
+              <RotateCcw className="w-4 h-4" /> Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading || isJoining || isConnecting || !token) {
     return (
       <div
         className="h-screen flex items-center justify-center"
@@ -3006,15 +3267,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
                   ? "⏳ Waiting for voice connection..."
                   : "Loading room..."}
           </p>
-          {!token && !isJoining && !isConnecting && (
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 rounded-full text-sm font-medium transition-all hover:scale-105"
-              style={{ background: THEME.colors.accent.primary, color: "#fff" }}
-            >
-              Retry Connection
-            </button>
-          )}
         </motion.div>
       </div>
     );
@@ -3055,22 +3307,16 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     );
   }
 
-  // ============================================================
-  // MAIN RENDER
-  // ============================================================
-
   return (
     <div
       className="h-screen flex flex-col overflow-hidden relative"
       style={{ background: THEME.colors.background.primary }}
     >
-      {/* Background Glow */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{ background: THEME.colors.gradient.glow }}
       />
 
-      {/* Room Header */}
       <VoiceRoomHeader
         room={room}
         isHost={isHost}
@@ -3094,11 +3340,14 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           });
         }}
         onToggleCommandCenter={() => setShowCommandCenter(!showCommandCenter)}
+        onShowDetails={() => setShowRoomDetails(true)}
+        onShowShortcuts={() => setShowShortcuts(true)}
         onMinimize={onMinimize}
         onShare={handleCopyLink}
+        onLeave={handleLeave}
+        onEndRoom={handleEndRoom}
       />
 
-      {/* Live Stats Bar */}
       <AnimatePresence>
         {showLiveStats && (
           <motion.div
@@ -3138,9 +3387,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Main Content */}
       <main className="flex flex-1 min-h-0 relative z-10">
-        {/* Participants Grid */}
         <ParticipantGrid
           participants={allParticipants}
           isHost={isHost}
@@ -3165,13 +3412,13 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             });
           }}
           onMuteUser={muteUser}
+          onUnmuteUser={unmuteUser}
           onKickUser={kickUser}
           onPromoteHost={promoteHost}
           onSendMessage={(userId) => {
             const participant = allParticipants.find((p) => p.id === userId);
             if (participant) {
               setShowChat(true);
-              setActiveTab("chat");
               setNewMessage(`@${participant.name} `);
             }
           }}
@@ -3180,7 +3427,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           className={showChat ? "md:w-2/3" : "w-full"}
         />
 
-        {/* Chat Panel */}
         <AnimatePresence>
           {showChat && (
             <ChatPanel
@@ -3201,28 +3447,40 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
               onSendMessage={handleSendMessage}
               onReply={(msg) => setReplyTo(msg as any)}
               onPinMessage={(messageId, pinned) => {
+                if (!roomId) return;
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === messageId ? { ...m, isPinned: pinned } : m,
                   ),
                 );
-                try {
-                  pinMessage?.(messageId, pinned);
-                } catch {
-                  pinMessage?.(messageId);
-                }
+                pinMessageMutation.mutate(
+                  { roomId, messageId, pinned },
+                  {
+                    onSuccess: () => {
+                      if (socket && isConnected) {
+                        pinMessage?.(messageId, pinned);
+                      }
+                    },
+                  },
+                );
               }}
               onDeleteMessage={(messageId) => {
+                if (!roomId) return;
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === messageId ? { ...m, isDeleted: true } : m,
                   ),
                 );
-                if (socket && isConnected) {
-                  deleteSocketMessage(messageId);
-                } else {
-                  deleteMessageMutation.mutate({ roomId, messageId });
-                }
+                deleteMessageMutation.mutate(
+                  { roomId, messageId },
+                  {
+                    onSuccess: () => {
+                      if (socket && isConnected) {
+                        deleteSocketMessage(messageId);
+                      }
+                    },
+                  },
+                );
               }}
               onEditMessage={handleEditMessage}
               onReactToMessage={handleMessageReaction}
@@ -3267,7 +3525,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         </AnimatePresence>
       </main>
 
-      {/* Audio Controls */}
       <AudioControls
         isMuted={isMuted}
         isDeafened={isDeafened}
@@ -3290,7 +3547,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         isCallActive={isLiveKitConnected}
       />
 
-      {/* Command Center */}
       <AnimatePresence>
         {showCommandCenter && (
           <>
@@ -3326,7 +3582,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Room Details */}
       <AnimatePresence>
         {showRoomDetails && (
           <RoomDetailsPanel
@@ -3351,7 +3606,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Modals */}
       <LeaveConfirmationModal
         isOpen={showLeaveConfirm}
         onClose={() => setShowLeaveConfirm(false)}
@@ -3363,32 +3617,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         onClose={() => setShowShortcuts(false)}
       />
 
-      {/* Session Notice */}
-      <AnimatePresence>
-        {sessionNotice && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-[75] px-4 py-2 rounded-full border shadow-xl backdrop-blur-xl text-xs"
-            style={{
-              background: THEME.colors.background.card,
-              borderColor: THEME.colors.border.primary,
-              color: THEME.colors.text.primary,
-            }}
-          >
-            <span className="inline-flex items-center gap-2">
-              <CheckCheck
-                className="w-3.5 h-3.5"
-                style={{ color: THEME.colors.accent.success }}
-              />
-              {sessionNotice}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Keyboard shortcut hint */}
       <div className="fixed bottom-24 left-4 z-20 hidden md:block">
         <div
           className="text-[9px] px-2.5 py-1 rounded-full"

@@ -475,6 +475,9 @@ model User {
   name         String
   avatarUrl    String?
 
+  // ===== GOOGLE AUTH =====
+  googleId String? @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -554,14 +557,15 @@ model User {
   courses                Course[]
   courseReviews          CourseReview[]
 
-  // ===== NEW VOICE RELATIONS (EACH ONLY ONCE!) =====
-  voiceTranscriptions VoiceTranscription[] @relation("TranscriptionUser")
-  voiceClapsSent      VoiceClap[]          @relation("ClapSender")
-  voiceClapsReceived  VoiceClap[]          @relation("ClapReceiver")
-  voiceSpeakerQueues  VoiceSpeakerQueue[]  @relation("QueueUser")
-  voiceInvitesCreated VoiceRoomInvite[]    @relation("InviteCreator")
-  voiceSpeakerStats   VoiceSpeakerStats[]  @relation("SpeakerStatsUser")
-  voiceQueueInvites   VoiceSpeakerQueue[]  @relation("QueueInviter")
+  // ===== NEW VOICE RELATIONS =====
+  voiceTranscriptions   VoiceTranscription[]       @relation("TranscriptionUser")
+  voiceClapsSent        VoiceClap[]                @relation("ClapSender")
+  voiceClapsReceived    VoiceClap[]                @relation("ClapReceiver")
+  voiceSpeakerQueues    VoiceSpeakerQueue[]        @relation("QueueUser")
+  voiceInvitesCreated   VoiceRoomInvite[]          @relation("InviteCreator")
+  voiceSpeakerStats     VoiceSpeakerStats[]        @relation("SpeakerStatsUser")
+  voiceQueueInvites     VoiceSpeakerQueue[]        @relation("QueueInviter")
+  voiceMessageReactions VoiceRoomMessageReaction[]
 }
 
 model Session {
@@ -912,16 +916,23 @@ model CommunityRole {
 }
 
 model VoiceRoomMessage {
-  id        String            @id @default(cuid())
+  id        String    @id @default(cuid())
   roomId    String
-  room      VoiceRoom         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room      VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
   senderId  String
-  sender    User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  sender    User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
   content   String
-  type      String            @default("TEXT") // 👈 ADD THIS
+  type      String    @default("TEXT")
   mediaUrl  String?
   fileUrl   String?
   replyToId String?
+
+  isEdited Boolean   @default(false)
+  isPinned Boolean   @default(false)
+  editedAt DateTime?
+
+  reactions VoiceRoomMessageReaction[]
+
   replyTo   VoiceRoomMessage? @relation("VoiceMessageReply", fields: [replyToId], references: [id])
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
@@ -930,6 +941,21 @@ model VoiceRoomMessage {
 
   @@index([roomId])
   @@index([senderId])
+  @@index([isPinned])
+}
+
+model VoiceRoomMessageReaction {
+  id        String           @id @default(cuid())
+  messageId String
+  message   VoiceRoomMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime         @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@index([userId])
+  @@index([messageId])
 }
 
 model CommunityBan {

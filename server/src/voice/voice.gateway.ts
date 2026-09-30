@@ -23,7 +23,6 @@ import { PrismaService } from '../prisma.service';
   },
   namespace: 'voice',
 })
-
 export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -974,6 +973,92 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } catch (error) {
       this.logger.error('Error raising hand:', error);
       client.emit('voice:error', { message: 'Failed to raise hand' });
+    }
+  }
+
+  // ============ EDIT MESSAGE ============
+
+  @SubscribeMessage('voice:edit-message')
+  async handleEditMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { roomId: string; messageId: string; content: string },
+  ) {
+    const userId = client.data.userId;
+    if (!userId) {
+      client.emit('voice:error', { message: 'Unauthenticated' });
+      return;
+    }
+
+    try {
+      const message = await this.prisma.voiceRoomMessage.findUnique({
+        where: { id: data.messageId },
+        select: { senderId: true, roomId: true },
+      });
+
+      if (!message) {
+        client.emit('voice:error', { message: 'Message not found' });
+        return;
+      }
+
+      if (message.senderId !== userId) {
+        client.emit('voice:error', {
+          message: 'You can only edit your own messages',
+        });
+        return;
+      }
+
+      const updatedMessage = await this.prisma.voiceRoomMessage.update({
+        where: { id: data.messageId },
+        data: {
+          content: data.content,
+          isEdited: true,
+        },
+      });
+
+      this.server.to(`voice:${data.roomId}`).emit('voice:message-edited', {
+        messageId: updatedMessage.id,
+        content: updatedMessage.content,
+        isEdited: true,
+        updatedAt: updatedMessage.updatedAt,
+      });
+    } catch (error) {
+      this.logger.error('Error editing message:', error);
+      client.emit('voice:error', { message: 'Failed to edit message' });
+    }
+  }
+
+  // ============ REACTION MESSAGE ============
+
+  @SubscribeMessage('voice:react-message')
+  async handleReactMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { roomId: string; messageId: string; emoji: string },
+  ) {
+    const userId = client.data.userId;
+    if (!userId) {
+      client.emit('voice:error', { message: 'Unauthenticated' });
+      return;
+    }
+
+    try {
+      const result = await this.voiceService.toggleVoiceRoomMessageReaction(
+        userId,
+        data.roomId,
+        data.messageId,
+        data.emoji,
+      );
+
+      this.server.to(`voice:${data.roomId}`).emit('voice:message-reaction', {
+        messageId: data.messageId,
+        reactions: result.reactions,
+      });
+    } catch (error) {
+      this.logger.error('Error reacting to message:', error);
+      client.emit('voice:error', {
+        message: error?.message || 'Failed to react to message',
+      });
     }
   }
 

@@ -5,6 +5,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -16,6 +17,7 @@ import {
   HttpException,
   Logger,
 } from '@nestjs/common';
+
 import { VoiceService } from './voice.service';
 import { LiveKitService } from './livekit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -609,6 +611,105 @@ export class VoiceController {
         {
           success: false,
           message: error.message || 'Failed to delete message',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+    // ---- NEW: edit message ----
+  @Patch('rooms/:roomId/messages/:messageId')
+  @HttpCode(HttpStatus.OK)
+  async editRoomMessage(
+    @Request() req,
+    @Param('roomId') roomId: string,
+    @Param('messageId') messageId: string,
+    @Body('content') content: string,
+  ) {
+    try {
+      const message = await this.voiceService.editVoiceRoomMessage(
+        req.user.id,
+        roomId,
+        messageId,
+        content,
+      );
+      return {
+        success: true,
+        data: message,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Edit message error: ${error.message}`);
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to edit message',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ---- NEW: react to message ----
+  @Post('rooms/:roomId/messages/:messageId/reactions')
+  @HttpCode(HttpStatus.OK)
+  async reactToRoomMessage(
+    @Request() req,
+    @Param('roomId') roomId: string,
+    @Param('messageId') messageId: string,
+    @Body('emoji') emoji: string,
+  ) {
+    try {
+      const result = await this.voiceService.toggleVoiceRoomMessageReaction(
+        req.user.id,
+        roomId,
+        messageId,
+        emoji,
+      );
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      this.logger.error(`❌ React to message error: ${error.message}`);
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to react to message',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ---- NEW: pin message ----
+  @Post('rooms/:roomId/messages/:messageId/pin')
+  @HttpCode(HttpStatus.OK)
+  async pinRoomMessage(
+    @Request() req,
+    @Param('roomId') roomId: string,
+    @Param('messageId') messageId: string,
+    @Body('pinned') pinned: boolean,
+  ) {
+    try {
+      const message = await this.voiceService.pinVoiceRoomMessage(
+        req.user.id,
+        roomId,
+        messageId,
+        !!pinned,
+      );
+      return {
+        success: true,
+        data: message,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Pin message error: ${error.message}`);
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to pin message',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );

@@ -105,7 +105,7 @@ interface Message {
   isDeleted?: boolean;
   isEdited?: boolean;
   replyTo?: Message;
-  reactions?: Record<string, string[]>;
+  reactions?: Record<string, string[]> | Array<{ emoji?: string; userId?: string; user?: { id?: string } }>;
   attachments?: Attachment[];
   status?: "sending" | "sent" | "delivered" | "read" | "failed";
   isHighlighted?: boolean;
@@ -150,8 +150,11 @@ interface ChatPanelProps {
   onReply: (message: Message | null) => void;
   onPinMessage: (messageId: string, pinned: boolean) => void;
   onDeleteMessage: (messageId: string) => void;
-  onEditMessage: (messageId: string, newContent: string) => void;
-  onReactToMessage: (messageId: string, emoji: string) => void;
+  onEditMessage: (
+    messageId: string,
+    newContent: string,
+  ) => void | Promise<void>;
+  onReactToMessage: (messageId: string, emoji: string) => void | Promise<void>;
   onKickUser: (userId: string) => void;
   onMuteUser: (userId: string) => void;
   onTranslateMessage?: (messageId: string) => void;
@@ -426,7 +429,8 @@ function getTimeAgo(date: string): string {
 }
 
 function formatFileSize(size?: number): string {
-  if (!size || size < 0) return "";
+  // Keep a real zero-byte attachment visible instead of treating it as missing.
+  if (size == null || !Number.isFinite(size) || size < 0) return "";
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   if (size < 1024 * 1024 * 1024) {
@@ -1050,15 +1054,31 @@ const MessageBubble: React.FC<{
     setIsEditing(false);
   }, [editContent, message.content, onEdit]);
 
-  const reactionEntries = useMemo(
-    () =>
-      message.reactions
-        ? Object.entries(message.reactions).filter(
-            ([, users]) => Array.isArray(users) && users.length > 0,
-          )
-        : [],
-    [message.reactions],
-  );
+  const reactionEntries = useMemo(() => {
+    if (!message.reactions) return [];
+
+    const normalized: Record<string, string[]> = {};
+
+    if (Array.isArray(message.reactions)) {
+      for (const reaction of message.reactions) {
+        const emoji = reaction.emoji;
+        const userId = reaction.userId || reaction.user?.id;
+
+        if (emoji && userId) {
+          normalized[emoji] = [
+            ...(normalized[emoji] || []),
+            userId,
+          ];
+        }
+      }
+    } else {
+      Object.assign(normalized, message.reactions);
+    }
+
+    return Object.entries(normalized).filter(
+      ([, users]) => Array.isArray(users) && users.length > 0,
+    );
+  }, [message.reactions]);
 
   const openActions = useCallback(() => {
     setShowActions(true);
@@ -2001,8 +2021,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     const mq = window.matchMedia("(min-width: 768px)");
     const apply = () => setIsDesktop(mq.matches);
     apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
+
+    // Safari versions that do not implement MediaQueryList.addEventListener
+    // still expose the older addListener API.
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", apply);
+      return () => mq.removeEventListener("change", apply);
+    }
+
+    mq.addListener(apply);
+    return () => mq.removeListener(apply);
   }, []);
 
   // Sound preference
@@ -2083,9 +2111,30 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     (message: Message): Record<string, string[]> => {
       const merged: Record<string, string[]> = {};
 
-      for (const [emoji, users] of Object.entries(message.reactions || {})) {
-        if (Array.isArray(users) && users.length > 0) {
-          merged[emoji] = [...new Set(users.filter(Boolean))];
+      // Support both frontend format:
+      // { "❤️": ["userId"] }
+      // and Prisma/API format:
+      // [{ emoji: "❤️", user: { id: "userId" } }]
+      if (Array.isArray(message.reactions)) {
+        for (const reaction of message.reactions as unknown[]) {
+          const item = reaction as {
+            emoji?: string;
+            userId?: string;
+            user?: { id?: string };
+          };
+
+          const emoji = item.emoji;
+          const userId = item.userId || item.user?.id;
+
+          if (emoji && userId) {
+            merged[emoji] = [...new Set([...(merged[emoji] || []), userId])];
+          }
+        }
+      } else {
+        for (const [emoji, users] of Object.entries(message.reactions || {})) {
+          if (Array.isArray(users) && users.length > 0) {
+            merged[emoji] = [...new Set(users.filter(Boolean))];
+          }
         }
       }
 
@@ -2106,7 +2155,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   );
 
   const handleReactToMessage = useCallback(
-    (messageId: string, emoji: string) => {
+    async (messageId: string, emoji: string) => {
       if (!messageId || !emoji || !currentUserId) return;
 
       const message = messages.find((item) => item.id === messageId);
@@ -2125,7 +2174,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       }));
 
       try {
-        onReactToMessage(messageId, emoji);
+        await onReactToMessage(messageId, emoji);
       } catch {
         setReactionOverrides((previous) => {
           const next = { ...previous };
@@ -2154,7 +2203,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         const message = messages.find((item) => item.id === messageId);
         if (!message) continue;
 
-        const serverReactions = message.reactions || {};
+        const serverReactions = getMergedReactions(message);
         const remaining: Record<string, boolean> = {};
 
         for (const [emoji, desired] of Object.entries(overrides)) {
@@ -2178,7 +2227,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
       return changed ? next : previous;
     });
-  }, [messages, currentUserId]);
+  }, [messages, currentUserId, getMergedReactions]);
 
   // Restore panel width
   useEffect(() => {
@@ -2426,6 +2475,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const handleTextareaKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // The document-level shortcut owns Ctrl/Cmd+Enter. Letting this handler
+      // continue would invoke onSendMessage a second time via bubbling.
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        return;
+      }
+
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         if (newMessage.trim()) {

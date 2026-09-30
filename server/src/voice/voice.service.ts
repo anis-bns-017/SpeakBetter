@@ -258,7 +258,6 @@ export class VoiceService {
 
   // ============ PARTICIPANTS ============
 
-  // ✅ FIX: Ensure LiveKit room exists before joining
   async joinRoom(userId: string, roomId: string) {
     const room = await this.prisma.voiceRoom.findUnique({
       where: { id: roomId },
@@ -272,13 +271,11 @@ export class VoiceService {
       throw new BadRequestException('This room has ended');
     }
 
-    // ✅ Ensure LiveKit room exists
     let liveKitRoomId = room.liveKitRoomId;
 
     if (!liveKitRoomId) {
       liveKitRoomId = `voice-${room.id}`;
-      
-      // Create LiveKit room
+
       try {
         await this.liveKitService.createRoom(liveKitRoomId);
         this.logger.log(`✅ LiveKit room created: ${liveKitRoomId}`);
@@ -294,7 +291,6 @@ export class VoiceService {
         );
       }
 
-      // Update database with LiveKit room ID
       await this.prisma.voiceRoom.update({
         where: { id: roomId },
         data: {
@@ -314,7 +310,6 @@ export class VoiceService {
       },
     });
 
-    // User already in room - return fresh token
     if (existingParticipant && !existingParticipant.leftAt) {
       this.logger.log(
         `ℹ️ User ${userId} is already in room ${roomId}; reusing participant`,
@@ -338,7 +333,6 @@ export class VoiceService {
       };
     }
 
-    // User previously left - reactivate
     if (existingParticipant && existingParticipant.leftAt) {
       const participant = await this.prisma.voiceParticipant.update({
         where: {
@@ -368,7 +362,6 @@ export class VoiceService {
       };
     }
 
-    // New participant
     const participantCount = await this.prisma.voiceParticipant.count({
       where: {
         roomId,
@@ -382,14 +375,12 @@ export class VoiceService {
 
     const isFirstJoin = room.status === 'WAITING';
 
-    // Generate token
     const token = await this.liveKitService.getParticipantToken(
       liveKitRoomId,
       userId,
       userId,
     );
 
-    // Create participant
     const participant = await this.prisma.voiceParticipant.create({
       data: {
         roomId,
@@ -459,11 +450,7 @@ export class VoiceService {
 
   // ============ MUTE/UNMUTE ============
 
-  async muteParticipant(
-    userId: string,
-    roomId: string,
-    targetUserId: string,
-  ) {
+  async muteParticipant(userId: string, roomId: string, targetUserId: string) {
     const room = await this.prisma.voiceRoom.findUnique({
       where: { id: roomId },
     });
@@ -1130,6 +1117,7 @@ export class VoiceService {
 
   // ============ CHAT MESSAGES ============
 
+  // ---- UPDATED: now includes reactions and replyTo ----
   async getVoiceRoomMessages(
     userId: string,
     roomId: string,
@@ -1149,7 +1137,7 @@ export class VoiceService {
       where.id = { lt: before };
     }
 
-    return this.prisma.voiceRoomMessage.findMany({
+    const messages = await this.prisma.voiceRoomMessage.findMany({
       where,
       include: {
         sender: {
@@ -1170,10 +1158,18 @@ export class VoiceService {
             },
           },
         },
+        reactions: {
+          select: {
+            emoji: true,
+            userId: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
+
+    return messages.reverse();
   }
 
   async sendVoiceRoomMessage(
@@ -1234,7 +1230,7 @@ export class VoiceService {
       validReplyToId = replyMessage.id;
     }
 
-    return this.prisma.voiceRoomMessage.create({
+    const message = await this.prisma.voiceRoomMessage.create({
       data: {
         roomId,
         senderId: userId,
@@ -1263,8 +1259,16 @@ export class VoiceService {
             },
           },
         },
+        reactions: {
+          select: {
+            emoji: true,
+            userId: true,
+          },
+        },
       },
     });
+
+    return message;
   }
 
   async deleteVoiceRoomMessage(
@@ -1303,6 +1307,194 @@ export class VoiceService {
       where: { id: messageId },
       data: {
         content: 'This message was deleted',
+      },
+    });
+  }
+
+  // ---- NEW: edit ----
+  async editVoiceRoomMessage(
+    userId: string,
+    roomId: string,
+    messageId: string,
+    content: string,
+  ) {
+    if (!content || !content.trim()) {
+      throw new BadRequestException('Message content cannot be empty');
+    }
+
+    const message = await this.prisma.voiceRoomMessage.findUnique({
+      where: { id: messageId },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    if (message.roomId !== roomId) {
+      throw new BadRequestException('Message does not belong to this room');
+    }
+
+    const isAuthorized =
+      message.senderId === userId ||
+      (
+        await this.prisma.voiceParticipant.findUnique({
+          where: {
+            roomId_userId: {
+              roomId,
+              userId,
+            },
+          },
+        })
+      )?.role === 'MODERATOR';
+
+    if (!isAuthorized) {
+      throw new ForbiddenException(
+        'Only the sender or a moderator can edit this message',
+      );
+    }
+
+    return this.prisma.voiceRoomMessage.update({
+      where: { id: messageId },
+      data: {
+        content: content.trim(),
+        isEdited: true,
+        editedAt: new Date(),
+      },
+      include: {
+        sender: {
+          select: { id: true, name: true, avatarUrl: true },
+        },
+        replyTo: {
+          include: {
+            sender: {
+              select: { id: true, name: true, avatarUrl: true },
+            },
+          },
+        },
+        reactions: {
+          select: { emoji: true, userId: true },
+        },
+      },
+    });
+  }
+
+  // ---- NEW: toggle reaction (per-emoji) ----
+  async toggleVoiceRoomMessageReaction(
+    userId: string,
+    roomId: string,
+    messageId: string,
+    emoji: string,
+  ) {
+    if (!emoji) {
+      throw new BadRequestException('Emoji is required');
+    }
+
+    const message = await this.prisma.voiceRoomMessage.findUnique({
+      where: { id: messageId },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    if (message.roomId !== roomId) {
+      throw new BadRequestException('Message does not belong to this room');
+    }
+
+    const existing = await this.prisma.voiceRoomMessageReaction.findUnique({
+      where: {
+        messageId_userId_emoji: {
+          messageId,
+          userId,
+          emoji,
+        },
+      },
+    });
+
+    if (existing) {
+      await this.prisma.voiceRoomMessageReaction.delete({
+        where: { id: existing.id },
+      });
+    } else {
+      await this.prisma.voiceRoomMessageReaction.create({
+        data: {
+          messageId,
+          userId,
+          emoji,
+        },
+      });
+    }
+
+    const allReactions = await this.prisma.voiceRoomMessageReaction.findMany({
+      where: { messageId },
+      select: { emoji: true, userId: true },
+    });
+
+    const reactions: Record<string, string[]> = {};
+    for (const reaction of allReactions) {
+      if (!reactions[reaction.emoji]) reactions[reaction.emoji] = [];
+      reactions[reaction.emoji].push(reaction.userId);
+    }
+
+    return {
+      messageId,
+      reactions,
+    };
+  }
+
+  // ---- NEW: pin / unpin ----
+  async pinVoiceRoomMessage(
+    userId: string,
+    roomId: string,
+    messageId: string,
+    pinned: boolean,
+  ) {
+    const message = await this.prisma.voiceRoomMessage.findUnique({
+      where: { id: messageId },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    if (message.roomId !== roomId) {
+      throw new BadRequestException('Message does not belong to this room');
+    }
+
+    const room = await this.prisma.voiceRoom.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    const isCreator = room.creatorId === userId;
+    const isModerator = await this.prisma.voiceParticipant.findUnique({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId,
+        },
+      },
+    });
+
+    if (!isCreator && (!isModerator || isModerator.role !== 'MODERATOR')) {
+      throw new ForbiddenException(
+        'Only the host or a moderator can pin messages',
+      );
+    }
+
+    return this.prisma.voiceRoomMessage.update({
+      where: { id: messageId },
+      data: { isPinned: pinned },
+      include: {
+        sender: {
+          select: { id: true, name: true, avatarUrl: true },
+        },
+        reactions: {
+          select: { emoji: true, userId: true },
+        },
       },
     });
   }

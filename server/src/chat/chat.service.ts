@@ -527,7 +527,7 @@ export class ChatService {
         communityId,
         senderId: userId,
         content,
-        type: messageType, 
+        type: messageType,
         mediaUrl,
         fileUrl,
         replyToId,
@@ -719,6 +719,12 @@ export class ChatService {
   }
 
   async editMessage(userId: string, messageId: string, content: string) {
+    const trimmedContent = content?.trim();
+
+    if (!trimmedContent) {
+      throw new BadRequestException('Message content cannot be empty');
+    }
+
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
     });
@@ -734,7 +740,7 @@ export class ChatService {
     return this.prisma.message.update({
       where: { id: messageId },
       data: {
-        content,
+        content: trimmedContent,
         isEdited: true,
         editedAt: new Date(),
       },
@@ -877,9 +883,50 @@ export class ChatService {
         await this.prisma.reaction.delete({
           where: { id: existing.id },
         });
-        return { removed: true };
+
+        const updatedMessage = await this.prisma.message.findUnique({
+          where: { id: messageId },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
+            reactions: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
+            },
+            replyTo: {
+              include: {
+                sender: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+            attachments: true,
+            translations: true,
+          },
+        });
+
+        return {
+          removed: true,
+          message: updatedMessage,
+        };
       } else {
-        return this.prisma.reaction.update({
+        const reaction = await this.prisma.reaction.update({
           where: { id: existing.id },
           data: { emoji },
           include: {
@@ -892,10 +939,32 @@ export class ChatService {
             },
           },
         });
+
+        const updatedMessage = await this.prisma.message.findUnique({
+          where: { id: messageId },
+          include: {
+            reactions: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        return {
+          reaction,
+          message: updatedMessage,
+        };
       }
     }
 
-    return this.prisma.reaction.create({
+    const reaction = await this.prisma.reaction.create({
       data: {
         messageId,
         userId,
@@ -911,6 +980,28 @@ export class ChatService {
         },
       },
     });
+
+    const updatedMessage = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        reactions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      reaction,
+      message: updatedMessage,
+    };
   }
 
   async removeReaction(userId: string, messageId: string, emoji: string) {
@@ -931,7 +1022,47 @@ export class ChatService {
       where: { id: reaction.id },
     });
 
-    return { success: true };
+    const updatedMessage = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
+        reactions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        replyTo: {
+          include: {
+            sender: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        attachments: true,
+        translations: true,
+      },
+    });
+
+    return {
+      success: true,
+      message: updatedMessage,
+    };
   }
 
   // ============ READ RECEIPTS ============

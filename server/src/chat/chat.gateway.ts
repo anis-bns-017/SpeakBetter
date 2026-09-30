@@ -640,15 +640,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
 
         if (roomId) {
-          this.server.to(roomId).emit('message:deleted', {
-            messageId: data.messageId,
-            userId,
-            chatId: message.chatId,
-            communityId: message.communityId,
-          });
+          this.server.to(roomId).emit('message:deleted', message);
 
           client.emit('message:deleted', {
-            messageId: data.messageId,
+            ...message,
             success: true,
           });
         }
@@ -685,7 +680,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    if (!data.content) {
+    const content = data.content?.trim();
+
+    if (!content) {
       client.emit('message:error', {
         message: 'Content is required',
       });
@@ -697,7 +694,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const message = await this.chatService.editMessage(
         userId,
         data.messageId,
-        data.content,
+        content,
       );
 
       if (message) {
@@ -895,6 +892,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         if (roomId) {
           this.server.to(roomId).emit('reaction:new', reaction);
+
+          client.emit('reaction:new', reaction);
         }
       }
     } catch (error: any) {
@@ -926,7 +925,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      await this.chatService.removeReaction(userId, data.messageId, data.emoji);
+      const updatedMessage = await this.chatService.removeReaction(
+        userId,
+        data.messageId,
+        data.emoji,
+      );
 
       const message = await this.prisma.message.findUnique({
         where: {
@@ -948,11 +951,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
 
         if (roomId) {
-          this.server.to(roomId).emit('reaction:removed', {
+          const payload = {
             messageId: data.messageId,
             userId,
             emoji: data.emoji,
-          });
+            message: updatedMessage?.message || updatedMessage,
+          };
+
+          this.server.to(roomId).emit('reaction:removed', payload);
+          client.emit('reaction:removed', payload);
         }
       }
     } catch (error) {
@@ -1097,15 +1104,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
 
         if (roomId) {
-          this.server.to(roomId).emit('message:pinned', {
-            messageId: data.messageId,
-            pinned: data.pinned,
-            userId,
-          });
+          this.server.to(roomId).emit('message:pinned', message);
 
           client.emit('message:pinned', {
-            messageId: data.messageId,
-            pinned: data.pinned,
+            ...message,
             success: true,
           });
         }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -13,11 +13,12 @@ import {
   ArrowRight,
   Loader2,
   ShieldCheck,
-  CheckCircle2,
   Zap,
   TrendingUp,
   Users,
   Brain,
+  Languages,
+  Check,
 } from "lucide-react";
 
 const LANGUAGES = [
@@ -32,27 +33,39 @@ const LANGUAGES = [
 const BENEFITS = [
   {
     icon: Brain,
-    title: "AI-Powered Learning",
-    description: "Personalized lessons adapted to your pace",
+    title: "AI Conversation Coach",
+    description: "Practice real conversations with intelligent feedback",
   },
   {
     icon: TrendingUp,
-    title: "Track Progress",
-    description: "Visualize your growth with detailed analytics",
+    title: "Smart Progress Tracking",
+    description: "See your improvement with detailed analytics",
   },
   {
     icon: Users,
-    title: "Community Support",
+    title: "Global Community",
     description: "Connect with learners worldwide",
   },
   {
     icon: Zap,
     title: "Daily Challenges",
-    description: "Build habits with engaging exercises",
+    description: "Build confidence with personalized exercises",
   },
 ];
 
+const STATS = [
+  { value: "50K+", label: "Active Learners" },
+  { value: "25+", label: "Languages" },
+  { value: "4.9", label: "Rating" },
+];
+
+const inputClass =
+  "w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition";
+
 export const RegisterPage = () => {
+  const navigate = useNavigate();
+  const { register } = useAuth();
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -60,38 +73,75 @@ export const RegisterPage = () => {
     confirmPassword: "",
     nativeLanguage: "en",
   });
+
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { register } = useAuth();
-  const navigate = useNavigate();
 
-  const getPasswordStrength = (pass: string) => {
-    if (pass.length === 0) return { score: 0, label: "", color: "bg-slate-200" };
-    let score = 0;
-    if (pass.length >= 8) score++;
-    if (/[a-z]/.test(pass) && /[A-Z]/.test(pass)) score++;
-    if (/\d/.test(pass)) score++;
-    if (/[^a-zA-Z0-9]/.test(pass)) score++;
-
-    const labels = ["", "Weak", "Fair", "Good", "Strong"];
-    const colors = [
-      "bg-slate-200",
-      "bg-rose-500",
-      "bg-amber-500",
-      "bg-indigo-500",
-      "bg-emerald-500",
-    ];
-    return { score, label: labels[score], color: colors[score] };
+  const updateField = (field: keyof typeof formData, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
-  const passwordStrength = getPasswordStrength(formData.password);
+  const passwordRules = useMemo(
+    () => [
+      {
+        label: "8 characters",
+        valid: formData.password.length >= 8,
+      },
+      {
+        label: "Uppercase letter",
+        valid: /[A-Z]/.test(formData.password),
+      },
+      {
+        label: "Number",
+        valid: /\d/.test(formData.password),
+      },
+      {
+        label: "Special character",
+        valid: /[^A-Za-z0-9]/.test(formData.password),
+      },
+    ],
+    [formData.password],
+  );
+
+  const passwordScore = passwordRules.filter((item) => item.valid).length;
+
+  const passwordStrength = [
+    {
+      label: "",
+      color: "bg-slate-700",
+    },
+    {
+      label: "Weak",
+      color: "bg-red-500",
+    },
+    {
+      label: "Fair",
+      color: "bg-orange-500",
+    },
+    {
+      label: "Good",
+      color: "bg-blue-500",
+    },
+    {
+      label: "Strong",
+      color: "bg-emerald-500",
+    },
+  ][passwordScore];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords do not match");
+      return;
+    }
+
+    if (passwordScore < 2) {
+      toast.error("Please create a stronger password");
       return;
     }
 
@@ -105,343 +155,387 @@ export const RegisterPage = () => {
         nativeLanguage: formData.nativeLanguage,
         learningLanguages: ["en"],
       });
-      toast.success("Account created! Welcome to SpeakBetter 🚀");
+
+      toast.success("Welcome to SpeakBetter 🚀");
       navigate("/");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Registration failed");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Registration failed");
     } finally {
       setIsLoading(false);
     }
   };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 relative overflow-hidden">
-      {/* Animated Background Gradients */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-500/30 to-purple-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-blue-500/20 to-indigo-500/10 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
+      {/* Background Effects */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-indigo-500/20 blur-[120px] animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-purple-500/20 blur-[120px] animate-pulse" />
+      </div>
 
-      <div className="relative z-10 min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-6xl">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-            {/* Left Column - Benefits & Features */}
-            <div className="hidden lg:block space-y-8">
-              <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/20 border border-indigo-400/50 text-indigo-300 text-sm font-medium">
-                  <Sparkles className="w-4 h-4" />
-                  Join thousands of learners
-                </div>
-                <h1 className="text-5xl font-black text-white tracking-tight leading-tight">
-                  Master Any<br />Language
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-7xl">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* LEFT SIDE */}
+            <div className="space-y-8">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-400/30 text-indigo-300 text-sm font-medium">
+                <Sparkles className="w-4 h-4" />
+                AI Powered Language Learning
+              </div>
+
+              <div>
+                <h1 className="text-5xl xl:text-6xl font-black text-white leading-tight tracking-tight">
+                  Master Any
+                  <br />
+                  <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
+                    Language
+                  </span>
+                  <br />
+                  Faster
                 </h1>
-                <p className="text-lg text-slate-300">
-                  Start your language learning journey today with personalized AI-powered lessons
+
+                <p className="mt-5 text-lg text-slate-300 max-w-lg leading-relaxed">
+                  Learn speaking, vocabulary, and pronunciation with
+                  personalized AI lessons designed around your learning style.
                 </p>
               </div>
 
-              {/* Benefits Grid */}
-              <div className="space-y-4">
-                {BENEFITS.map((benefit, idx) => {
-                  const Icon = benefit.icon;
+              {/* AI Coach Card */}
+              <div className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 overflow-hidden">
+                <div className="absolute right-0 top-0 w-40 h-40 bg-indigo-500/20 blur-3xl" />
+
+                <div className="flex items-center gap-5 relative">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-xl shadow-indigo-500/40">
+                    <Globe2 className="w-10 h-10 text-white" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-xl font-bold text-white">
+                      Your AI Language Coach
+                    </h3>
+
+                    <p className="text-sm text-slate-400 mt-1">
+                      Practice anytime. Improve every day.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Benefits */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                {BENEFITS.map((item, index) => {
+                  const Icon = item.icon;
+
                   return (
                     <div
-                      key={idx}
-                      className="group flex gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-400/50 transition-all cursor-default"
+                      key={index}
+                      className="rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"
                     >
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500/30 to-purple-500/30 flex items-center justify-center flex-shrink-0 group-hover:from-indigo-500/50 group-hover:to-purple-500/50 transition-all">
-                        <Icon className="w-6 h-6 text-indigo-300" />
+                      <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center mb-3">
+                        <Icon className="w-5 h-5 text-indigo-300" />
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-white">{benefit.title}</h3>
-                        <p className="text-sm text-slate-400">{benefit.description}</p>
-                      </div>
+
+                      <h3 className="text-white font-semibold">{item.title}</h3>
+
+                      <p className="text-xs text-slate-400 mt-1">
+                        {item.description}
+                      </p>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Social Proof */}
-              <div className="pt-4 border-t border-white/10">
-                <p className="text-sm text-slate-400 mb-4">Trusted by language learners</p>
-                <div className="flex items-center gap-6">
-                  <div>
-                    <p className="text-3xl font-bold text-white">50K+</p>
-                    <p className="text-xs text-slate-400">Active Users</p>
+              {/* Stats */}
+              <div className="flex gap-10 pt-5 border-t border-white/10">
+                {STATS.map((item, index) => (
+                  <div key={index}>
+                    <p className="text-3xl font-black text-white">
+                      {item.value}
+                    </p>
+
+                    <p className="text-xs text-slate-400">{item.label}</p>
                   </div>
-                  <div>
-                    <p className="text-3xl font-bold text-white">94%</p>
-                    <p className="text-xs text-slate-400">Success Rate</p>
-                  </div>
-                  <div>
-                    <p className="text-3xl font-bold text-white">25+</p>
-                    <p className="text-xs text-slate-400">Languages</p>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
-            {/* Right Column - Registration Form */}
-            <div className="w-full max-w-md mx-auto lg:mx-0">
-              {/* Form Card with Glassmorphism */}
-              <div className="relative group">
-                {/* Gradient Border */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/50 via-purple-500/50 to-blue-500/50 opacity-75 group-hover:opacity-100 blur transition-opacity" />
+            {/* RIGHT SIDE */}
+            <div className="w-full max-w-md mx-auto">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 blur opacity-30" />
 
-                <div className="relative bg-slate-900/80 backdrop-blur-xl border border-white/10 p-8 rounded-2xl space-y-6">
+                <div className="relative rounded-3xl border border-white/20 bg-white/[0.07] backdrop-blur-2xl p-8 shadow-2xl">
                   {/* Header */}
-                  <div className="space-y-2">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/50">
-                      <Globe2 className="w-6 h-6" />
+                  <div className="mb-8">
+                    <div className="flex items-center gap-2 text-indigo-300 text-sm font-medium mb-4">
+                      <Languages className="w-4 h-4" />
+                      Create your account
                     </div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">
-                      Create Account
+
+                    <h2 className="text-3xl font-black text-white">
+                      Join SpeakBetter
                     </h2>
-                    <p className="text-sm text-slate-400">
-                      Join SpeakBetter and start learning today
+
+                    <p className="text-slate-400 text-sm mt-2">
+                      Start your AI learning journey today
                     </p>
                   </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Full Name */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Name */}
+                    <div>
+                      <label className="text-xs uppercase tracking-wider font-bold text-slate-300">
                         Full Name
                       </label>
-                      <div className="relative group/input">
-                        <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-indigo-400 transition-colors" />
+
+                      <div className="relative mt-2">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+
                         <input
                           type="text"
-                          value={formData.name}
-                          onChange={(e) =>
-                            setFormData({ ...formData, name: e.target.value })
-                          }
-                          className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 rounded-lg text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all"
                           required
+                          value={formData.name}
+                          onChange={(e) => updateField("name", e.target.value)}
                           placeholder="Your name"
+                          className={`${inputClass} pl-10`}
                         />
                       </div>
                     </div>
-
                     {/* Email */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    <div>
+                      <label className="text-xs uppercase tracking-wider font-bold text-slate-300">
                         Email Address
                       </label>
-                      <div className="relative group/input">
-                        <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-indigo-400 transition-colors" />
+
+                      <div className="relative mt-2">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+
                         <input
                           type="email"
-                          value={formData.email}
-                          onChange={(e) =>
-                            setFormData({ ...formData, email: e.target.value })
-                          }
-                          className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 rounded-lg text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all"
                           required
+                          value={formData.email}
+                          onChange={(e) => updateField("email", e.target.value)}
                           placeholder="you@example.com"
+                          className={`${inputClass} pl-10`}
                         />
                       </div>
                     </div>
-
-                    {/* Native Language */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    {/* Language */}
+                    <div>
+                      <label className="text-xs uppercase tracking-wider font-bold text-slate-300">
                         Native Language
                       </label>
-                      <div className="relative group/input">
-                        <Globe2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-indigo-400 transition-colors pointer-events-none" />
+
+                      <div className="relative mt-2">
+                        <Globe2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+
                         <select
                           value={formData.nativeLanguage}
                           onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              nativeLanguage: e.target.value,
-                            })
+                            updateField("nativeLanguage", e.target.value)
                           }
-                          className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 rounded-lg text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all appearance-none"
+                          className={`${inputClass} pl-10`}
                         >
                           {LANGUAGES.map((lang) => (
-                            <option key={lang.code} value={lang.code} className="bg-slate-900">
+                            <option
+                              key={lang.code}
+                              value={lang.code}
+                              className="bg-slate-900"
+                            >
                               {lang.name}
                             </option>
                           ))}
                         </select>
                       </div>
-                    </div>
-
+                    </div>{" "}
                     {/* Password */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    <div>
+                      <label className="text-xs uppercase tracking-wider font-bold text-slate-300">
                         Password
                       </label>
-                      <div className="relative group/input">
-                        <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-indigo-400 transition-colors" />
+
+                      <div className="relative mt-2">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+
                         <input
                           type={showPassword ? "text" : "password"}
+                          required
                           value={formData.password}
                           onChange={(e) =>
-                            setFormData({ ...formData, password: e.target.value })
+                            updateField("password", e.target.value)
                           }
-                          className="w-full pl-10 pr-10 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 rounded-lg text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all"
-                          required
-                          minLength={6}
-                          placeholder="Min 6 characters"
+                          placeholder="Create password"
+                          className={`${inputClass} pl-10 pr-12`}
                         />
+
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-400 transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                         >
                           {showPassword ? (
-                            <EyeOff className="w-4 h-4" />
+                            <EyeOff size={18} />
                           ) : (
-                            <Eye className="w-4 h-4" />
+                            <Eye size={18} />
                           )}
                         </button>
                       </div>
 
-                      {/* Password Strength */}
                       {formData.password && (
-                        <div className="pt-2 space-y-1.5">
-                          <div className="flex items-center gap-1">
-                            {[1, 2, 3, 4].map((step) => (
+                        <div className="mt-3 space-y-3">
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4].map((item) => (
                               <div
-                                key={step}
-                                className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                                  step <= passwordStrength.score
+                                key={item}
+                                className={`h-1.5 flex-1 rounded-full ${
+                                  item <= passwordScore
                                     ? passwordStrength.color
                                     : "bg-slate-700"
                                 }`}
                               />
                             ))}
                           </div>
-                          <div className="flex justify-between items-center text-xs text-slate-400">
-                            <span>Strength</span>
-                            <span className="font-semibold text-slate-300">
+
+                          <p className="text-xs text-slate-400">
+                            Strength:
+                            <span className="ml-1 text-white font-semibold">
                               {passwordStrength.label}
                             </span>
+                          </p>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            {passwordRules.map((rule, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-1 text-xs"
+                              >
+                                <Check
+                                  size={13}
+                                  className={
+                                    rule.valid
+                                      ? "text-emerald-400"
+                                      : "text-slate-600"
+                                  }
+                                />
+
+                                <span className="text-slate-400">
+                                  {rule.label}
+                                </span>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
                     </div>
-
                     {/* Confirm Password */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    <div>
+                      <label className="text-xs uppercase tracking-wider font-bold text-slate-300">
                         Confirm Password
                       </label>
-                      <div className="relative group/input">
-                        <ShieldCheck className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-indigo-400 transition-colors" />
+
+                      <div className="relative mt-2">
+                        <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+
                         <input
                           type={showConfirmPassword ? "text" : "password"}
+                          required
                           value={formData.confirmPassword}
                           onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              confirmPassword: e.target.value,
-                            })
+                            updateField("confirmPassword", e.target.value)
                           }
-                          className="w-full pl-10 pr-10 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 rounded-lg text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all"
-                          required
-                          placeholder="Re-enter password"
+                          placeholder="Confirm password"
+                          className={`${inputClass} pl-10 pr-12`}
                         />
+
                         <button
                           type="button"
                           onClick={() =>
                             setShowConfirmPassword(!showConfirmPassword)
                           }
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-400 transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                         >
                           {showConfirmPassword ? (
-                            <EyeOff className="w-4 h-4" />
+                            <EyeOff size={18} />
                           ) : (
-                            <Eye className="w-4 h-4" />
+                            <Eye size={18} />
                           )}
                         </button>
                       </div>
 
                       {formData.confirmPassword &&
                         formData.password !== formData.confirmPassword && (
-                          <p className="text-xs font-medium text-rose-400 flex items-center gap-1.5 mt-1">
-                            <CheckCircle2 className="w-3 h-3 rotate-45" />
+                          <p className="text-xs text-red-400 mt-2">
                             Passwords do not match
                           </p>
                         )}
                     </div>
-
                     {/* Submit Button */}
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="w-full py-3 px-4 mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:from-indigo-700 active:to-purple-700 text-white font-bold rounded-lg text-sm transition-all duration-200 shadow-lg shadow-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-indigo-500/75 group"
+                      className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isLoading ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Creating Account...</span>
+                          <Loader2 size={18} className="animate-spin" />
+                          Creating Account...
                         </>
                       ) : (
                         <>
-                          <span>Create Account</span>
-                          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                          Create Account
+                          <ArrowRight size={18} />
                         </>
                       )}
                     </button>
                   </form>
 
                   {/* Divider */}
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-white/10" />
-                    </div>
-                    <div className="relative flex justify-center text-xs">
-                      <span className="px-2 bg-slate-900/80 text-slate-400">or</span>
-                    </div>
+                  <div className="flex items-center gap-3 my-6">
+                    <div className="flex-1 h-px bg-white/10" />
+
+                    <span className="text-xs text-slate-500">OR</span>
+
+                    <div className="flex-1 h-px bg-white/10" />
                   </div>
 
                   {/* Social Login */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-3">
                     <button
                       type="button"
-                      className="py-2.5 px-4 rounded-lg border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-white text-sm font-medium transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition flex items-center justify-center gap-2"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      <svg
+                        className="w-5 h-5"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M21.35 11.1h-9.18v2.98h5.28c-.23 1.52-1.76 4.45-5.28 4.45-3.18 0-5.78-2.63-5.78-5.87s2.6-5.87 5.78-5.87c1.81 0 3.02.77 3.72 1.43l2.54-2.47C16.8 4.22 14.75 3.3 12.17 3.3 7.47 3.3 3.65 7.12 3.65 11.83s3.82 8.53 8.52 8.53c4.91 0 8.17-3.45 8.17-8.31 0-.56-.06-.95-.13-1.36z" />
                       </svg>
-                      Google
+                      Continue with Google
                     </button>
+
                     <button
                       type="button"
-                      className="py-2.5 px-4 rounded-lg border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-white text-sm font-medium transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.38-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.38C2.79 15.25 3.51 7.59 9.05 7.31c1.35.08 2.29.74 3.08.8.905-.08 1.795-.68 3.07-.78 2.03.09 3.71 1.23 4.58 3.72-.88.5-1.75 1.23-2.37 2.12-.98 1.33-.57 2.46.3 3.38-.46.72-1.15 1.45-2.01 1.87z"/>
-                      </svg>
-                      Apple
+                      Continue with Apple
                     </button>
                   </div>
 
-                  {/* Footer Links */}
-                  <div className="pt-4 border-t border-white/10 space-y-3 text-center">
+                  {/* Footer */}
+                  <div className="mt-6 pt-5 border-t border-white/10 text-center space-y-3">
                     <p className="text-sm text-slate-400">
-                      Already have an account?{" "}
+                      Already have an account?
                       <Link
                         to="/login"
-                        className="font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+                        className="ml-1 text-indigo-400 hover:text-indigo-300 font-bold"
                       >
                         Sign In
                       </Link>
                     </p>
-                    <p className="text-xs text-slate-500">
-                      By registering, you agree to our{" "}
-                      <a href="#" className="underline hover:text-slate-400 transition-colors">
-                        Terms
-                      </a>{" "}
-                      and{" "}
-                      <a href="#" className="underline hover:text-slate-400 transition-colors">
-                        Privacy Policy
-                      </a>
+
+                    <p className="text-xs text-slate-500 flex items-center justify-center gap-1">
+                      <ShieldCheck size={14} />
+                      Your information is secure
                     </p>
                   </div>
                 </div>
