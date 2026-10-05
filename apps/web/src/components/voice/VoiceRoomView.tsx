@@ -14,6 +14,7 @@
  * - Participant avatars pulse, glow, ripple and show a prominent SPEAKING badge
  * - Header has separate Leave (member) / End Room (host) actions
  * - Reactions survive refresh: HTTP-first writes + cache merge
+ * - ✨ Stage reactions: floating emoji overlay + bottom reaction bar
  */
 
 import React, {
@@ -29,6 +30,8 @@ import {
   MicOff,
   Hand,
   PhoneOff,
+  upload, 
+  BarChart3
   LogOut,
   Users,
   MessageCircle,
@@ -114,11 +117,34 @@ import { format, isToday, isYesterday } from "date-fns";
 // Import all sub-components
 import { AudioControls } from "./AudioControls";
 import { ClapButton } from "./ClapButton";
-import { SpeakerQueue } from "./SpeakerQueue";
-import { StageSpeaker } from "./StageSpeaker";
+import { VoiceRoomHeader } from "./shared/VoiceRoomHeader";
+import { LeaveConfirmationModal } from "./shared/LeaveConfirmationModal";
+import { SectionPill } from "./shared/SectionPill";
+import { RoomDetailsPanel } from "./shared/RoomDetailsPanel";
+import { ShortcutPanel } from "./shared/ShortcutPanel";
+import { CommandCenter } from "./shared/CommandCenter";
+import { RoomInvite } from "./shared/RoomInvite";
+import { SessionInsights } from "./shared/SessionInsights";
+import { RoomQualityPanel } from "./shared/RoomQualityPanel";
+import { AICoHost } from "./shared/AICoHost";
+import { useAICoHost } from "../../hooks/useAICoHost";
+
+import {
+  AttachmentPreviewModal,
+  type PendingAttachment,
+} from "./chat/AttachmentPreviewModal";
+import { useSpeakingTimes } from "../../hooks/useSpeakingTimes";
+import { ParticipantCard } from "./participants/ParticipantCard";
+import { EmptyParticipantState } from "../shared/EmptyParticipantState";
+import { ParticipantGrid } from "./participants/ParticipantGrid";
 import { TranscriptionDisplay } from "./TranscriptionDisplay";
-import { VoiceCall } from "./VoiceCall";
+import { useVoiceTranscription } from "../../hooks/useVoiceTranscription";
+
 import { ChatPanel } from "./chat/ChatPanel";
+import { ReactionOverlay, type StageReaction } from "./shared/ReactionOverlay";
+import { SpeakerQueue } from "./SpeakerQueue";
+import { ActiveSpeakerStrip } from "./shared/ActiveSpeakerStrip";
+import { StageReactionBar } from "./shared/StageReactionBar";
 
 // Import theme and types
 import { THEME } from "./VoiceRoomView.theme";
@@ -127,6 +153,93 @@ import type {
   MinimizedRoomData,
   RoomParticipant,
 } from "./VoiceRoomView.types";
+
+// ------------------------------------------------------------
+// Room-wide drag-drop overlay
+// ------------------------------------------------------------
+const RoomDropZone: React.FC<{ onFile: (file: File) => void }> = ({
+  onFile,
+}) => {
+  const [isDragging, setIsDragging] = React.useState(false);
+  const counter = React.useRef(0);
+
+  React.useEffect(() => {
+    const onEnter = (e: DragEvent) => {
+      if (!e.dataTransfer?.types?.includes("Files")) return;
+      e.preventDefault();
+      counter.current += 1;
+      setIsDragging(true);
+    };
+    const onOver = (e: DragEvent) => {
+      if (!e.dataTransfer?.types?.includes("Files")) return;
+      e.preventDefault();
+    };
+    const onLeave = (e: DragEvent) => {
+      if (!e.dataTransfer?.types?.includes("Files")) return;
+      counter.current -= 1;
+      if (counter.current <= 0) {
+        counter.current = 0;
+        setIsDragging(false);
+      }
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!e.dataTransfer?.files?.length) return;
+      e.preventDefault();
+      counter.current = 0;
+      setIsDragging(false);
+      const file = e.dataTransfer.files[0];
+      if (file) onFile(file);
+    };
+
+    window.addEventListener("dragenter", onEnter);
+    window.addEventListener("dragover", onOver);
+    window.addEventListener("dragleave", onLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onEnter);
+      window.removeEventListener("dragover", onOver);
+      window.removeEventListener("dragleave", onLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, [onFile]);
+
+  return (
+    <AnimatePresence>
+      {isDragging && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[90] flex items-center justify-center pointer-events-none"
+          style={{
+            background: "rgba(129,140,248,0.16)",
+            backdropFilter: "blur(6px)",
+            border: `3px dashed ${THEME.colors.accent.primary}`,
+          }}
+        >
+          <div className="text-center">
+            <Upload
+              className="w-12 h-12 mx-auto mb-3"
+              style={{ color: THEME.colors.accent.primary }}
+            />
+            <p
+              className="text-xl font-bold"
+              style={{ color: THEME.colors.text.primary }}
+            >
+              Drop to attach
+            </p>
+            <p
+              className="text-sm mt-1"
+              style={{ color: THEME.colors.text.muted }}
+            >
+              Images, video, audio, or files up to 50MB
+            </p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
 
 interface LanguageFilter {
   nativeLanguage?: string;
@@ -165,11 +278,6 @@ function normalizeChatMessage(
     msg.sender?.avatar ||
     msg.user?.avatarUrl;
 
-  // Normalize reactions from database/API format and legacy UI format.
-  // Prisma returns:
-  // [{ emoji, userId, user: { id } }]
-  // Chat UI expects:
-  // { emoji: [userId1, userId2] }
   let reactions: Record<string, string[]> = {};
 
   if (Array.isArray(msg.reactions)) {
@@ -392,7 +500,6 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      {/* Header - HelloTalk Style */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2
@@ -431,7 +538,6 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
         </div>
       </div>
 
-      {/* Filters - HelloTalk Style */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
@@ -558,7 +664,6 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Search - HelloTalk Style */}
       <div className="relative">
         <Search
           className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4"
@@ -578,7 +683,6 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
         />
       </div>
 
-      {/* Room Cards - HelloTalk Style */}
       <div className="space-y-3">
         {filteredRooms.length === 0 ? (
           <div className="text-center py-12">
@@ -658,7 +762,6 @@ const RoomCard: React.FC<{
       onClick={onView}
     >
       <div className="flex items-center gap-4">
-        {/* Room Icon */}
         <div
           className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0 relative"
           style={{
@@ -799,1544 +902,6 @@ const RoomCard: React.FC<{
   );
 };
 
-// ============================================================
-// VOICE ROOM HEADER - HelloTalk Style
-// ============================================================
-
-const VoiceRoomHeader: React.FC<{
-  room: any;
-  isHost: boolean;
-  isLiveKitConnected: boolean;
-  isMockMode: boolean;
-  totalParticipants: number;
-  speakingCount: number;
-  onlineCount: number;
-  showChat: boolean;
-  unreadCount: number;
-  isConnected: boolean;
-  onToggleChat: () => void;
-  onToggleCommandCenter: () => void;
-  onShowDetails: () => void;
-  onShowShortcuts: () => void;
-  onMinimize?: (data: any) => void;
-  onShare: () => void;
-  onLeave: () => void;
-  onEndRoom: () => void;
-}> = ({
-  room,
-  isHost,
-  isLiveKitConnected,
-  isMockMode,
-  totalParticipants,
-  speakingCount,
-  onlineCount,
-  showChat,
-  unreadCount,
-  isConnected,
-  onToggleChat,
-  onToggleCommandCenter,
-  onShowDetails,
-  onShowShortcuts,
-  onMinimize,
-  onShare,
-  onLeave,
-  onEndRoom,
-}) => {
-  return (
-    <header
-      className="relative z-10 flex items-center justify-between gap-3 px-3 sm:px-4 py-3 border-b shrink-0"
-      style={{
-        background: `rgba(10, 10, 18, 0.92)`,
-        backdropFilter: "blur(20px)",
-        borderColor: THEME.colors.border.primary,
-      }}
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: THEME.colors.gradient.primary }}
-        >
-          <Radio className="w-5 h-5 text-white" />
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2
-              className="text-base font-bold truncate"
-              style={{ color: THEME.colors.text.primary }}
-            >
-              {room.name}
-            </h2>
-            <div
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-mono uppercase tracking-wider"
-              style={{
-                background: isLiveKitConnected
-                  ? "rgba(52, 211, 153, 0.15)"
-                  : THEME.colors.border.primary,
-                color: isLiveKitConnected
-                  ? THEME.colors.status.online
-                  : THEME.colors.text.muted,
-              }}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${isLiveKitConnected ? "animate-pulse" : ""}`}
-                style={{
-                  background: isLiveKitConnected
-                    ? THEME.colors.status.online
-                    : THEME.colors.text.muted,
-                }}
-              />
-              {isLiveKitConnected ? "Live" : isMockMode ? "Demo" : "Connecting"}
-            </div>
-            {isHost && (
-              <div
-                className="flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[8px] font-mono uppercase"
-                style={{
-                  background: "rgba(251, 191, 36, 0.15)",
-                  color: THEME.colors.accent.warning,
-                }}
-              >
-                <Crown className="w-2.5 h-2.5" /> Host
-              </div>
-            )}
-          </div>
-          <div
-            className="flex items-center gap-2 text-[10px]"
-            style={{ color: THEME.colors.text.muted }}
-          >
-            <span className="flex items-center gap-1">
-              <Users className="w-3 h-3" />
-              {totalParticipants}
-            </span>
-            <span>·</span>
-            <span>{speakingCount} speaking</span>
-            <span>·</span>
-            <span>{onlineCount} online</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-        <button
-          type="button"
-          onClick={onToggleChat}
-          className="relative p-2 rounded-full hover:bg-white/5 transition-colors"
-          style={{
-            color: showChat
-              ? THEME.colors.accent.primary
-              : THEME.colors.text.muted,
-          }}
-          title="Toggle Chat"
-          aria-label={showChat ? "Hide chat" : "Show chat"}
-          aria-pressed={showChat}
-        >
-          <MessageCircle className="w-4 h-4" />
-          {unreadCount > 0 && (
-            <span
-              className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] text-[8px] rounded-full flex items-center justify-center px-1 font-bold"
-              style={{ background: THEME.colors.accent.error, color: "#fff" }}
-            >
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleCommandCenter();
-          }}
-          className="p-2 rounded-full hover:bg-white/5 transition-colors relative"
-          style={{ color: THEME.colors.text.muted }}
-          title="Room controls"
-          aria-label="Open room controls"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-
-        <button
-          type="button"
-          onClick={onShowDetails}
-          className="hidden sm:inline-flex p-2 rounded-full hover:bg-white/5 transition-colors"
-          style={{ color: THEME.colors.text.muted }}
-          title="Room details"
-          aria-label="Open room details"
-        >
-          <PanelRight className="w-4 h-4" />
-        </button>
-
-        <button
-          type="button"
-          onClick={onShowShortcuts}
-          className="hidden md:inline-flex p-2 rounded-full hover:bg-white/5 transition-colors"
-          style={{ color: THEME.colors.text.muted }}
-          title="Keyboard shortcuts"
-          aria-label="Open keyboard shortcuts"
-        >
-          <Keyboard className="w-4 h-4" />
-        </button>
-
-        {onMinimize && (
-          <button
-            type="button"
-            onClick={() =>
-              onMinimize({
-                id: room.id,
-                name: room.name,
-                participants: [],
-                type: room.type,
-                participantCount: totalParticipants,
-              })
-            }
-            className="p-2 rounded-full hover:bg-white/5 transition-colors"
-            style={{ color: THEME.colors.text.muted }}
-            title="Minimize"
-            aria-label="Minimize room"
-          >
-            <Minimize2 className="w-4 h-4" />
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={onShare}
-          className="p-2 rounded-full hover:bg-white/5 transition-colors"
-          style={{ color: THEME.colors.text.muted }}
-          title="Share Room"
-          aria-label="Copy room link"
-        >
-          <Share2 className="w-4 h-4" />
-        </button>
-
-        {/* Host: End room for everyone. Member: Leave room. */}
-        {isHost ? (
-          <button
-            type="button"
-            onClick={onEndRoom}
-            className="p-2 rounded-full hover:bg-red-500/15 transition-colors"
-            style={{ color: THEME.colors.accent.error }}
-            title="End room for everyone"
-            aria-label="End room"
-          >
-            <PhoneOff className="w-4 h-4" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onLeave}
-            className="p-2 rounded-full hover:bg-white/5 transition-colors"
-            style={{ color: THEME.colors.text.muted }}
-            title="Leave room"
-            aria-label="Leave room"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        )}
-
-        <div className="hidden lg:block">
-          <ConnectionHealth
-            socketConnected={isConnected}
-            liveKitConnected={isLiveKitConnected}
-            isMockMode={isMockMode}
-          />
-        </div>
-      </div>
-    </header>
-  );
-};
-
-// ---- Connection Health ----
-const ConnectionHealth: React.FC<{
-  socketConnected: boolean;
-  liveKitConnected: boolean;
-  isMockMode?: boolean;
-}> = ({ socketConnected, liveKitConnected, isMockMode }) => {
-  const healthy = socketConnected && liveKitConnected;
-  return (
-    <div
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px]"
-      style={{
-        background: healthy ? "rgba(52,211,153,0.08)" : "rgba(251,191,36,0.08)",
-        borderColor: healthy ? "rgba(52,211,153,0.2)" : "rgba(251,191,36,0.2)",
-        color: healthy
-          ? THEME.colors.status.online
-          : THEME.colors.accent.warning,
-      }}
-    >
-      {healthy ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-      <span>
-        {isMockMode ? "Demo" : healthy ? "Connected" : "Reconnecting"}
-      </span>
-    </div>
-  );
-};
-
-// ---- Audio Level Meter ----
-const AudioLevelMeter: React.FC<{ level: number; muted: boolean }> = ({
-  level,
-  muted,
-}) => {
-  const safe = Math.max(0, Math.min(1, level || 0));
-  return (
-    <div className="flex items-center gap-1">
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <span
-          key={i}
-          className="w-1 rounded-full transition-all duration-100"
-          style={{
-            height: `${5 + i * 2}px`,
-            background:
-              !muted && safe > i / 6
-                ? THEME.colors.accent.primary
-                : THEME.colors.border.primary,
-            opacity: !muted && safe > i / 6 ? 1 : 0.4,
-          }}
-        />
-      ))}
-    </div>
-  );
-};
-
-// ---- Participant Grid - HelloTalk Style ----
-const ParticipantGrid: React.FC<any> = ({
-  participants,
-  isHost,
-  isModerator,
-  currentUserId,
-  hostId,
-  searchQuery,
-  onSearchChange,
-  filter,
-  onFilterChange,
-  showSearch,
-  onToggleSearch,
-  favoriteParticipants,
-  onToggleFavorite,
-  onMuteUser,
-  onUnmuteUser,
-  onKickUser,
-  onPromoteHost,
-  onSendMessage,
-  onViewProfile,
-  showChat,
-  className,
-}) => {
-  const [langFilter, setLangFilter] = useState<string>("all");
-
-  const roomLanguages = useMemo(() => {
-    const set = new Set<string>();
-    participants.forEach((p: any) => {
-      if (p.nativeLanguage) set.add(String(p.nativeLanguage));
-      if (p.learningLanguage) set.add(String(p.learningLanguage));
-    });
-    return Array.from(set).sort();
-  }, [participants]);
-
-  const filteredParticipants = participants
-    .filter((p: any) => {
-      const query = searchQuery.trim().toLowerCase();
-      if (!query) return true;
-      return [p.name, p.nativeLanguage, p.learningLanguage, p.country, p.level]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query));
-    })
-    .filter((p: any) => {
-      if (filter === "online") return p.isOnline === true;
-      if (filter === "speaking") return p.isSpeaking === true;
-      if (filter === "raised") return p.raisedHand === true;
-      return true;
-    })
-    .filter((p: any) => {
-      if (langFilter === "all") return true;
-      return (
-        p.nativeLanguage === langFilter || p.learningLanguage === langFilter
-      );
-    })
-    .sort((a: any, b: any) => {
-      if (a.role === "HOST" && b.role !== "HOST") return -1;
-      if (b.role === "HOST" && a.role !== "HOST") return 1;
-      return String(a.name || "").localeCompare(String(b.name || ""));
-    });
-
-  const onlineParticipants = participants.filter(
-    (p: any) => p.isOnline === true,
-  );
-
-  return (
-    <section
-      className={cn(
-        "flex-1 min-w-0 px-4 py-4 transition-all duration-300 overflow-y-auto",
-        className,
-      )}
-      style={{
-        background: `radial-gradient(ellipse at 50% 20%, rgba(99,102,241,0.04), transparent 70%)`,
-      }}
-    >
-      <div
-        className="mb-4 rounded-xl border p-3"
-        style={{
-          background: THEME.colors.background.card,
-          borderColor: THEME.colors.border.primary,
-        }}
-      >
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 mr-auto">
-            <Users
-              className="w-4 h-4"
-              style={{ color: THEME.colors.accent.tertiary }}
-            />
-            <span
-              className="text-sm font-medium"
-              style={{ color: THEME.colors.text.primary }}
-            >
-              {participants.length} in room
-            </span>
-            <span
-              className="text-[10px] px-2 py-0.5 rounded-full"
-              style={{
-                background: "rgba(52, 211, 153, 0.1)",
-                color: THEME.colors.status.online,
-              }}
-            >
-              {onlineParticipants.length} online
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            {(["all", "online", "speaking", "raised"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => onFilterChange(f)}
-                className="px-2.5 py-1 rounded-full text-[9px] capitalize transition-all"
-                style={{
-                  background:
-                    filter === f ? "rgba(99,102,241,0.15)" : "transparent",
-                  color:
-                    filter === f
-                      ? THEME.colors.text.primary
-                      : THEME.colors.text.muted,
-                }}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={onToggleSearch}
-            className="p-1.5 rounded-lg hover:bg-white/5"
-            style={{
-              color: showSearch
-                ? THEME.colors.accent.primary
-                : THEME.colors.text.muted,
-            }}
-            title="Search participants"
-          >
-            <Search className="w-4 h-4" />
-          </button>
-        </div>
-
-        <AnimatePresence>
-          {showSearch && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="relative mt-2">
-                <Search
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
-                  style={{ color: THEME.colors.text.muted }}
-                />
-                <input
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  placeholder="Search by name, language, country..."
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none"
-                  style={{
-                    background: THEME.colors.background.primary,
-                    borderColor: THEME.colors.border.primary,
-                    color: THEME.colors.text.primary,
-                  }}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {roomLanguages.length > 0 && (
-        <div className="flex items-center gap-1.5 mb-4 flex-wrap">
-          <span
-            className="text-[10px] font-medium"
-            style={{ color: THEME.colors.text.muted }}
-          >
-            Languages
-          </span>
-          <button
-            type="button"
-            onClick={() => setLangFilter("all")}
-            className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
-            style={{
-              background:
-                langFilter === "all"
-                  ? "rgba(129,140,248,0.18)"
-                  : THEME.colors.background.tertiary,
-              color:
-                langFilter === "all"
-                  ? THEME.colors.accent.primary
-                  : THEME.colors.text.secondary,
-              border: `1px solid ${
-                langFilter === "all"
-                  ? "rgba(129,140,248,0.35)"
-                  : THEME.colors.border.primary
-              }`,
-            }}
-          >
-            All
-          </button>
-          {roomLanguages.slice(0, 8).map((lang: string) => (
-            <button
-              type="button"
-              key={lang}
-              onClick={() =>
-                setLangFilter((prev) => (prev === lang ? "all" : lang))
-              }
-              className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
-              style={{
-                background:
-                  langFilter === lang
-                    ? "rgba(129,140,248,0.18)"
-                    : THEME.colors.background.tertiary,
-                color:
-                  langFilter === lang
-                    ? THEME.colors.accent.primary
-                    : THEME.colors.text.secondary,
-                border: `1px solid ${
-                  langFilter === lang
-                    ? "rgba(129,140,248,0.35)"
-                    : THEME.colors.border.primary
-                }`,
-              }}
-            >
-              {lang}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-w-5xl mx-auto">
-        {filteredParticipants.length === 0 ? (
-          <div className="col-span-full text-center py-12">
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-              style={{ background: "rgba(99,102,241,0.1)" }}
-            >
-              <UserRoundSearch
-                className="w-8 h-8"
-                style={{ color: THEME.colors.accent.primary }}
-              />
-            </div>
-            <p className="text-sm" style={{ color: THEME.colors.text.muted }}>
-              {searchQuery
-                ? "No participants match your search"
-                : "No one has joined yet"}
-            </p>
-          </div>
-        ) : (
-          filteredParticipants.map((p: any) => {
-            const isParticipantHost = hostId === p.id || p.role === "HOST";
-            const isCurrentUser = p.id === currentUserId;
-
-            return (
-              <ParticipantCard
-                key={p.id}
-                participant={p}
-                isHost={isParticipantHost}
-                isCurrentUser={isCurrentUser}
-                isModerator={isModerator}
-                isFavorite={favoriteParticipants.has(p.id)}
-                onMute={() =>
-                  p.isMuted ? onUnmuteUser(p.id) : onMuteUser(p.id)
-                }
-                onKick={() => onKickUser(p.id)}
-                onPromote={() => onPromoteHost(p.id)}
-                onFollow={() => onToggleFavorite(p.id)}
-                onSendMessage={() => onSendMessage(p.id)}
-                onViewProfile={() => onViewProfile(p.id)}
-                size="sm"
-              />
-            );
-          })
-        )}
-      </div>
-    </section>
-  );
-};
-
-// ---- Participant Card - HelloTalk Style ----
-const ParticipantCard: React.FC<{
-  participant: any;
-  isHost: boolean;
-  isCurrentUser?: boolean;
-  isModerator?: boolean;
-  isFavorite?: boolean;
-  onMute?: () => void;
-  onKick?: () => void;
-  onPromote?: () => void;
-  onFollow?: () => void;
-  onSendMessage?: () => void;
-  onViewProfile?: () => void;
-  size?: "sm" | "md" | "lg";
-}> = ({
-  participant,
-  isHost,
-  isCurrentUser = false,
-  isModerator = false,
-  isFavorite = false,
-  onMute,
-  onKick,
-  onPromote,
-  onFollow,
-  onSendMessage,
-  onViewProfile,
-  size = "md",
-}) => {
-  const [showActions, setShowActions] = useState(false);
-
-  const hue = hueFromString(participant.name);
-  const sizeMap = {
-    sm: { avatar: 56, text: "text-xs", nameSize: "text-xs" },
-    md: { avatar: 72, text: "text-sm", nameSize: "text-sm" },
-    lg: { avatar: 88, text: "text-base", nameSize: "text-base" },
-  };
-  const s = sizeMap[size];
-
-  const countryFlag = getCountryFlag(participant.country);
-  const isOnline = participant.isOnline !== false;
-  const isMuted = participant.isMuted;
-  const isSpeaking = Boolean(participant.isSpeaking) && !isMuted;
-  const raisedHand = participant.raisedHand;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="relative flex flex-col items-center group"
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-      onFocus={() => setShowActions(true)}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setShowActions(false);
-        }
-      }}
-    >
-      <div
-        className="cursor-pointer"
-        role="button"
-        tabIndex={0}
-        aria-label={`View ${participant.name}'s profile`}
-        onClick={onViewProfile}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onViewProfile?.();
-          }
-        }}
-      >
-        <div className="relative">
-          {isSpeaking && (
-            <>
-              <motion.div
-                className="absolute inset-[-22px] rounded-full pointer-events-none"
-                initial={{ scale: 0.82, opacity: 0 }}
-                animate={{
-                  scale: [0.82, 1.16, 1.34],
-                  opacity: [0, 0.28, 0],
-                }}
-                transition={{
-                  duration: 1.35,
-                  repeat: Infinity,
-                  ease: "easeOut",
-                }}
-                style={{
-                  border: `2px solid ${THEME.colors.accent.primary}`,
-                  boxShadow: `0 0 28px ${THEME.colors.accent.primary}55`,
-                }}
-              />
-
-              <motion.div
-                className="absolute inset-[-9px] rounded-full pointer-events-none"
-                animate={{
-                  scale: [1, 1.12, 1],
-                  opacity: [0.55, 1, 0.55],
-                }}
-                transition={{
-                  duration: 0.72,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                style={{
-                  border: `3px solid ${THEME.colors.accent.primary}`,
-                  boxShadow: `0 0 18px ${THEME.colors.accent.primary}AA, 0 0 42px ${THEME.colors.accent.primary}44`,
-                }}
-              />
-
-              <motion.div
-                className="absolute inset-[-15px] rounded-full pointer-events-none"
-                animate={{
-                  scale: [1, 1.08, 1],
-                  opacity: [0.18, 0.55, 0.18],
-                }}
-                transition={{
-                  duration: 1.05,
-                  repeat: Infinity,
-                  delay: 0.12,
-                  ease: "easeInOut",
-                }}
-                style={{
-                  border: `2px solid ${THEME.colors.accent.secondary}`,
-                }}
-              />
-
-              <motion.div
-                className="absolute inset-[-4px] rounded-full pointer-events-none"
-                animate={{
-                  boxShadow: [
-                    `0 0 8px ${THEME.colors.accent.primary}66`,
-                    `0 0 34px ${THEME.colors.accent.primary}CC`,
-                    `0 0 12px ${THEME.colors.accent.primary}77`,
-                  ],
-                }}
-                transition={{
-                  duration: 0.5,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
-
-              {[0, 1, 2, 3].map((i) => (
-                <motion.span
-                  key={`speaker-particle-${i}`}
-                  className="absolute left-1/2 top-1/2 w-1.5 h-1.5 rounded-full pointer-events-none"
-                  initial={{ x: "-50%", y: "-50%", opacity: 0, scale: 0.5 }}
-                  animate={{
-                    x: ["-50%", `${-50 + Math.cos((i * Math.PI) / 2) * 105}%`],
-                    y: ["-50%", `${-50 + Math.sin((i * Math.PI) / 2) * 105}%`],
-                    opacity: [0, 0.9, 0],
-                    scale: [0.5, 1, 0.2],
-                  }}
-                  transition={{
-                    duration: 1.05,
-                    repeat: Infinity,
-                    delay: i * 0.18,
-                    ease: "easeOut",
-                  }}
-                  style={{
-                    background: THEME.colors.accent.primary,
-                    boxShadow: `0 0 8px ${THEME.colors.accent.primary}`,
-                  }}
-                />
-              ))}
-            </>
-          )}
-
-          <motion.div
-            className="relative rounded-full flex items-center justify-center font-semibold border-2 shadow-lg transition-all"
-            animate={
-              isSpeaking
-                ? {
-                    scale: [1, 1.045, 1],
-                    y: [0, -1.5, 0],
-                  }
-                : { scale: 1, y: 0 }
-            }
-            transition={
-              isSpeaking
-                ? {
-                    duration: 0.42,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }
-                : { duration: 0.2 }
-            }
-            style={{
-              width: s.avatar,
-              height: s.avatar,
-              background: participant.avatarUrl
-                ? `url(${participant.avatarUrl}) center/cover`
-                : `hsl(${hue}, 50%, 22%)`,
-              borderColor: isOnline
-                ? isSpeaking
-                  ? THEME.colors.accent.primary
-                  : THEME.colors.status.online
-                : THEME.colors.border.primary,
-              color: participant.avatarUrl
-                ? "transparent"
-                : THEME.colors.text.primary,
-              fontSize: s.avatar / 3,
-              boxShadow:
-                isOnline && isSpeaking
-                  ? `0 0 30px ${THEME.colors.accent.primary}44`
-                  : "none",
-            }}
-          >
-            {!participant.avatarUrl && initials(participant.name)}
-          </motion.div>
-
-          {isOnline && !isMuted && (
-            <div
-              className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
-              style={{
-                background: isSpeaking
-                  ? THEME.colors.accent.primary
-                  : "#22C55E",
-                borderColor: THEME.colors.background.primary,
-              }}
-            />
-          )}
-
-          {isMuted && isOnline && (
-            <div
-              className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 flex items-center justify-center"
-              style={{
-                background: "#4B5563",
-                borderColor: THEME.colors.background.primary,
-              }}
-            >
-              <MicOff className="w-1.5 h-1.5" style={{ color: "#9CA3AF" }} />
-            </div>
-          )}
-
-          {isHost && (
-            <motion.div
-              className="absolute -top-1 -right-1"
-              animate={{ rotate: [0, -5, 5, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              <Crown className="w-3.5 h-3.5 text-yellow-400 drop-shadow-lg" />
-            </motion.div>
-          )}
-
-          {raisedHand && (
-            <motion.div
-              className="absolute -top-1 -left-1"
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 0.8, repeat: Infinity }}
-            >
-              <Hand className="w-3.5 h-3.5 text-yellow-400 drop-shadow-lg" />
-            </motion.div>
-          )}
-
-          <div className="absolute -bottom-0.5 -left-0.5 text-xs leading-none">
-            {countryFlag}
-          </div>
-
-          {isFavorite && (
-            <div className="absolute -top-1 -left-1">
-              <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400 drop-shadow-lg" />
-            </div>
-          )}
-
-          {participant.isPremium && (
-            <div className="absolute -bottom-1 right-6 text-[8px]">⭐</div>
-          )}
-          {participant.isVerified && (
-            <div className="absolute -bottom-1 right-0 text-[8px]">✅</div>
-          )}
-
-          {isCurrentUser && !isSpeaking && (
-            <div
-              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[7px] font-bold whitespace-nowrap"
-              style={{ background: THEME.colors.accent.primary, color: "#fff" }}
-            >
-              You
-            </div>
-          )}
-
-          {isSpeaking && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: 4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full text-[7px] font-bold tracking-wider whitespace-nowrap border shadow-lg"
-              style={{
-                background: "rgba(99,102,241,0.95)",
-                borderColor: "rgba(196,181,253,0.5)",
-                color: "#fff",
-                boxShadow: `0 4px 14px ${THEME.colors.accent.primary}44`,
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                <span className="flex items-end gap-[2px] h-2">
-                  {[0, 1, 2, 3].map((i) => (
-                    <motion.span
-                      key={i}
-                      className="w-[2px] rounded-full bg-white"
-                      animate={{ height: ["3px", "7px", "4px", "6px", "3px"] }}
-                      transition={{
-                        duration: 0.5,
-                        delay: i * 0.07,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                    />
-                  ))}
-                </span>
-                SPEAKING
-              </span>
-            </motion.div>
-          )}
-        </div>
-
-        <div className="mt-1.5 text-center">
-          <span
-            className={`${s.nameSize} font-medium truncate max-w-[70px] block`}
-            style={{ color: THEME.colors.text.primary }}
-          >
-            {participant.name}
-          </span>
-
-          <div className="flex flex-col items-center gap-0.5 mt-0.5">
-            {participant.nativeLanguage && (
-              <span
-                className="text-[8px] px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: "rgba(167, 139, 250, 0.12)",
-                  color: THEME.colors.accent.tertiary,
-                }}
-              >
-                {participant.nativeLanguage}
-              </span>
-            )}
-            {participant.learningLanguage && (
-              <span
-                className="text-[8px] px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: "rgba(52, 211, 153, 0.12)",
-                  color: THEME.colors.accent.success,
-                }}
-              >
-                📚 {participant.learningLanguage}
-              </span>
-            )}
-          </div>
-
-          <span
-            className="text-[7px]"
-            style={{
-              color: isMuted
-                ? THEME.colors.accent.error
-                : isOnline
-                  ? isSpeaking
-                    ? THEME.colors.accent.primary
-                    : THEME.colors.text.muted
-                  : THEME.colors.text.muted,
-            }}
-          >
-            {isMuted
-              ? "🔇 Muted"
-              : isOnline
-                ? isSpeaking
-                  ? "🔊 Speaking"
-                  : "🎧 Listening"
-                : "💤 Away"}
-          </span>
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {showActions && !isCurrentUser && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: -8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: -8 }}
-            className="absolute -top-10 left-1/2 -translate-x-1/2 flex gap-0.5 p-1 rounded-xl border shadow-lg"
-            style={{
-              background: THEME.colors.background.card,
-              borderColor: THEME.colors.border.primary,
-            }}
-          >
-            <button
-              type="button"
-              onClick={onFollow}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
-              title={isFavorite ? "Unfollow" : "Follow"}
-              aria-label={
-                isFavorite ? "Unfollow participant" : "Follow participant"
-              }
-              style={{
-                color: isFavorite
-                  ? THEME.colors.accent.primary
-                  : THEME.colors.text.muted,
-              }}
-            >
-              <UserPlus className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={onSendMessage}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
-              title="Send Message"
-              style={{ color: THEME.colors.text.muted }}
-            >
-              <MessageSquare className="w-3 h-3" />
-            </button>
-            {isModerator && (
-              <>
-                <button
-                  type="button"
-                  onClick={onMute}
-                  className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
-                  title={isMuted ? "Unmute" : "Mute"}
-                  aria-label={
-                    isMuted ? "Unmute participant" : "Mute participant"
-                  }
-                  style={{ color: THEME.colors.text.muted }}
-                >
-                  <VolumeX className="w-3 h-3" />
-                </button>
-                <button
-                  type="button"
-                  onClick={onKick}
-                  className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
-                  title="Kick"
-                  style={{ color: THEME.colors.text.muted }}
-                >
-                  <UserX className="w-3 h-3" />
-                </button>
-                {!isHost && (
-                  <button
-                    type="button"
-                    onClick={onPromote}
-                    className="p-1.5 rounded-lg hover:bg-yellow-500/20 transition-all"
-                    title="Make Host"
-                    style={{ color: THEME.colors.text.muted }}
-                  >
-                    <Crown className="w-3 h-3" />
-                  </button>
-                )}
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-};
-
-// ---- Command Center ----
-const CommandCenter: React.FC<{
-  isHost: boolean;
-  isModerator: boolean;
-  isMuted: boolean;
-  isDeafened: boolean;
-  soundEnabled: boolean;
-  showChat: boolean;
-  showParticipants: boolean;
-  showLiveStats: boolean;
-  isRecording: boolean;
-  onMute: () => void;
-  onDeafen: () => void;
-  onToggleSound: () => void;
-  onToggleChat: () => void;
-  onToggleStats: () => void;
-  onRecord: () => void;
-  onClose: () => void;
-}> = ({
-  isHost,
-  isModerator,
-  isMuted,
-  isDeafened,
-  soundEnabled,
-  showChat,
-  showParticipants,
-  showLiveStats,
-  isRecording,
-  onMute,
-  onDeafen,
-  onToggleSound,
-  onToggleChat,
-  onToggleStats,
-  onRecord,
-  onClose,
-}) => {
-  const actions = [
-    {
-      label: isMuted ? "Unmute" : "Mute",
-      icon: isMuted ? MicOff : Mic,
-      active: isMuted,
-      onClick: onMute,
-    },
-    {
-      label: isDeafened ? "Undeafen" : "Deafen",
-      icon: isDeafened ? Volume2 : VolumeOff,
-      active: isDeafened,
-      onClick: onDeafen,
-    },
-    {
-      label: soundEnabled ? "Sounds on" : "Sounds off",
-      icon: soundEnabled ? Bell : BellOff,
-      active: !soundEnabled,
-      onClick: onToggleSound,
-    },
-    {
-      label: showChat ? "Hide chat" : "Show chat",
-      icon: MessageCircle,
-      active: showChat,
-      onClick: onToggleChat,
-    },
-    {
-      label: showLiveStats ? "Hide stats" : "Show stats",
-      icon: TrendingUp,
-      active: showLiveStats,
-      onClick: onToggleStats,
-    },
-  ];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-      className="fixed top-16 right-4 w-[min(92vw,360px)] rounded-2xl border p-4 shadow-2xl z-[999]"
-      style={{
-        background: "rgba(18, 18, 32, 0.96)",
-        borderColor: THEME.colors.border.primary,
-        backdropFilter: "blur(20px)",
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p
-            className="text-sm font-semibold"
-            style={{ color: THEME.colors.text.primary }}
-          >
-            Room controls
-          </p>
-          <p className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
-            Quick actions & settings
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-full hover:bg-white/5 transition-colors"
-          style={{ color: THEME.colors.text.muted }}
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
-        {actions.map((action) => {
-          const Icon = action.icon;
-          const isActive = action.active;
-          return (
-            <button
-              key={action.label}
-              onClick={() => {
-                action.onClick();
-              }}
-              className="rounded-lg border px-3 py-3 text-center transition-all hover:scale-[1.02] active:scale-95"
-              style={{
-                background: isActive
-                  ? "rgba(99,102,241,0.15)"
-                  : "rgba(255,255,255,0.03)",
-                borderColor: isActive
-                  ? "rgba(99,102,241,0.3)"
-                  : THEME.colors.border.primary,
-              }}
-            >
-              <Icon
-                className="w-5 h-5 mx-auto mb-1.5"
-                style={{
-                  color: isActive
-                    ? THEME.colors.accent.primary
-                    : THEME.colors.text.muted,
-                }}
-              />
-              <span
-                className="block text-[9px] leading-tight"
-                style={{
-                  color: isActive
-                    ? THEME.colors.text.primary
-                    : THEME.colors.text.muted,
-                }}
-              >
-                {action.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {(isHost || isModerator) && (
-        <div
-          className="mt-3 pt-3 border-t"
-          style={{ borderColor: THEME.colors.border.primary }}
-        >
-          <p
-            className="text-[9px] uppercase tracking-wider font-semibold mb-2"
-            style={{ color: THEME.colors.text.muted }}
-          >
-            Moderation
-          </p>
-          <div className="flex gap-2">
-            <span
-              className="flex-1 px-3 py-1.5 rounded-lg text-[10px] flex items-center gap-1.5"
-              style={{
-                background: "rgba(251, 191, 36, 0.08)",
-                color: THEME.colors.accent.warning,
-                border: `1px solid rgba(251, 191, 36, 0.15)`,
-              }}
-            >
-              <ShieldCheck className="w-4 h-4" />
-              {isHost ? "Host" : "Moderator"}
-            </span>
-            {isHost && isRecording && (
-              <span
-                className="px-3 py-1.5 rounded-lg text-[10px] flex items-center gap-1.5"
-                style={{
-                  background: "rgba(239, 68, 68, 0.08)",
-                  color: THEME.colors.accent.error,
-                  border: `1px solid rgba(239, 68, 68, 0.15)`,
-                }}
-              >
-                <Radio className="w-4 h-4" />
-                Recording
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      <button
-        onClick={onRecord}
-        disabled={!isHost}
-        className="w-full mt-3 py-2 rounded-lg text-[10px] font-semibold border transition-all disabled:opacity-40 hover:scale-[1.02] active:scale-95"
-        style={{
-          borderColor: isRecording
-            ? "rgba(239,68,68,0.35)"
-            : THEME.colors.border.primary,
-          color: isRecording
-            ? THEME.colors.accent.error
-            : THEME.colors.text.secondary,
-          background: isRecording ? "rgba(239,68,68,0.05)" : "transparent",
-        }}
-      >
-        {isRecording ? (
-          <span className="flex items-center justify-center gap-2">
-            <div
-              className="w-2 h-2 rounded-full animate-pulse"
-              style={{ background: THEME.colors.accent.error }}
-            />
-            Recording...
-          </span>
-        ) : (
-          <span className="flex items-center justify-center gap-2">
-            <Radio className="w-4 h-4" />
-            Start recording
-          </span>
-        )}
-      </button>
-    </motion.div>
-  );
-};
-
-// ---- Room Details Panel ----
-const RoomDetailsPanel: React.FC<{
-  room: any;
-  totalParticipants: number;
-  speakingCount: number;
-  onlineCount: number;
-  messages: number;
-  duration: number;
-  premiumCount: number;
-  verifiedCount: number;
-  languages: string[];
-  onClose: () => void;
-  onCopyLink: () => void;
-}> = ({
-  room,
-  totalParticipants,
-  speakingCount,
-  onlineCount,
-  messages,
-  duration,
-  premiumCount,
-  verifiedCount,
-  languages,
-  onClose,
-  onCopyLink,
-}) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      className="fixed right-4 bottom-20 z-30 w-72 rounded-xl border p-4 shadow-2xl"
-      style={{
-        background: THEME.colors.background.card,
-        borderColor: THEME.colors.border.primary,
-      }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p
-            className="text-xs font-semibold"
-            style={{ color: THEME.colors.text.primary }}
-          >
-            Room details
-          </p>
-          <p className="text-[9px]" style={{ color: THEME.colors.text.muted }}>
-            Live session stats
-          </p>
-        </div>
-        <button onClick={onClose} style={{ color: THEME.colors.text.muted }}>
-          <PanelRightClose className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <SectionPill
-          icon={<Users className="w-3 h-3" />}
-          label="People"
-          value={totalParticipants}
-        />
-        <SectionPill
-          icon={<Mic className="w-3 h-3" />}
-          label="Speaking"
-          value={speakingCount}
-        />
-        <SectionPill
-          icon={<Clock className="w-3 h-3" />}
-          label="Minutes"
-          value={Math.floor(duration / 60)}
-        />
-        <SectionPill
-          icon={<MessageCircle className="w-3 h-3" />}
-          label="Messages"
-          value={messages}
-        />
-      </div>
-      <div className="space-y-1.5 text-[10px]">
-        <div className="flex justify-between">
-          <span style={{ color: THEME.colors.text.muted }}>Languages</span>
-          <span style={{ color: THEME.colors.text.secondary }}>
-            {languages.length ? languages.join(", ") : "None"}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span style={{ color: THEME.colors.text.muted }}>Premium</span>
-          <span style={{ color: THEME.colors.text.secondary }}>
-            {premiumCount}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span style={{ color: THEME.colors.text.muted }}>Verified</span>
-          <span style={{ color: THEME.colors.text.secondary }}>
-            {verifiedCount}
-          </span>
-        </div>
-        <button
-          onClick={onCopyLink}
-          className="w-full mt-2 py-2 rounded-lg border text-[10px] font-medium hover:bg-white/5"
-          style={{
-            borderColor: THEME.colors.border.primary,
-            color: THEME.colors.text.secondary,
-          }}
-        >
-          <Copy className="inline w-3 h-3 mr-1.5" /> Copy link
-        </button>
-      </div>
-    </motion.div>
-  );
-};
-
-// ---- Section Pill ----
-const SectionPill: React.FC<{
-  icon: React.ReactNode;
-  label: string;
-  value?: string | number;
-}> = ({ icon, label, value }) => (
-  <div
-    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px]"
-    style={{
-      borderColor: THEME.colors.border.primary,
-      background: "rgba(255,255,255,0.02)",
-      color: THEME.colors.text.muted,
-    }}
-  >
-    {icon}
-    <span>{label}</span>
-    {value !== undefined && (
-      <strong style={{ color: THEME.colors.text.primary }}>{value}</strong>
-    )}
-  </div>
-);
-
-// ---- Shortcut Panel ----
-const ShortcutPanel: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
-  isOpen,
-  onClose,
-}) => {
-  if (!isOpen) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 8, scale: 0.98 }}
-      className="fixed inset-0 z-[80] flex items-center justify-center px-4 bg-black/60 backdrop-blur-md"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-xl border p-5 shadow-2xl"
-        style={{
-          background: THEME.colors.background.card,
-          borderColor: THEME.colors.border.primary,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Keyboard
-              className="w-4 h-4"
-              style={{ color: THEME.colors.accent.tertiary }}
-            />
-            <h3
-              className="font-semibold text-sm"
-              style={{ color: THEME.colors.text.primary }}
-            >
-              Keyboard shortcuts
-            </h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/5"
-            style={{ color: THEME.colors.text.muted }}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="space-y-2">
-          {[
-            ["Ctrl/Cmd + Shift + M", "Mute / unmute"],
-            ["Ctrl/Cmd + Shift + H", "Raise hand"],
-            ["Enter", "Send message"],
-            ["Shift + Enter", "New line"],
-            ["Esc", "Close chat"],
-          ].map(([key, action]) => (
-            <div
-              key={key}
-              className="flex items-center justify-between gap-4 rounded-lg px-3 py-2"
-              style={{ background: "rgba(255,255,255,0.02)" }}
-            >
-              <span
-                className="text-xs"
-                style={{ color: THEME.colors.text.secondary }}
-              >
-                {action}
-              </span>
-              <kbd
-                className="text-[9px] px-2 py-1 rounded-lg border"
-                style={{
-                  borderColor: THEME.colors.border.primary,
-                  color: THEME.colors.text.primary,
-                  background: THEME.colors.background.tertiary,
-                }}
-              >
-                {key}
-              </kbd>
-            </div>
-          ))}
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-// ---- Leave Confirmation Modal ----
-const LeaveConfirmationModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}> = ({ isOpen, onClose, onConfirm }) => {
-  if (!isOpen) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/80 backdrop-blur-2xl flex items-center justify-center z-[70] px-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        className="rounded-xl w-full max-w-md p-6 border"
-        style={{
-          background: THEME.colors.background.card,
-          borderColor: THEME.colors.border.primary,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="text-center">
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ background: "rgba(239, 68, 68, 0.15)" }}
-          >
-            <PhoneOff
-              className="w-8 h-8"
-              style={{ color: THEME.colors.accent.error }}
-            />
-          </div>
-          <h3
-            className="text-xl font-bold mb-2"
-            style={{ color: THEME.colors.text.primary }}
-          >
-            Leave Room?
-          </h3>
-          <p
-            className="text-sm mb-6"
-            style={{ color: THEME.colors.text.muted }}
-          >
-            You can always come back to this room later.
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-white/5"
-              style={{ color: THEME.colors.text.muted }}
-            >
-              Stay
-            </button>
-            <button
-              onClick={() => {
-                onConfirm();
-                onClose();
-              }}
-              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold hover:opacity-80"
-              style={{ background: THEME.colors.accent.error, color: "#fff" }}
-            >
-              Leave
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// ============================================================
-// MAIN VOICE ROOM VIEW - HelloTalk Style
-// ============================================================
-
 export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   roomId,
   onLeave,
@@ -2378,17 +943,27 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     "all" | "online" | "speaking" | "raised"
   >("all");
   const [showParticipantSearch, setShowParticipantSearch] = useState(false);
-  // BUG FIX: `showParticipants` state was missing but referenced in the JSX
   const [showParticipants, setShowParticipants] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showRoomDetails, setShowRoomDetails] = useState(false);
   const [showCommandCenter, setShowCommandCenter] = useState(false);
+  const [showRoomInvite, setShowRoomInvite] = useState(false);
+  const [showSessionInsights, setShowSessionInsights] = useState(false);
+  const [showQualityPanel, setShowQualityPanel] = useState(false);
+  const [showAICoHost, setShowAICoHost] = useState(false);
+  const [pendingAttachment, setPendingAttachment] =
+    useState<PendingAttachment | null>(null);
+  const [showAttachmentPreview, setShowAttachmentPreview] = useState(false);
   const [favoriteParticipants, setFavoriteParticipants] = useState<Set<string>>(
     new Set(),
   );
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [newMessageCount, setNewMessageCount] = useState(0);
+  const [stageReactions, setStageReactions] = useState<StageReaction[]>([]);
+  const [showTranscription, setShowTranscription] = useState(false);
+  const attachInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -2437,6 +1012,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     editMessage,
     reactMessage,
     broadcastSpeaking,
+    sendStageReaction,
   } = useVoiceSocket(roomId, user?.id || "");
 
   // ============================================================
@@ -2477,6 +1053,25 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   } = liveKitResult;
 
   const isMuted = liveKitIsMuted;
+
+  // ------------------------------------------------------------
+  // Live transcription (Web Speech API + socket broadcast)
+  //   Runs after LiveKit so it can react to `isMuted` changes.
+  // ------------------------------------------------------------
+  const {
+    transcriptions,
+    isRecording: isTranscribing,
+    isSupported: isTranscriptionSupported,
+    clear: clearTranscriptions,
+  } = useVoiceTranscription({
+    roomId,
+    userId: user?.id || "",
+    userName: (user as any)?.name || "You",
+    isMuted,
+    socket,
+    isConnected,
+    language: "en-US",
+  });
 
   // ============================================================
   // DERIVED STATE
@@ -2609,6 +1204,22 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     isConnected,
     isLiveKitConnected,
   ]);
+  // ------------------------------
+  // Speaking time tracker (for SessionInsights)
+  // ------------------------------
+  const speakingTimes = useSpeakingTimes(allParticipants);
+
+    // ------------------------------
+  // AI co-host (quiet detection + summary)
+  // ------------------------------
+  const aiCoHost = useAICoHost({
+    enabled: isHost || isModerator,
+    roomName: room?.name || "",
+    transcriptions,
+    participantCount: totalParticipants,
+    roomDurationSec: roomDuration,
+    messagesCount: messages.length,
+  });
 
   const speakingCount = allParticipants.filter((p) => p.isSpeaking).length;
   const totalParticipants = allParticipants.length;
@@ -2854,11 +1465,39 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     [roomId, editMessageMutation, socket, isConnected, editMessage],
   );
 
+  // ---------- Speaker queue actions ----------
+  const handleQueuePromote = useCallback(
+    (userId: string) => {
+      // Unmute the user so they can speak
+      unmuteUser(userId);
+      // Optional: emit a dedicated event if your gateway supports it
+      socket?.emit?.("voice:promote-speaker", { roomId, userId });
+      // Locally clear raised hand for that user
+      setStageReactions((prev) => prev); // no-op; hand state comes from socket
+    },
+    [unmuteUser, socket, roomId],
+  );
+
+  const handleQueueRemove = useCallback(
+    (userId: string) => {
+      socket?.emit?.("voice:lower-hand", { roomId, userId });
+    },
+    [socket, roomId],
+  );
+
+  const handleToggleRaiseHand = useCallback(
+    (raised: boolean) => {
+      raiseHand(raised);
+      if (raised) toast.success("✋ Hand raised");
+      else toast.info("Hand lowered");
+    },
+    [raiseHand],
+  );
+
   const handleMessageReaction = useCallback(
     (messageId: string, emoji: string) => {
       if (!user?.id || !roomId) return;
 
-      // Optimistic local toggle
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== messageId) return m;
@@ -2886,7 +1525,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         }),
       );
 
-      // Persist via HTTP — this fixes the "reaction disappears on refresh" bug
       reactMessageMutation.mutate(
         { roomId, messageId, emoji, userId: user.id },
         {
@@ -2896,7 +1534,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             }
           },
           onError: () => {
-            // Roll back optimistic toggle on failure
             setMessages((prev) =>
               prev.map((m) => {
                 if (m.id !== messageId) return m;
@@ -2920,6 +1557,179 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       );
     },
     [user?.id, roomId, reactMessageMutation, socket, isConnected, reactMessage],
+  );
+
+  // ============================================================
+  // ATTACHMENT HANDLERS (Cloudinary)
+  // ============================================================
+
+  const handleAttachClick = useCallback(() => {
+    attachInputRef.current?.click();
+  }, []);
+
+    // Step 1: pick a file → open preview modal (does NOT upload yet)
+  const handleAttachFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file) return;
+      openAttachmentPreview(file);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // Normalize a File → PendingAttachment and open the modal
+  const openAttachmentPreview = useCallback((file: File) => {
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("File exceeds 50MB limit");
+      return;
+    }
+
+    let kind: PendingAttachment["kind"] = "file";
+    if (file.type.startsWith("image/")) kind = "image";
+    else if (file.type.startsWith("video/")) kind = "video";
+    else if (file.type.startsWith("audio/")) kind = "audio";
+
+    const previewUrl =
+      kind === "image" || kind === "video" || kind === "audio"
+        ? URL.createObjectURL(file)
+        : null;
+
+    // Revoke previous preview if any
+    setPendingAttachment((prev) => {
+      if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl);
+      return { file, kind, previewUrl };
+    });
+
+    setShowAttachmentPreview(true);
+  }, []);
+
+  // Step 2: modal → Send → actually upload + emit
+  const handleConfirmAttachmentSend = useCallback(
+    async (caption: string) => {
+      const pending = pendingAttachment;
+      if (!pending || !user?.id || !roomId) return;
+
+      const { uploadToCloudinary, kindToMessageType } = await import(
+        "../../lib/uploadToCloudinary"
+      );
+
+      const result = await uploadToCloudinary(pending.file);
+
+      const payload = {
+        content: caption || pending.file.name,
+        type: kindToMessageType(result.kind),
+        mediaUrl: result.url,
+        fileUrl: result.url,
+        replyToId: replyTo?.id,
+      };
+
+      if (socket && isConnected) {
+        sendChatMessage(payload);
+      } else {
+        sendMessageMutation.mutate({ roomId, ...payload });
+      }
+
+      // Clean up
+      if (pending.previewUrl) URL.revokeObjectURL(pending.previewUrl);
+      setPendingAttachment(null);
+      setShowAttachmentPreview(false);
+      setReplyTo(null);
+
+      toast.success("Sent");
+    },
+    [
+      pendingAttachment,
+      user?.id,
+      roomId,
+      replyTo,
+      socket,
+      isConnected,
+      sendChatMessage,
+      sendMessageMutation,
+    ],
+  );
+
+  // Step 3: modal → Cancel → clean up
+  const handleCancelAttachment = useCallback(() => {
+    setPendingAttachment((prev) => {
+      if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl);
+      return null;
+    });
+    setShowAttachmentPreview(false);
+  }, []);
+
+  // Step 4: modal → Replace → swap the file
+  const handleReplaceAttachment = useCallback(
+    (file: File) => {
+      openAttachmentPreview(file);
+    },
+    [openAttachmentPreview],
+  );
+
+  // ============================================================
+  // STAGE REACTIONS (Feature 1)
+  // ============================================================
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleStageReaction = (data: {
+      id?: string;
+      userId: string;
+      userName?: string;
+      emoji: string;
+      createdAt?: number;
+    }) => {
+      setStageReactions((prev) => [
+        ...prev,
+        {
+          id:
+            data.id ||
+            `${data.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          emoji: data.emoji,
+          userId: data.userId,
+          userName: data.userName,
+          xPercent: 12 + Math.random() * 76,
+          createdAt: data.createdAt ?? Date.now(),
+        },
+      ]);
+    };
+
+    socket.on("voice:stage-reaction", handleStageReaction);
+    return () => {
+      socket.off("voice:stage-reaction", handleStageReaction);
+    };
+  }, [socket]);
+
+  // Prune old reactions
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      setStageReactions((prev) =>
+        prev.length === 0 ? prev : prev.filter((r) => now - r.createdAt < 3600),
+      );
+    }, 600);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const handleSendStageReaction = useCallback(
+    (emoji: string) => {
+      setStageReactions((prev) => [
+        ...prev,
+        {
+          id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          emoji,
+          userId: user?.id || "me",
+          userName: (user as any)?.name,
+          xPercent: 12 + Math.random() * 76,
+          createdAt: Date.now(),
+        },
+      ]);
+      sendStageReaction(emoji);
+    },
+    [sendStageReaction, user],
   );
 
   // ============================================================
@@ -3204,7 +2014,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             className="text-xl font-bold"
             style={{ color: THEME.colors.text.primary }}
           >
-            Couldn’t connect to voice
+            Couldn't connect to voice
           </h2>
           <p
             className="mt-2 text-sm"
@@ -3343,12 +2153,81 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         onShowDetails={() => setShowRoomDetails(true)}
         onShowShortcuts={() => setShowShortcuts(true)}
         onMinimize={onMinimize}
-        onShare={handleCopyLink}
+        onShare={() => setShowRoomInvite(true)}
         onLeave={handleLeave}
         onEndRoom={handleEndRoom}
       />
 
       <AnimatePresence>
+
+              {/* ✨ AI Co-host toggle — host/mod only */}
+      {(isHost || isModerator) && (
+        <button
+          type="button"
+          onClick={() => setShowAICoHost((v) => !v)}
+          className="absolute top-20 left-14 z-40 p-2.5 rounded-full border shadow-lg transition-all hover:scale-105 relative"
+          style={{
+            background: showAICoHost
+              ? `linear-gradient(135deg, ${THEME.colors.accent.primary}, ${THEME.colors.accent.secondary})`
+              : "rgba(18,18,32,0.85)",
+            borderColor: THEME.colors.border.primary,
+            color: showAICoHost ? "#fff" : THEME.colors.text.muted,
+          }}
+          title={
+            showAICoHost ? "Hide AI co-host" : "Open AI co-host"
+          }
+        >
+          <Sparkles className="w-4 h-4" />
+          {/* Suggestion-ready dot */}
+          {aiCoHost.suggestion && !showAICoHost && (
+            <span
+              className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full animate-pulse"
+              style={{ background: THEME.colors.accent.warning }}
+            />
+          )}
+        </button>
+      )}
+
+              {/* 📶 Connection quality toggle */}
+      <button
+        type="button"
+        onClick={() => setShowQualityPanel((v) => !v)}
+        className="absolute top-20 right-14 z-40 p-2.5 rounded-full border shadow-lg transition-all hover:scale-105"
+        style={{
+          background: showQualityPanel
+            ? THEME.colors.accent.primary
+            : "rgba(18,18,32,0.85)",
+          borderColor: THEME.colors.border.primary,
+          color: showQualityPanel ? "#fff" : THEME.colors.text.muted,
+        }}
+        title={
+          showQualityPanel ? "Hide connection info" : "Show connection info"
+        }
+      >
+        <Wifi className="w-4 h-4" />
+      </button>
+
+        {/* 📊 Session insights toggle — host/mod only */}
+        {(isHost || isModerator) && (
+          <button
+            type="button"
+            onClick={() => setShowSessionInsights((v) => !v)}
+            className="absolute top-20 left-4 z-40 p-2.5 rounded-full border shadow-lg transition-all hover:scale-105"
+            style={{
+              background: showSessionInsights
+                ? THEME.colors.accent.primary
+                : "rgba(18,18,32,0.85)",
+              borderColor: THEME.colors.border.primary,
+              color: showSessionInsights ? "#fff" : THEME.colors.text.muted,
+            }}
+            title={
+              showSessionInsights ? "Hide insights" : "Show session insights"
+            }
+          >
+            <BarChart3 className="w-4 h-4" />
+          </button>
+        )}
+
         {showLiveStats && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -3388,45 +2267,98 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       </AnimatePresence>
 
       <main className="flex flex-1 min-h-0 relative z-10">
-        <ParticipantGrid
-          participants={allParticipants}
-          isHost={isHost}
-          isModerator={isModerator}
-          currentUserId={user?.id}
-          hostId={hostId}
-          searchQuery={participantSearch}
-          onSearchChange={setParticipantSearch}
-          filter={participantFilter}
-          onFilterChange={setParticipantFilter}
-          showSearch={showParticipantSearch}
-          onToggleSearch={() =>
-            setShowParticipantSearch(!showParticipantSearch)
-          }
-          favoriteParticipants={favoriteParticipants}
-          onToggleFavorite={(userId) => {
-            setFavoriteParticipants((prev) => {
-              const next = new Set(prev);
-              if (next.has(userId)) next.delete(userId);
-              else next.add(userId);
-              return next;
-            });
-          }}
-          onMuteUser={muteUser}
-          onUnmuteUser={unmuteUser}
-          onKickUser={kickUser}
-          onPromoteHost={promoteHost}
-          onSendMessage={(userId) => {
-            const participant = allParticipants.find((p) => p.id === userId);
-            if (participant) {
-              setShowChat(true);
-              setNewMessage(`@${participant.name} `);
-            }
-          }}
-          onViewProfile={(userId) => toast.info(`👤 Viewing profile`)}
-          showChat={showChat}
-          className={showChat ? "md:w-2/3" : "w-full"}
-        />
+        {/* ✨ Floating emoji overlay — spans the stage */}
+        <ReactionOverlay reactions={stageReactions} />
 
+        {/* 🎧 Stage column: speaker strip + participant grid */}
+        <div className="flex-1 min-w-0 flex flex-col min-h-0 relative">
+          {/* 🎙️ Active speaker strip — flows at the top of the stage */}
+          <ActiveSpeakerStrip
+            participants={allParticipants}
+            currentUserId={user?.id}
+            onSelect={(id) => {
+              const p = allParticipants.find(
+                (x) => x.id === id || x.userId === id,
+              );
+              if (p) toast.info(`🎤 ${p.name} is speaking`);
+            }}
+          />
+
+          {/* 🧑‍🤝‍🧑 Participant grid */}
+          <ParticipantGrid
+            participants={allParticipants}
+            isHost={isHost}
+            isModerator={isModerator}
+            currentUserId={user?.id}
+            hostId={hostId}
+            searchQuery={participantSearch}
+            onSearchChange={setParticipantSearch}
+            filter={participantFilter}
+            onFilterChange={setParticipantFilter}
+            showSearch={showParticipantSearch}
+            onToggleSearch={() =>
+              setShowParticipantSearch(!showParticipantSearch)
+            }
+            favoriteParticipants={favoriteParticipants}
+            onToggleFavorite={(userId) => {
+              setFavoriteParticipants((prev) => {
+                const next = new Set(prev);
+                if (next.has(userId)) next.delete(userId);
+                else next.add(userId);
+                return next;
+              });
+            }}
+            onMuteUser={muteUser}
+            onUnmuteUser={unmuteUser}
+            onKickUser={kickUser}
+            onPromoteHost={promoteHost}
+            onSendMessage={(userId) => {
+              const participant = allParticipants.find((p) => p.id === userId);
+              if (participant) {
+                setShowChat(true);
+                setNewMessage(`@${participant.name} `);
+              }
+            }}
+                        onViewProfile={(userId) => toast.info(`👤 Viewing profile`)}
+            showChat={showChat}
+            className="w-full"
+            onInvite={() => setShowRoomInvite(true)}
+            onPickTopic={(topic) => {
+              setShowChat(true);
+              setNewMessage(topic);
+              setTimeout(() => textareaRef.current?.focus(), 100);
+            }}
+          />
+
+          {/* ✋ Speaker queue — floating card on the right of the stage */}
+          <div className="pointer-events-none absolute right-3 top-3 z-30 w-[min(88vw,300px)] hidden md:block">
+            <div className="pointer-events-auto">
+              <SpeakerQueue
+                participants={allParticipants.map((p) => ({
+                  id: p.id,
+                  userId: p.userId,
+                  name: p.name,
+                  avatarUrl: p.avatarUrl,
+                  isVerified: p.isVerified,
+                  isPremium: p.isPremium,
+                  raisedHand: p.raisedHand,
+                  raisedHandAt: (p as any).raisedHandAt,
+                  isSpeaking: p.isSpeaking,
+                  isMuted: p.isMuted,
+                }))}
+                currentUserId={user?.id}
+                isModerator={isModerator}
+                onPromote={handleQueuePromote}
+                onRemove={handleQueueRemove}
+                onSkip={(userId) => kickUser(userId)}
+                onToggleRaiseHand={handleToggleRaiseHand}
+                defaultExpanded={false}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 💬 Chat panel */}
         <AnimatePresence>
           {showChat && (
             <ChatPanel
@@ -3509,12 +2441,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
                 setNewMessageCount(0);
                 scrollToBottom();
               }}
-              onAttachFile={() =>
-                toast.info("File uploads can be connected to your media API")
-              }
-              onRecordAudio={() =>
-                toast.info("Voice notes can be connected to your audio API")
-              }
+              onAttachFile={handleAttachClick}
               roomId={roomId}
               participantNames={allParticipants
                 .map((p) => p.name)
@@ -3524,6 +2451,34 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           )}
         </AnimatePresence>
       </main>
+
+      {/* ✨ Floating stage reaction bar */}
+      <StageReactionBar onSend={handleSendStageReaction} />
+
+      {/* 👏 Floating clap button — bottom-left of the stage */}
+      <div className="pointer-events-none absolute bottom-6 left-4 z-[65] hidden sm:block">
+        <div className="pointer-events-auto">
+          <ClapButton
+            onClap={() => handleSendStageReaction("👏")}
+            size="md"
+            maxClaps={50}
+            cooldownMs={180}
+          />
+        </div>
+      </div>
+
+      {/* 👏 Mobile version — small, bottom-right */}
+      <div className="pointer-events-none absolute bottom-6 right-4 z-[65] sm:hidden">
+        <div className="pointer-events-auto">
+          <ClapButton
+            onClap={() => handleSendStageReaction("👏")}
+            size="sm"
+            maxClaps={50}
+            cooldownMs={180}
+            showRemaining={false}
+          />
+        </div>
+      </div>
 
       <AudioControls
         isMuted={isMuted}
@@ -3558,26 +2513,29 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
               className="fixed inset-0 z-[998] bg-black/30"
               onClick={() => setShowCommandCenter(false)}
             />
-            <CommandCenter
-              isHost={isHost}
-              isModerator={isModerator}
-              isMuted={isMuted}
-              isDeafened={isDeafened}
-              soundEnabled={soundEnabled}
-              showChat={showChat}
-              showParticipants={true}
-              showLiveStats={showLiveStats}
-              isRecording={isRecording}
-              onMute={handleToggleMute}
-              onDeafen={handleToggleDeafen}
-              onToggleSound={() => setSoundEnabled(!soundEnabled)}
-              onToggleChat={() => setShowChat(!showChat)}
-              onToggleStats={() => setShowLiveStats(!showLiveStats)}
-              onRecord={
-                isRecording ? handleStopRecording : handleStartRecording
-              }
-              onClose={() => setShowCommandCenter(false)}
-            />
+            {/* Positioning wrapper — CommandCenter hangs off the top-right */}
+            <div className="fixed top-16 right-4 z-[999]">
+              <CommandCenter
+                isHost={isHost}
+                isModerator={isModerator}
+                isMuted={isMuted}
+                isDeafened={isDeafened}
+                soundEnabled={soundEnabled}
+                showChat={showChat}
+                showParticipants={true}
+                showLiveStats={showLiveStats}
+                isRecording={isRecording}
+                onMute={handleToggleMute}
+                onDeafen={handleToggleDeafen}
+                onToggleSound={() => setSoundEnabled(!soundEnabled)}
+                onToggleChat={() => setShowChat(!showChat)}
+                onToggleStats={() => setShowLiveStats(!showLiveStats)}
+                onRecord={
+                  isRecording ? handleStopRecording : handleStartRecording
+                }
+                onClose={() => setShowCommandCenter(false)}
+              />
+            </div>
           </>
         )}
       </AnimatePresence>
@@ -3612,9 +2570,97 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         onConfirm={handleConfirmLeave}
       />
 
+            <ShortcutPanel
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
+
+            <AttachmentPreviewModal
+        isOpen={showAttachmentPreview}
+        attachment={pendingAttachment}
+        onSend={handleConfirmAttachmentSend}
+        onCancel={handleCancelAttachment}
+        onReplace={handleReplaceAttachment}
+      />
+
+
+      <RoomInvite
+        isOpen={showRoomInvite}
+        onClose={() => setShowRoomInvite(false)}
+        roomName={room.name}
+        roomId={roomId}
+        participantCount={totalParticipants}
+      />
+
+            {/* ✨ AI Co-host panel */}
+      {(isHost || isModerator) && (
+        <AICoHost
+          isOpen={showAICoHost}
+          onClose={() => setShowAICoHost(false)}
+          isHost={isHost}
+          isModerator={isModerator}
+          suggestion={aiCoHost.suggestion}
+          onDismissSuggestion={aiCoHost.dismissSuggestion}
+          onSuggestNow={aiCoHost.suggestNow}
+          summary={aiCoHost.summary}
+          isSummarizing={aiCoHost.isSummarizing}
+          onGenerateSummary={aiCoHost.generateSummary}
+          onClearSummary={aiCoHost.clearSummary}
+          exportText={aiCoHost.exportSummaryText}
+          onUseSuggestion={(text) => {
+            setShowChat(true);
+            setNewMessage(text);
+            setTimeout(() => textareaRef.current?.focus(), 100);
+          }}
+        />
+      )}
+
+
+            {/* 📶 Connection quality panel */}
+      <RoomQualityPanel
+        isOpen={showQualityPanel}
+        onClose={() => setShowQualityPanel(false)}
+        liveKitQuality={
+          isLiveKitConnected
+            ? "excellent"
+            : isMockMode
+              ? "poor"
+              : "good"
+        }
+      />
+
+      {/* 📊 Session insights (host/mod) */}
+      <AnimatePresence>
+        {showSessionInsights && (isHost || isModerator) && (
+          <SessionInsights
+            speakingTimes={speakingTimes}
+            totalParticipants={totalParticipants}
+            roomDuration={roomDuration}
+            messages={messages.length}
+            reactions={stageReactions.length}
+            isHost={isHost}
+            isModerator={isModerator}
+            onClose={() => setShowSessionInsights(false)}
+          />
+        )}
+      </AnimatePresence>
+
       <ShortcutPanel
         isOpen={showShortcuts}
         onClose={() => setShowShortcuts(false)}
+      />
+
+            {/* Room-wide drag-drop zone */}
+      <RoomDropZone onFile={openAttachmentPreview} />
+
+
+      {/* Hidden file input for paperclip */}
+      <input
+        ref={attachInputRef}
+        type="file"
+        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
+        className="hidden"
+        onChange={handleAttachFileChange}
       />
 
       <div className="fixed bottom-24 left-4 z-20 hidden md:block">

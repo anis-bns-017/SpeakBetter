@@ -1,5 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authApi } from '../lib/api/auth';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { authApi } from "../lib/api/auth";
 
 interface User {
   id: string;
@@ -20,12 +26,15 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
   setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -35,7 +44,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const response = await authApi.getMe();
         setUser(response.data);
       } catch (error) {
-        // Not authenticated
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -46,7 +54,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     const response = await authApi.login({ email, password });
-    // Tokens are set as cookies automatically
     setUser(response.data.user);
   };
 
@@ -64,8 +71,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
+  // ✅ NEW — used by the Google OAuth callback page
+  const refreshUser = async (): Promise<User | null> => {
+    try {
+      const response = await authApi.getMe();
+      setUser(response.data);
+      return response.data;
+    } catch {
+      setUser(null);
+      return null;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, setUser }}>
+    <AuthContext.Provider
+      value={{ user, isLoading, login, register, logout, refreshUser, setUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -74,7 +95,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 };

@@ -54,7 +54,7 @@ const navigation = [
     icon: Dumbbell,
   },
   {
-    label: "AI Chat",
+    label: "Chat",
     to: "/chat",
     icon: MessageCircle,
   },

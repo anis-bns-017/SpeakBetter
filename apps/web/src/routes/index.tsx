@@ -27,6 +27,7 @@ import { BlockedPage } from "../pages/BlockedPage";
 import { CommunityPage } from "../pages/CommunityPage";
 import { JoinCommunityPage } from "../pages/JoinCommunityPage";
 import { NewConversationPage } from "../pages/NewConversationPage";
+import { AuthCallbackPage } from "../pages/AuthCallbackPage";
 import { useState } from "react";
 
 // ============================================================
@@ -34,7 +35,7 @@ import { useState } from "react";
 // ============================================================
 const ProtectedRoute = () => {
   const { user, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -42,11 +43,11 @@ const ProtectedRoute = () => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <Outlet />;
 };
 
@@ -55,7 +56,7 @@ const ProtectedRoute = () => {
 // ============================================================
 const PublicRoute = () => {
   const { user, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -63,11 +64,11 @@ const PublicRoute = () => {
       </div>
     );
   }
-  
+
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return <Outlet />;
 };
 
@@ -80,8 +81,11 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <Sidebar isMinimized={isMinimized} onToggle={() => setIsMinimized(!isMinimized)} />
-      <div 
+      <Sidebar
+        isMinimized={isMinimized}
+        onToggle={() => setIsMinimized(!isMinimized)}
+      />
+      <div
         className={`min-h-screen transition-all duration-300 ${
           isMinimized ? "lg:pl-[72px]" : "lg:pl-[260px]"
         }`}
@@ -94,7 +98,6 @@ const AppLayout = () => {
   );
 };
 
-
 // ============================================================
 // MAIN ROUTES
 // ============================================================
@@ -106,6 +109,9 @@ const AppRoutes = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Route>
+
+      {/* ===== OAUTH CALLBACK — MUST be outside both PublicRoute and ProtectedRoute ===== */}
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
       {/* ===== PROTECTED ROUTES WITH SIDEBAR ===== */}
       <Route element={<ProtectedRoute />}>
@@ -121,7 +127,7 @@ const AppRoutes = () => {
           <Route path="/grammar" element={<GrammarPage />} />
           <Route path="/exercises" element={<ExercisesPage />} />
           <Route path="/progress" element={<ProgressPage />} />
-          
+
           {/* Profile & Settings */}
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
@@ -137,7 +143,10 @@ const AppRoutes = () => {
           {/* ===== ✅ COMMUNITY ROUTES (all added) ===== */}
           <Route path="/communities" element={<CommunitiesPage />} />
           <Route path="/communities/:communityId" element={<CommunityPage />} />
-          <Route path="/communities/join/:code" element={<JoinCommunityPage />} />
+          <Route
+            path="/communities/join/:code"
+            element={<JoinCommunityPage />}
+          />
 
           {/* ===== ✅ SOCIAL ROUTES (all added) ===== */}
           <Route path="/friends" element={<FriendsPage />} />

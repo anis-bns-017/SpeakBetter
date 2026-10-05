@@ -109,6 +109,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { VoiceRoomView } from "../components/voice/VoiceRoomView";
+import { StageRoomView } from "../components/voice/StageRoomView";
 import { useChatSocket } from "../hooks/useChat";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -1696,6 +1697,14 @@ export const VoicePage = () => {
   // While minimized, the room component stays mounted but the room list
   // becomes visible underneath it.
   const showRoomView = !!activeRoomId && !showMiniRoom;
+
+  // Determine the active room object so we can choose which view to render
+  const activeRoom = useMemo(
+    () => (rooms || []).find((r) => r.id === activeRoomId) || null,
+    [rooms, activeRoomId],
+  );
+
+  const isStageRoom = activeRoom?.type === "STAGE";
 
   return (
     <div className="min-h-screen font-sans" style={{ background: COLORS.void }}>

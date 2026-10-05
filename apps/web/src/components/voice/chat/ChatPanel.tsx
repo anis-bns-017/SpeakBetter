@@ -23,7 +23,6 @@ import {
   Flag,
   Image,
   File,
-  Mic,
   Video,
   Gift,
   Volume2,
@@ -84,12 +83,6 @@ const THEME = {
   },
 } as const;
 
-/**
- * Optional: re-export / merge with your room theme.
- * import { THEME as ROOM_THEME } from "../VoiceRoomView.theme";
- * Object.assign(THEME.colors, ROOM_THEME.colors);
- */
-
 // ============================================================
 // Types
 // ============================================================
@@ -105,7 +98,9 @@ interface Message {
   isDeleted?: boolean;
   isEdited?: boolean;
   replyTo?: Message;
-  reactions?: Record<string, string[]> | Array<{ emoji?: string; userId?: string; user?: { id?: string } }>;
+  reactions?:
+    | Record<string, string[]>
+    | Array<{ emoji?: string; userId?: string; user?: { id?: string } }>;
   attachments?: Attachment[];
   status?: "sending" | "sent" | "delivered" | "read" | "failed";
   isHighlighted?: boolean;
@@ -173,7 +168,6 @@ interface ChatPanelProps {
   onScrollToBottom: () => void;
   className?: string;
   onAttachFile?: () => void;
-  onRecordAudio?: () => void;
   onSendGift?: (userId: string) => void;
   roomId?: string;
   /** Optional participant names for @mention suggestions */
@@ -429,7 +423,6 @@ function getTimeAgo(date: string): string {
 }
 
 function formatFileSize(size?: number): string {
-  // Keep a real zero-byte attachment visible instead of treating it as missing.
   if (size == null || !Number.isFinite(size) || size < 0) return "";
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
@@ -482,7 +475,6 @@ function renderRichText(text: string, searchQuery: string): React.ReactNode {
   const nodes: React.ReactNode[] = [];
   let lastIndex = 0;
 
-  // Combined tokenizer for URLs, mentions, markdown, and search hits
   const tokenRe =
     /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|https?:\/\/[^\s<]+|@[a-zA-Z0-9_.-]+)/gi;
 
@@ -891,7 +883,7 @@ const AttachmentList: React.FC<{ attachments: Attachment[] }> = ({
                 className="text-xs truncate"
                 style={{ color: THEME.colors.text.primary }}
               >
-                {att.name || "Audio message"}
+                {att.name || "Audio"}
               </div>
               {att.duration ? (
                 <div
@@ -1014,7 +1006,6 @@ const MessageBubble: React.FC<{
     setEditContent(message.content);
   }, [message.content]);
 
-  // Close menus on outside click
   useEffect(() => {
     if (!showMoreMenu && !showReactionPicker) return;
     const onDoc = (e: MouseEvent) => {
@@ -1065,10 +1056,7 @@ const MessageBubble: React.FC<{
         const userId = reaction.userId || reaction.user?.id;
 
         if (emoji && userId) {
-          normalized[emoji] = [
-            ...(normalized[emoji] || []),
-            userId,
-          ];
+          normalized[emoji] = [...(normalized[emoji] || []), userId];
         }
       }
     } else {
@@ -1084,7 +1072,6 @@ const MessageBubble: React.FC<{
     setShowActions(true);
   }, []);
 
-  // Mobile long-press
   const onTouchStart = useCallback(() => {
     longPressTimer.current = window.setTimeout(() => {
       setShowActions(true);
@@ -1099,7 +1086,6 @@ const MessageBubble: React.FC<{
     }
   }, []);
 
-  // Double-tap to quick-react ❤️
   const onDoubleTap = useCallback(() => {
     const now = Date.now();
     if (now - lastTap.current < 320) {
@@ -1981,7 +1967,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   onScrollToBottom,
   className,
   onAttachFile,
-  onRecordAudio,
   onSendGift,
   roomId,
   participantNames = [],
@@ -2022,8 +2007,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     const apply = () => setIsDesktop(mq.matches);
     apply();
 
-    // Safari versions that do not implement MediaQueryList.addEventListener
-    // still expose the older addListener API.
     if (typeof mq.addEventListener === "function") {
       mq.addEventListener("change", apply);
       return () => mq.removeEventListener("change", apply);
@@ -2045,7 +2028,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   }, []);
 
   // ----------------------------------------------------------
-  // Derived state — FIXED: filter applies to grouping
+  // Derived state
   // ----------------------------------------------------------
 
   const normalizedSearch = chatSearch.trim().toLowerCase();
@@ -2099,7 +2082,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const pinnedCount = pinnedMessages.length;
   const canModerate = isHost || isModerator;
 
-  // Mention names from props + recent senders
   const mentionNames = useMemo(() => {
     const fromMessages = messages
       .map((m) => resolveSenderName(m))
@@ -2111,10 +2093,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     (message: Message): Record<string, string[]> => {
       const merged: Record<string, string[]> = {};
 
-      // Support both frontend format:
-      // { "❤️": ["userId"] }
-      // and Prisma/API format:
-      // [{ emoji: "❤️", user: { id: "userId" } }]
       if (Array.isArray(message.reactions)) {
         for (const reaction of message.reactions as unknown[]) {
           const item = reaction as {
@@ -2193,7 +2171,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     [currentUserId, getMergedReactions, messages, onReactToMessage],
   );
 
-  // Drop optimistic overrides once parent confirms
   useEffect(() => {
     setReactionOverrides((previous) => {
       let changed = false;
@@ -2229,7 +2206,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     });
   }, [messages, currentUserId, getMergedReactions]);
 
-  // Restore panel width
   useEffect(() => {
     try {
       const saved = Number(
@@ -2245,7 +2221,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, []);
 
-  // Close settings on outside click
   useEffect(() => {
     if (!showChatSettings) return;
     const onDoc = (e: MouseEvent) => {
@@ -2322,7 +2297,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     if (messages.length > previousMessageCount.current) {
       if (!isNearBottom) {
         setShowScrollTop(true);
-        // Mark first new message as unread anchor
         const newest = messages[messages.length - 1];
         if (newest && newest.senderId !== currentUserId) {
           setUnreadAnchorId((prev) => prev ?? newest.id);
@@ -2446,7 +2420,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const insertMention = useCallback(
     (name: string) => {
       const handle = name.replace(/\s+/g, "");
-      // Replace trailing @query
       const replaced = newMessage.replace(/@([a-zA-Z0-9_.-]*)$/, `@${handle} `);
       onMessageChange(replaced.slice(0, MAX_MESSAGE_LENGTH));
       setMentionQuery(null);
@@ -2466,7 +2439,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         120,
       )}px`;
 
-      // Detect @mention in progress
       const mentionMatch = value.match(/@([a-zA-Z0-9_.-]*)$/);
       setMentionQuery(mentionMatch ? mentionMatch[1] : null);
     },
@@ -2475,8 +2447,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const handleTextareaKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // The document-level shortcut owns Ctrl/Cmd+Enter. Letting this handler
-      // continue would invoke onSendMessage a second time via bubbling.
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
         return;
       }
@@ -2998,7 +2968,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   ? "Pin important messages so everyone can find them quickly."
                   : normalizedSearch
                     ? "Try another keyword or clear the search."
-                    : "Start the conversation and make the room more engaging."}
+                    : "Say hi to the room and start the conversation."}
               </p>
 
               {(showPinnedOnly || normalizedSearch) && (
@@ -3196,21 +3166,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               onClick={onAttachFile}
               className="p-2.5 rounded-full hover:bg-white/5 transition-colors shrink-0"
               style={{ color: THEME.colors.text.muted }}
-              title="Attach file"
+              title="Attach image, video, or file"
             >
               <Paperclip className="w-4 h-4" />
-            </button>
-          )}
-
-          {onRecordAudio && (
-            <button
-              type="button"
-              onClick={onRecordAudio}
-              className="p-2.5 rounded-full hover:bg-white/5 transition-colors shrink-0"
-              style={{ color: THEME.colors.text.muted }}
-              title="Record voice message"
-            >
-              <Mic className="w-4 h-4" />
             </button>
           )}
 
@@ -3329,7 +3287,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               aria-label="Chat message"
             />
 
-            {/* Character progress near limit */}
             {nearLimit && (
               <div
                 className="absolute right-2.5 bottom-2 flex items-center justify-center"

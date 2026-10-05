@@ -1028,6 +1028,94 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('voice:stage-reaction')
+  handleStageReaction(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; emoji: string },
+  ) {
+    const userId = (client.data as any)?.userId;
+    const userName = (client.data as any)?.userName;
+    if (!userId || !data?.roomId || !data?.emoji) return;
+
+    // Sanitize — cap emoji length so people can't spam giant strings
+    const emoji = String(data.emoji).slice(0, 8);
+    if (!emoji) return;
+
+    this.server.to(data.roomId).emit('voice:stage-reaction', {
+      id: `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      userId,
+      userName,
+      emoji,
+      createdAt: Date.now(),
+    });
+  }
+
+  @SubscribeMessage('voice:promote-speaker')
+  handlePromoteSpeaker(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; userId: string },
+  ) {
+    if (!data?.roomId || !data?.userId) return;
+    // Broadcast to everyone that this user is now a speaker
+    this.server.to(data.roomId).emit('voice:promoted-to-speaker', {
+      userId: data.userId,
+      by: (client.data as any)?.userId,
+    });
+    // Clear their raised hand state
+    this.server.to(data.roomId).emit('voice:hand-raised', {
+      userId: data.userId,
+      raised: false,
+    });
+  }
+
+  @SubscribeMessage('voice:lower-hand')
+  handleLowerHand(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; userId: string },
+  ) {
+    if (!data?.roomId || !data?.userId) return;
+    this.server.to(data.roomId).emit('voice:hand-raised', {
+      userId: data.userId,
+      raised: false,
+    });
+  }
+
+  @SubscribeMessage('voice:transcription')
+  handleTranscription(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      roomId: string;
+      id?: string;
+      text: string;
+      isFinal: boolean;
+      confidence?: number;
+      language?: string;
+    },
+  ) {
+    if (!data?.roomId || !data?.text) return;
+
+    const userId = (client.data as any)?.userId;
+    const userName = (client.data as any)?.userName;
+    if (!userId) return;
+
+    // Sanity cap — prevent huge strings
+    const text = String(data.text).slice(0, 500);
+
+    // Broadcast to everyone in the room (including the sender is fine,
+    // the client ignores its own echo)
+    this.server.to(data.roomId).emit('voice:transcription', {
+      id: data.id || `${userId}-${Date.now()}`,
+      userId,
+      userName,
+      text,
+      isFinal: Boolean(data.isFinal),
+      confidence: Number(data.confidence ?? 0),
+      language: data.language,
+      createdAt: Date.now(),
+    });
+  }
+
   // ============ REACTION MESSAGE ============
 
   @SubscribeMessage('voice:react-message')

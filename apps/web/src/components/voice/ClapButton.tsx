@@ -1,394 +1,331 @@
 // apps/web/src/components/voice/ClapButton.tsx
+/**
+ * ClapButton — prop-driven applause button.
+ * Fires 👏 into the stage reactions (Feature 1) + tracks a local
+ * per-session clap streak. No REST, no fake sockets.
+ */
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { useAuth } from "../../contexts/AuthContext";
-
-// Simple theme defined here to avoid import issues
-const THEME = {
-  colors: {
-    primary: "#6366F1",
-    secondary: "#8B5CF6",
-    success: "#34D399",
-    warning: "#FBBF24",
-    danger: "#EF4444",
-    purple: "#A78BFA",
-  },
-  text: {
-    primary: "#F1F5F9",
-    secondary: "#94A3B8",
-    muted: "#64748B",
-  },
-  status: {
-    online: "#34D399",
-    speaking: "#818CF8",
-    muted: "#EF4444",
-    raised: "#FBBF24",
-  },
-};
+import { THEME } from "./VoiceRoomView.theme";
 
 interface ClapButtonProps {
-  roomId: string;
-  targetUserId?: string;
-  targetName?: string;
-  onClap?: (count: number) => void;
+  /** Called when the user taps clap. Wire to sendStageReaction('👏') */
+  onClap: () => void;
+  /** Optional: called with the new streak when it changes */
+  onStreakChange?: (streak: number) => void;
   className?: string;
   size?: "sm" | "md" | "lg";
-  showCount?: boolean;
-  showParticles?: boolean;
-  maxClapsPerSession?: number;
-}
-
-interface ClapStats {
-  totalClaps: number;
-  userClaps: number;
-  topClappers: Array<{ userId: string; name: string; count: number }>;
-}
-
-function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(" ");
+  /** Max claps per session before cooldown kicks in */
+  maxClaps?: number;
+  /** Cooldown between claps in ms */
+  cooldownMs?: number;
+  /** Show badge with remaining claps */
+  showRemaining?: boolean;
 }
 
 export const ClapButton: React.FC<ClapButtonProps> = ({
-  roomId,
-  targetUserId,
-  targetName,
   onClap,
-  className = "",
+  onStreakChange,
+  className,
   size = "md",
-  showCount = true,
-  showParticles = true,
-  maxClapsPerSession = 10,
+  maxClaps = 50,
+  cooldownMs = 180,
+  showRemaining = true,
 }) => {
-  const { user } = useAuth();
-  const [clapCount, setClapCount] = useState(0);
-  const [totalClaps, setTotalClaps] = useState(0);
   const [userClaps, setUserClaps] = useState(0);
-  const [topClappers, setTopClappers] = useState<
-    Array<{ userId: string; name: string; count: number }>
-  >([]);
+  const [isCoolingDown, setIsCoolingDown] = useState(false);
   const [isClapping, setIsClapping] = useState(false);
-  const [clapCooldown, setClapCooldown] = useState(false);
-  const [particles, setParticles] = useState<
+  const [localParticles, setLocalParticles] = useState<
     { id: number; x: number; y: number; emoji: string }[]
   >([]);
   const [showTooltip, setShowTooltip] = useState(false);
-  const [clapHistory, setClapHistory] = useState<number[]>([]);
 
-  const clapRef = useRef<HTMLButtonElement>(null);
   const particleId = useRef(0);
+  const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clapTimesRef = useRef<number[]>([]);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const sizeConfig = {
     sm: {
-      button: "px-3 py-2 text-sm gap-1.5",
-      icon: "text-lg",
-      count: "text-xs",
-      particles: 8,
+      button: "px-3 py-2 text-xs gap-1.5",
+      icon: "text-base",
+      count: "text-[10px]",
+      particles: 6,
     },
     md: {
-      button: "px-4 py-3 text-base gap-2",
-      icon: "text-2xl",
-      count: "text-sm",
-      particles: 12,
+      button: "px-4 py-2.5 text-sm gap-2",
+      icon: "text-xl",
+      count: "text-xs",
+      particles: 10,
     },
     lg: {
-      button: "px-6 py-4 text-lg gap-3",
-      icon: "text-3xl",
-      count: "text-base",
-      particles: 16,
+      button: "px-5 py-3.5 text-base gap-2.5",
+      icon: "text-2xl",
+      count: "text-sm",
+      particles: 14,
     },
-  };
+  } as const;
 
   const config = sizeConfig[size];
 
+  // ----------------------------------------------------------
+  // Streak calculation — counts claps within the last 2s
+  // ----------------------------------------------------------
+  const computeStreak = useCallback(() => {
+    const now = Date.now();
+    clapTimesRef.current = clapTimesRef.current.filter((t) => now - t < 2000);
+    return clapTimesRef.current.length;
+  }, []);
+
+  const [streak, setStreak] = useState(0);
+
   useEffect(() => {
-    const fetchClapStats = async () => {
-      try {
-        const response = await fetch(
-          `/api/voice/claps/${roomId}/stats${targetUserId ? `?userId=${targetUserId}` : ""}`,
-        );
-        if (response.ok) {
-          const data: ClapStats = await response.json();
-          setTotalClaps(data.totalClaps);
-          setUserClaps(data.userClaps || 0);
-          setTopClappers(data.topClappers || []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch clap stats:", error);
-      }
-    };
+    onStreakChange?.(streak);
+  }, [streak, onStreakChange]);
 
-    fetchClapStats();
-  }, [roomId, targetUserId]);
+  const isOnFire = streak >= 5;
 
-  const createParticles = useCallback((count: number) => {
-    const emojis = ["👏", "🎉", "⭐", "💫", "✨", "🌟", "🎊", "💥"];
-    const newParticles = [];
+  // ----------------------------------------------------------
+  // Local particle burst (visual only — doesn't hit the stage overlay)
+  // ----------------------------------------------------------
+  const spawnParticles = useCallback((count: number) => {
+    const emojis = ["👏", "🎉", "✨", "💫", "⭐", "🌟"];
+    const batch: {
+      id: number;
+      x: number;
+      y: number;
+      emoji: string;
+    }[] = [];
+
     for (let i = 0; i < count; i++) {
-      newParticles.push({
+      batch.push({
         id: particleId.current++,
-        x: (Math.random() - 0.5) * 250,
-        y: (Math.random() - 0.5) * 250 - 50,
+        x: (Math.random() - 0.5) * 180,
+        y: (Math.random() - 0.5) * 180 - 60,
         emoji: emojis[Math.floor(Math.random() * emojis.length)],
       });
     }
-    setParticles((prev) => [...prev, ...newParticles]);
-    setTimeout(() => {
-      setParticles((prev) =>
-        prev.filter((p) => !newParticles.some((np) => np.id === p.id)),
+
+    setLocalParticles((prev) => [...prev, ...batch]);
+    window.setTimeout(() => {
+      setLocalParticles((prev) =>
+        prev.filter((p) => !batch.some((b) => b.id === p.id)),
       );
-    }, 1200);
+    }, 1000);
   }, []);
 
-  const handleClap = useCallback(async () => {
-    if (clapCooldown || !user) return;
+  // ----------------------------------------------------------
+  // Main handler
+  // ----------------------------------------------------------
+  const handleClap = useCallback(() => {
+    if (isCoolingDown) return;
 
-    if (userClaps >= maxClapsPerSession) {
-      toast.warning(`You've reached the maximum ${maxClapsPerSession} claps!`);
+    if (userClaps >= maxClaps) {
+      toast.warning(`You've reached ${maxClaps} claps this session`);
       return;
     }
 
+    // Record the clap time
+    clapTimesRef.current.push(Date.now());
+    const nextStreak = computeStreak();
+    setStreak(nextStreak);
+
+    // Local counter
+    setUserClaps((prev) => prev + 1);
     setIsClapping(true);
-    setClapCooldown(true);
-    setClapHistory((prev) => [...prev, Date.now()]);
 
-    try {
-      const response = await fetch(`/api/voice/claps/${roomId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId, userId: user.id }),
-      });
+    // Visual burst
+    spawnParticles(config.particles);
 
-      if (response.ok) {
-        const data = await response.json();
-        setTotalClaps(data.totalClaps);
-        setUserClaps((prev) => prev + 1);
-        setClapCount((prev) => prev + 1);
-
-        if (showParticles) {
-          createParticles(config.particles);
-        }
-
-        if (onClap) {
-          onClap(data.totalClaps);
-        }
-
-        if (navigator.vibrate) {
-          navigator.vibrate([10, 50, 10]);
-        }
-
-        if (data.totalClaps % 10 === 0) {
-          toast.success(`🎉 ${data.totalClaps} claps! Amazing!`);
-        }
+    // Haptic on mobile
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try {
+        (navigator as any).vibrate?.(nextStreak >= 5 ? [10, 30, 10] : 10);
+      } catch {
+        /* ignore */
       }
-    } catch (error) {
-      console.error("Failed to clap:", error);
-      toast.error("Failed to clap. Please try again.");
     }
 
-    setTimeout(() => {
-      setIsClapping(false);
-      setClapCooldown(false);
-    }, 300);
+    // Fire onClap — parent sends to stage reactions
+    onClap();
+
+    // Reset animation
+    window.setTimeout(() => setIsClapping(false), 220);
+
+    // Cooldown
+    setIsCoolingDown(true);
+    if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    cooldownTimer.current = setTimeout(() => {
+      setIsCoolingDown(false);
+    }, cooldownMs);
   }, [
-    clapCooldown,
-    user,
-    targetUserId,
-    roomId,
-    onClap,
-    showParticles,
+    isCoolingDown,
     userClaps,
-    maxClapsPerSession,
-    createParticles,
+    maxClaps,
+    computeStreak,
+    spawnParticles,
     config.particles,
+    onClap,
+    cooldownMs,
   ]);
 
+  // ----------------------------------------------------------
+  // Keyboard: Space/Enter when focused
+  // ----------------------------------------------------------
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        (e.key === " " || e.key === "Enter") &&
-        document.activeElement === clapRef.current
-      ) {
+    const onKey = (e: KeyboardEvent) => {
+      if (document.activeElement !== buttonRef.current) return;
+      if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         handleClap();
       }
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [handleClap]);
 
-  const getClapStreak = useCallback(() => {
-    if (clapHistory.length < 2) return 0;
-    const now = Date.now();
-    let streak = 1;
-    for (let i = clapHistory.length - 1; i > 0; i--) {
-      if (now - clapHistory[i] < 2000) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-    return streak;
-  }, [clapHistory]);
+  // Cleanup timer
+  useEffect(() => {
+    return () => {
+      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    };
+  }, []);
 
-  const streak = getClapStreak();
-  const isOnFire = streak >= 5;
+  const remaining = maxClaps - userClaps;
+  const isMaxed = remaining <= 0;
 
-  const clapVariants = {
-    idle: { scale: 1 },
-    clapping: {
-      scale: [1, 1.15, 0.95, 1.1, 1],
-      transition: { duration: 0.4, ease: "easeInOut" },
-    },
-  };
-
+  // ----------------------------------------------------------
+  // Render
+  // ----------------------------------------------------------
   return (
-    <div className="relative inline-block">
+    <div className={"relative inline-block " + (className ?? "")}>
+      {/* Local particles */}
+      <AnimatePresence>
+        {localParticles.map((p) => (
+          <motion.div
+            key={p.id}
+            className="pointer-events-none absolute left-1/2 top-1/2 z-50 select-none"
+            initial={{ opacity: 1, x: 0, y: 0, scale: 0.4, rotate: 0 }}
+            animate={{
+              opacity: 0,
+              x: p.x,
+              y: p.y,
+              scale: 1.4,
+              rotate: Math.random() * 360 - 180,
+            }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 0.75 + Math.random() * 0.35,
+              ease: "easeOut",
+            }}
+          >
+            <span className="text-xl">{p.emoji}</span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+
+      {/* On-fire badge */}
+      <AnimatePresence>
+        {isOnFire && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            className="absolute -top-3 -right-3 text-lg animate-pulse pointer-events-none z-10"
+          >
+            🔥
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tooltip */}
       <AnimatePresence>
         {showTooltip && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg text-xs whitespace-nowrap"
+            exit={{ opacity: 0, y: -6 }}
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg text-[10px] whitespace-nowrap pointer-events-none z-30"
             style={{
-              background: "rgba(20, 20, 37, 0.95)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "#F8F7FF",
+              background: THEME.colors.background.card,
+              border: `1px solid ${THEME.colors.border.primary}`,
+              color: THEME.colors.text.primary,
             }}
           >
-            {targetName ? `Clap for ${targetName}` : "Clap for this"}
-            {userClaps > 0 && ` (${userClaps}/${maxClapsPerSession})`}
+            {isMaxed ? "You've clapped the max!" : `Clap · ${remaining} left`}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showParticles &&
-          particles.map((particle) => (
-            <motion.div
-              key={particle.id}
-              className="absolute pointer-events-none z-50"
-              initial={{ opacity: 1, x: 0, y: 0, scale: 0.5, rotate: 0 }}
-              animate={{
-                opacity: 0,
-                x: particle.x,
-                y: particle.y - 80,
-                scale: 1.5,
-                rotate: Math.random() * 360,
-              }}
-              transition={{
-                duration: 0.8 + Math.random() * 0.4,
-                ease: "easeOut",
-              }}
-            >
-              <span className="text-2xl">{particle.emoji}</span>
-            </motion.div>
-          ))}
-      </AnimatePresence>
-
-      {isOnFire && (
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0, opacity: 0 }}
-          className="absolute -top-8 -right-8 text-3xl animate-pulse"
-        >
-          🔥
-        </motion.div>
-      )}
-
+      {/* Button */}
       <motion.button
-        ref={clapRef}
-        className={cn(
-          "relative flex items-center rounded-full font-bold transition-all",
-          "bg-gradient-to-r from-yellow-400 via-orange-400 to-orange-500",
-          "text-white shadow-lg hover:shadow-xl",
-          "disabled:opacity-50 disabled:cursor-not-allowed",
-          "hover:scale-105 active:scale-95",
-          config.button,
-          className,
-        )}
-        variants={clapVariants}
-        animate={isClapping ? "clapping" : "idle"}
+        ref={buttonRef}
+        type="button"
         onClick={handleClap}
+        disabled={isMaxed}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
-        disabled={clapCooldown || userClaps >= maxClapsPerSession}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        onFocus={() => setShowTooltip(true)}
+        onBlur={() => setShowTooltip(false)}
+        animate={
+          isClapping ? { scale: [1, 1.18, 0.95, 1.08, 1] } : { scale: 1 }
+        }
+        transition={
+          isClapping ? { duration: 0.42, ease: "easeInOut" } : { duration: 0.2 }
+        }
+        whileHover={!isMaxed ? { scale: 1.04 } : undefined}
+        whileTap={!isMaxed ? { scale: 0.94 } : undefined}
+        className={
+          "relative flex items-center justify-center rounded-full font-semibold " +
+          "shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed " +
+          config.button
+        }
+        style={{
+          background: isMaxed
+            ? "rgba(255,255,255,0.06)"
+            : `linear-gradient(135deg, ${THEME.colors.accent.warning}, #f97316)`,
+          color: isMaxed ? THEME.colors.text.muted : "#fff",
+          boxShadow: isMaxed
+            ? "none"
+            : `0 6px 20px ${THEME.colors.accent.warning}55`,
+        }}
+        title={isMaxed ? "Clap limit reached" : "Clap for the speaker"}
       >
         <span className={config.icon}>👏</span>
         <span>Clap</span>
-        {showCount && (
-          <span className="bg-white/20 px-2.5 py-0.5 rounded-full font-mono">
-            {totalClaps}
+
+        {showRemaining && userClaps > 0 && (
+          <span
+            className={
+              "rounded-full px-2 py-0.5 font-mono tabular-nums " + config.count
+            }
+            style={{
+              background: isMaxed
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(255,255,255,0.22)",
+              color: isMaxed ? THEME.colors.text.muted : "#fff",
+            }}
+          >
+            {userClaps}
           </span>
         )}
 
-        {userClaps > 0 && (
-          <div
-            className="absolute -top-1 -right-1 w-5 h-5 rounded-full border-2 flex items-center justify-center text-[8px] font-bold"
+        {/* Remaining badge on the corner */}
+        {showRemaining && !isMaxed && userClaps > 0 && (
+          <span
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center text-[9px] font-bold tabular-nums px-1"
             style={{
-              borderColor:
-                userClaps >= maxClapsPerSession ? "#EF4444" : "#FBBF24",
-              background: "rgba(20,20,37,0.9)",
-              color: userClaps >= maxClapsPerSession ? "#EF4444" : "#FBBF24",
+              borderColor: THEME.colors.background.primary,
+              background: THEME.colors.accent.warning,
+              color: "#0a0a12",
             }}
           >
-            {maxClapsPerSession - userClaps}
-          </div>
+            {remaining}
+          </span>
         )}
       </motion.button>
-
-      <AnimatePresence>
-        {clapCount > 0 && (
-          <motion.div
-            className="absolute -top-10 left-1/2 -translate-x-1/2 text-yellow-400 font-bold text-lg pointer-events-none"
-            initial={{ opacity: 0, scale: 0.5, y: 10 }}
-            animate={{
-              opacity: 1,
-              scale: 1,
-              y: -20,
-              transition: { type: "spring", stiffness: 300, damping: 20 },
-            }}
-            exit={{ opacity: 0, scale: 1.5, y: -40 }}
-          >
-            +{clapCount}
-            {isOnFire && <span className="text-red-400 ml-1">🔥</span>}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {topClappers.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-48 px-3 py-2 rounded-lg text-xs z-10"
-          style={{
-            background: "rgba(20, 20, 37, 0.95)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            color: "#F8F7FF",
-          }}
-        >
-          <p className="font-semibold text-center mb-1">Top Clappers</p>
-          {topClappers.slice(0, 5).map((clapper, index) => (
-            <div
-              key={clapper.userId}
-              className="flex justify-between items-center py-0.5"
-            >
-              <span>
-                {index === 0 && "🥇 "}
-                {index === 1 && "🥈 "}
-                {index === 2 && "🥉 "}
-                {clapper.name}
-              </span>
-              <span className="text-yellow-400">{clapper.count} 👏</span>
-            </div>
-          ))}
-        </motion.div>
-      )}
     </div>
   );
 };

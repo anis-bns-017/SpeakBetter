@@ -1,11 +1,12 @@
 // apps/web/src/components/voice/participants/ParticipantGrid.tsx
 
-import React from 'react';
-import { cn } from '../../../lib/utils';
-import { THEME } from '../VoiceRoomView.theme';
-import { ActiveSpeakerStrip } from '../shared/ActiveSpeakerStrip';
-import { ParticipantCard } from './ParticipantCard';
-import { initials, hueFromString, getCountryFlag } from '../VoiceRoomView.helpers';
+import React, { useMemo } from "react";
+import { Users, Search, UserRoundSearch } from "lucide-react";
+import { cn } from "../../../lib/utils";
+import { THEME } from "../VoiceRoomView.theme";
+import { ParticipantCard } from "./ParticipantCard";
+import { EmptyParticipantState } from "../shared/EmptyParticipantState";
+import type { RoomParticipant } from "../VoiceRoomView.types";
 
 interface ParticipantGridProps {
   participants: any[];
@@ -15,19 +16,24 @@ interface ParticipantGridProps {
   hostId: string | null;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  filter: 'all' | 'online' | 'speaking' | 'raised';
-  onFilterChange: (filter: 'all' | 'online' | 'speaking' | 'raised') => void;
+  filter: "all" | "online" | "speaking" | "raised";
+  onFilterChange: (filter: "all" | "online" | "speaking" | "raised") => void;
   showSearch: boolean;
   onToggleSearch: () => void;
   favoriteParticipants: Set<string>;
   onToggleFavorite: (userId: string) => void;
   onMuteUser: (userId: string) => void;
+  onUnmuteUser: (userId: string) => void;
   onKickUser: (userId: string) => void;
   onPromoteHost: (userId: string) => void;
   onSendMessage: (userId: string) => void;
   onViewProfile: (userId: string) => void;
   showChat: boolean;
   className?: string;
+  /** Called when empty state's "Invite friends" is clicked */
+  onInvite?: () => void;
+  /** Called when the user picks a suggested topic from the empty state */
+  onPickTopic?: (topic: string) => void;
 }
 
 export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
@@ -45,94 +51,131 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   favoriteParticipants,
   onToggleFavorite,
   onMuteUser,
+  onUnmuteUser,
   onKickUser,
   onPromoteHost,
   onSendMessage,
   onViewProfile,
   showChat,
   className,
+  onInvite,
+  onPickTopic,
 }) => {
-  // Filter participants
-  const filteredParticipants = participants.filter((p: any) => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return true;
-    return [p.name, p.nativeLanguage, p.learningLanguage, p.country, p.level]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(query));
-  }).filter((p: any) => {
-    if (filter === 'online') return p.isOnline === true;
-    if (filter === 'speaking') return p.isSpeaking === true;
-    if (filter === 'raised') return p.raisedHand === true;
-    return true;
-  });
+  // Dynamic language list from participants
+  const roomLanguages = useMemo(() => {
+    const set = new Set<string>();
+    participants.forEach((p: any) => {
+      if (p.nativeLanguage) set.add(String(p.nativeLanguage));
+      if (p.learningLanguage) set.add(String(p.learningLanguage));
+    });
+    return Array.from(set).sort();
+  }, [participants]);
 
-  const onlineParticipants = participants.filter((p: any) => p.isOnline === true);
+  const [langFilter, setLangFilter] = React.useState<string>("all");
+
+  const filteredParticipants = participants
+    .filter((p: any) => {
+      const query = searchQuery.trim().toLowerCase();
+      if (!query) return true;
+      return [p.name, p.nativeLanguage, p.learningLanguage, p.country, p.level]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    })
+    .filter((p: any) => {
+      if (filter === "online") return p.isOnline === true;
+      if (filter === "speaking") return p.isSpeaking === true;
+      if (filter === "raised") return p.raisedHand === true;
+      return true;
+    })
+    .filter((p: any) => {
+      if (langFilter === "all") return true;
+      return (
+        p.nativeLanguage === langFilter || p.learningLanguage === langFilter
+      );
+    })
+    .sort((a: any, b: any) => {
+      if (a.role === "HOST" && b.role !== "HOST") return -1;
+      if (b.role === "HOST" && a.role !== "HOST") return 1;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+
+  const onlineParticipants = participants.filter(
+    (p: any) => p.isOnline === true,
+  );
 
   return (
     <section
       className={cn(
-        'flex-1 min-w-0 px-4 sm:px-6 py-4 transition-all duration-300 overflow-y-auto',
+        "flex-1 min-w-0 px-4 py-4 transition-all duration-300 overflow-y-auto",
         className,
       )}
       style={{
-        backgroundImage: 'radial-gradient(ellipse 60% 40% at 50% 20%, rgba(99,102,241,0.05), transparent 70%)',
+        background: `radial-gradient(ellipse at 50% 20%, rgba(99,102,241,0.04), transparent 70%)`,
       }}
     >
-      <ActiveSpeakerStrip participants={participants} />
-
       {/* Toolbar */}
       <div
-        className="mb-3 rounded-2xl border p-2.5 backdrop-blur-xl"
+        className="mb-4 rounded-xl border p-3"
         style={{
-          background: 'rgba(18,18,31,0.6)',
+          background: THEME.colors.background.card,
           borderColor: THEME.colors.border.primary,
         }}
       >
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 mr-auto">
-            <Users className="w-3.5 h-3.5" style={{ color: THEME.colors.accent.tertiary }} />
-            <span className="text-xs font-semibold" style={{ color: THEME.colors.text.primary }}>
-              People in room
+          <div className="flex items-center gap-2 mr-auto">
+            <Users
+              className="w-4 h-4"
+              style={{ color: THEME.colors.accent.tertiary }}
+            />
+            <span
+              className="text-sm font-medium"
+              style={{ color: THEME.colors.text.primary }}
+            >
+              {participants.length} in room
             </span>
             <span
-              className="text-[9px] px-1.5 py-0.5 rounded-full"
+              className="text-[10px] px-2 py-0.5 rounded-full"
               style={{
-                background: 'rgba(52,211,153,0.1)',
+                background: "rgba(52, 211, 153, 0.1)",
                 color: THEME.colors.status.online,
               }}
             >
               {onlineParticipants.length} online
             </span>
           </div>
-          <button
-            onClick={onToggleSearch}
-            className="p-1.5 rounded-lg hover:bg-white/5"
-            style={{
-              color: showSearch ? THEME.colors.accent.primary : THEME.colors.text.muted,
-            }}
-            title="Search participants"
-          >
-            <Search className="w-3.5 h-3.5" />
-          </button>
+
           <div className="flex items-center gap-1">
-            {(['all', 'online', 'speaking', 'raised'] as const).map((f) => (
+            {(["all", "online", "speaking", "raised"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => onFilterChange(f)}
-                className="px-2 py-1 rounded-full text-[9px] capitalize transition-all"
+                className="px-2.5 py-1 rounded-full text-[9px] capitalize transition-all"
                 style={{
-                  background: filter === f
-                    ? 'rgba(99,102,241,0.15)'
-                    : 'transparent',
-                  color: filter === f
-                    ? THEME.colors.text.primary
-                    : THEME.colors.text.muted,
+                  background:
+                    filter === f ? "rgba(99,102,241,0.15)" : "transparent",
+                  color:
+                    filter === f
+                      ? THEME.colors.text.primary
+                      : THEME.colors.text.muted,
                 }}
               >
                 {f}
               </button>
             ))}
           </div>
+
+          <button
+            onClick={onToggleSearch}
+            className="p-1.5 rounded-lg hover:bg-white/5"
+            style={{
+              color: showSearch
+                ? THEME.colors.accent.primary
+                : THEME.colors.text.muted,
+            }}
+            title="Search participants"
+          >
+            <Search className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Search input */}
@@ -145,7 +188,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
             <input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search by name, language, country or level..."
+              placeholder="Search by name, language, country..."
               className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none"
               style={{
                 background: THEME.colors.background.primary,
@@ -157,79 +200,111 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
         )}
       </div>
 
-      {/* Language filters */}
-      <div className="flex items-center gap-1.5 mb-4 px-1 flex-wrap">
-        <span className="text-[10px] font-medium" style={{ color: THEME.colors.text.muted }}>
-          🌍 Languages:
-        </span>
-        {['All', '🇺🇸', '🇪🇸', '🇫🇷', '🇯🇵', '🇰🇷', '🇨🇳'].map((lang) => (
+      {/* Dynamic language chips */}
+      {roomLanguages.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+          <span
+            className="text-[10px] font-medium"
+            style={{ color: THEME.colors.text.muted }}
+          >
+            Languages
+          </span>
           <button
-            key={lang}
-            className="px-2 py-0.5 rounded-full text-[9px] transition-all hover:scale-105"
+            type="button"
+            onClick={() => setLangFilter("all")}
+            className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
             style={{
-              background: THEME.colors.background.tertiary,
-              color: THEME.colors.text.secondary,
-              border: `1px solid ${THEME.colors.border.primary}`,
+              background:
+                langFilter === "all"
+                  ? "rgba(129,140,248,0.18)"
+                  : THEME.colors.background.tertiary,
+              color:
+                langFilter === "all"
+                  ? THEME.colors.accent.primary
+                  : THEME.colors.text.secondary,
+              border: `1px solid ${
+                langFilter === "all"
+                  ? "rgba(129,140,248,0.35)"
+                  : THEME.colors.border.primary
+              }`,
             }}
           >
-            {lang}
+            All
           </button>
-        ))}
-      </div>
+          {roomLanguages.slice(0, 8).map((lang: string) => (
+            <button
+              type="button"
+              key={lang}
+              onClick={() =>
+                setLangFilter((prev) => (prev === lang ? "all" : lang))
+              }
+              className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
+              style={{
+                background:
+                  langFilter === lang
+                    ? "rgba(129,140,248,0.18)"
+                    : THEME.colors.background.tertiary,
+                color:
+                  langFilter === lang
+                    ? THEME.colors.accent.primary
+                    : THEME.colors.text.secondary,
+                border: `1px solid ${
+                  langFilter === lang
+                    ? "rgba(129,140,248,0.35)"
+                    : THEME.colors.border.primary
+                }`,
+              }}
+            >
+              {lang}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <div className="mb-2 px-1 text-[9px]" style={{ color: THEME.colors.text.muted }}>
-        {filteredParticipants.length} shown · {favoriteParticipants.size} favorites
-      </div>
-
-      {/* Participant grid */}
+      {/* Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-w-5xl mx-auto">
         {filteredParticipants.length === 0 ? (
-          <div className="col-span-full text-center py-12">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: 'rgba(99,102,241,0.1)' }}
-            >
-              <UserRoundSearch className="w-8 h-8" style={{ color: THEME.colors.accent.primary }} />
-            </div>
-            <p className="text-sm" style={{ color: THEME.colors.text.muted }}>
-              {searchQuery ? 'No participants match your search' : 'No participants yet'}
-            </p>
+          <div className="col-span-full">
+            <EmptyParticipantState
+              variant={
+                searchQuery
+                  ? "search"
+                  : filter !== "all" || langFilter !== "all"
+                    ? "filter"
+                    : participants.length === 0
+                      ? "no-participants"
+                      : "no-speakers"
+              }
+              isHost={isHost}
+              isModerator={isModerator}
+              searchQuery={searchQuery}
+              onInvite={onInvite}
+              onPickTopic={onPickTopic}
+              onClearFilters={() => {
+                onSearchChange("");
+                onFilterChange("all");
+              }}
+              onRaiseHand={() => {
+                /* parent handles via socket — will be passed later if needed */
+              }}
+            />
           </div>
         ) : (
           filteredParticipants.map((p: any) => {
-            const isParticipantHost = hostId === p.id || p.role === 'HOST';
+            const isParticipantHost = hostId === p.id || p.role === "HOST";
             const isCurrentUser = p.id === currentUserId;
-
-            const participant: RoomParticipant = {
-              id: p.userId,
-              userId: p.userId,
-              name: p.name || p.user?.name || 'Anonymous',
-              avatarUrl: p.avatarUrl || p.user?.avatarUrl,
-              country: p.country || p.user?.country,
-              nativeLanguage: p.nativeLanguage || p.user?.nativeLanguage,
-              learningLanguage: p.learningLanguage || p.user?.learningLanguage,
-              level: p.level || p.user?.level,
-              isOnline: p.isOnline === true,
-              isSpeaking: p.isSpeaking || false,
-              isMuted: Boolean(p.isMuted),
-              raisedHand: p.raisedHand || false,
-              joinedAt: p.joinedAt || new Date().toISOString(),
-              role: p.role || (isParticipantHost ? 'HOST' : 'MEMBER'),
-              isListening: p.isListening === true,
-              audioLevel: p.audioLevel || 0,
-              isVerified: p.isVerified || p.user?.isVerified,
-              isPremium: p.isPremium || p.user?.isPremium,
-            };
 
             return (
               <ParticipantCard
                 key={p.id}
-                participant={participant}
+                participant={p}
                 isHost={isParticipantHost}
                 isCurrentUser={isCurrentUser}
                 isModerator={isModerator}
                 isFavorite={favoriteParticipants.has(p.id)}
-                onMute={() => onMuteUser(p.id)}
+                onMute={() =>
+                  p.isMuted ? onUnmuteUser(p.id) : onMuteUser(p.id)
+                }
                 onKick={() => onKickUser(p.id)}
                 onPromote={() => onPromoteHost(p.id)}
                 onFollow={() => onToggleFavorite(p.id)}
@@ -244,3 +319,5 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
     </section>
   );
 };
+
+export default ParticipantGrid;

@@ -133,32 +133,35 @@ const SUPPORTED_LANGUAGES = [
 ];
 
 // ---- Theme ----
+import { THEME as SHARED_THEME } from "./VoiceRoomView.theme";
+
+// Local aliases mapped to the shared theme so all colors stay consistent
 const THEME = {
-  void: "#0A0A12",
-  surface: "#141425",
-  surfaceRaised: "#1E1E38",
-  surfaceHover: "#2A2A4A",
-  border: "#2A2A4A",
+  void: SHARED_THEME.colors.background.primary,
+  surface: SHARED_THEME.colors.background.card,
+  surfaceRaised: SHARED_THEME.colors.background.tertiary,
+  surfaceHover: SHARED_THEME.colors.background.secondary,
+  border: SHARED_THEME.colors.border.primary,
   aurora: {
-    primary: "#7C6AFF",
-    secondary: "#A78BFA",
-    tertiary: "#6EE7B7",
-    quaternary: "#FCD34D",
-    pink: "#F472B6",
-    cyan: "#67E8F9",
-    purple: "#8B5CF6",
+    primary: SHARED_THEME.colors.accent.primary,
+    secondary: SHARED_THEME.colors.accent.secondary,
+    tertiary: SHARED_THEME.colors.accent.success,
+    quaternary: SHARED_THEME.colors.accent.warning,
+    pink: SHARED_THEME.colors.accent.error,
+    cyan: SHARED_THEME.colors.accent.cyan,
+    purple: SHARED_THEME.colors.accent.secondary,
   },
   text: {
-    primary: "#F8F7FF",
-    secondary: "#B8B0D8",
-    muted: "#7A72A0",
-    accent: "#A78BFA",
+    primary: SHARED_THEME.colors.text.primary,
+    secondary: SHARED_THEME.colors.text.secondary,
+    muted: SHARED_THEME.colors.text.muted,
+    accent: SHARED_THEME.colors.accent.secondary,
   },
   status: {
-    live: "#6EE7B7",
-    liveGlow: "rgba(110, 231, 183, 0.3)",
-    waiting: "#FCD34D",
-    danger: "#EF4444",
+    live: SHARED_THEME.colors.accent.success,
+    liveGlow: "rgba(52,211,153,0.3)",
+    waiting: SHARED_THEME.colors.accent.warning,
+    danger: SHARED_THEME.colors.accent.error,
   },
 };
 

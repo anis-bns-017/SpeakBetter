@@ -78,6 +78,10 @@ export const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const handleGoogleLogin = () => {
+    window.location.href = "http://localhost:3000/auth/google";
+  };
+
   const updateField = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -501,6 +505,7 @@ export const RegisterPage = () => {
                   <div className="space-y-3">
                     <button
                       type="button"
+                      onClick={handleGoogleLogin}
                       className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition flex items-center justify-center gap-2"
                     >
                       <svg
