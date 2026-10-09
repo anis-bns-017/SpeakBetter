@@ -34,6 +34,8 @@ interface ParticipantGridProps {
   onInvite?: () => void;
   /** Called when the user picks a suggested topic from the empty state */
   onPickTopic?: (topic: string) => void;
+  /** Called when a listener wants to suggest a correction to a speaker */
+  onCorrect?: (userId: string, userName: string) => void;
 }
 
 export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
@@ -261,8 +263,8 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
         </div>
       )}
 
-      {/* Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-w-5xl mx-auto">
+      {/* Grid — centered vertically when sparse */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-w-5xl mx-auto min-h-[50vh] place-content-center">
         {filteredParticipants.length === 0 ? (
           <div className="col-span-full">
             <EmptyParticipantState

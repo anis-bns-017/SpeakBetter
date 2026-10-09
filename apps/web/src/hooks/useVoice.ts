@@ -1373,6 +1373,16 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
     [socket, isConnected, roomId],
   );
 
+    const sendStageReaction = useCallback(
+    (emoji: string) => {
+      if (!socket || !isConnected) return;
+      const clean = String(emoji).slice(0, 8).trim();
+      if (!clean) return;
+      socket.emit("voice:stage-reaction", { roomId, emoji: clean });
+    },
+    [socket, isConnected, roomId],
+  );
+
   return {
     socket,
     isConnected,
@@ -1395,6 +1405,7 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
     fetchMessages,
     promoteHost,
     broadcastSpeaking,
+    sendStageReaction,
   };
 };
 

@@ -5,9 +5,30 @@ import { SmilePlus, X } from "lucide-react";
 
 const QUICK_EMOJIS = ["❤️", "🔥", "👏", "😂", "🎉", "💯", "🙌", "😮"];
 const ALL_EMOJIS = [
-  "❤️", "🔥", "👏", "😂", "🎉", "💯", "🙌", "😮",
-  "🥳", "😍", "🤯", "💪", "✨", "🚀", "🤝", "☕",
-  "🙏", "😭", "😎", "💖", "🌟", "⚡", "🎯", "🧠",
+  "❤️",
+  "🔥",
+  "👏",
+  "😂",
+  "🎉",
+  "💯",
+  "🙌",
+  "😮",
+  "🥳",
+  "😍",
+  "🤯",
+  "💪",
+  "✨",
+  "🚀",
+  "🤝",
+  "☕",
+  "🙏",
+  "😭",
+  "😎",
+  "💖",
+  "🌟",
+  "⚡",
+  "🎯",
+  "🧠",
 ];
 
 interface StageReactionBarProps {
@@ -44,7 +65,7 @@ export const StageReactionBar: React.FC<StageReactionBarProps> = ({
   return (
     <div
       className={
-        "pointer-events-none absolute inset-x-0 bottom-4 z-[65] flex justify-center " +
+        "pointer-events-none absolute right-4 bottom-4 z-[65] flex justify-end " +
         (className ?? "")
       }
     >

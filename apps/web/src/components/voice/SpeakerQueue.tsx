@@ -119,11 +119,13 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
 
   return (
     <div
-      className={cn("rounded-xl border overflow-hidden", className)}
+      className={cn("rounded-2xl border overflow-hidden shadow-2xl", className)}
       style={{
-        background: "rgba(18, 18, 32, 0.85)",
-        borderColor: THEME.colors.border.primary,
-        backdropFilter: "blur(14px)",
+        background: "rgba(10, 10, 20, 0.98)",
+        borderColor: "rgba(129,140,248,0.25)",
+        backdropFilter: "blur(20px)",
+        boxShadow:
+          "0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(129,140,248,0.08)",
       }}
     >
       {/* Header */}

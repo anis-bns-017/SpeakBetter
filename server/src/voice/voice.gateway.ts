@@ -1116,6 +1116,60 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  @SubscribeMessage('voice:correction')
+  handleCorrection(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      roomId: string;
+      id: string;
+      targetUserId: string;
+      targetUserName: string;
+      original: string;
+      corrected: string;
+      note?: string;
+      category: string;
+    },
+  ) {
+    if (!data?.roomId || !data?.targetUserId) return;
+
+    const authorId = (client.data as any)?.userId;
+    const authorName = (client.data as any)?.userName || 'Someone';
+    if (!authorId) return;
+
+    // Cap fields to protect broadcast bandwidth
+    const payload = {
+      id: data.id,
+      roomId: data.roomId,
+      targetUserId: data.targetUserId,
+      targetUserName: String(data.targetUserName || '').slice(0, 60),
+      authorId,
+      authorName: String(authorName).slice(0, 60),
+      original: String(data.original || '').slice(0, 300),
+      corrected: String(data.corrected || '').slice(0, 300),
+      note: data.note ? String(data.note).slice(0, 200) : undefined,
+      category: String(data.category || 'other').slice(0, 20),
+      status: 'pending' as const,
+      createdAt: Date.now(),
+    };
+
+    this.server.to(data.roomId).emit('voice:correction', payload);
+  }
+
+  @SubscribeMessage('voice:correction-resolve')
+  handleCorrectionResolve(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { roomId: string; id: string; status: 'accepted' | 'dismissed' },
+  ) {
+    if (!data?.roomId || !data?.id) return;
+    this.server.to(data.roomId).emit('voice:correction-status', {
+      id: data.id,
+      status: data.status,
+      resolvedAt: Date.now(),
+    });
+  }
+
   // ============ REACTION MESSAGE ============
 
   @SubscribeMessage('voice:react-message')

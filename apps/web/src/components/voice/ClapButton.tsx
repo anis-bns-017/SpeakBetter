@@ -30,7 +30,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
   onStreakChange,
   className,
   size = "md",
-  maxClaps = 50,
+  maxClaps = 1000,
   cooldownMs = 180,
   showRemaining = true,
 }) => {
@@ -123,7 +123,9 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
     if (isCoolingDown) return;
 
     if (userClaps >= maxClaps) {
-      toast.warning(`You've reached ${maxClaps} claps this session`);
+      toast.info("You're on fire! Take a breath and let others share the love 🔥", {
+        duration: 2500,
+      });
       return;
     }
 
@@ -313,7 +315,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
         )}
 
         {/* Remaining badge on the corner */}
-        {showRemaining && !isMaxed && userClaps > 0 && (
+        {showRemaining && !isMaxed && userClaps >= 10 && (
           <span
             className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center text-[9px] font-bold tabular-nums px-1"
             style={{

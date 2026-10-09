@@ -16,7 +16,6 @@ import {
   Copy,
   Check,
   Share2,
-  Twitter,
   Send,
   Mail,
   MessageCircle,

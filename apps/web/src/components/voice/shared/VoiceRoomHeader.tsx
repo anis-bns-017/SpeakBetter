@@ -13,6 +13,8 @@ import {
   Keyboard,
   LogOut,
   PhoneOff,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
 

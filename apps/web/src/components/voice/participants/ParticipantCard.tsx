@@ -14,7 +14,30 @@ import {
 } from 'lucide-react';
 import { THEME } from '../VoiceRoomView.theme';
 import { initials, hueFromString, getCountryFlag } from '../VoiceRoomView.helpers';
-import { RoomParticipant } from '../VoiceRoomView.types';
+
+export interface RoomParticipant {
+  id: string;
+  userId: string;
+  name: string;
+  avatarUrl?: string;
+  country?: string;
+  nativeLanguage?: string;
+  learningLanguage?: string;
+  level?: string;
+  bio?: string;
+  interests?: string[];
+  isOnline?: boolean;
+  isSpeaking?: boolean;
+  isMuted?: boolean;
+  raisedHand?: boolean;
+  joinedAt?: string;
+  role?: string;
+  isListening?: boolean;
+  audioLevel?: number;
+  isVerified?: boolean;
+  isPremium?: boolean;
+}
+
 
 interface ParticipantCardProps {
   participant: RoomParticipant;

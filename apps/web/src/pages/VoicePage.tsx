@@ -109,8 +109,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { VoiceRoomView } from "../components/voice/VoiceRoomView";
-import { StageRoomView } from "../components/voice/StageRoomView";
-import { useChatSocket } from "../hooks/useChat";
+ import { useChatSocket } from "../hooks/useChat";
 import { useQueryClient } from "@tanstack/react-query";
 
 // ---- Theme Colors ----
