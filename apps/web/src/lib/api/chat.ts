@@ -32,10 +32,10 @@ export const chatApi = {
     apiClient.put<Chat>(`/chat/${chatId}/name`, { name }),
 
   addParticipants: (chatId: string, userIds: string[]) => 
-    apiClient.post(`/chat/${chatId}/participants`, { userIds }),
+    apiClient.post(`/chat/group/${chatId}/add`, { userIds }),
 
   removeParticipant: (chatId: string, userId: string) => 
-    apiClient.delete(`/chat/${chatId}/participants/${userId}`),
+    apiClient.delete(`/chat/group/${chatId}/remove/${userId}`),
 
   deleteChat: (chatId: string) => 
     apiClient.delete(`/chat/${chatId}`),
@@ -58,10 +58,10 @@ export const chatApi = {
 
   // ---------- Reactions ----------
   addReaction: (data: AddReactionDto) => 
-    apiClient.post('/chat/reactions', data),
+    apiClient.post('/chat/messages/reaction', data),
 
   removeReaction: (messageId: string, emoji: string) => 
-    apiClient.delete(`/chat/reactions/${messageId}/${emoji}`),
+    apiClient.delete(`/chat/messages/${messageId}/reaction/${encodeURIComponent(emoji)}`),
 
   // ---------- Read Receipts ----------
   markRead: (data: MarkReadDto) => 
@@ -72,7 +72,7 @@ export const chatApi = {
 
   // ---------- Search ----------
   searchMessages: (data: SearchMessagesDto) => 
-    apiClient.get<Message[]>(`/chat/${data.chatId}/search`, { 
+    apiClient.get<Message[]>(`/chat/search/${data.chatId}`, { 
       params: { q: data.query, limit: data.limit } 
     }),
 
@@ -84,11 +84,8 @@ export const chatApi = {
     apiClient.put<ChatSettings>(`/chat/${chatId}/settings`, data),
 
   // ---------- Pinned Messages ----------
-  pinMessage: (chatId: string, messageId: string) => 
-    apiClient.post(`/chat/${chatId}/pin/${messageId}`),
-
-  unpinMessage: (chatId: string, messageId: string) => 
-    apiClient.delete(`/chat/${chatId}/pin/${messageId}`),
+  pinMessage: (messageId: string, pinned: boolean) => 
+    apiClient.put(`/chat/messages/${messageId}/pin`, { pinned }),
 
   getPinnedMessages: (chatId: string) => 
     apiClient.get<Message[]>(`/chat/${chatId}/pinned`),
