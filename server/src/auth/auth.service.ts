@@ -168,6 +168,18 @@ export class AuthService {
         secret: this.configService.getOrThrow<string>('REFRESH_TOKEN_SECRET'),
       });
 
+      const session = await this.prisma.session.findFirst({
+        where: {
+          token: refreshToken,
+          userId: payload.sub,
+          expiresAt: { gt: new Date() },
+        },
+      });
+
+      if (!session) {
+        throw new UnauthorizedException('Refresh session not found or expired');
+      }
+
       const user = await this.prisma.user.findUnique({
         where: {
           id: payload.sub,
@@ -182,6 +194,10 @@ export class AuthService {
         throw new UnauthorizedException();
       }
 
+      await this.prisma.session.deleteMany({
+        where: { token: refreshToken },
+      });
+
       const tokens = await this.generateTokens(user.id, user.email);
 
       return {
@@ -194,9 +210,11 @@ export class AuthService {
   }
 
   async logout(userId: string) {
-    return {
-      success: true,
-    };
+    await this.prisma.session.deleteMany({
+      where: { userId },
+    });
+
+    return { success: true };
   }
 
   async getMe(userId: string) {
