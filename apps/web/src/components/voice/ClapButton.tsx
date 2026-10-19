@@ -3,6 +3,9 @@
  * ClapButton — prop-driven applause button.
  * Fires 👏 into the stage reactions (Feature 1) + tracks a local
  * per-session clap streak. No REST, no fake sockets.
+ *
+ * Particle behavior: emojis float up like soap bubbles — they rise,
+ * sway side-to-side, expand as they climb, and pop-fade at the top.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -25,6 +28,17 @@ interface ClapButtonProps {
   showRemaining?: boolean;
 }
 
+interface BubbleParticle {
+  id: number;
+  drift: number; // final horizontal drift
+  rise: number; // final upward rise (negative)
+  emoji: string;
+  rotate: number;
+  scale: number;
+  duration: number;
+  delay: number;
+}
+
 export const ClapButton: React.FC<ClapButtonProps> = ({
   onClap,
   onStreakChange,
@@ -37,9 +51,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
   const [userClaps, setUserClaps] = useState(0);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
   const [isClapping, setIsClapping] = useState(false);
-  const [localParticles, setLocalParticles] = useState<
-    { id: number; x: number; y: number; emoji: string }[]
-  >([]);
+  const [localParticles, setLocalParticles] = useState<BubbleParticle[]>([]);
   const [showTooltip, setShowTooltip] = useState(false);
 
   const particleId = useRef(0);
@@ -52,19 +64,22 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
       button: "px-3 py-2 text-xs gap-1.5",
       icon: "text-base",
       count: "text-[10px]",
-      particles: 6,
+      particles: 5,
+      bubbleSize: "text-2xl",
     },
     md: {
       button: "px-4 py-2.5 text-sm gap-2",
       icon: "text-xl",
       count: "text-xs",
-      particles: 10,
+      particles: 8,
+      bubbleSize: "text-3xl",
     },
     lg: {
       button: "px-5 py-3.5 text-base gap-2.5",
       icon: "text-2xl",
       count: "text-sm",
-      particles: 14,
+      particles: 11,
+      bubbleSize: "text-4xl",
     },
   } as const;
 
@@ -88,32 +103,41 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
   const isOnFire = streak >= 5;
 
   // ----------------------------------------------------------
-  // Local particle burst (visual only — doesn't hit the stage overlay)
+  // Bubble particles — rise + sway + grow + fade. No explosion.
   // ----------------------------------------------------------
   const spawnParticles = useCallback((count: number) => {
-    const emojis = ["👏", "🎉", "✨", "💫", "⭐", "🌟"];
-    const batch: {
-      id: number;
-      x: number;
-      y: number;
-      emoji: string;
-    }[] = [];
+    // Bias toward 👏 since that's the clap gesture, but keep some variety
+    const emojis = ["👏", "👏", "👏", "🎉", "✨", "💫", "⭐", "🌟"];
+    const batch: BubbleParticle[] = [];
 
     for (let i = 0; i < count; i++) {
       batch.push({
         id: particleId.current++,
-        x: (Math.random() - 0.5) * 180,
-        y: (Math.random() - 0.5) * 180 - 60,
+        // Gentle horizontal drift — bubbles wander, they don't shoot
+        drift: (Math.random() - 0.5) * 140,
+        // Always rise upward. Bubbles go up, not down.
+        rise: -(220 + Math.random() * 260),
         emoji: emojis[Math.floor(Math.random() * emojis.length)],
+        // Slow gentle rotation as it floats
+        rotate: (Math.random() - 0.5) * 50,
+        // Bubbles expand as they rise (less pressure)
+        scale: 1.4 + Math.random() * 0.9,
+        // Stagger duration for organic feel
+        duration: 1.9 + Math.random() * 0.7,
+        // Tiny stagger so they don't all leave at the exact same frame
+        delay: Math.random() * 0.08,
       });
     }
 
     setLocalParticles((prev) => [...prev, ...batch]);
+
+    // Cleanup — match the longest possible duration
+    const maxLifeMs = Math.max(...batch.map((b) => b.duration)) * 1000 + 200;
     window.setTimeout(() => {
       setLocalParticles((prev) =>
         prev.filter((p) => !batch.some((b) => b.id === p.id)),
       );
-    }, 1000);
+    }, maxLifeMs);
   }, []);
 
   // ----------------------------------------------------------
@@ -123,9 +147,12 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
     if (isCoolingDown) return;
 
     if (userClaps >= maxClaps) {
-      toast.info("You're on fire! Take a breath and let others share the love 🔥", {
-        duration: 2500,
-      });
+      toast.info(
+        "You're on fire! Take a breath and let others share the love 🔥",
+        {
+          duration: 2500,
+        },
+      );
       return;
     }
 
@@ -138,7 +165,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
     setUserClaps((prev) => prev + 1);
     setIsClapping(true);
 
-    // Visual burst
+    // Bubble burst — floats up like soap bubbles
     spawnParticles(config.particles);
 
     // Haptic on mobile
@@ -203,41 +230,74 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
   // ----------------------------------------------------------
   return (
     <div className={"relative inline-block " + (className ?? "")}>
-      {/* Local particles */}
+      {/* Bubble particles — float upward, sway, grow, fade */}
       <AnimatePresence>
-        {localParticles.map((p) => (
-          <motion.div
-            key={p.id}
-            className="pointer-events-none absolute left-1/2 top-1/2 z-50 select-none"
-            initial={{ opacity: 1, x: 0, y: 0, scale: 0.4, rotate: 0 }}
-            animate={{
-              opacity: 0,
-              x: p.x,
-              y: p.y,
-              scale: 1.4,
-              rotate: Math.random() * 360 - 180,
-            }}
-            exit={{ opacity: 0 }}
-            transition={{
-              duration: 0.75 + Math.random() * 0.35,
-              ease: "easeOut",
-            }}
-          >
-            <span className="text-xl">{p.emoji}</span>
-          </motion.div>
-        ))}
+        {localParticles.map((p) => {
+          // Sway keyframes: bubble wanders side to side as it rises.
+          // 0% -> 30% -> 65% -> 100% of the drift creates an organic arc.
+          const swayMid1 = p.drift * 0.4;
+          const swayMid2 = p.drift * 0.75;
+          return (
+            <motion.div
+              key={p.id}
+              className="pointer-events-none absolute left-1/2 top-1/2 z-50 select-none"
+              initial={{
+                opacity: 0,
+                x: 0,
+                y: 0,
+                scale: 0.3,
+                rotate: 0,
+              }}
+              animate={{
+                opacity: [0, 1, 1, 0.65, 0],
+                x: [0, swayMid1, swayMid2, p.drift],
+                y: [0, p.rise * 0.3, p.rise * 0.65, p.rise * 0.92, p.rise],
+                scale: [0.3, 0.85, p.scale * 0.85, p.scale, p.scale * 1.25],
+                rotate: [0, p.rotate * 0.5, p.rotate, p.rotate * 1.2],
+              }}
+              exit={{ opacity: 0, transition: { duration: 0.2 } }}
+              transition={{
+                duration: p.duration,
+                delay: p.delay,
+                ease: "easeOut",
+                times: [0, 0.2, 0.5, 0.85, 1],
+              }}
+            >
+              <span
+                className={
+                  config.bubbleSize +
+                  " drop-shadow-[0_4px_12px_rgba(249,115,22,0.35)]"
+                }
+              >
+                {p.emoji}
+              </span>
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
 
-      {/* On-fire badge */}
+      {/* On-fire badge with pulsing ring */}
       <AnimatePresence>
         {isOnFire && (
           <motion.div
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="absolute -top-3 -right-3 text-lg animate-pulse pointer-events-none z-10"
+            className="absolute -top-3 -right-3 z-10 pointer-events-none"
           >
-            🔥
+            <motion.div
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: `${THEME.colors.accent.warning}40`,
+              }}
+              animate={{ scale: [1, 1.5, 1], opacity: [0.6, 0, 0.6] }}
+              transition={{
+                duration: 1.6,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
+            <span className="relative text-lg animate-pulse">🔥</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -258,6 +318,24 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
           >
             {isMaxed ? "You've clapped the max!" : `Clap · ${remaining} left`}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Glow ring behind button while clapping */}
+      <AnimatePresence>
+        {isClapping && (
+          <motion.div
+            key="glow-ring"
+            className="absolute inset-0 rounded-full pointer-events-none"
+            initial={{ opacity: 0.7, scale: 1 }}
+            animate={{ opacity: 0, scale: 1.6 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            style={{
+              boxShadow: `0 0 30px 8px ${THEME.colors.accent.warning}55`,
+              background: `${THEME.colors.accent.warning}22`,
+            }}
+          />
         )}
       </AnimatePresence>
 

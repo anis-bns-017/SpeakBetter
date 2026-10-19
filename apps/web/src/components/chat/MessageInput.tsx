@@ -1,3 +1,4 @@
+// apps/web/src/components/chat/MessageInput.tsx
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send,
@@ -23,6 +24,7 @@ import {
   Trash2,
   Sticker,
   Plus,
+  Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -46,7 +48,7 @@ interface MessageInputProps {
   recordingDuration?: number;
 }
 
-const BAR_COUNT = 40;
+const BAR_COUNT = 32;
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET_VOICE =
@@ -85,7 +87,6 @@ const getResourceType = (type: string) => {
     case "image":
       return "image";
     case "video":
-      return "video";
     case "audio":
     case "voice":
       return "video";
@@ -265,6 +266,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         return data.secure_url;
       } catch (error: any) {
         console.error(`Upload error (${type}):`, error);
+        toast.error(error.message || "Upload failed");
         return null;
       }
     },
@@ -276,12 +278,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       setIsUploadingVoice(true);
       try {
         const file = new File([blob], `voice-${Date.now()}.webm`, {
-          type: "audio/webm",
+          type: blob.type || "audio/webm",
         });
         const url = await uploadToCloudinary(file, "voice");
+        if (!url) throw new Error("Cloudinary returned empty URL");
         return url;
       } catch (error: any) {
         console.error("Voice upload error:", error);
+        toast.error(error?.message || "Voice upload failed");
         return null;
       } finally {
         setIsUploadingVoice(false);
@@ -329,7 +333,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
         const url = URL.createObjectURL(blob);
         setPreviewAudioUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
+          if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
           return url;
         });
 
@@ -343,17 +347,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         setAudioDuration(dur);
         setAudioProgress(0);
 
+        // Upload immediately in background. If it fails, the user can
+        // still tap Send → handleSend re-tries the upload.
         const uploadedUrl = await uploadVoiceToCloudinary(blob, dur);
 
         if (uploadedUrl) {
           setMediaPreview((prev) =>
             prev ? { ...prev, url: uploadedUrl } : null,
           );
-          setPreviewAudioUrl(uploadedUrl);
-          toast.success("🎙️ Voice message ready to send!");
-        } else {
-          toast.error("Upload failed. Tap send to retry.");
+          setPreviewAudioUrl((prev) => {
+            if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+            return uploadedUrl;
+          });
+          toast.success("🎙️ Voice ready to send");
         }
+        // If upload failed, we deliberately leave mediaPreview.url as the
+        // blob so handleSend knows to retry it.
       };
 
       mediaRecorder.start(100);
@@ -408,7 +417,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-    if (previewAudioUrl) URL.revokeObjectURL(previewAudioUrl);
+    if (previewAudioUrl && previewAudioUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(previewAudioUrl);
+    }
     setPreviewAudioUrl(null);
     setRecordingBlob(null);
     setMediaPreview(null);
@@ -545,32 +556,45 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   }, [onCancelEdit]);
 
   const handleSend = useCallback(() => {
+    // ── Voice message branch ─────────────────────────────────
     if (mediaPreview?.type === "audio") {
       const audioUrl = mediaPreview.url;
 
+      // Case A: still a local blob → upload then send
       if (audioUrl.startsWith("blob:")) {
-        if (recordingBlob) {
-          setIsUploadingVoice(true);
-          const dur = Math.max(
-            1,
-            Math.floor(audioDuration || recordingDurationRef.current || 1),
-          );
-          uploadVoiceToCloudinary(recordingBlob, dur).then((url) => {
-            setIsUploadingVoice(false);
+        if (!recordingBlob) {
+          toast.error("Voice is still processing…");
+          return;
+        }
+        const dur = Math.max(
+          1,
+          Math.floor(audioDuration || recordingDurationRef.current || 1),
+        );
+        // Don't gate the button on upload state — just fire-and-forget.
+        uploadVoiceToCloudinary(recordingBlob, dur)
+          .then((url) => {
             if (url) {
-              onSend("🎤 Voice message", "VOICE_NOTE", url);
+              onSend("🎤 Voice message", "VOICE_NOTE", url, url);
               toast.success("🎙️ Voice message sent!");
               discardRecording();
+              setContent("");
+              setFileAttachment(null);
+              setShowAttachmentMenu(false);
+              setShowEmojiPicker(false);
+              stopTyping();
             } else {
               toast.error("Failed to upload voice. Please try again.");
             }
+          })
+          .catch(() => {
+            toast.error("Failed to upload voice. Please try again.");
           });
-        }
         return;
       }
 
-      if (audioUrl.includes("cloudinary.com")) {
-        onSend("🎤 Voice message", "VOICE_NOTE", audioUrl);
+      // Case B: already uploaded → send immediately
+      if (audioUrl.startsWith("http")) {
+        onSend("🎤 Voice message", "VOICE_NOTE", audioUrl, audioUrl);
         toast.success("🎙️ Voice message sent!");
         discardRecording();
         setContent("");
@@ -580,8 +604,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         stopTyping();
         return;
       }
+
+      // Fallback: unknown URL — send as-is
+      onSend("🎤 Voice message", "VOICE_NOTE", audioUrl, audioUrl);
+      discardRecording();
+      return;
     }
 
+    // ── Text / image / video / file branch ────────────────────
     if (!content.trim() && !mediaPreview && !fileAttachment) return;
 
     let messageType = "TEXT";
@@ -595,8 +625,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           : mediaPreview.type === "audio"
             ? "AUDIO"
             : "IMAGE";
+      if (mediaPreview.type === "image" || mediaPreview.type === "video") {
+        fileUrl = mediaPreview.url;
+      }
     } else if (fileAttachment) {
       messageType = "FILE";
+      mediaUrl = fileAttachment.url;
     }
 
     onSend(content.trim(), messageType, mediaUrl, fileUrl);
@@ -632,7 +666,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     [handleSend, editingMessage, handleCancelEdit],
   );
 
-  // ✅ FIXED: handleFileUpload with proper image preview
   const handleFileUpload = useCallback(
     async (
       e: React.ChangeEvent<HTMLInputElement>,
@@ -650,29 +683,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       setIsUploading(true);
 
       try {
-        // Create local URL for preview
         const localUrl = URL.createObjectURL(file);
-        console.log("📸 Local URL created:", localUrl);
 
-        // Set preview IMMEDIATELY
         if (type === "image") {
-          setMediaPreview({ 
-            url: localUrl, 
-            type: "image" 
-          });
-          console.log("✅ Image preview state updated with local URL");
+          setMediaPreview({ url: localUrl, type: "image" });
         } else if (type === "video") {
-          setMediaPreview({ 
-            url: localUrl, 
-            type: "video", 
-            name: file.name 
-          });
+          setMediaPreview({ url: localUrl, type: "video", name: file.name });
         } else if (type === "audio") {
-          setMediaPreview({ 
-            url: localUrl, 
-            type: "audio", 
-            name: file.name 
-          });
+          setMediaPreview({ url: localUrl, type: "audio", name: file.name });
         } else {
           setFileAttachment({
             name: file.name,
@@ -682,17 +700,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           });
         }
 
-        // Upload to Cloudinary
         const uploadedUrl = await uploadToCloudinary(file, type);
 
         if (uploadedUrl) {
-          // Update preview with Cloudinary URL
           if (type === "image") {
-            setMediaPreview({ 
-              url: uploadedUrl, 
-              type: "image" 
-            });
-            console.log("✅ Cloudinary URL set:", uploadedUrl);
+            setMediaPreview({ url: uploadedUrl, type: "image" });
           } else if (type === "video") {
             setMediaPreview({
               url: uploadedUrl,
@@ -714,9 +726,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             });
           }
 
-          // Clean up local URL after upload
           URL.revokeObjectURL(localUrl);
-
           toast.success(
             `📤 ${type.charAt(0).toUpperCase() + type.slice(1)} uploaded!`,
           );
@@ -729,7 +739,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       } finally {
         setIsUploading(false);
         setShowAttachmentMenu(false);
-        // Reset input
         e.target.value = "";
       }
     },
@@ -740,7 +749,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     if (mediaPreview?.type === "audio" && recordingBlob) {
       discardRecording();
     } else {
-      if (mediaPreview?.url) URL.revokeObjectURL(mediaPreview.url);
+      if (mediaPreview?.url && mediaPreview.url.startsWith("blob:")) {
+        URL.revokeObjectURL(mediaPreview.url);
+      }
       setMediaPreview(null);
     }
     setFileAttachment(null);
@@ -779,14 +790,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           /* ignore */
         }
       }
-      if (previewAudioUrl) URL.revokeObjectURL(previewAudioUrl);
+      if (previewAudioUrl && previewAudioUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(previewAudioUrl);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isEditMode = !!editingMessage;
+  const hasVoice = mediaPreview?.type === "audio" || !!recordingBlob;
   const canSend =
-    (content.trim() || mediaPreview || fileAttachment || recordingBlob) &&
+    (content.trim() || mediaPreview || fileAttachment || hasVoice) &&
     !isUploading &&
     !isRecording &&
     !isSelectionMode;
@@ -794,9 +808,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   return (
     <motion.div
       layout
-      className="space-y-2.5"
+      className="space-y-3"
       transition={{ type: "spring", damping: 25, stiffness: 300 }}
     >
+      {/* Hidden Inputs */}
       <input
         type="file"
         ref={imageInputRef}
@@ -826,6 +841,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         onChange={(e) => handleFileUpload(e, "file")}
       />
 
+      {/* Hidden Audio Player for Preview */}
       {activeAudioUrl && (
         <audio
           key={activeAudioUrl}
@@ -842,220 +858,210 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         />
       )}
 
-      {!isConnected && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-2.5 px-4 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-2xl"
-        >
-          <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
-          <span className="text-xs text-amber-700 font-medium">
-            Reconnecting… Messages will send when connected
-          </span>
-          <div className="flex-1" />
-          <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-        </motion.div>
-      )}
+      {/* Connection Warning */}
+      <AnimatePresence>
+        {!isConnected && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -10, height: 0 }}
+            className="flex items-center gap-2.5 px-4 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-500/10 dark:to-orange-500/10 border border-amber-200/60 dark:border-amber-500/30 rounded-2xl"
+          >
+            <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+            <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+              Reconnecting… Messages will send when connected
+            </span>
+            <div className="flex-1" />
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Recording UI */}
+      {/* Recording UI — Premium Waveform */}
       <AnimatePresence>
         {isRecording && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={{ opacity: 0, height: 0, y: 10 }}
+            animate={{ opacity: 1, height: "auto", y: 0 }}
+            exit={{ opacity: 0, height: 0, y: 10 }}
             className="overflow-hidden"
           >
-            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-red-50 to-rose-50 border border-red-200/60">
-              <motion.span
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 0.8, repeat: Infinity }}
-                className="relative flex h-3 w-3 shrink-0"
+            <div className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-gradient-to-r from-red-500/10 via-rose-500/5 to-red-500/10 border border-red-500/20 dark:border-red-500/30 backdrop-blur-md">
+              <motion.div
+                animate={{ scale: [1, 1.15, 1], opacity: [1, 0.7, 1] }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]"
               >
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
-              </motion.span>
+                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+              </motion.div>
 
-              <div className="flex h-10 flex-1 items-center gap-[2px]">
+              <div className="flex h-10 flex-1 items-center justify-center gap-[3px]">
                 {audioLevels.map((level, i) => (
                   <motion.div
                     key={i}
-                    className="w-[3px] rounded-full bg-gradient-to-t from-red-500 to-rose-500"
+                    className="w-[3px] rounded-full bg-gradient-to-t from-red-500 to-rose-400"
                     style={{
                       height: `${Math.max(12, level * 100)}%`,
-                      opacity: 0.35 + level * 0.65,
+                      opacity: 0.4 + level * 0.6,
                     }}
                     transition={{ duration: 0.05 }}
                   />
                 ))}
               </div>
 
-              <motion.span
-                key={recordingDuration}
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                className="min-w-[44px] text-right text-sm font-bold tabular-nums text-red-600"
-              >
-                {formatDuration(recordingDuration)}
-              </motion.span>
-
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={stopRecording}
-                className="shrink-0 rounded-full bg-gradient-to-r from-red-500 to-rose-500 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-red-500/20 hover:shadow-red-500/40 transition-all"
-              >
-                Stop Recording
-              </motion.button>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold tabular-nums text-red-600 dark:text-red-400 tracking-wider">
+                  {formatDuration(recordingDuration)}
+                </span>
+                <button
+                  type="button"
+                  onClick={stopRecording}
+                  className="shrink-0 rounded-full bg-red-500 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-red-500/30 hover:bg-red-600 hover:shadow-red-500/50 active:scale-95 transition-all"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Media Preview */}
+      {/* Media Previews */}
       <AnimatePresence>
-        {(mediaPreview || fileAttachment || isUploading) &&
+        {(mediaPreview || fileAttachment || isUploading || isUploadingVoice) &&
           !isEditMode &&
           !isRecording && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="flex items-center gap-3 p-3 bg-white/80 backdrop-blur-sm border border-slate-200/80 rounded-2xl shadow-sm"
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              className="flex items-center gap-3 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/50 rounded-2xl shadow-sm"
             >
               {isUploadingVoice && (
-                <div className="flex items-center gap-2 text-xs text-indigo-600 font-semibold px-2">
+                <div className="flex w-full items-center justify-center gap-2 py-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Uploading voice…
+                  Processing voice…
                 </div>
               )}
-              {isUploading ? (
-                <div className="flex items-center gap-2 text-xs text-indigo-600 font-semibold px-2">
+              {isUploading && (
+                <div className="flex w-full items-center justify-center gap-2 py-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Uploading…
+                  Uploading attachment…
                 </div>
-              ) : mediaPreview?.type === "audio" ? (
-                <div className="flex items-center gap-3 w-full">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    type="button"
-                    onClick={togglePlayback}
-                    className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 hover:from-indigo-200 hover:to-violet-200 flex items-center justify-center text-indigo-600 shrink-0 transition-all"
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-4 h-4" />
-                    ) : (
-                      <Play className="w-4 h-4 ml-0.5" />
-                    )}
-                  </motion.button>
-                  <div className="flex-1 flex items-center gap-3 min-w-0">
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={0.1}
-                      value={audioProgress}
-                      onChange={handleAudioSeek}
-                      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-indigo-600"
-                    />
-                    <span className="text-xs font-mono font-semibold text-slate-600 min-w-[40px]">
-                      {formatDuration(
-                        isPlaying || audioProgress > 0
-                          ? (audioProgress / 100) * audioDuration
-                          : audioDuration,
+              )}
+
+              {!isUploading &&
+                !isUploadingVoice &&
+                mediaPreview?.type === "audio" && (
+                  <div className="flex items-center gap-3 w-full">
+                    <button
+                      type="button"
+                      onClick={togglePlayback}
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center justify-center text-white shrink-0 transition-all active:scale-95"
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-4 h-4" />
+                      ) : (
+                        <Play className="w-4 h-4 ml-0.5" />
                       )}
-                    </span>
+                    </button>
+
+                    <div className="flex-1 flex items-center gap-3 min-w-0">
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        value={audioProgress}
+                        onChange={handleAudioSeek}
+                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer accent-indigo-600"
+                      />
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 min-w-[40px] tabular-nums">
+                        {formatDuration(
+                          isPlaying || audioProgress > 0
+                            ? (audioProgress / 100) * audioDuration
+                            : audioDuration,
+                        )}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={removeAttachment}
+                      className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-full transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    type="button"
-                    onClick={removeAttachment}
-                    className="p-1.5 text-slate-400 hover:text-rose-500 rounded-full hover:bg-rose-50 transition-all"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </motion.button>
-                </div>
-              ) : mediaPreview?.type === "image" ? (
-                /* ✅ FIXED: Image Preview with proper rendering */
-                <div className="relative group/preview">
-                  <div className="w-16 h-16 rounded-xl border border-slate-200 shadow-sm overflow-hidden bg-slate-50">
-                    {mediaPreview.url ? (
+                )}
+
+              {!isUploading &&
+                !isUploadingVoice &&
+                mediaPreview?.type === "image" && (
+                  <div className="relative group/preview">
+                    <div className="w-16 h-16 rounded-xl border border-slate-200/80 dark:border-slate-700 shadow-sm overflow-hidden bg-slate-50 dark:bg-slate-800">
                       <img
                         src={mediaPreview.url}
                         alt="Preview"
-                        className="w-full h-full object-cover transition-all"
-                        onLoad={() => {
-                          console.log("✅ Image loaded successfully:", mediaPreview.url);
-                        }}
-                        onError={(e) => {
-                          console.error("❌ Image failed to load:", mediaPreview.url);
-                          const target = e.target as HTMLImageElement;
-                          // Show fallback emoji
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent) {
-                            const fallback = document.createElement('div');
-                            fallback.className = 'w-full h-full flex items-center justify-center text-4xl';
-                            fallback.textContent = '🖼️';
-                            parent.appendChild(fallback);
-                          }
-                        }}
+                        className="w-full h-full object-cover"
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
-                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeAttachment}
+                      className="absolute -top-2 -right-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-1 rounded-full shadow-lg opacity-0 group-hover/preview:opacity-100 transition-all hover:scale-110 active:scale-95"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+
+              {!isUploading &&
+                !isUploadingVoice &&
+                mediaPreview?.type === "video" && (
+                  <div className="relative group/preview w-16 h-16 bg-slate-900 rounded-xl flex items-center justify-center shadow-sm overflow-hidden">
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+                      <Video className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="absolute bottom-1 right-1.5 text-[9px] font-medium text-white/90 z-20">
+                      Video
+                    </span>
+                    <button
+                      type="button"
+                      onClick={removeAttachment}
+                      className="absolute -top-2 -right-2 bg-white text-slate-900 p-1 rounded-full shadow-lg opacity-0 group-hover/preview:opacity-100 transition-all hover:scale-110 active:scale-95 z-30"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+
+              {!isUploading && !isUploadingVoice && fileAttachment && (
+                <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 w-full max-w-sm shadow-sm">
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg text-indigo-600 dark:text-indigo-400">
+                    <File className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {fileAttachment.name}
+                    </p>
+                    {fileAttachment.size != null && (
+                      <p className="text-[11px] text-slate-400">
+                        {formatFileSize(fileAttachment.size)}
+                      </p>
                     )}
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                  <button
                     type="button"
                     onClick={removeAttachment}
-                    className="absolute -top-2 -right-2 bg-slate-900 text-white p-0.5 rounded-full shadow-lg opacity-0 group-hover/preview:opacity-100 transition-opacity"
+                    className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-full transition-colors"
                   >
-                    <X className="w-3.5 h-3.5" />
-                  </motion.button>
-                </div>
-              ) : mediaPreview?.type === "video" ? (
-                <div className="relative group/preview w-16 h-16 bg-slate-800 rounded-xl flex items-center justify-center shadow-sm">
-                  <Video className="w-6 h-6 text-white" />
-                  <span className="absolute bottom-1 right-1 text-[8px] text-white/70 bg-black/50 px-1 rounded">
-                    {mediaPreview.name || "Video"}
-                  </span>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    type="button"
-                    onClick={removeAttachment}
-                    className="absolute -top-2 -right-2 bg-slate-900 text-white p-0.5 rounded-full shadow-lg opacity-0 group-hover/preview:opacity-100 transition-opacity"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </motion.button>
-                </div>
-              ) : null}
-
-              {fileAttachment && (
-                <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 max-w-[200px] shadow-sm">
-                  <File className="w-4 h-4 text-indigo-500 shrink-0" />
-                  <span className="truncate">{fileAttachment.name}</span>
-                  {fileAttachment.size != null && (
-                    <span className="text-[10px] text-slate-400">
-                      {formatFileSize(fileAttachment.size)}
-                    </span>
-                  )}
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    type="button"
-                    onClick={removeAttachment}
-                    className="text-slate-400 hover:text-rose-600 ml-1 transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </motion.button>
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               )}
             </motion.div>
@@ -1066,116 +1072,100 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       <AnimatePresence>
         {showAttachmentMenu && !isEditMode && (
           <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            className="flex flex-wrap gap-1 p-2.5 bg-white/95 backdrop-blur-sm border border-slate-200/80 rounded-2xl shadow-xl"
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="absolute bottom-[4.5rem] left-2 z-50 flex flex-wrap gap-1.5 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/80 dark:border-slate-700/50 rounded-2xl shadow-2xl w-[280px]"
           >
             {[
               {
                 icon: ImageIcon,
                 label: "Image",
                 action: imageInputRef,
-                color: "blue",
+                color: "text-blue-500",
+                bg: "bg-blue-50 dark:bg-blue-500/10",
               },
               {
                 icon: Video,
                 label: "Video",
                 action: videoInputRef,
-                color: "red",
+                color: "text-rose-500",
+                bg: "bg-rose-50 dark:bg-rose-500/10",
               },
               {
                 icon: Music,
                 label: "Audio",
                 action: audioInputRef,
-                color: "purple",
+                color: "text-purple-500",
+                bg: "bg-purple-50 dark:bg-purple-500/10",
               },
               {
                 icon: File,
-                label: "Document",
+                label: "Doc",
                 action: fileInputRef,
-                color: "orange",
+                color: "text-orange-500",
+                bg: "bg-orange-50 dark:bg-orange-500/10",
               },
-              { icon: ImageIcon, label: "GIF", action: null, color: "pink" },
               {
                 icon: Sticker,
                 label: "Sticker",
                 action: null,
-                color: "emerald",
+                color: "text-emerald-500",
+                bg: "bg-emerald-50 dark:bg-emerald-500/10",
+              },
+              {
+                icon: MapPin,
+                label: "Location",
+                action: "location",
+                color: "text-indigo-500",
+                bg: "bg-indigo-50 dark:bg-indigo-500/10",
               },
             ].map((item) => (
-              <motion.button
+              <button
                 key={item.label}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={() => {
-                  if (item.action?.current) {
+                  if (item.action === "location") {
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        onSend(
+                          `📍 Location: ${pos.coords.latitude}, ${pos.coords.longitude}`,
+                          "LOCATION",
+                        );
+                        setShowAttachmentMenu(false);
+                      },
+                      () => toast.error("Unable to get location."),
+                    );
+                  } else if (item.action?.current) {
                     item.action.current.click();
                   } else {
                     toast.info(`${item.label} coming soon!`);
                     setShowAttachmentMenu(false);
                   }
                 }}
-                className={`flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 rounded-xl text-xs font-medium text-slate-600 transition-all`}
+                className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-slate-100/80 dark:hover:bg-white/5 transition-all w-[calc(33.333%-0.375rem)] ${item.bg}`}
               >
-                <item.icon className={`w-4 h-4 text-${item.color}-500`} />
-                {item.label}
-              </motion.button>
+                <item.icon className={`w-5 h-5 ${item.color}`} />
+                <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                  {item.label}
+                </span>
+              </button>
             ))}
-            <div className="w-px h-8 bg-slate-200 mx-1" />
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              type="button"
-              onClick={() => {
-                navigator.geolocation.getCurrentPosition(
-                  (pos) => {
-                    onSend(
-                      `📍 Location: ${pos.coords.latitude}, ${pos.coords.longitude}`,
-                      "LOCATION",
-                    );
-                    setShowAttachmentMenu(false);
-                  },
-                  () => toast.error("Unable to get location."),
-                );
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 rounded-xl text-xs font-medium text-slate-600 transition-all"
-            >
-              <MapPin className="w-4 h-4 text-emerald-500" />
-              Location
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              type="button"
-              onClick={() => {
-                onSend("📇 Contact shared", "CONTACT");
-                setShowAttachmentMenu(false);
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 rounded-xl text-xs font-medium text-slate-600 transition-all"
-            >
-              <AtSign className="w-4 h-4 text-indigo-500" />
-              Contact
-            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main Input Area */}
+      {/* Main Composer */}
       <motion.div
-        className={`flex items-end gap-2 bg-white/95 backdrop-blur-sm border p-2 rounded-2xl shadow-sm transition-all ${
+        className={`relative flex items-end gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border p-2 rounded-2xl shadow-sm transition-all duration-200 ${
           isEditMode
-            ? "border-amber-400 ring-2 ring-amber-400/30 shadow-amber-500/10"
+            ? "border-amber-400 ring-4 ring-amber-400/10 shadow-amber-500/5"
             : isFocused
-              ? "border-indigo-500 ring-2 ring-indigo-500/30 shadow-indigo-500/10"
-              : "border-slate-200/80 hover:border-slate-300"
+              ? "border-indigo-500 ring-4 ring-indigo-500/10 shadow-indigo-500/5"
+              : "border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600"
         }`}
-        animate={{
-          scale: isRecording ? 1.02 : 1,
-        }}
       >
-        <div className="flex items-center gap-0.5 pb-1">
+        <div className="flex items-center gap-0.5 pb-0.5">
           {!isEditMode && (
             <>
               <motion.button
@@ -1183,44 +1173,29 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 whileTap={{ scale: 0.9 }}
                 type="button"
                 onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
-                className={`p-2 rounded-xl transition-all ${
+                className={`p-2.5 rounded-xl transition-all ${
                   showAttachmentMenu
-                    ? "bg-indigo-100 text-indigo-600"
-                    : "text-slate-400 hover:text-indigo-600 hover:bg-slate-100"
+                    ? "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
+                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200"
                 }`}
                 title="Attach"
               >
                 <Plus
-                  className={`w-4 h-4 transition-transform ${showAttachmentMenu ? "rotate-45" : ""}`}
+                  className={`w-5 h-5 transition-transform duration-300 ${
+                    showAttachmentMenu ? "rotate-45" : ""
+                  }`}
                 />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.9 }}
-                type="button"
-                onClick={() => {
-                  setShowEmojiPicker(!showEmojiPicker);
-                  onEmojiPickerToggle?.();
-                }}
-                className={`p-2 rounded-xl transition-all ${
-                  showEmojiPicker
-                    ? "bg-amber-100 text-amber-600"
-                    : "text-slate-400 hover:text-amber-500 hover:bg-slate-100"
-                }`}
-                title="Emoji"
-              >
-                <Smile className="w-4 h-4" />
               </motion.button>
             </>
           )}
           {isEditMode && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-amber-100/80 rounded-xl"
+              className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-200/50 dark:border-amber-500/20"
             >
-              <Edit className="w-3.5 h-3.5 text-amber-600" />
-              <span className="text-[11px] font-semibold text-amber-700">
+              <Edit className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
                 Editing
               </span>
             </motion.div>
@@ -1238,30 +1213,29 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             isEditMode
               ? "Edit your message… (Esc to cancel)"
               : isRecording
-                ? "Recording voice message…"
+                ? "Recording…"
                 : isSelectionMode
-                  ? "Select messages to manage"
+                  ? "Select messages…"
                   : "Type a message…"
           }
           rows={1}
           disabled={isRecording || isSelectionMode}
-          className="flex-1 bg-transparent py-2 px-1 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none resize-none max-h-32 min-h-[40px]"
+          className="flex-1 bg-transparent py-2.5 px-1 text-[15px] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none resize-none max-h-32 min-h-[44px] custom-scrollbar"
         />
 
-        <div className="flex items-center gap-0.5 pb-1">
+        <div className="flex items-center gap-0.5 pb-0.5">
           {isEditMode && (
             <motion.button
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
               whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.95 }}
               type="button"
               onClick={handleCancelEdit}
-              className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-              title="Cancel"
+              className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all"
+              title="Cancel edit"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </motion.button>
           )}
 
@@ -1271,20 +1245,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               whileTap={{ scale: 0.9 }}
               type="button"
               onClick={toggleRecording}
-              className={`p-2 rounded-xl transition-all relative ${
+              className={`p-2.5 rounded-xl transition-all relative ${
                 isRecording
                   ? "bg-red-500 text-white shadow-lg shadow-red-500/30"
-                  : "text-slate-400 hover:text-indigo-600 hover:bg-slate-100"
+                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200"
               }`}
-              title={isRecording ? "Stop recording" : "Record voice message"}
+              title={isRecording ? "Stop recording" : "Voice message"}
             >
               {isRecording ? (
-                <MicOff className="w-4 h-4" />
+                <MicOff className="w-5 h-5" />
               ) : (
-                <Mic className="w-4 h-4" />
-              )}
-              {!isRecording && !isEditMode && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400" />
+                <Mic className="w-5 h-5" />
               )}
             </motion.button>
           )}
@@ -1294,43 +1265,42 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.9 }}
               type="button"
-              onClick={onSelectMessages}
-              className={`p-2 rounded-xl transition-all ${
-                isSelectionMode
-                  ? "bg-indigo-100 text-indigo-600"
-                  : "text-slate-400 hover:text-indigo-600 hover:bg-slate-100"
+              onClick={() => {
+                setShowEmojiPicker(!showEmojiPicker);
+                onEmojiPickerToggle?.();
+              }}
+              className={`p-2.5 rounded-xl transition-all hidden sm:block ${
+                showEmojiPicker
+                  ? "bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200"
               }`}
-              title="Select messages"
+              title="Emoji"
             >
-              {isSelectionMode ? (
-                <CircleCheck className="w-4 h-4" />
-              ) : (
-                <Circle className="w-4 h-4" />
-              )}
+              <Smile className="w-5 h-5" />
             </motion.button>
           )}
 
           <motion.button
-            whileHover={!(!canSend || isUploadingVoice) ? { scale: 1.05 } : {}}
-            whileTap={!(!canSend || isUploadingVoice) ? { scale: 0.9 } : {}}
+            whileHover={canSend ? { scale: 1.05 } : {}}
+            whileTap={canSend ? { scale: 0.95 } : {}}
             type="button"
             onClick={handleSend}
-            disabled={!canSend || isUploadingVoice}
-            className={`p-2.5 rounded-xl shrink-0 transition-all ${
+            disabled={!canSend}
+            className={`p-3 rounded-xl shrink-0 transition-all ml-1 ${
               !canSend || isUploadingVoice
-                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                 : isEditMode
                   ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:shadow-lg hover:shadow-amber-500/30 text-white"
-                  : "bg-gradient-to-r from-indigo-600 to-violet-600 hover:shadow-lg hover:shadow-indigo-500/30 text-white"
+                  : "bg-gradient-to-r from-indigo-500 to-violet-600 hover:shadow-lg hover:shadow-indigo-500/30 text-white"
             }`}
             title={isEditMode ? "Save changes" : "Send message"}
           >
             {isUploading || isUploadingVoice ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : isEditMode ? (
-              <Check className="w-4 h-4" />
+              <Check className="w-5 h-5" />
             ) : (
-              <Send className="w-4 h-4" />
+              <Send className="w-5 h-5" />
             )}
           </motion.button>
         </div>
@@ -1340,10 +1310,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       <AnimatePresence>
         {showEmojiPicker && !isEditMode && (
           <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            className="flex flex-wrap gap-1 p-3 bg-white/95 backdrop-blur-sm border border-slate-200/80 rounded-2xl shadow-xl"
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="absolute bottom-[4.5rem] right-2 z-50 flex flex-wrap gap-1.5 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/80 dark:border-slate-700/50 rounded-2xl shadow-2xl w-[280px]"
           >
             {[
               "😊",
@@ -1371,20 +1341,18 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               "😇",
               "🤣",
             ].map((emoji) => (
-              <motion.button
+              <button
                 key={emoji}
-                whileHover={{ scale: 1.3, rotate: -5 }}
-                whileTap={{ scale: 0.8 }}
                 type="button"
                 onClick={() => {
                   setContent((prev) => prev + emoji);
                   setShowEmojiPicker(false);
                   textareaRef.current?.focus();
                 }}
-                className="p-1.5 hover:bg-slate-100 rounded-lg text-xl transition-all"
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl text-xl transition-all hover:scale-110 active:scale-95"
               >
                 {emoji}
-              </motion.button>
+              </button>
             ))}
           </motion.div>
         )}

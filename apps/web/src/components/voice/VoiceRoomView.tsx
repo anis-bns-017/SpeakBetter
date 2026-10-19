@@ -11,6 +11,23 @@
  * Stage-bottom overlays (reaction bar + clap dock) share one wrapper whose
  * bounds match the stage — left edge to the chat panel's left border — so
  * they slide with the stage when chat opens and never sit under the chat.
+ *
+ * Improvements in this revision:
+ *   - FIX (two-places bubbling): handleSendStageReaction now takes a
+ *     `local` flag. The StageReactionBar uses local:true (you see your
+ *     own ❤️🔥🎉 rise on stage). The ClapButton uses local:false (its
+ *     own local bubble particles are the clicker's feedback; other users
+ *     see your 👏 via socket broadcast). Previously both fired and you'd
+ *     see bubbles from the button AND a 👏 from a random spot on stage.
+ *   - Per-emoji flood guard (was per-user-total, which blocked ❤️ after
+ *     you'd clapped 👏 a few times).
+ *   - Audio level is smoothed with a 0.7/0.3 moving average before being
+ *     shown in the dock aura — no more flicker on every mic jitter.
+ *   - pushStageReaction dedupes by ID so a socket echo racing with the
+ *     optimistic push can't double-render the same reaction.
+ *   - RoomHotkey handlers are read through refs so the global keydown
+ *     listener never goes stale and never needs re-binding.
+ *   - ToolRail: now a single centered pill at the top of the stage.
  */
 
 import React, {
@@ -137,16 +154,13 @@ export interface RoomHotkeyHandlers {
   onToggleHand: () => void;
   onToggleChat: () => void;
   onShowShortcuts: () => void;
-  /** Return true if something was closed, so Escape is consumed. */
   onEscape: () => boolean;
   onSend: () => void;
+  onQuickReaction?: (slot: number) => void;
+  onClap?: () => void;
   composerRef: RefObject<HTMLTextAreaElement | null>;
 }
 
-/**
- * One keyboard listener for the whole room. Handlers are read through a ref
- * so the listener is attached once and never goes stale.
- */
 export function useRoomHotkeys(handlers: RoomHotkeyHandlers) {
   const ref = useRef(handlers);
   useEffect(() => {
@@ -191,6 +205,17 @@ export function useRoomHotkeys(handlers: RoomHotkeyHandlers) {
       }
 
       if (mod || e.altKey || isTypingTarget(e.target)) return;
+
+      if (h.onQuickReaction && /^[1-6]$/.test(e.key) && !e.repeat) {
+        e.preventDefault();
+        h.onQuickReaction(Number(e.key));
+        return;
+      }
+      if (key === "a" && h.onClap && !e.repeat) {
+        e.preventDefault();
+        h.onClap();
+        return;
+      }
 
       if (e.key === "?") {
         e.preventDefault();
@@ -248,32 +273,72 @@ export function useRoomDocumentTitle(
   }, [roomName, unread]);
 }
 
+function useMouseParallax(enabled: boolean) {
+  const pos = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    if (!enabled || typeof window === "undefined") return;
+    let raf = 0;
+    const onMove = (e: MouseEvent) => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        const nx = (e.clientX / window.innerWidth - 0.5) * 2;
+        const ny = (e.clientY / window.innerHeight - 0.5) * 2;
+        pos.current = { x: nx, y: ny };
+        raf = 0;
+      });
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [enabled]);
+  return pos;
+}
+
 // ============================================================
 // 2. CHROME
 // ============================================================
 
 export const AmbientBackdrop: React.FC<{ subtle?: boolean }> = ({ subtle }) => {
   const reduced = useReducedMotion();
+  const mouse = useMouseParallax(!reduced);
+
   const orbs = [
     {
       cls: "-top-40 -left-40 w-[520px] h-[520px] blur-[120px]",
       bg: "radial-gradient(circle at 30% 30%, rgba(129,140,248,0.55), transparent 65%)",
       o: subtle ? 0.35 : 0.55,
       d: 0,
+      parallax: 32,
     },
     {
       cls: "-bottom-52 -right-32 w-[620px] h-[620px] blur-[140px]",
       bg: "radial-gradient(circle at 60% 40%, rgba(236,72,153,0.4), transparent 65%)",
       o: subtle ? 0.3 : 0.45,
       d: 0.15,
+      parallax: -28,
     },
     {
       cls: "top-1/3 left-1/2 -translate-x-1/2 w-[520px] h-[520px] blur-[160px]",
       bg: "radial-gradient(circle at 50% 50%, rgba(56,189,248,0.35), transparent 70%)",
       o: subtle ? 0.25 : 0.4,
       d: 0.3,
+      parallax: 20,
     },
   ];
+
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    if (reduced) return;
+    let raf = 0;
+    const tick = () => {
+      setOffset({ x: mouse.current.x, y: mouse.current.y });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [mouse, reduced]);
 
   return (
     <div
@@ -302,7 +367,12 @@ export const AmbientBackdrop: React.FC<{ subtle?: boolean }> = ({ subtle }) => {
                 }
           }
           className={`absolute rounded-full ${orb.cls}`}
-          style={{ background: orb.bg }}
+          style={{
+            background: orb.bg,
+            transform: reduced
+              ? undefined
+              : `translate(${offset.x * orb.parallax}px, ${offset.y * orb.parallax}px)`,
+          }}
         />
       ))}
       <div
@@ -316,9 +386,6 @@ export const AmbientBackdrop: React.FC<{ subtle?: boolean }> = ({ subtle }) => {
   );
 };
 
-// ------------------------------------------------------------
-// Room-wide drag & drop
-// ------------------------------------------------------------
 export const RoomDropZone: React.FC<{
   onFile: (file: File) => void;
   disabled?: boolean;
@@ -399,7 +466,13 @@ export const RoomDropZone: React.FC<{
                 "0 30px 80px -20px rgba(129,140,248,0.45), inset 0 0 60px rgba(129,140,248,0.08)",
             }}
           >
-            <div
+            <motion.div
+              animate={{ y: [0, -6, 0] }}
+              transition={{
+                duration: 1.8,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
               className="mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center"
               style={{
                 background: `linear-gradient(135deg, ${THEME.colors.accent.primary}, ${THEME.colors.accent.secondary})`,
@@ -407,7 +480,7 @@ export const RoomDropZone: React.FC<{
               }}
             >
               <Upload className="w-8 h-8 text-white" />
-            </div>
+            </motion.div>
             <p
               className="text-xl font-bold tracking-tight"
               style={{ color: THEME.colors.text.primary }}
@@ -429,7 +502,7 @@ export const RoomDropZone: React.FC<{
 };
 
 // ------------------------------------------------------------
-// Tool rail
+// Tool rail — centered pill, single row (left group · divider · right group)
 // ------------------------------------------------------------
 export interface ToolRailItem {
   id: string;
@@ -494,35 +567,44 @@ const RailButton: React.FC<{ item: ToolRailItem }> = ({ item }) => {
 export const RoomToolRail: React.FC<{
   left: ToolRailItem[];
   right: ToolRailItem[];
-}> = ({ left, right }) => (
-  <>
+}> = ({ left, right }) => {
+  const visibleLeft = left.filter((i) => !i.hidden);
+  const visibleRight = right.filter((i) => !i.hidden);
+  const nothing = visibleLeft.length === 0 && visibleRight.length === 0;
+  if (nothing) return null;
+
+  return (
     <div
-      className="absolute top-20 left-4 z-40 flex items-center gap-2"
+      className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3 py-2 rounded-full border shadow-2xl"
       role="toolbar"
       aria-label="Room tools"
+      style={{
+        background: "rgba(14,14,26,0.82)",
+        borderColor: THEME.colors.border.primary,
+        backdropFilter: "blur(16px)",
+        boxShadow:
+          "0 20px 48px -18px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
+      }}
     >
-      {left
-        .filter((i) => !i.hidden)
-        .map((item) => (
-          <RailButton key={item.id} item={item} />
-        ))}
+      {visibleLeft.map((item) => (
+        <RailButton key={item.id} item={item} />
+      ))}
+      {visibleLeft.length > 0 && visibleRight.length > 0 && (
+        <span
+          aria-hidden
+          className="w-px h-6 mx-0.5"
+          style={{ background: THEME.colors.border.primary }}
+        />
+      )}
+      {visibleRight.map((item) => (
+        <RailButton key={item.id} item={item} />
+      ))}
     </div>
-    <div
-      className="absolute top-20 right-4 z-40 flex items-center gap-2"
-      role="toolbar"
-      aria-label="Audio tools"
-    >
-      {right
-        .filter((i) => !i.hidden)
-        .map((item) => (
-          <RailButton key={item.id} item={item} />
-        ))}
-    </div>
-  </>
-);
+  );
+};
 
 // ------------------------------------------------------------
-// Connection banner
+// Connection banner — dismissible with animated icons
 // ------------------------------------------------------------
 export const ConnectionBanner: React.FC<{
   socketConnected: boolean;
@@ -530,6 +612,8 @@ export const ConnectionBanner: React.FC<{
   voiceConnecting: boolean;
   mockMode?: boolean;
 }> = ({ socketConnected, voiceConnected, voiceConnecting, mockMode }) => {
+  const [dismissed, setDismissed] = useState<string | null>(null);
+
   let message: string | null = null;
   let kind: "info" | "warn" = "warn";
   let busy = false;
@@ -547,6 +631,7 @@ export const ConnectionBanner: React.FC<{
     busy = true;
   }
 
+  const isDismissed = dismissed === message;
   const color =
     kind === "info"
       ? THEME.colors.accent.tertiary
@@ -555,7 +640,7 @@ export const ConnectionBanner: React.FC<{
 
   return (
     <AnimatePresence initial={false}>
-      {message && (
+      {message && !isDismissed && (
         <motion.div
           key={message}
           initial={{ opacity: 0, height: 0 }}
@@ -576,8 +661,26 @@ export const ConnectionBanner: React.FC<{
               borderBottom: `1px solid ${THEME.colors.border.primary}`,
             }}
           >
-            <Icon className={`w-3.5 h-3.5 ${busy ? "animate-spin" : ""}`} />
+            <motion.span
+              animate={busy ? { rotate: 360 } : { rotate: 0 }}
+              transition={
+                busy
+                  ? { duration: 1, repeat: Infinity, ease: "linear" }
+                  : { duration: 0.2 }
+              }
+            >
+              <Icon className="w-3.5 h-3.5" />
+            </motion.span>
             {message}
+            <button
+              type="button"
+              onClick={() => setDismissed(message)}
+              aria-label="Dismiss"
+              className="ml-1 p-0.5 rounded-full hover:bg-white/10 transition-colors"
+              style={{ color }}
+            >
+              <X className="w-3 h-3" />
+            </button>
           </div>
         </motion.div>
       )}
@@ -607,6 +710,53 @@ const REFRESH_MS = 20_000;
 const lc = (v: unknown) => String(v ?? "").toLowerCase();
 const countOf = (room: any): number =>
   room?._count?.participants ?? room?.participants?.length ?? 0;
+
+const ActivitySpark: React.FC<{ roomId: string; speaking: boolean }> = ({
+  roomId,
+  speaking,
+}) => {
+  const bars = useMemo(() => {
+    let seed = 0;
+    for (let i = 0; i < roomId.length; i++)
+      seed = (seed * 31 + roomId.charCodeAt(i)) >>> 0;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return (seed & 0xffff) / 0xffff;
+    };
+    return Array.from({ length: 12 }, () => 0.2 + rand() * 0.8);
+  }, [roomId]);
+
+  return (
+    <div className="flex items-end gap-[2px] h-4" aria-hidden>
+      {bars.map((h, i) => (
+        <motion.span
+          key={i}
+          className="w-[2px] rounded-full"
+          style={{
+            background: speaking
+              ? THEME.colors.status.online
+              : THEME.colors.accent.primary,
+            opacity: speaking ? 0.5 + h * 0.5 : 0.3 + h * 0.3,
+          }}
+          animate={
+            speaking
+              ? { height: [`${h * 100}%`, `${h * 130}%`, `${h * 100}%`] }
+              : { height: `${h * 60}%` }
+          }
+          transition={
+            speaking
+              ? {
+                  duration: 0.8 + i * 0.05,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }
+              : { duration: 0.2 }
+          }
+        />
+      ))}
+    </div>
+  );
+};
 
 const RoomSkeleton: React.FC = () => (
   <div
@@ -703,6 +853,16 @@ const RoomCard: React.FC<{
           borderColor: THEME.colors.border.primary,
         }}
       >
+        {hasActiveSpeakers && (
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-[2px]"
+            style={{
+              background: `linear-gradient(90deg, transparent, ${THEME.colors.status.online}, transparent)`,
+              opacity: 0.8,
+            }}
+          />
+        )}
         <div className="flex items-center gap-4 relative">
           <div className="relative shrink-0">
             <div
@@ -812,6 +972,9 @@ const RoomCard: React.FC<{
                   )}
                 </span>
               )}
+              <span className="hidden sm:flex items-center gap-1.5 ml-auto">
+                <ActivitySpark roomId={room.id} speaking={hasActiveSpeakers} />
+              </span>
             </div>
           </div>
 
@@ -1492,15 +1655,14 @@ const INITIAL_PANELS: Record<PanelKey, boolean> = {
 
 const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
 const MAX_STAGE_REACTIONS = 40;
+const MAX_REACTIONS_PER_USER_PER_EMOJI_PER_WINDOW = 8;
+const REACTION_FLOOD_WINDOW_MS = 4000;
 const SEND_TIMEOUT_MS = 10_000;
 const READY_FALLBACK_MS = 12_000;
 
-/**
- * Chat panel width (matches Tailwind `md:w-[400px]`).
- * Used to compute the stage-bottom overlay's right bound so the reaction
- * bar / clap dock never sit under the chat panel on md+.
- */
-const CHAT_PANEL_WIDTH = 400;
+const QUICK_REACTION_SLOTS = ["👏", "❤️", "🔥", "🎉", "😮", "🙌"] as const;
+
+const AUDIO_LEVEL_SMOOTHING = 0.7;
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, Number(n) || 0));
 
@@ -1597,46 +1759,90 @@ const StatusScreen: React.FC<{ children: React.ReactNode }> = ({
   </div>
 );
 
-// ------------------------------------------------------------
-// Premium clap dock
-// ------------------------------------------------------------
 const ClapDock: React.FC<{
   size: "sm" | "md";
   onClap: () => void;
   showRemaining?: boolean;
-}> = ({ size, onClap, showRemaining = true }) => (
-  <div
-    className="pointer-events-auto relative rounded-full p-1.5"
-    style={{
-      background:
-        "linear-gradient(180deg, rgba(24,24,42,0.9), rgba(14,14,26,0.9))",
-      border: `1px solid rgba(129,140,248,0.28)`,
-      backdropFilter: "blur(14px)",
-      boxShadow:
-        "0 20px 48px -18px rgba(129,140,248,0.55), 0 0 0 1px rgba(129,140,248,0.08), inset 0 1px 0 rgba(255,255,255,0.05)",
-    }}
-  >
-    <span
-      aria-hidden
-      className="pointer-events-none absolute inset-0 rounded-full"
+  audioLevel?: number;
+}> = ({ size, onClap, showRemaining = true, audioLevel = 0 }) => {
+  const [streak, setStreak] = useState(0);
+
+  return (
+    <div
+      className="pointer-events-auto relative rounded-full p-1.5"
       style={{
         background:
-          "radial-gradient(circle at 50% 50%, rgba(129,140,248,0.18), transparent 70%)",
+          "linear-gradient(180deg, rgba(24,24,42,0.9), rgba(14,14,26,0.9))",
+        border: `1px solid rgba(129,140,248,0.28)`,
+        backdropFilter: "blur(14px)",
+        boxShadow:
+          "0 20px 48px -18px rgba(129,140,248,0.55), 0 0 0 1px rgba(129,140,248,0.08), inset 0 1px 0 rgba(255,255,255,0.05)",
       }}
-    />
-    <ClapButton
-      onClap={() => handleSendStageReaction("👏")}
-      size="md"
-      maxClaps={100}
-      cooldownMs={180}
-      showRemaining={false}
-    />
-  </div>
-);
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 50%, rgba(129,140,248,0.18), transparent 70%)",
+        }}
+      />
+      {audioLevel > 0.05 && (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-full"
+          style={{
+            boxShadow: `0 0 ${8 + audioLevel * 24}px ${audioLevel * 4}px rgba(129,140,248,${0.15 + audioLevel * 0.25})`,
+          }}
+          animate={{ opacity: [0.4, 0.8, 0.4] }}
+          transition={{ duration: 0.6, repeat: Infinity }}
+        />
+      )}
+      <div className="relative flex items-center gap-1.5">
+        <ClapButton
+          onClap={onClap}
+          onStreakChange={setStreak}
+          size={size}
+          maxClaps={100}
+          cooldownMs={180}
+          showRemaining={false}
+        />
+        <AnimatePresence>
+          {streak >= 3 && (
+            <motion.span
+              key="streak"
+              initial={{ opacity: 0, scale: 0.6, x: -4 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.6, x: -4 }}
+              className="px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums"
+              style={{
+                background:
+                  streak >= 5
+                    ? `linear-gradient(135deg, ${THEME.colors.accent.warning}, #f97316)`
+                    : "rgba(129,140,248,0.2)",
+                color: "#fff",
+              }}
+            >
+              {streak >= 5 ? `🔥 ${streak}` : `×${streak}`}
+            </motion.span>
+          )}
+        </AnimatePresence>
+        <span
+          className="hidden sm:inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-md text-[9px] font-mono font-bold border"
+          style={{
+            borderColor: THEME.colors.border.primary,
+            color: THEME.colors.text.muted,
+            background: "rgba(255,255,255,0.03)",
+          }}
+          title="Press A to clap"
+        >
+          A
+        </span>
+      </div>
+    </div>
+  );
+};
 
-// ============================================================
-// VOICE ROOM VIEW
-// ============================================================
 export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   roomId,
   onLeave,
@@ -1702,6 +1908,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const uploadingRef = useRef(false);
   const pendingAttachmentRef = useRef<PendingAttachment | null>(null);
   const messagesRef = useRef<LocalVoiceMessage[]>([]);
+  const reactionWindowRef = useRef<
+    Map<string, { count: number; firstAt: number }>
+  >(new Map());
+  const smoothedAudioRef = useRef(0);
   const live = useRef({ showChat, isNearBottom, soundEnabled, panels });
 
   useEffect(() => {
@@ -1762,7 +1972,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 
   const liveKitOptions = useMemo(
     () => ({
-      onAudioLevel: (level: number) => setAudioLevel(level),
+      onAudioLevel: (level: number) => {
+        smoothedAudioRef.current =
+          smoothedAudioRef.current * AUDIO_LEVEL_SMOOTHING +
+          level * (1 - AUDIO_LEVEL_SMOOTHING);
+        setAudioLevel(smoothedAudioRef.current);
+      },
       onSpeakingStatusChange: (userId: string, isSpeaking: boolean) => {
         if (userId === user?.id) broadcastSpeaking(isSpeaking);
       },
@@ -2474,16 +2689,17 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     (
       r: Omit<StageReaction, "xPercent" | "createdAt"> & { createdAt?: number },
     ) => {
-      setStageReactions((prev) =>
-        [
+      setStageReactions((prev) => {
+        if (prev.some((p) => p.id === r.id)) return prev;
+        return [
           ...prev,
           {
             ...r,
             xPercent: 12 + Math.random() * 76,
             createdAt: r.createdAt ?? Date.now(),
           } as StageReaction,
-        ].slice(-MAX_STAGE_REACTIONS),
-      );
+        ].slice(-MAX_STAGE_REACTIONS);
+      });
     },
     [],
   );
@@ -2527,17 +2743,56 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   }, [hasReactions]);
 
   const handleSendStageReaction = useCallback(
-    (emoji: string) => {
-      pushStageReaction({
-        id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        emoji,
-        userId: user?.id || "me",
-        userName: (user as any)?.name,
-      });
-      sendStageReaction(emoji);
+    (
+      emoji: string,
+      options: { local?: boolean; broadcast?: boolean } = {},
+    ) => {
+      const { local = true, broadcast = true } = options;
+      const uid = user?.id || "me";
+      const now = Date.now();
+      const win = reactionWindowRef.current;
+      const floodKey = `${uid}:${emoji}`;
+      const entry = win.get(floodKey) || { count: 0, firstAt: now };
+
+      if (now - entry.firstAt > REACTION_FLOOD_WINDOW_MS) {
+        entry.count = 0;
+        entry.firstAt = now;
+      }
+      if (entry.count >= MAX_REACTIONS_PER_USER_PER_EMOJI_PER_WINDOW) {
+        toast.warning("Slow down — too many reactions in a row", {
+          duration: 1500,
+        });
+        return;
+      }
+      entry.count += 1;
+      win.set(floodKey, entry);
+
+      if (local) {
+        pushStageReaction({
+          id: `local-${now}-${Math.random().toString(36).slice(2)}`,
+          emoji,
+          userId: uid,
+          userName: (user as any)?.name,
+        });
+      }
+      if (broadcast) {
+        sendStageReaction(emoji);
+      }
     },
     [sendStageReaction, user, pushStageReaction],
   );
+
+  const handleQuickReaction = useCallback(
+    (slot: number) => {
+      const emoji = QUICK_REACTION_SLOTS[slot - 1];
+      if (emoji) handleSendStageReaction(emoji, { local: true });
+    },
+    [handleSendStageReaction],
+  );
+
+  const handleClap = useCallback(() => {
+    handleSendStageReaction("👏", { local: false, broadcast: true });
+  }, [handleSendStageReaction]);
 
   useEffect(() => {
     if (!roomId || !user?.id || token || joinInFlight.current) return;
@@ -2758,6 +3013,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     onShowShortcuts: () => togglePanel("shortcuts"),
     onEscape: handleEscape,
     onSend: handleSendMessage,
+    onQuickReaction: handleQuickReaction,
+    onClap: handleClap,
     composerRef: textareaRef,
   });
 
@@ -3052,6 +3309,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             hidden: !isModerator,
             onClick: () => togglePanel("cohost"),
           },
+        ]}
+        right={[
           {
             id: "corrections",
             label: panels.corrections
@@ -3071,8 +3330,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             badge: journal.stats.dueForReview.length,
             onClick: () => togglePanel("journal"),
           },
-        ]}
-        right={[
           {
             id: "effects",
             label: panels.effects ? "Hide voice effects" : "Voice effects",
@@ -3115,6 +3372,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
                   value: `${Math.floor(roomDuration / 60)}m ${String(roomDuration % 60).padStart(2, "0")}s`,
                 },
                 { label: "Messages", value: messages.length },
+                { label: "Reactions", value: stageReactions.length },
               ].map((stat) => (
                 <div key={stat.label} className="flex items-center gap-1.5">
                   <span style={{ color: THEME.colors.text.muted }}>
@@ -3207,17 +3465,17 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             </div>
           </div>
 
-          {/* Stage-bottom control strip — reaction bar + clap dock, laid
-              out as a normal flex row so they never float over content
-              and never collide with the chat panel or the audio bar. */}
           <div className="relative z-20 shrink-0 hidden sm:flex items-center justify-center gap-3 px-4 py-2">
             <div className="pointer-events-auto">
-              <StageReactionBar onSend={handleSendStageReaction} />
+              <StageReactionBar
+                onSend={(emoji) => handleSendStageReaction(emoji)}
+              />
             </div>
             <div className="pointer-events-auto shrink-0">
               <ClapDock
-                onClap={() => handleSendStageReaction("👏")}
+                onClap={handleClap}
                 size="sm"
+                audioLevel={clamp01(audioLevel)}
               />
             </div>
           </div>
@@ -3282,16 +3540,16 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         </AnimatePresence>
       </main>
 
-      {/* Mobile clap — compact, only when chat is closed */}
       {!showChat && (
         <div
           className="pointer-events-none absolute left-4 z-[68] sm:hidden"
           style={{ bottom: "7rem" }}
         >
           <ClapDock
-            onClap={() => handleSendStageReaction("👏")}
+            onClap={handleClap}
             size="sm"
             showRemaining={false}
+            audioLevel={clamp01(audioLevel)}
           />
         </div>
       )}
@@ -3514,7 +3772,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             backdropFilter: "blur(10px)",
           }}
         >
-          {modKeyLabel()}+⇧+M mute · M mute · C chat · ? shortcuts · Esc close
+          {modKeyLabel()}+⇧+M mute · M mute · C chat · 1–6 reactions · A clap · ?
+          shortcuts · Esc close
         </div>
       </div>
     </div>
