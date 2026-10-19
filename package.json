@@ -9,7 +9,7 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "clean": "turbo clean && rimraf node_modules",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "pnpm --dir server exec ts-node prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
