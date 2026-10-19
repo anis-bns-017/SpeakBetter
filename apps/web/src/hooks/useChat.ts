@@ -135,7 +135,7 @@ export const chatApi = {
     communityId: string,
     params?: { limit?: number; before?: string },
   ) =>
-    apiClient.get<Message[]>(`/communities/${communityId}/messages`, {
+    apiClient.get<Message[]>(`/chat/community/${communityId}/messages`, {
       params,
     }),
   sendCommunityMessage: (
@@ -147,7 +147,7 @@ export const chatApi = {
       fileUrl?: string;
       replyToId?: string;
     },
-  ) => apiClient.post<Message>(`/communities/${communityId}/messages`, data),
+  ) => apiClient.post<Message>(`/chat/community/${communityId}/messages`, data),
 };
 
 // ---------- Message Cache Helpers ----------
