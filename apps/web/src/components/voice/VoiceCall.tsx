@@ -332,7 +332,9 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
   const [volume, setVolume] = useState(80);
   const [audioLevel, setAudioLevel] = useState(0);
 
-  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
 
   // Get LiveKit token
   useEffect(() => {
@@ -342,7 +344,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
       try {
         setIsConnecting(true);
         const res = await voiceApi.joinRoom(roomId);
-        setToken(res.data.token);
+        setToken(res.data.token ?? null);
         setIsCallActive(true);
         setIsConnecting(false);
         toast.success("🎧 Connected to call");
@@ -374,7 +376,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
     toggleMute,
     isMuted: liveKitIsMuted,
     error,
-    participants: livekitParticipants,
+    speakingParticipants,
+    remoteAudioLevels,
     isMockMode,
   } = liveKitResult;
 
@@ -421,10 +424,6 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
     if (room?.participants) {
       room.participants.forEach((p: any) => {
         if (p.userId !== user?.id) {
-          const liveKitParticipant = livekitParticipants?.find(
-            (lp: any) => lp.identity === p.userId,
-          );
-
           list.push({
             id: p.userId,
             name: p.user?.name || "Unknown",
@@ -432,8 +431,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
             isMuted: p.isMuted || false,
             isVideoOn: false,
             isScreenSharing: false,
-            isSpeaking: liveKitParticipant?.isSpeaking || false,
-            audioLevel: liveKitParticipant?.audioLevel || 0,
+            isSpeaking: !!speakingParticipants[p.userId],
+            audioLevel: remoteAudioLevels[p.userId] || 0,
             joinedAt: p.joinedAt || new Date().toISOString(),
           });
         }
@@ -448,7 +447,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
     isVideoOn,
     isScreenSharing,
     audioLevel,
-    livekitParticipants,
+    speakingParticipants,
+    remoteAudioLevels,
   ]);
 
   const handleEndCall = useCallback(() => {
@@ -466,7 +466,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
     const getToken = async () => {
       try {
         const res = await voiceApi.joinRoom(roomId);
-        setToken(res.data.token);
+        setToken(res.data.token ?? null);
         toast.success("🎧 Connected to call");
       } catch (error) {
         toast.error("Failed to join call");

@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { voiceApi } from '../services/api/voice';
+import { voiceApi } from './voiceApi';
 import { useSocket } from './useSocket';
 
 export interface Transcription {

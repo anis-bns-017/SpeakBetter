@@ -636,7 +636,7 @@ const CreateRoomModal: React.FC<{
                           color: isSelected
                             ? COLORS.spotlight
                             : COLORS.textMuted,
-                          ringColor: COLORS.spotlight,
+                          ["--tw-ring-color" as string]: COLORS.spotlight,
                         }}
                       >
                         <Icon
@@ -730,7 +730,7 @@ const CreateRoomModal: React.FC<{
                             borderColor: isSelected
                               ? COLORS.spotlight
                               : COLORS.border,
-                            ringColor: COLORS.spotlight,
+                            ["--tw-ring-color" as string]: COLORS.spotlight,
                           }}
                         >
                           <Icon
@@ -1864,7 +1864,7 @@ export const VoicePage = () => {
                           filterType === type ? color : COLORS.surfaceRaised,
                         color:
                           filterType === type ? COLORS.void : COLORS.textMuted,
-                        ringColor: color,
+                        ["--tw-ring-color" as string]: color,
                       }}
                     >
                       {TYPE_LABELS[type] || type}

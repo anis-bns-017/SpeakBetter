@@ -3,18 +3,19 @@ import { io, Socket } from "socket.io-client";
 import { useAuth } from "../contexts/AuthContext";
 
 export const useSocket = () => {
-    const { user, token } = useAuth();
+  const { user } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    if (!user || !token) return;
+    if (!user) return;
 
+    // Auth travels in the httpOnly cookie, same as the voice socket in useVoice
     const socketInstance = io(
-      process.env.NEXT_PUBLIC_WS_URL || "http://localhost:3000",
+      import.meta.env.VITE_SOCKET_URL || "http://localhost:3000/voice",
       {
-        auth: { token },
+        withCredentials: true,
         transports: ["websocket"],
         reconnection: true,
         reconnectionAttempts: 5,
@@ -45,7 +46,7 @@ export const useSocket = () => {
         socketRef.current = null;
       }
     };
-  }, [user, token]);
+  }, [user]);
 
   const emit = useCallback(
     (event: string, data: any) => {

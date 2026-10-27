@@ -11,7 +11,9 @@ import {
   Track,
   LocalAudioTrack,
   RemoteAudioTrack,
+  RemoteTrack,
   Participant,
+  ConnectionQuality,
 } from "livekit-client";
 
 // ---------- Environment Variables ----------
@@ -19,10 +21,6 @@ const getEnvVar = (key: string, fallback: string): string => {
   if (typeof import.meta !== "undefined" && import.meta.env) {
     const viteVar = import.meta.env[key];
     if (viteVar) return viteVar;
-  }
-  if (typeof process !== "undefined" && process.env) {
-    const nextVar = process.env[key];
-    if (nextVar) return nextVar;
   }
   return fallback;
 };
@@ -39,13 +37,22 @@ export class RealtimeVoiceActivityDetector {
   private speaking = false;
   private aboveSince = 0;
   private lastAbove = 0;
+  private readonly startThreshold: number;
+  private readonly stopThreshold: number;
+  private readonly minimumSpeechMs: number;
+  private readonly releaseMs: number;
 
   constructor(
-    private readonly startThreshold = 0.055,
-    private readonly stopThreshold = 0.03,
-    private readonly minimumSpeechMs = 70,
-    private readonly releaseMs = 260,
-  ) {}
+    startThreshold = 0.055,
+    stopThreshold = 0.03,
+    minimumSpeechMs = 70,
+    releaseMs = 260,
+  ) {
+    this.startThreshold = startThreshold;
+    this.stopThreshold = stopThreshold;
+    this.minimumSpeechMs = minimumSpeechMs;
+    this.releaseMs = releaseMs;
+  }
 
   update(level: number, now = Date.now()) {
     const safe = Math.max(0, Math.min(1, Number(level) || 0));
@@ -163,6 +170,7 @@ export interface VoiceRoom {
   creatorId: string;
   creator: { id: string; name: string; avatarUrl?: string };
   scheduledFor?: string;
+  startedAt?: string | null;
   maxParticipants: number;
   isRecording: boolean;
   language?: string;
@@ -801,6 +809,7 @@ export const useReactToVoiceMessage = () => {
       roomId: string;
       messageId: string;
       emoji: string;
+      userId?: string;
     }) => {
       const response = await voiceApi.reactToRoomMessage(
         roomId,
@@ -1427,6 +1436,7 @@ type LiveKitRoomOptions = {
     states: Record<string, LiveKitParticipantVoiceState>,
   ) => void;
   onSpeakingStatusChange?: (userId: string, isSpeaking: boolean) => void;
+  onConnectionQuality?: (quality: string) => void;
 };
 
 export const useLiveKitRoom = (
@@ -1497,6 +1507,7 @@ export const useLiveKitRoom = (
     }
 
     let livekitRoom: Room | null = null;
+    let localLevelInterval: ReturnType<typeof setInterval> | null = null;
     const attachedAudioElements = new Map<string, HTMLMediaElement[]>();
 
     const attachRemoteAudio = (
@@ -1517,6 +1528,7 @@ export const useLiveKitRoom = (
         audioElement.setAttribute("data-livekit-audio", participantIdentity);
         audioElement.style.display = "none";
         document.body.appendChild(audioElement);
+        attachedAudioElements.set(participantIdentity, [audioElement]);
       } catch (error) {
         console.error("❌ Failed to attach remote audio:", error);
       }
@@ -1585,8 +1597,9 @@ export const useLiveKitRoom = (
 
         livekitRoom.on(
           RoomEvent.TrackSubscribed,
-          (track: any, _publication: any, participant: Participant) => {
-            attachRemoteAudio(track, participant);
+          (track: RemoteTrack, _publication: any, participant: Participant) => {
+            if (track.kind !== Track.Kind.Audio) return;
+            attachRemoteAudio(track as RemoteAudioTrack, participant.identity);
           },
         );
 
@@ -1690,12 +1703,20 @@ export const useLiveKitRoom = (
           },
         );
 
-        livekitRoom.on(RoomEvent.AudioLevel, (levels: any[]) => {
-          const local = levels.find((item) => item.participant?.isLocal);
-          const level = Math.max(0, Math.min(1, Number(local?.level ?? 0)));
+        livekitRoom.on(
+          RoomEvent.ConnectionQualityChanged,
+          (quality: ConnectionQuality, participant: Participant) => {
+            if (participant.isLocal) options?.onConnectionQuality?.(quality);
+          },
+        );
+
+        // livekit-client has no per-frame audio level event; poll the local mic level
+        localLevelInterval = setInterval(() => {
+          const local = livekitRoom?.localParticipant;
+          const level = Math.max(0, Math.min(1, Number(local?.audioLevel ?? 0)));
           setAudioLevel(level);
           options?.onAudioLevel?.(level);
-        });
+        }, 100);
 
         await livekitRoom.connect(liveKitUrl, token);
 
@@ -1723,7 +1744,10 @@ export const useLiveKitRoom = (
         livekitRoom.remoteParticipants.forEach((participant) => {
           participant.trackPublications.forEach((publication) => {
             if (publication.kind === Track.Kind.Audio && publication.track) {
-              attachRemoteAudio(publication.track, participant);
+              attachRemoteAudio(
+                publication.track as RemoteAudioTrack,
+                participant.identity,
+              );
             }
           });
         });
@@ -1759,6 +1783,8 @@ export const useLiveKitRoom = (
 
     return () => {
       isMountedRef.current = false;
+
+      if (localLevelInterval) clearInterval(localLevelInterval);
 
       attachedAudioElements.forEach((elements) => {
         elements.forEach((element) => {

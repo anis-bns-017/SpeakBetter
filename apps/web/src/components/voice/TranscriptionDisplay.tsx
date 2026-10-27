@@ -18,6 +18,7 @@ import {
   Download,
   Loader2,
   ChevronDown,
+  ArrowDown,
   ChevronUp,
   Filter,
   Search,
@@ -617,16 +618,16 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleExport = (format: "txt" | "json" | "srt") => {
+  const handleExport = (exportFormat: "txt" | "json" | "srt") => {
     if (onExport) {
-      onExport(format);
+      onExport(exportFormat);
       return;
     }
 
     let content = "";
     let filename = `transcription-${new Date().toISOString()}`;
 
-    if (format === "txt") {
+    if (exportFormat === "txt") {
       content = transcriptions
         .filter((t) => t.isFinal)
         .map(
@@ -635,10 +636,10 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
         )
         .join("\n");
       filename += ".txt";
-    } else if (format === "json") {
+    } else if (exportFormat === "json") {
       content = JSON.stringify(transcriptions, null, 2);
       filename += ".json";
-    } else if (format === "srt") {
+    } else if (exportFormat === "srt") {
       content = transcriptions
         .filter((t) => t.isFinal)
         .map((t, i) => {
@@ -657,7 +658,7 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(`Exported as ${format.toUpperCase()}`);
+    toast.success(`Exported as ${exportFormat.toUpperCase()}`);
   };
 
   const filteredTranscriptions = useMemo(() => {

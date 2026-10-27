@@ -462,7 +462,7 @@ const AvatarStack: React.FC<{
           style={{
             width: size,
             height: size,
-            ringColor: THEME.void,
+            ["--tw-ring-color" as string]: THEME.void,
             background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
             boxShadow: `0 0 0 2px ${THEME.void}`,
           }}
@@ -1711,7 +1711,7 @@ export const DiscoveryPage: React.FC = () => {
                 </div>
               ))}
             </div>
-          ) : displayRooms?.length > 0 ? (
+          ) : displayRooms && displayRooms.length > 0 ? (
             <motion.div
               layout
               className={`grid gap-4 ${

@@ -3025,7 +3025,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         new Set(
           allParticipants
             .flatMap((p) => [p.nativeLanguage, p.learningLanguage])
-            .filter(Boolean),
+            .filter((lang): lang is string => Boolean(lang)),
         ),
       ),
     [allParticipants],
@@ -3040,7 +3040,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         avatarUrl: p.avatarUrl,
         isVerified: p.isVerified,
         isPremium: p.isPremium,
-        raisedHand: p.raisedHand,
+        raisedHand: !!p.raisedHand,
         raisedHandAt: (p as any).raisedHandAt,
         isSpeaking: p.isSpeaking,
         isMuted: p.isMuted,
@@ -3560,16 +3560,11 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         volume={volume}
         audioLevel={audioLevel}
         isHost={isHost}
-        isRecording={isRecording}
-        isRaisingHand={handRaised}
         onToggleMute={handleToggleMute}
         onToggleDeafen={handleToggleDeafen}
         onVolumeChange={setVolume}
-        onLeave={handleLeave}
-        onStartRecording={handleStartRecording}
-        onStopRecording={handleStopRecording}
-        onShare={handleCopyLink}
-        onRaiseHand={() => handleToggleRaiseHand()}
+        onEndCall={handleLeave}
+        onShareRoom={handleCopyLink}
         participantCount={totalParticipants}
         onShowParticipants={() => setShowParticipantSearch(true)}
         connectionQuality={connectionQuality}

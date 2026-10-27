@@ -272,7 +272,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                   <ShareButton
                     label="X"
                     color="#FFFFFF"
-                    icon={<Twitter className="w-4 h-4" />}
+                    icon={<span className="text-sm font-bold leading-none">𝕏</span>}
                     onClick={() => shareTo("twitter")}
                   />
                   <ShareButton

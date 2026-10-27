@@ -69,6 +69,7 @@ export function getCountryFlag(countryCode?: string): string {
   return flags[countryCode] || "🌍";
 }
 
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
 
 export function renderMessageContent(content: string) {
   if (!content) return null;
