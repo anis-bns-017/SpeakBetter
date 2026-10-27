@@ -4,7 +4,6 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { VoiceController } from './voice.controller';
-import { UploadController } from '../upload/upload.controller';
 import { VoiceService } from './voice.service';
 import { VoiceGateway } from './voice.gateway';
 import { LiveKitService } from './livekit.service';
@@ -37,7 +36,6 @@ import { AnalyticsController } from './controllers/analytics.controller';
   ],
   controllers: [
     VoiceController,
-    UploadController,
     TranscriptionController,
     ClapController,
     QueueController,

@@ -23,7 +23,7 @@ export { TranscriptionDisplay } from './TranscriptionDisplay';
 // Export voice call
 export { VoiceCall } from './VoiceCall';
 
-// Export shared components (you'll need to create these)
+// Export shared components
 export { VoiceRoomHeader } from './shared/VoiceRoomHeader';
 export { ConnectionHealth } from './shared/ConnectionHealth';
 export { AudioLevelMeter } from './shared/AudioLevelMeter';
@@ -39,9 +39,6 @@ export { SessionInsights } from './shared/SessionInsights';
 
 // Export chat components
 export { ChatPanel } from './chat/ChatPanel';
-export { MessageBubble } from './chat/MessageBubble';
-export { DateSeparator } from './chat/DateSeparator';
-export { MessageInput } from './chat/MessageInput';
 
 // Export participant components
 export { ParticipantGrid } from './participants/ParticipantGrid';
