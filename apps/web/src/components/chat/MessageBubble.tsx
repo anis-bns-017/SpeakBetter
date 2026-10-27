@@ -1,3 +1,4 @@
+// apps/web/src/components/chat/MessageBubble.tsx
 import React, {
   useState,
   useMemo,
@@ -38,6 +39,8 @@ import {
   ZoomOut,
   RotateCw,
   Info,
+  MoreVertical,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -101,14 +104,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
+
+  // Lightbox states
   const [imageZoom, setImageZoom] = useState(1);
   const [imageRotation, setImageRotation] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const waveformRef = useRef<HTMLDivElement | null>(null);
   const isDraggingRef = useRef(false);
-  const imageContainerRef = useRef<HTMLDivElement | null>(null);
 
   const waveform = useMemo(
     () => buildWaveform(message.id?.charCodeAt?.(0) || 1),
@@ -127,7 +130,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     );
   }, [message.reactions, user?.id]);
 
-  // Message type detection - ORDER MATTERS! Check voice/audio FIRST
+  // ── Message type detection ──────────────────────────────────
   const isVoiceNote = message.type === "VOICE_NOTE";
   const isAudio = message.type === "AUDIO";
   const isImage = message.type === "IMAGE";
@@ -139,10 +142,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const mediaSrc =
     message.mediaUrl || message.fileUrl || message.attachments?.[0]?.url || "";
 
-  // CRITICAL: Check voice/audio FIRST before video detection
   const isVoiceOrAudio = isVoiceNote || isAudio;
 
-  // Only check for video if it's NOT a voice/audio message
   const isActuallyVideo =
     !isVoiceOrAudio &&
     (isVideo ||
@@ -167,7 +168,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const showVoicePlayer = isVoiceOrAudio && Boolean(mediaSrc);
   const messageDuration = duration || typedMessage.duration || 0;
 
-  // Check if this is a pure voice message (no text content)
   const isPureVoiceMessage =
     showVoicePlayer &&
     (!message.content?.trim() ||
@@ -388,35 +388,28 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const relativeTime = formatDistanceToNow(messageTime, { addSuffix: true });
 
   const translation = message.translations?.[0] || null;
-
   const hasUrl = message.content?.match(/(https?:\/\/[^\s]+)/g);
 
-  // Image zoom controls
   const handleZoomIn = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setImageZoom((prev) => Math.min(prev + 0.25, 3));
   }, []);
-
   const handleZoomOut = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setImageZoom((prev) => Math.max(prev - 0.25, 0.5));
   }, []);
-
   const handleRotate = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setImageRotation((prev) => (prev + 90) % 360);
   }, []);
-
   const handleResetImage = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setImageZoom(1);
     setImageRotation(0);
   }, []);
 
-  // If this is a voice/audio message, render the voice player
-  // Don't render any other media types for voice messages
   const renderContent = () => {
-    // VOICE / AUDIO - Render first and return
+    // VOICE / AUDIO
     if (showVoicePlayer) {
       return (
         <motion.div
@@ -533,13 +526,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       );
     }
 
-    // VOICE/AUDIO unavailable
     if (isVoiceOrAudio && !mediaSrc) {
       return (
         <div
-          className={`flex items-center gap-2 text-[11px] font-medium italic ${
-            isOwn ? "text-indigo-200" : "text-slate-500 dark:text-slate-400"
-          }`}
+          className={`flex items-center gap-2 text-[11px] font-medium italic ${isOwn ? "text-indigo-200" : "text-slate-500 dark:text-slate-400"}`}
         >
           <Music className="w-3.5 h-3.5" />
           <span>Voice message unavailable</span>
@@ -547,7 +537,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       );
     }
 
-    // IMAGE - with improved expand functionality
+    // IMAGE
     if (isActuallyImage && mediaSrc) {
       return (
         <motion.div
@@ -566,7 +556,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 alt="Attachment"
                 className="w-full max-h-80 object-cover rounded-xl cursor-zoom-in transition-all duration-300 hover:scale-[1.02]"
                 onClick={() => {
-                  // Reset zoom when opening full image
                   setImageZoom(1);
                   setImageRotation(0);
                   setShowFullImage(true);
@@ -574,9 +563,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 loading="lazy"
                 onError={() => setImageError(true)}
               />
-              {/* Improved overlay with expand button */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/media:opacity-100 transition-all duration-300 flex items-end justify-between p-3">
-                <div className="flex items-center gap-2">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/media:opacity-100 transition-all duration-300 flex items-end justify-between p-3 pointer-events-none">
+                <div className="flex items-center gap-2 pointer-events-auto">
                   <button
                     type="button"
                     onClick={() => {
@@ -593,26 +581,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Download image
-                    const link = document.createElement('a');
+                    const link = document.createElement("a");
                     link.href = mediaSrc;
                     link.download = `image-${Date.now()}.jpg`;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                   }}
-                  className="p-1.5 bg-black/40 backdrop-blur-md rounded-full text-white hover:bg-black/60 transition-colors"
+                  className="p-1.5 bg-black/40 backdrop-blur-md rounded-full text-white hover:bg-black/60 transition-colors pointer-events-auto"
                 >
                   <Download className="w-3.5 h-3.5" />
                 </button>
-              </div>
-
-              {/* Image info badge */}
-              <div className="absolute top-2 right-2 opacity-0 group-hover/media:opacity-100 transition-opacity">
-                <span className="text-[8px] font-medium text-white/70 bg-black/30 backdrop-blur-sm px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                  <Info className="w-2.5 h-2.5" />
-                  Click to expand
-                </span>
               </div>
             </>
           )}
@@ -661,7 +640,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       );
     }
 
-    // TEXT CONTENT (only if not pure voice message)
+    // TEXT CONTENT
     if (message.content && !isPureVoiceMessage) {
       return (
         <div className="leading-relaxed font-normal whitespace-pre-wrap break-words tracking-normal">
@@ -706,10 +685,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         isOwn ? "flex-row-reverse" : "flex-row"
       } ${isSelected ? "bg-gradient-to-r from-indigo-50/80 to-violet-50/80 dark:from-indigo-950/20 dark:to-violet-950/20 p-2 rounded-3xl" : ""}`}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        setShowMoreOptions(false);
-      }}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Sender Avatar */}
       {!isSelectionMode && !isOwn && (
@@ -742,110 +718,87 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <motion.div
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`flex items-center gap-1.5 mb-1 text-[10px] font-semibold ${
-              isOwn ? "justify-end" : "justify-start"
-            }`}
+            className={`flex items-center gap-1.5 mb-1 text-[10px] font-semibold ${isOwn ? "justify-end" : "justify-start"}`}
           >
             <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 flex items-center gap-1">
-              <Pin className="w-2.5 h-2.5 fill-current" />
-              Pinned
+              <Pin className="w-2.5 h-2.5 fill-current" /> Pinned
             </span>
           </motion.div>
         )}
 
-        {/* Quick Action Toolbar */}
-        {!isSelectionMode && isHovered && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.9 }}
-            transition={{ type: "spring", damping: 20, stiffness: 400 }}
-            className={`absolute top-0 -translate-y-1/2 z-20 flex items-center gap-0.5 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xl rounded-full p-1 ${
-              isOwn ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="p-1.5 hover:bg-gradient-to-br hover:from-indigo-50 hover:to-violet-50 dark:hover:from-indigo-950/30 dark:hover:to-violet-950/30 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all relative group/tooltip"
+        {/* Quick Action Toolbar — Cleaned up & Repositioned */}
+        <AnimatePresence>
+          {!isSelectionMode && isHovered && (
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.9 }}
+              transition={{ type: "spring", damping: 20, stiffness: 400 }}
+              className={`absolute top-0 -translate-y-1/2 z-20 flex items-center gap-0.5 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xl rounded-full p-1 ${
+                isOwn ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2"
+              }`}
             >
-              <Smile className="w-3.5 h-3.5" />
-              <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] bg-slate-800 text-white px-1.5 py-0.5 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">
-                React
-              </span>
-            </button>
-
-            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
-
-            <button
-              type="button"
-              onClick={onReply}
-              className="p-1.5 hover:bg-gradient-to-br hover:from-indigo-50 hover:to-violet-50 dark:hover:from-indigo-950/30 dark:hover:to-violet-950/30 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all relative group/tooltip"
-            >
-              <Reply className="w-3.5 h-3.5" />
-              <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] bg-slate-800 text-white px-1.5 py-0.5 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">
-                Reply
-              </span>
-            </button>
-
-            {isOwn && (
-              <>
-                <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  className="p-1.5 hover:bg-gradient-to-br hover:from-indigo-50 hover:to-violet-50 dark:hover:from-indigo-950/30 dark:hover:to-violet-950/30 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all relative group/tooltip"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] bg-slate-800 text-white px-1.5 py-0.5 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">
-                    Edit
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onPin?.(!isPinned)}
-                  className="p-1.5 hover:bg-gradient-to-br hover:from-indigo-50 hover:to-violet-50 dark:hover:from-indigo-950/30 dark:hover:to-violet-950/30 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all relative group/tooltip"
-                >
-                  {isPinned ? (
-                    <PinOff className="w-3.5 h-3.5" />
-                  ) : (
-                    <Pin className="w-3.5 h-3.5" />
-                  )}
-                  <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] bg-slate-800 text-white px-1.5 py-0.5 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">
-                    {isPinned ? "Unpin" : "Pin"}
-                  </span>
-                </button>
-                <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-full text-slate-500 dark:text-slate-400 hover:text-red-500 transition-all relative group/tooltip"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] bg-slate-800 text-white px-1.5 py-0.5 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">
-                    Delete
-                  </span>
-                </button>
-              </>
-            )}
-
-            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
-            <button
-              type="button"
-              onClick={() => setIsBookmarked(!isBookmarked)}
-              className="p-1.5 hover:bg-gradient-to-br hover:from-indigo-50 hover:to-violet-50 dark:hover:from-indigo-950/30 dark:hover:to-violet-950/30 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all relative group/tooltip"
-            >
-              {isBookmarked ? (
-                <BookmarkCheck className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />
-              ) : (
-                <Bookmark className="w-3.5 h-3.5" />
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
+              >
+                <Smile className="w-3.5 h-3.5" />
+              </button>
+              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
+              <button
+                type="button"
+                onClick={onReply}
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
+              >
+                <Reply className="w-3.5 h-3.5" />
+              </button>
+              {isOwn && (
+                <>
+                  <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onPin?.(!isPinned)}
+                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
+                  >
+                    {isPinned ? (
+                      <PinOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Pin className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-full text-slate-500 dark:text-slate-400 hover:text-red-500 transition-all"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
               )}
-              <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] bg-slate-800 text-white px-1.5 py-0.5 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">
-                {isBookmarked ? "Saved" : "Save"}
-              </span>
-            </button>
-          </motion.div>
-        )}
+              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
+              <button
+                type="button"
+                onClick={() => setIsBookmarked(!isBookmarked)}
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
+              >
+                {isBookmarked ? (
+                  <BookmarkCheck className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />
+                ) : (
+                  <Bookmark className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Emoji Picker */}
         <AnimatePresence>
@@ -855,9 +808,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85, y: 10 }}
               transition={{ type: "spring", damping: 20, stiffness: 400 }}
-              className={`absolute z-30 bottom-full mb-2.5 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xl min-w-[220px] ${
-                isOwn ? "right-0" : "left-0"
-              }`}
+              className={`absolute z-30 bottom-full mb-2.5 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xl min-w-[220px] ${isOwn ? "right-0" : "left-0"}`}
             >
               <div className="grid grid-cols-5 gap-1.5">
                 {COMMON_EMOJIS.map(({ emoji, label }) => (
@@ -899,7 +850,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             transition={{ type: "spring", damping: 20 }}
             src={mediaSrc}
             alt="sticker"
-            className="w-36 h-36 object-contain drop-shadow-xl hover:drop-shadow-2xl transition-shadow"
+            className="w-36 h-36 object-contain drop-shadow-xl"
           />
         ) : isGif && mediaSrc ? (
           <motion.div
@@ -925,7 +876,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-slate-800 rounded-tl-sm shadow-slate-200/50 dark:shadow-slate-800/30"
             } ${isSelected ? "ring-2 ring-indigo-400 ring-offset-2 dark:ring-offset-slate-900" : ""}`}
           >
-            {/* Sender Name - Hide for pure voice messages */}
             {!isOwn && message.sender?.name && !isPureVoiceMessage && (
               <div className="flex items-center gap-2 font-bold text-[11px] text-indigo-600 dark:text-indigo-400 tracking-wide">
                 <span>{message.sender.name}</span>
@@ -936,16 +886,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </div>
             )}
 
-            {/* Replied Message */}
             {message.replyTo && (
               <motion.div
                 initial={{ opacity: 0, x: isOwn ? 10 : -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`p-2.5 rounded-xl border-l-3 text-[11px] flex items-start gap-2.5 ${
-                  isOwn
-                    ? "bg-indigo-700/40 border-indigo-300/60 text-indigo-100"
-                    : "bg-slate-100/80 dark:bg-slate-800/80 border-indigo-400 text-slate-600 dark:text-slate-300"
-                }`}
+                className={`p-2.5 rounded-xl border-l-3 text-[11px] flex items-start gap-2.5 ${isOwn ? "bg-indigo-700/40 border-indigo-300/60 text-indigo-100" : "bg-slate-100/80 dark:bg-slate-800/80 border-indigo-400 text-slate-600 dark:text-slate-300"}`}
               >
                 <CornerDownRight className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
@@ -959,21 +904,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </motion.div>
             )}
 
-            {/* Content - Voice, Image, Video, File, or Text */}
             {renderContent()}
 
-            {/* Translation - Skip for pure voice messages */}
             {translation && !isPureVoiceMessage && (
               <motion.button
                 type="button"
                 onClick={() => setShowTranslation((v) => !v)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.95 }}
-                className={`flex items-center gap-1.5 text-[10px] font-semibold transition-all ${
-                  isOwn
-                    ? "text-indigo-200 hover:text-white"
-                    : "text-indigo-600 dark:text-indigo-400 hover:underline"
-                }`}
+                className={`flex items-center gap-1.5 text-[10px] font-semibold transition-all ${isOwn ? "text-indigo-200 hover:text-white" : "text-indigo-600 dark:text-indigo-400 hover:underline"}`}
               >
                 <Languages className="w-3 h-3" />
                 {showTranslation ? "Hide translation" : "See translation"}
@@ -985,36 +924,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className={`text-[11px] italic pt-1.5 border-t ${
-                  isOwn
-                    ? "border-indigo-400/30 text-indigo-100"
-                    : "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400"
-                }`}
+                className={`text-[11px] italic pt-1.5 border-t ${isOwn ? "border-indigo-400/30 text-indigo-100" : "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400"}`}
               >
                 {translation.translatedContent}
               </motion.div>
             )}
 
-            {/* Footer with Meta Info - Always show */}
             <div
-              className={`flex items-center justify-end gap-2 text-[10px] font-medium pt-1 select-none ${
-                isOwn
-                  ? "text-indigo-100/70"
-                  : "text-slate-400 dark:text-slate-500"
-              }`}
+              className={`flex items-center justify-end gap-2 text-[10px] font-medium pt-1 select-none ${isOwn ? "text-indigo-100/70" : "text-slate-400 dark:text-slate-500"}`}
             >
               {message.isEdited && (
                 <span className="flex items-center gap-0.5 opacity-80 italic text-[9px]">
-                  <Pencil className="w-2.5 h-2.5" />
-                  edited
+                  <Pencil className="w-2.5 h-2.5" /> edited
                 </span>
               )}
               <span
                 className="flex items-center gap-1"
                 title={format(messageTime, "PPpp")}
               >
-                <Clock className="w-2.5 h-2.5 opacity-50" />
-                {timeStr}
+                <Clock className="w-2.5 h-2.5 opacity-50" /> {timeStr}
               </span>
               <span className="text-[8px] opacity-50">•</span>
               <span className="text-[9px] opacity-70">{relativeTime}</span>
@@ -1033,9 +961,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <motion.div
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`flex items-center gap-1 mt-1.5 flex-wrap ${
-              isOwn ? "justify-end" : "justify-start"
-            }`}
+            className={`flex items-center gap-1 mt-1.5 flex-wrap ${isOwn ? "justify-end" : "justify-start"}`}
           >
             {Object.entries(aggregatedReactions).map(
               ([emoji, { count, mine }]) => (
@@ -1045,11 +971,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   whileHover={{ scale: 1.1, y: -1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => onReact?.(emoji)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border shadow-sm text-[11px] font-semibold transition-all ${
-                    mine
-                      ? "bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 shadow-indigo-500/10"
-                      : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600"
-                  }`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border shadow-sm text-[11px] font-semibold transition-all ${mine ? "bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 shadow-indigo-500/10" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600"}`}
                 >
                   <span className="text-sm">{emoji}</span>
                   {count > 1 && (
@@ -1067,14 +989,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
       </div>
 
-      {/* Improved Lightbox - Image Viewer with Zoom & Rotation */}
+      {/* Lightbox - Image Viewer with Zoom & Rotation */}
       <AnimatePresence>
         {showFullImage && mediaSrc && isActuallyImage && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-8"
+            className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-8"
             onClick={() => {
               setShowFullImage(false);
               setImageZoom(1);
@@ -1090,23 +1012,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               <div
-                ref={imageContainerRef}
                 className="relative w-full h-full flex items-center justify-center"
-                style={{
-                  minHeight: '50vh',
-                  maxHeight: '85vh',
-                }}
+                style={{ minHeight: "50vh", maxHeight: "85vh" }}
               >
                 <motion.img
                   src={mediaSrc}
                   alt="Full preview"
                   className="object-contain rounded-2xl select-none"
                   style={{
-                    maxWidth: '100%',
-                    maxHeight: '85vh',
+                    maxWidth: "100%",
+                    maxHeight: "85vh",
                     transform: `scale(${imageZoom}) rotate(${imageRotation}deg)`,
-                    transition: 'transform 0.3s ease-out',
-                    cursor: imageZoom > 1 ? 'grab' : 'default',
+                    transition: "transform 0.3s ease-out",
+                    cursor: imageZoom > 1 ? "grab" : "default",
                   }}
                   drag={imageZoom > 1}
                   dragConstraints={{
@@ -1120,9 +1038,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 />
               </div>
 
-              {/* Lightbox Controls - Top */}
-              <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none">
+                <div className="flex items-center gap-2 pointer-events-auto">
                   <span className="text-white/60 text-xs bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full">
                     {message.sender?.name || "Unknown"}
                   </span>
@@ -1130,7 +1047,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     {format(messageTime, "PPpp")}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pointer-events-auto">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.9 }}
@@ -1200,16 +1117,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </div>
               </div>
 
-              {/* Zoom level indicator */}
               {imageZoom !== 1 && (
-                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-white/60 text-xs bg-black/40 backdrop-blur-md px-3 py-1 rounded-full">
+                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-white/60 text-xs bg-black/40 backdrop-blur-md px-3 py-1 rounded-full pointer-events-none">
                   {Math.round(imageZoom * 100)}%
                 </div>
               )}
 
-              {/* Image counter */}
-              <div className="absolute bottom-4 left-4 text-white/40 text-xs bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full">
-                {imageZoom > 1 ? 'Drag to pan' : 'Click to zoom in'}
+              <div className="absolute bottom-4 left-4 text-white/40 text-xs bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full pointer-events-none">
+                {imageZoom > 1 ? "Drag to pan" : "Click to zoom in"}
               </div>
             </motion.div>
           </motion.div>
