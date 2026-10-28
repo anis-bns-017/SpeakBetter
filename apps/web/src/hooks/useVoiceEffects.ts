@@ -1,14 +1,24 @@
 // apps/web/src/hooks/useVoiceEffects.ts
 /**
- * useVoiceEffects — real-time Web Audio processing for the local mic track.
+ * useVoiceEffects — real-time voice effects that everyone in the room hears.
  *
- * Chain: source → highpass → bassEQ → trebleEQ → radioFilter → delay → reverb → gain → destination
+ * Runs as a LiveKit audio TrackProcessor on the published mic track:
+ * LiveKit hands us the raw mic, we return the processed track, and LiveKit sends
+ * that to the room. Turning effects off removes the processor and restores the clean mic.
  *
- * Produces an output MediaStreamTrack ready to be published to LiveKit.
- * Safe to update any knob in real-time — no restart required.
+ * Chain: source → highpass → bassEQ → trebleEQ → radioFilter → (dry + delay + reverb) → gain → destination
+ *
+ * Also controls browser noise suppression for the mic (on by default, "studio" = off).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import type {
+  AudioProcessorOptions,
+  LocalAudioTrack,
+  Track,
+  TrackProcessor,
+} from "livekit-client";
 
 export interface VoiceEffectsState {
   bypass: boolean;
@@ -106,205 +116,233 @@ export const PRESETS: Record<
   },
 };
 
-interface UseVoiceEffectsOptions {
-  /** The current LiveKit mic MediaStreamTrack, or null when muted */
-  inputTrack: MediaStreamTrack | null;
-  /** Called with the processed output track — publish this to LiveKit */
-  onOutputTrack?: (track: MediaStreamTrack | null) => void;
+const NOISE_SUPPRESSION_KEY = "speakbetter-noise-suppression";
+
+// ------------------------------------------------------------
+// Audio graph
+// ------------------------------------------------------------
+
+interface EffectsChain {
+  ctx: AudioContext;
+  ownsContext: boolean;
+  source: MediaStreamAudioSourceNode;
+  bassEQ: BiquadFilterNode;
+  trebleEQ: BiquadFilterNode;
+  radioEQ: BiquadFilterNode;
+  delayNode: DelayNode;
+  delayWet: GainNode;
+  reverbWet: GainNode;
+  dryGain: GainNode;
+  masterGain: GainNode;
+  destination: MediaStreamAudioDestinationNode;
 }
 
-export const useVoiceEffects = ({
-  inputTrack,
-  onOutputTrack,
-}: UseVoiceEffectsOptions) => {
+function buildChain(track: MediaStreamTrack, sharedCtx?: AudioContext): EffectsChain {
+  const ownsContext = !sharedCtx;
+  const ctx =
+    sharedCtx ??
+    new (window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
+  if (ctx.state === "suspended") void ctx.resume();
+
+  const source = ctx.createMediaStreamSource(new MediaStream([track]));
+
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.value = 60;
+
+  const bassEQ = ctx.createBiquadFilter();
+  bassEQ.type = "lowshelf";
+  bassEQ.frequency.value = 250;
+
+  const trebleEQ = ctx.createBiquadFilter();
+  trebleEQ.type = "highshelf";
+  trebleEQ.frequency.value = 4000;
+
+  const radioEQ = ctx.createBiquadFilter();
+  radioEQ.type = "peaking";
+  radioEQ.frequency.value = 1500;
+  radioEQ.Q.value = 0.6;
+
+  // Echo
+  const delayNode = ctx.createDelay(1.0);
+  delayNode.delayTime.value = 0.22;
+  const delayFeedback = ctx.createGain();
+  delayFeedback.gain.value = 0.35;
+  const delayWet = ctx.createGain();
+  delayWet.gain.value = 0;
+  delayNode.connect(delayFeedback);
+  delayFeedback.connect(delayNode);
+  delayNode.connect(delayWet);
+
+  // Reverb (convolution with a synthetic impulse)
+  const convolver = ctx.createConvolver();
+  convolver.buffer = makeImpulseResponse(ctx, 2.4, 2.6);
+  const reverbWet = ctx.createGain();
+  reverbWet.gain.value = 0;
+
+  const dryGain = ctx.createGain();
+  const masterGain = ctx.createGain();
+  const destination = ctx.createMediaStreamDestination();
+
+  source.connect(highpass);
+  highpass.connect(bassEQ);
+  bassEQ.connect(trebleEQ);
+  trebleEQ.connect(radioEQ);
+
+  radioEQ.connect(dryGain);
+  radioEQ.connect(delayNode);
+  delayWet.connect(masterGain);
+  radioEQ.connect(convolver);
+  convolver.connect(reverbWet);
+  reverbWet.connect(masterGain);
+  dryGain.connect(masterGain);
+  masterGain.connect(destination);
+
+  return { ctx, ownsContext, source, bassEQ, trebleEQ, radioEQ, delayNode, delayWet, reverbWet, dryGain, masterGain, destination };
+}
+
+function applyState(chain: EffectsChain, state: VoiceEffectsState) {
+  const { bypass, bass, treble, reverb, delay, radio, gain } = state;
+  const t = chain.ctx.currentTime;
+  // Short ramps avoid clicks while dragging sliders
+  const set = (param: AudioParam, value: number) => param.setTargetAtTime(value, t, 0.02);
+
+  if (bypass) {
+    set(chain.bassEQ.gain, 0);
+    set(chain.trebleEQ.gain, 0);
+    set(chain.radioEQ.gain, 0);
+    set(chain.delayWet.gain, 0);
+    set(chain.reverbWet.gain, 0);
+    set(chain.dryGain.gain, 1);
+    set(chain.masterGain.gain, 1);
+    return;
+  }
+
+  set(chain.bassEQ.gain, bass);
+  set(chain.trebleEQ.gain, treble);
+  set(chain.radioEQ.gain, radio * 12);
+  set(chain.radioEQ.Q, 0.6 + radio * 4);
+  set(chain.delayWet.gain, delay * 0.5);
+  set(chain.reverbWet.gain, reverb * 0.8);
+  set(chain.dryGain.gain, 1 - (reverb * 0.3 + delay * 0.2));
+  set(chain.masterGain.gain, gain);
+}
+
+function teardown(chain: EffectsChain) {
+  try {
+    chain.source.disconnect();
+    chain.masterGain.disconnect();
+  } catch {
+    /* already disconnected */
+  }
+  chain.destination.stream.getTracks().forEach((t) => t.stop());
+  if (chain.ownsContext && chain.ctx.state !== "closed") {
+    chain.ctx.close().catch(() => {});
+  }
+}
+
+/** LiveKit processor: LiveKit gives us the raw mic, publishes `processedTrack` */
+function createEffectsProcessor(
+  getState: () => VoiceEffectsState,
+  onChainChange: (chain: EffectsChain | null) => void,
+): TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> {
+  let chain: EffectsChain | null = null;
+
+  const processor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> = {
+    name: "speakbetter-voice-effects",
+    processedTrack: undefined,
+    async init(opts) {
+      chain = buildChain(opts.track, opts.audioContext);
+      applyState(chain, getState());
+      processor.processedTrack = chain.destination.stream.getAudioTracks()[0];
+      onChainChange(chain);
+    },
+    async restart(opts) {
+      if (chain) teardown(chain);
+      await processor.init(opts);
+    },
+    async destroy() {
+      if (chain) teardown(chain);
+      chain = null;
+      processor.processedTrack = undefined;
+      onChainChange(null);
+    },
+  };
+  return processor;
+}
+
+// ------------------------------------------------------------
+// Hook
+// ------------------------------------------------------------
+
+interface UseVoiceEffectsOptions {
+  /** The published LiveKit microphone track, or null when not publishing */
+  localTrack: LocalAudioTrack | null;
+}
+
+export const useVoiceEffects = ({ localTrack }: UseVoiceEffectsOptions) => {
   const [state, setState] = useState<VoiceEffectsState>(DEFAULT_EFFECTS);
-
-  const ctxRef = useRef<AudioContext | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const chainRef = useRef<{
-    highpass: BiquadFilterNode;
-    bassEQ: BiquadFilterNode;
-    trebleEQ: BiquadFilterNode;
-    radioEQ: BiquadFilterNode;
-    delayNode: DelayNode;
-    delayFeedback: GainNode;
-    delayWet: GainNode;
-    convolver: ConvolverNode;
-    reverbWet: GainNode;
-    dryGain: GainNode;
-    masterGain: GainNode;
-    destination: MediaStreamAudioDestinationNode;
-  } | null>(null);
-
-  // ----------------------------------------------------------
-  // Build the audio graph when we have an input track
-  // ----------------------------------------------------------
-  useEffect(() => {
-    if (!inputTrack) {
-      onOutputTrack?.(null);
-      return;
-    }
-
-    let ctx: AudioContext | null = null;
-
+  /** True while the processed audio is what the room hears */
+  const [isLive, setIsLive] = useState(false);
+  const [noiseSuppression, setNoiseSuppressionState] = useState(() => {
     try {
-      ctx = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
-
-      const source = ctx.createMediaStreamSource(
-        new MediaStream([inputTrack]),
-      );
-
-      // Node chain
-      const highpass = ctx.createBiquadFilter();
-      highpass.type = "highpass";
-      highpass.frequency.value = 60;
-
-      const bassEQ = ctx.createBiquadFilter();
-      bassEQ.type = "lowshelf";
-      bassEQ.frequency.value = 250;
-      bassEQ.gain.value = 0;
-
-      const trebleEQ = ctx.createBiquadFilter();
-      trebleEQ.type = "highshelf";
-      trebleEQ.frequency.value = 4000;
-      trebleEQ.gain.value = 0;
-
-      const radioEQ = ctx.createBiquadFilter();
-      radioEQ.type = "bandpass";
-      radioEQ.frequency.value = 1500;
-      radioEQ.Q.value = 0.6;
-      radioEQ.gain.value = 0; // start transparent (uses wet/dry mix)
-
-      // Delay (echo)
-      const delayNode = ctx.createDelay(1.0);
-      delayNode.delayTime.value = 0.22;
-
-      const delayFeedback = ctx.createGain();
-      delayFeedback.gain.value = 0.35;
-
-      const delayWet = ctx.createGain();
-      delayWet.gain.value = 0;
-
-      delayNode.connect(delayFeedback);
-      delayFeedback.connect(delayNode);
-      delayNode.connect(delayWet);
-
-      // Reverb (convolution with synthetic impulse)
-      const convolver = ctx.createConvolver();
-      convolver.buffer = makeImpulseResponse(ctx, 2.4, 2.6);
-
-      const reverbWet = ctx.createGain();
-      reverbWet.gain.value = 0;
-
-      // Dry path
-      const dryGain = ctx.createGain();
-      dryGain.gain.value = 1;
-
-      // Master
-      const masterGain = ctx.createGain();
-      masterGain.gain.value = 1;
-
-      const destination = ctx.createMediaStreamDestination();
-
-      // Wire the chain
-      source.connect(highpass);
-      highpass.connect(bassEQ);
-      bassEQ.connect(trebleEQ);
-      trebleEQ.connect(radioEQ);
-
-      // Radio wet path (bandpass filter)
-      radioEQ.connect(dryGain);
-
-      // Delay send
-      radioEQ.connect(delayNode);
-      delayWet.connect(dryGain);
-
-      // Reverb send
-      radioEQ.connect(convolver);
-      convolver.connect(reverbWet);
-      reverbWet.connect(dryGain);
-
-      dryGain.connect(masterGain);
-      masterGain.connect(destination);
-
-      // Store refs
-      ctxRef.current = ctx;
-      sourceRef.current = source;
-      chainRef.current = {
-        highpass,
-        bassEQ,
-        trebleEQ,
-        radioEQ,
-        delayNode,
-        delayFeedback,
-        delayWet,
-        convolver,
-        reverbWet,
-        dryGain,
-        masterGain,
-        destination,
-      };
-
-      // Hand the processed track to the caller
-      const outputTrack = destination.stream.getAudioTracks()[0];
-      onOutputTrack?.(outputTrack);
-    } catch (err) {
-      console.warn("Voice effects setup failed:", err);
-      onOutputTrack?.(inputTrack); // fallback to raw
+      return window.localStorage.getItem(NOISE_SUPPRESSION_KEY) !== "0";
+    } catch {
+      return true;
     }
+  });
+
+  const stateRef = useRef(state);
+  const chainRef = useRef<EffectsChain | null>(null);
+  useEffect(() => {
+    stateRef.current = state;
+  });
+
+  const effectsOn = !state.bypass;
+
+  // Attach the processor while effects are on; detaching restores the clean mic
+  useEffect(() => {
+    if (!localTrack || !effectsOn) return;
+
+    let active = true;
+    const processor = createEffectsProcessor(
+      () => stateRef.current,
+      (chain) => {
+        chainRef.current = chain;
+        if (active) setIsLive(Boolean(chain));
+      },
+    );
+
+    localTrack.setProcessor(processor).catch((err: unknown) => {
+      console.warn("Voice effects could not start:", err);
+      if (!active) return;
+      toast.error("Voice effects aren't supported in this browser");
+      setState(DEFAULT_EFFECTS);
+    });
 
     return () => {
-      try {
-        sourceRef.current?.disconnect();
-      } catch {
-        /* ignore */
+      active = false;
+      setIsLive(false);
+      if (localTrack.getProcessor() === processor) {
+        localTrack.stopProcessor().catch(() => {});
       }
-      try {
-        chainRef.current?.destination.disconnect();
-      } catch {
-        /* ignore */
-      }
-      chainRef.current = null;
-      sourceRef.current = null;
-      if (ctx && ctx.state !== "closed") {
-        ctx.close().catch(() => {});
-      }
-      ctxRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputTrack]);
+  }, [localTrack, effectsOn]);
 
-  // ----------------------------------------------------------
-  // Apply state changes to live nodes
-  // ----------------------------------------------------------
+  // Slider/preset changes apply instantly to the running graph
   useEffect(() => {
-    const chain = chainRef.current;
-    if (!chain) return;
-
-    const { bypass, bass, treble, reverb, delay, radio, gain } = state;
-
-    // Bypass → flatten everything to neutral
-    if (bypass) {
-      chain.bassEQ.gain.value = 0;
-      chain.trebleEQ.gain.value = 0;
-      chain.radioEQ.gain.value = 0;
-      chain.delayWet.gain.value = 0;
-      chain.reverbWet.gain.value = 0;
-      chain.masterGain.gain.value = 1;
-      chain.dryGain.gain.value = 1;
-      return;
-    }
-
-    chain.bassEQ.gain.value = bass;
-    chain.trebleEQ.gain.value = treble;
-    chain.radioEQ.gain.value = radio * 12; // higher Q effect
-    chain.radioEQ.Q.value = 0.6 + radio * 4;
-    chain.delayWet.gain.value = delay * 0.5;
-    chain.reverbWet.gain.value = reverb * 0.8;
-    chain.masterGain.gain.value = gain;
-    chain.dryGain.gain.value = 1 - (reverb * 0.3 + delay * 0.2);
+    if (chainRef.current) applyState(chainRef.current, state);
   }, [state]);
+
+  // Re-apply a saved "noise suppression off" choice whenever a new mic track is published
+  useEffect(() => {
+    if (!localTrack || noiseSuppression) return;
+    localTrack
+      .restartTrack({ noiseSuppression: false, autoGainControl: false, echoCancellation: true })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on a new track
+  }, [localTrack]);
 
   // ----------------------------------------------------------
   // Public API
@@ -313,27 +351,57 @@ export const useVoiceEffects = ({
     setState((prev) => ({ ...prev, ...patch, preset: "custom" }));
   }, []);
 
-  const applyPreset = useCallback(
-    (preset: keyof typeof PRESETS) => {
-      setState({
-        ...DEFAULT_EFFECTS,
-        ...PRESETS[preset],
-        preset,
-      });
-    },
-    [],
-  );
+  const applyPreset = useCallback((preset: keyof typeof PRESETS) => {
+    setState({
+      ...DEFAULT_EFFECTS,
+      ...PRESETS[preset],
+      preset,
+    });
+  }, []);
 
   const reset = useCallback(() => {
     setState(DEFAULT_EFFECTS);
   }, []);
+
+  /**
+   * Noise suppression + auto gain on (default, best for talking) or off ("studio",
+   * best for singing/music). Echo cancellation always stays on to avoid feedback.
+   */
+  const setNoiseSuppression = useCallback(
+    async (on: boolean) => {
+      setNoiseSuppressionState(on);
+      try {
+        window.localStorage.setItem(NOISE_SUPPRESSION_KEY, on ? "1" : "0");
+      } catch {
+        /* storage unavailable */
+      }
+      if (!localTrack) return;
+      try {
+        await localTrack.restartTrack({
+          noiseSuppression: on,
+          autoGainControl: on,
+          echoCancellation: true,
+        });
+        toast.success(on ? "Noise suppression on" : "Studio mode — natural sound, no noise filtering");
+      } catch {
+        toast.error("Couldn't change microphone settings");
+      }
+    },
+    [localTrack],
+  );
 
   return {
     state,
     update,
     applyPreset,
     reset,
-    isActive: !state.bypass,
+    isActive: effectsOn,
+    /** Effects are on and the room is hearing the processed voice */
+    isLive,
+    /** You need to be publishing a mic for effects to reach the room */
+    canApply: Boolean(localTrack),
+    noiseSuppression,
+    setNoiseSuppression,
   };
 };
 

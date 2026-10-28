@@ -536,6 +536,28 @@ export class VoiceController {
     }
   }
 
+  // ============ CORRECTIONS ============
+
+  /** Corrections the signed-in user received, e.g. ?status=accepted for the practice journal */
+  @Get('corrections/me')
+  async getMyCorrections(
+    @Request() req,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const allowed = ['pending', 'accepted', 'dismissed'];
+    return this.voiceService.getMyCorrections(
+      req.user.id,
+      status && allowed.includes(status) ? status : undefined,
+      limit ? parseInt(limit, 10) || 100 : 100,
+    );
+  }
+
+  @Get('rooms/:roomId/corrections')
+  async getRoomCorrections(@Param('roomId') roomId: string) {
+    return this.voiceService.getRoomCorrections(roomId);
+  }
+
   // ============ CHAT MESSAGES ============
 
   @Get('rooms/:roomId/messages')

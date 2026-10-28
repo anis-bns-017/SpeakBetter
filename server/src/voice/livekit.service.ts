@@ -267,6 +267,7 @@ export class LiveKitService implements OnModuleInit {
     roomName: string,
     userId: string,
     identity?: string,
+    options: { canPublish?: boolean } = {},
   ): Promise<string> {
     this.ensureAvailable();
 
@@ -296,10 +297,11 @@ export class LiveKitService implements OnModuleInit {
         }),
       });
 
+      // Audience members in stage rooms join listen-only; promotion grants publish later
       token.addGrant({
         room: roomName,
         roomJoin: true,
-        canPublish: true,
+        canPublish: options.canPublish ?? true,
         canSubscribe: true,
         canPublishData: true,
         canUpdateOwnMetadata: true,
@@ -333,8 +335,56 @@ export class LiveKitService implements OnModuleInit {
     roomName: string,
     userId: string,
     identity?: string,
+    options: { canPublish?: boolean } = {},
   ): Promise<string> {
-    return this.generateToken(roomName, userId, identity);
+    return this.generateToken(roomName, userId, identity, options);
+  }
+
+  /**
+   * Grants or revokes microphone publishing for a connected participant.
+   * Revoking makes LiveKit unpublish their mic immediately.
+   */
+  async setCanPublish(
+    roomName: string,
+    identity: string,
+    canPublish: boolean,
+  ): Promise<void> {
+    if (!this.isLiveKitAvailable) return;
+
+    try {
+      await this.roomService.updateParticipant(roomName, identity, {
+        permission: {
+          canPublish,
+          canSubscribe: true,
+          canPublishData: true,
+          canUpdateMetadata: true,
+          canPublishSources: [TrackSource.MICROPHONE],
+        },
+      });
+      this.logger.log(
+        `🎚️ Publish ${canPublish ? 'granted' : 'revoked'} | room=${roomName} | participant=${identity}`,
+      );
+    } catch (error) {
+      // Not connected to LiveKit yet: their next token will carry the right grant
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `⚠️ Could not update publish permission for ${identity}: ${message}`,
+      );
+    }
+  }
+
+  private async getMicrophoneTrackSid(
+    roomName: string,
+    identity: string,
+  ): Promise<string | null> {
+    const participant = await this.roomService.getParticipant(
+      roomName,
+      identity,
+    );
+    const track = participant?.tracks?.find(
+      (t: any) => t.source === TrackSource.MICROPHONE,
+    );
+    return track?.sid ?? null;
   }
 
   // ============================================================
@@ -407,10 +457,18 @@ export class LiveKitService implements OnModuleInit {
     this.ensureAvailable();
 
     try {
+      const trackSid = await this.getMicrophoneTrackSid(roomName, participantId);
+      if (!trackSid) {
+        this.logger.log(
+          `🔇 No microphone published by ${participantId}; nothing to mute`,
+        );
+        return;
+      }
+
       await this.roomService.mutePublishedTrack(
         roomName,
         participantId,
-        'microphone',
+        trackSid,
         true,
       );
 
@@ -433,10 +491,14 @@ export class LiveKitService implements OnModuleInit {
     this.ensureAvailable();
 
     try {
+      // Note: LiveKit only allows remote unmute when enable_remote_unmute is on
+      const trackSid = await this.getMicrophoneTrackSid(roomName, participantId);
+      if (!trackSid) return;
+
       await this.roomService.mutePublishedTrack(
         roomName,
         participantId,
-        'microphone',
+        trackSid,
         false,
       );
 

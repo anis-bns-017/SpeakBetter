@@ -1,6 +1,9 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import type React from "react";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
 import { useAuth } from "../contexts/AuthContext";
+import { useSidebar } from "../contexts/SidebarContext";
+import { SIDEBAR_WIDTH, MOBILE_TAB_BAR_HEIGHT } from "../lib/navLayout";
 
 // Main Pages
 import DashboardPage from "../pages/DashboardPage";
@@ -28,7 +31,6 @@ import { CommunityPage } from "../pages/CommunityPage";
 import { JoinCommunityPage } from "../pages/JoinCommunityPage";
 import { NewConversationPage } from "../pages/NewConversationPage";
 import { AuthCallbackPage } from "../pages/AuthCallbackPage";
-import { useState } from "react";
 
 // ============================================================
 // PROTECTED ROUTE
@@ -77,19 +79,20 @@ const PublicRoute = () => {
 // ============================================================
 
 const AppLayout = () => {
-  const [isMinimized, setIsMinimized] = useState(false); // ✅ Local state
+  // Collapse state lives in SidebarContext, so content is padded by the real sidebar width
+  const { isMinimized } = useSidebar();
+  const location = useLocation();
+  const inVoiceRoom = /^\/voice\/[^/]+/.test(location.pathname);
+
+  const style = {
+    "--sidebar-w": `${isMinimized ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded}px`,
+    "--tabbar-h": inVoiceRoom ? "0px" : `${MOBILE_TAB_BAR_HEIGHT}px`,
+  } as React.CSSProperties;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <Sidebar
-        isMinimized={isMinimized}
-        onToggle={() => setIsMinimized(!isMinimized)}
-      />
-      <div
-        className={`min-h-screen transition-all duration-300 ${
-          isMinimized ? "lg:pl-[72px]" : "lg:pl-[260px]"
-        }`}
-      >
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900" style={style}>
+      <Sidebar />
+      <div className="min-h-screen transition-[padding] duration-300 lg:pl-[var(--sidebar-w)] pb-[var(--tabbar-h)] lg:pb-0">
         <main className="min-h-screen">
           <Outlet />
         </main>

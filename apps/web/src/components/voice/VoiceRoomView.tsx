@@ -1959,6 +1959,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     pinMessage,
     deleteMessage: deleteSocketMessage,
     promoteHost,
+    inviteToStage,
+    moveToAudience,
     editMessage,
     reactMessage,
     broadcastSpeaking,
@@ -1996,10 +1998,24 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     participants: livekitParticipants = [],
     participantVoiceStates = {},
     isMuted,
+    canPublish,
     toggleMute,
     isMockMode,
     isConnecting,
+    connectionState,
+    reconnectNow,
+    error: liveKitError,
   } = liveKitResult;
+
+  /** Audio or the room socket dropped after we had been connected */
+  const isReconnecting =
+    connectionState === "reconnecting" ||
+    (connectionState === "connected" && !isConnected);
+  const connectionLost = connectionState === "disconnected" && Boolean(liveKitError);
+
+  const isStageRoom = room?.type === "STAGE";
+  /** Listening-only member of a stage room (LiveKit is the source of truth for mic rights) */
+  const isAudience = isStageRoom && isLiveKitConnected && !canPublish;
 
   useRemoteAudioOutput({ volume, deafened: isDeafened });
   useRoomDocumentTitle(room?.name, unreadCount);
@@ -2037,7 +2053,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         level: p.level || p.user?.level,
         bio: p.bio || p.user?.bio,
         interests: p.interests || p.user?.interests,
-        isOnline: true,
+        isOnline: !p.isReconnecting,
+        isReconnecting: Boolean(p.isReconnecting),
         isSpeaking: Boolean(p.isSpeaking) && !p.isMuted,
         isMuted: Boolean(p.isMuted),
         raisedHand: p.raisedHand || false,
@@ -2152,18 +2169,9 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.raisedHand]);
 
-  const rawMicTrack = useMemo<MediaStreamTrack | null>(() => {
-    const pub = (
-      liveKitResult as any
-    )?.room?.localParticipant?.getTrackPublication?.("microphone");
-    return pub?.track?.mediaStreamTrack || null;
-  }, [liveKitResult]);
-
+  // Effects run as a LiveKit processor on the published mic, so the whole room hears them
   const voiceEffects = useVoiceEffects({
-    inputTrack: rawMicTrack,
-    onOutputTrack: () => {
-      /* effects engine runs for local preview */
-    },
+    localTrack: liveKitResult.localTrack,
   });
 
   const journal = usePracticeJournal({ userId: user?.id || "" });
@@ -2302,13 +2310,15 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     }
   }, []);
 
+  /** The server grants their mic through LiveKit; they unmute themselves when ready */
   const handleQueuePromote = useCallback(
-    (userId: string) => {
-      unmuteUser(userId);
-      socket?.emit?.("voice:promote-speaker", { roomId, userId });
-    },
-    [unmuteUser, socket, roomId],
+    (userId: string) => inviteToStage(userId),
+    [inviteToStage],
   );
+
+  const handleLeaveStage = useCallback(() => {
+    if (user?.id) moveToAudience(user.id);
+  }, [moveToAudience, user?.id]);
 
   const handleQueueRemove = useCallback(
     (userId: string) => {
@@ -2338,15 +2348,16 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     }, 50);
   }, []);
 
-  const handleSendMessage = useCallback(() => {
-    const content = newMessage.trim();
+  /** Adds an optimistic message and sends it over the socket (or REST as a fallback) */
+  const dispatchChatMessage = useCallback(
+    (content: string, reply: typeof replyTo) => {
     if (!content || !user?.id) return;
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const messageData: { content: string; type: string; replyToId?: string } = {
       content,
       type: "TEXT",
-      ...(replyTo?.id ? { replyToId: replyTo.id } : {}),
+      ...(reply?.id ? { replyToId: reply.id } : {}),
     };
 
     setMessages((prev) => [
@@ -2366,8 +2377,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           createdAt: new Date().toISOString(),
           isPinned: false,
           isDeleted: false,
-          replyTo: replyTo || undefined,
-          replyToId: replyTo?.id,
+          replyTo: reply || undefined,
+          replyToId: reply?.id,
           status: "sending",
           reactions: {},
         },
@@ -2418,6 +2429,27 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       );
     }
 
+    scrollToBottom();
+  },
+    [
+      socket,
+      isConnected,
+      sendChatMessage,
+      sendMessageMutation,
+      roomId,
+      user,
+      userName,
+      queryClient,
+      scrollToBottom,
+    ],
+  );
+
+  const handleSendMessage = useCallback(() => {
+    const content = newMessage.trim();
+    if (!content || !user?.id) return;
+
+    dispatchChatMessage(content, replyTo);
+
     setNewMessage("");
     setReplyTo(null);
     sendTyping(false);
@@ -2425,22 +2457,19 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       clearTimeout(typingStopTimerRef.current);
       typingStopTimerRef.current = null;
     }
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-    scrollToBottom();
-  }, [
-    newMessage,
-    replyTo,
-    socket,
-    isConnected,
-    sendChatMessage,
-    sendMessageMutation,
-    sendTyping,
-    roomId,
-    user,
-    userName,
-    queryClient,
-    scrollToBottom,
-  ]);
+  }, [newMessage, replyTo, user?.id, dispatchChatMessage, sendTyping]);
+
+  /** Drops the failed copy and sends the same text (and reply target) again */
+  const handleRetryMessage = useCallback(
+    (failed: { id: string; content: string; replyTo?: unknown }) => {
+      setMessages((prev) => prev.filter((m) => m.id !== failed.id));
+      dispatchChatMessage(
+        failed.content.trim(),
+        (failed.replyTo as typeof replyTo) ?? null,
+      );
+    },
+    [dispatchChatMessage],
+  );
 
   const handleComposerChange = useCallback(
     (text: string) => {
@@ -3031,6 +3060,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     [allParticipants],
   );
 
+  const participantNamesById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of allParticipants) if (p.userId && p.name) map[p.userId] = p.name;
+    return map;
+  }, [allParticipants]);
+
   const queueParticipants = useMemo(
     () =>
       allParticipants.map((p) => ({
@@ -3431,6 +3466,9 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             onUnmuteUser={unmuteUser}
             onKickUser={kickUser}
             onPromoteHost={promoteHost}
+            isStageRoom={isStageRoom}
+            onInviteToStage={inviteToStage}
+            onMoveToAudience={moveToAudience}
             onSendMessage={(userId) => {
               const participant = allParticipants.find((p) => p.id === userId);
               if (!participant) return;
@@ -3506,12 +3544,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
               onReactToMessage={handleMessageReaction}
               onKickUser={kickUser}
               onMuteUser={muteUser}
-              onTranslateMessage={() =>
-                toast.info("Translation will connect to your i18n API")
-              }
-              onSendGift={() =>
-                toast.info("Gifts can be wired to your economy API")
-              }
+              onRetryMessage={handleRetryMessage}
               chatSearch={chatSearch}
               onChatSearchChange={setChatSearch}
               showChatSearch={showChatSearch}
@@ -3534,6 +3567,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
               participantNames={allParticipants
                 .map((p) => p.name)
                 .filter(Boolean)}
+              participantNamesById={participantNamesById}
               className="w-full md:w-[400px] border-l"
             />
           )}
@@ -3554,12 +3588,63 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         </div>
       )}
 
+      {/* Connection banner: reconnecting automatically, or lost with a retry button */}
+      <AnimatePresence>
+        {(isReconnecting || connectionLost) && (
+          <motion.div
+            key="connection-banner"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="fixed top-3 left-1/2 -translate-x-1/2 z-[120] flex items-center gap-3 pl-3 pr-2 py-2 rounded-full border shadow-2xl backdrop-blur-xl"
+            style={{
+              background: connectionLost ? "rgba(60, 16, 20, 0.92)" : "rgba(40, 32, 10, 0.92)",
+              borderColor: connectionLost ? "rgba(248,113,113,0.45)" : "rgba(251,191,36,0.45)",
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            {connectionLost ? (
+              <span className="text-sm" style={{ color: "#fecaca" }}>
+                {liveKitError}
+              </span>
+            ) : (
+              <span className="flex items-center gap-2 text-sm" style={{ color: "#fde68a" }}>
+                <motion.span
+                  className="w-2 h-2 rounded-full"
+                  style={{ background: "#fbbf24" }}
+                  animate={{ opacity: [1, 0.3, 1] }}
+                  transition={{ duration: 1.1, repeat: Infinity }}
+                />
+                Reconnecting… you'll keep your place in the room
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() =>
+                liveKitError?.includes("another tab")
+                  ? window.location.reload()
+                  : reconnectNow()
+              }
+              className="px-3 py-1 rounded-full text-xs font-semibold transition-colors hover:brightness-110"
+              style={{
+                background: connectionLost ? "#ef4444" : "rgba(251,191,36,0.2)",
+                color: connectionLost ? "#fff" : "#fde68a",
+              }}
+            >
+              {liveKitError?.includes("another tab") ? "Use this tab" : connectionLost ? "Retry" : "Retry now"}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AudioControls
         isMuted={isMuted}
         isDeafened={isDeafened}
         volume={volume}
         audioLevel={audioLevel}
         isHost={isHost}
+        isReconnecting={isReconnecting}
         onToggleMute={handleToggleMute}
         onToggleDeafen={handleToggleDeafen}
         onVolumeChange={setVolume}
@@ -3569,6 +3654,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         onShowParticipants={() => setShowParticipantSearch(true)}
         connectionQuality={connectionQuality}
         isCallActive={isLiveKitConnected}
+        isAudience={isAudience}
+        isHandRaised={handRaised}
+        onToggleHand={() => handleToggleRaiseHand()}
+        onLeaveStage={
+          isStageRoom && !isAudience && !isHost ? handleLeaveStage : undefined
+        }
       />
 
       <AnimatePresence>
@@ -3698,7 +3789,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         update={voiceEffects.update}
         applyPreset={voiceEffects.applyPreset}
         reset={voiceEffects.reset}
-        showWarning
+        isLive={voiceEffects.isLive}
+        canApply={voiceEffects.canApply}
+        noiseSuppression={voiceEffects.noiseSuppression}
+        onToggleNoiseSuppression={() =>
+          voiceEffects.setNoiseSuppression(!voiceEffects.noiseSuppression)
+        }
       />
 
       {isModerator && (

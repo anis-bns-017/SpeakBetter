@@ -32,6 +32,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private roomHosts: Map<string, string> = new Map();
   private userSockets: Map<string, string[]> = new Map();
   private userNames: Map<string, string> = new Map();
+  /** `${roomId}:${userId}` → timer that removes someone whose connection dropped */
+  private pendingLeaves: Map<string, NodeJS.Timeout> = new Map();
+  /** How long a dropped connection may come back before it counts as leaving */
+  private static readonly RECONNECT_GRACE_MS = 15_000;
 
   constructor(
     private jwtService: JwtService,
@@ -100,34 +104,67 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     for (const [roomId, participants] of this.roomParticipants) {
-      if (participants.has(userId)) {
-        participants.delete(userId);
-        if (participants.size === 0) {
-          this.roomParticipants.delete(roomId);
-          this.roomHosts.delete(roomId);
-        } else {
-          if (this.roomHosts.get(roomId) === userId) {
-            const room = await this.prisma.voiceRoom.findUnique({
-              where: { id: roomId },
-              select: { creatorId: true },
-            });
+      if (!participants.has(userId)) continue;
 
-            if (room && room.creatorId === userId) {
-              const newHost = Array.from(participants)[0];
-              if (newHost) {
-                this.roomHosts.set(roomId, newHost);
-                this.server.to(`voice:${roomId}`).emit('voice:host-changed', {
-                  newHostId: newHost,
-                });
-              }
-            }
-          }
-        }
-        this.server.to(`voice:${roomId}`).emit('participant:left', { userId });
-      }
+      // Still connected to this room from another tab or device: nothing changes
+      const remaining = await this.server.in(`voice:${roomId}`).fetchSockets();
+      if (remaining.some((s) => s.data?.userId === userId)) continue;
+
+      // Probably a network blip: show "reconnecting" and wait before treating it as leaving
+      const key = `${roomId}:${userId}`;
+      if (this.pendingLeaves.has(key)) continue;
+      this.server
+        .to(`voice:${roomId}`)
+        .emit('voice:presence', { userId, status: 'reconnecting' });
+      this.pendingLeaves.set(
+        key,
+        setTimeout(() => {
+          this.pendingLeaves.delete(key);
+          void this.removeFromRoom(roomId, userId);
+        }, VoiceGateway.RECONNECT_GRACE_MS),
+      );
     }
 
     this.logger.log(`User ${userId} disconnected from voice`);
+  }
+
+  /** Called when the grace period ends without the user coming back */
+  private async removeFromRoom(roomId: string, userId: string) {
+    const participants = this.roomParticipants.get(roomId);
+    if (!participants?.has(userId)) return;
+
+    participants.delete(userId);
+    if (participants.size === 0) {
+      this.roomParticipants.delete(roomId);
+      this.roomHosts.delete(roomId);
+    } else if (this.roomHosts.get(roomId) === userId) {
+      const room = await this.prisma.voiceRoom.findUnique({
+        where: { id: roomId },
+        select: { creatorId: true },
+      });
+
+      if (room && room.creatorId === userId) {
+        const newHost = Array.from(participants)[0];
+        if (newHost) {
+          this.roomHosts.set(roomId, newHost);
+          this.server.to(`voice:${roomId}`).emit('voice:host-changed', {
+            newHostId: newHost,
+          });
+        }
+      }
+    }
+    this.server.to(`voice:${roomId}`).emit('participant:left', { userId });
+    this.logger.log(`User ${userId} left room ${roomId} (did not reconnect)`);
+  }
+
+  /** A returning user cancels their pending removal; returns true if they were reconnecting */
+  private cancelPendingLeave(roomId: string, userId: string): boolean {
+    const key = `${roomId}:${userId}`;
+    const timer = this.pendingLeaves.get(key);
+    if (!timer) return false;
+    clearTimeout(timer);
+    this.pendingLeaves.delete(key);
+    return true;
   }
 
   // ============ JOIN / LEAVE ============
@@ -233,6 +270,14 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
       this.roomParticipants.get(data.roomId)!.add(userId);
 
+      // Back within the grace period: keep their place (and host role) and clear "reconnecting"
+      if (this.cancelPendingLeave(data.roomId, userId)) {
+        client
+          .to(roomName)
+          .emit('voice:presence', { userId, status: 'online' });
+        this.logger.log(`User ${userId} reconnected to room ${data.roomId}`);
+      }
+
       if (!this.roomHosts.has(data.roomId)) {
         this.roomHosts.set(data.roomId, room.creatorId);
       }
@@ -267,11 +312,26 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('voice:host', { hostId });
 
       const userName = this.userNames.get(userId) || 'User';
+      const me = participantDetails.find((p) => p.userId === userId);
 
       client.to(roomName).emit('participant:joined', {
         userId,
         userName,
+        user: me?.user,
+        role: me?.role,
+        raisedHand: me?.raisedHand ?? false,
+        canSpeak: this.voiceService.canSpeakInRoom(room, userId, me?.role),
       });
+
+      // Corrections made earlier in this room (survive refreshes, visible to late joiners)
+      try {
+        client.emit(
+          'voice:corrections-history',
+          await this.voiceService.getRoomCorrections(data.roomId),
+        );
+      } catch (error) {
+        this.logger.warn(`Could not load corrections history: ${error?.message}`);
+      }
 
       // Send message history
       const allMessages = await this.prisma.voiceRoomMessage.findMany({
@@ -710,19 +770,19 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: { creatorId: data.userId },
       });
 
-      await this.prisma.voiceParticipant.update({
-        where: {
-          roomId_userId: { roomId: data.roomId, userId: data.userId },
-        },
-        data: { role: 'MODERATOR' },
-      });
-
-      await this.prisma.voiceParticipant.update({
-        where: {
-          roomId_userId: { roomId: data.roomId, userId },
-        },
-        data: { role: 'LISTENER' },
-      });
+      // New host gets full control; the previous host stays on stage as a speaker
+      const newHost = await this.voiceService.applyParticipantRole(
+        data.roomId,
+        data.userId,
+        'MODERATOR',
+      );
+      const oldHost = await this.voiceService.applyParticipantRole(
+        data.roomId,
+        userId,
+        'SPEAKER',
+      );
+      this.broadcastRoleChange(data.roomId, data.userId, 'MODERATOR', newHost.canSpeak, userId);
+      this.broadcastRoleChange(data.roomId, userId, 'SPEAKER', oldHost.canSpeak, userId);
 
       this.roomHosts.set(data.roomId, data.userId);
 
@@ -753,33 +813,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      const room = await this.prisma.voiceRoom.findUnique({
-        where: { id: data.roomId },
-      });
-
-      if (!room) {
-        client.emit('voice:error', { message: 'Room not found' });
-        return;
-      }
-
-      if (room.creatorId !== userId) {
-        client.emit('voice:error', {
-          message: 'Only the host can mute members',
-        });
-        return;
-      }
-
-      if (room.creatorId === data.userId) {
-        client.emit('voice:error', { message: 'Cannot mute the host' });
-        return;
-      }
-
-      await this.prisma.voiceParticipant.update({
-        where: {
-          roomId_userId: { roomId: data.roomId, userId: data.userId },
-        },
-        data: { isMuted: true },
-      });
+      // Checks host/moderator rights, saves the flag and mutes the LiveKit track
+      await this.voiceService.muteParticipant(userId, data.roomId, data.userId);
 
       const roomName = `voice:${data.roomId}`;
       this.server.to(roomName).emit('voice:muted', {
@@ -790,7 +825,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.log(`User ${data.userId} muted in room ${data.roomId}`);
     } catch (error) {
       this.logger.error('Error muting user:', error);
-      client.emit('voice:error', { message: 'Failed to mute user' });
+      client.emit('voice:error', {
+        message: error?.message || 'Failed to mute user',
+      });
     }
   }
 
@@ -806,28 +843,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      const room = await this.prisma.voiceRoom.findUnique({
-        where: { id: data.roomId },
-      });
-
-      if (!room) {
-        client.emit('voice:error', { message: 'Room not found' });
-        return;
-      }
-
-      if (room.creatorId !== userId) {
-        client.emit('voice:error', {
-          message: 'Only the host can unmute members',
-        });
-        return;
-      }
-
-      await this.prisma.voiceParticipant.update({
-        where: {
-          roomId_userId: { roomId: data.roomId, userId: data.userId },
-        },
-        data: { isMuted: false },
-      });
+      await this.voiceService.unmuteParticipant(userId, data.roomId, data.userId);
 
       const roomName = `voice:${data.roomId}`;
       this.server.to(roomName).emit('voice:unmuted', {
@@ -870,12 +886,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      await this.prisma.voiceParticipant.update({
-        where: {
-          roomId_userId: { roomId: data.roomId, userId: data.userId },
-        },
-        data: { role: 'MODERATOR' },
-      });
+      const { canSpeak } = await this.voiceService.applyParticipantRole(
+        data.roomId,
+        data.userId,
+        'MODERATOR',
+      );
+      this.broadcastRoleChange(data.roomId, data.userId, 'MODERATOR', canSpeak, userId);
 
       const roomName = `voice:${data.roomId}`;
       this.server.to(roomName).emit('voice:promoted', {
@@ -920,12 +936,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      await this.prisma.voiceParticipant.update({
-        where: {
-          roomId_userId: { roomId: data.roomId, userId: data.userId },
-        },
-        data: { role: 'LISTENER' },
-      });
+      const { canSpeak } = await this.voiceService.applyParticipantRole(
+        data.roomId,
+        data.userId,
+        'LISTENER',
+      );
+      this.broadcastRoleChange(data.roomId, data.userId, 'LISTENER', canSpeak, userId);
 
       const roomName = `voice:${data.roomId}`;
       this.server.to(roomName).emit('voice:demoted', {
@@ -1041,7 +1057,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const emoji = String(data.emoji).slice(0, 8);
     if (!emoji) return;
 
-    this.server.to(data.roomId).emit('voice:stage-reaction', {
+    this.server.to(`voice:${data.roomId}`).emit('voice:stage-reaction', {
       id: `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       userId,
       userName,
@@ -1050,31 +1066,147 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  @SubscribeMessage('voice:promote-speaker')
-  handlePromoteSpeaker(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
+  // ============ STAGE ============
+
+  /** Tells everyone in the room about a role change, including whether that person may now speak */
+  private broadcastRoleChange(
+    roomId: string,
+    userId: string,
+    role: string,
+    canSpeak: boolean,
+    by: string,
   ) {
-    if (!data?.roomId || !data?.userId) return;
-    // Broadcast to everyone that this user is now a speaker
-    this.server.to(data.roomId).emit('voice:promoted-to-speaker', {
-      userId: data.userId,
-      by: (client.data as any)?.userId,
-    });
-    // Clear their raised hand state
-    this.server.to(data.roomId).emit('voice:hand-raised', {
-      userId: data.userId,
-      raised: false,
+    this.server.to(`voice:${roomId}`).emit('voice:role-changed', {
+      userId,
+      role,
+      canSpeak,
+      by,
     });
   }
 
-  @SubscribeMessage('voice:lower-hand')
-  handleLowerHand(
+  /** Host/moderator invites someone (usually with a raised hand) onto the stage */
+  @SubscribeMessage('voice:promote-speaker')
+  async handlePromoteSpeaker(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; userId: string },
   ) {
-    if (!data?.roomId || !data?.userId) return;
-    this.server.to(data.roomId).emit('voice:hand-raised', {
+    const actorId = client.data.userId;
+    if (!actorId || !data?.roomId || !data?.userId) return;
+
+    try {
+      if (!(await this.voiceService.isRoomManager(data.roomId, actorId))) {
+        client.emit('voice:error', {
+          message: 'Only the host or a moderator can invite speakers',
+        });
+        return;
+      }
+
+      const { participant, canSpeak } =
+        await this.voiceService.applyParticipantRole(
+          data.roomId,
+          data.userId,
+          'SPEAKER',
+        );
+
+      const roomName = `voice:${data.roomId}`;
+      this.broadcastRoleChange(
+        data.roomId,
+        data.userId,
+        participant.role,
+        canSpeak,
+        actorId,
+      );
+      this.server.to(roomName).emit('voice:promoted-to-speaker', {
+        userId: data.userId,
+        by: actorId,
+      });
+      this.server.to(roomName).emit('voice:hand-raised', {
+        userId: data.userId,
+        raised: false,
+      });
+    } catch (error) {
+      this.logger.error('Error promoting speaker:', error);
+      client.emit('voice:error', { message: 'Failed to invite speaker' });
+    }
+  }
+
+  /** Back to the audience: a speaker stepping down, or a host moving someone off the stage */
+  @SubscribeMessage('voice:move-to-audience')
+  async handleMoveToAudience(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; userId: string },
+  ) {
+    const actorId = client.data.userId;
+    if (!actorId || !data?.roomId || !data?.userId) return;
+
+    try {
+      const isSelf = actorId === data.userId;
+      if (!isSelf && !(await this.voiceService.isRoomManager(data.roomId, actorId))) {
+        client.emit('voice:error', {
+          message: 'Only the host or a moderator can move speakers',
+        });
+        return;
+      }
+
+      const room = await this.prisma.voiceRoom.findUnique({
+        where: { id: data.roomId },
+        select: { creatorId: true },
+      });
+      if (room?.creatorId === data.userId) {
+        client.emit('voice:error', {
+          message: 'The host always stays on stage',
+        });
+        return;
+      }
+
+      const { participant, canSpeak } =
+        await this.voiceService.applyParticipantRole(
+          data.roomId,
+          data.userId,
+          'LISTENER',
+        );
+
+      this.broadcastRoleChange(
+        data.roomId,
+        data.userId,
+        participant.role,
+        canSpeak,
+        actorId,
+      );
+    } catch (error) {
+      this.logger.error('Error moving participant to audience:', error);
+      client.emit('voice:error', { message: 'Failed to move to audience' });
+    }
+  }
+
+  @SubscribeMessage('voice:lower-hand')
+  async handleLowerHand(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; userId: string },
+  ) {
+    const actorId = client.data.userId;
+    if (!actorId || !data?.roomId || !data?.userId) return;
+
+    const isSelf = actorId === data.userId;
+    if (!isSelf && !(await this.voiceService.isRoomManager(data.roomId, actorId))) {
+      client.emit('voice:error', {
+        message: "Only the host or a moderator can lower someone's hand",
+      });
+      return;
+    }
+
+    try {
+      await this.prisma.voiceParticipant.update({
+        where: {
+          roomId_userId: { roomId: data.roomId, userId: data.userId },
+        },
+        data: { raisedHand: false },
+      });
+    } catch (error) {
+      this.logger.warn(`Could not save lowered hand: ${error}`);
+    }
+
+    this.server.to(`voice:${data.roomId}`).emit('voice:hand-raised', {
       userId: data.userId,
       raised: false,
     });
@@ -1104,7 +1236,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Broadcast to everyone in the room (including the sender is fine,
     // the client ignores its own echo)
-    this.server.to(data.roomId).emit('voice:transcription', {
+    this.server.to(`voice:${data.roomId}`).emit('voice:transcription', {
       id: data.id || `${userId}-${Date.now()}`,
       userId,
       userName,
@@ -1117,7 +1249,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('voice:correction')
-  handleCorrection(
+  async handleCorrection(
     @ConnectedSocket() client: Socket,
     @MessageBody()
     data: {
@@ -1131,43 +1263,48 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       category: string;
     },
   ) {
-    if (!data?.roomId || !data?.targetUserId) return;
-
     const authorId = (client.data as any)?.userId;
-    const authorName = (client.data as any)?.userName || 'Someone';
-    if (!authorId) return;
+    if (!authorId || !data?.roomId || !data?.targetUserId) return;
 
-    // Cap fields to protect broadcast bandwidth
-    const payload = {
-      id: data.id,
-      roomId: data.roomId,
-      targetUserId: data.targetUserId,
-      targetUserName: String(data.targetUserName || '').slice(0, 60),
-      authorId,
-      authorName: String(authorName).slice(0, 60),
-      original: String(data.original || '').slice(0, 300),
-      corrected: String(data.corrected || '').slice(0, 300),
-      note: data.note ? String(data.note).slice(0, 200) : undefined,
-      category: String(data.category || 'other').slice(0, 20),
-      status: 'pending' as const,
-      createdAt: Date.now(),
-    };
-
-    this.server.to(data.roomId).emit('voice:correction', payload);
+    try {
+      // Saved first, so it survives refreshes and late joiners see it
+      const payload = await this.voiceService.createCorrection(authorId, data);
+      this.server.to(`voice:${data.roomId}`).emit('voice:correction', payload);
+    } catch (error) {
+      this.logger.warn(`Correction rejected: ${error?.message}`);
+      client.emit('voice:correction-failed', {
+        id: data.id,
+        message: error?.message || 'Could not send correction',
+      });
+    }
   }
 
   @SubscribeMessage('voice:correction-resolve')
-  handleCorrectionResolve(
+  async handleCorrectionResolve(
     @ConnectedSocket() client: Socket,
     @MessageBody()
     data: { roomId: string; id: string; status: 'accepted' | 'dismissed' },
   ) {
-    if (!data?.roomId || !data?.id) return;
-    this.server.to(data.roomId).emit('voice:correction-status', {
-      id: data.id,
-      status: data.status,
-      resolvedAt: Date.now(),
-    });
+    const userId = (client.data as any)?.userId;
+    if (!userId || !data?.roomId || !data?.id) return;
+
+    try {
+      const updated = await this.voiceService.resolveCorrection(
+        userId,
+        data.roomId,
+        data.id,
+        data.status,
+      );
+      this.server.to(`voice:${data.roomId}`).emit('voice:correction-status', {
+        id: updated.id,
+        status: updated.status,
+        resolvedAt: updated.resolvedAt,
+      });
+    } catch (error) {
+      client.emit('voice:error', {
+        message: error?.message || 'Could not update correction',
+      });
+    }
   }
 
   // ============ REACTION MESSAGE ============

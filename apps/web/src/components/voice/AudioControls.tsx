@@ -35,6 +35,8 @@ import {
   MonitorOff,
   Maximize2,
   Minimize2,
+  Hand,
+  ArrowDownFromLine,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -73,6 +75,14 @@ interface AudioControlsProps {
   onShowSettings?: () => void;
   onToggleFullscreen?: () => void;
   isFullscreen?: boolean;
+
+  // Stage rooms
+  /** Listener in a stage room: the mic is locked, so show "Raise hand" instead */
+  isAudience?: boolean;
+  isHandRaised?: boolean;
+  onToggleHand?: () => void;
+  /** Shown to speakers who may step back down to the audience */
+  onLeaveStage?: () => void;
 
   // UI variants
   variant?: "default" | "floating" | "mobile" | "compact";
@@ -327,6 +337,10 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   onToggleFullscreen,
   isFullscreen = false,
   isReconnecting = false,
+  isAudience = false,
+  isHandRaised = false,
+  onToggleHand,
+  onLeaveStage,
   variant = "default",
   className = "",
 }) => {
@@ -373,7 +387,36 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               : "none",
           }}
         >
+          {/* Audience: raise hand instead of a mic */}
+          {isAudience && (
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onToggleHand}
+              className="flex items-center gap-2 h-11 pl-3.5 pr-4 rounded-full text-sm font-semibold transition-all"
+              style={{
+                background: isHandRaised
+                  ? "rgba(251, 191, 36, 0.18)"
+                  : `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
+                color: isHandRaised ? "#FBBF24" : "#fff",
+                border: isHandRaised ? "1px solid rgba(251,191,36,0.45)" : "1px solid transparent",
+              }}
+              aria-pressed={isHandRaised}
+              title={isHandRaised ? "Lower your hand" : "Ask the host to let you speak"}
+            >
+              <motion.span
+                animate={isHandRaised ? { rotate: [0, 18, -8, 18, 0] } : { rotate: 0 }}
+                transition={isHandRaised ? { duration: 1.2, repeat: Infinity, repeatDelay: 1.5 } : undefined}
+                className="flex"
+              >
+                <Hand className="w-5 h-5" />
+              </motion.span>
+              {isHandRaised ? "Hand raised" : "Raise hand"}
+            </motion.button>
+          )}
+
           {/* Mute Button */}
+          {!isAudience && (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -436,11 +479,29 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               />
             )}
           </motion.button>
+          )}
 
           {/* Audio Level Meter */}
-          <div className="hidden sm:flex">
-            <AudioLevelMeter level={audioLevel} muted={isMuted} />
-          </div>
+          {!isAudience && (
+            <div className="hidden sm:flex">
+              <AudioLevelMeter level={audioLevel} muted={isMuted} />
+            </div>
+          )}
+
+          {/* Speaker stepping back down to the audience */}
+          {onLeaveStage && !isAudience && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onLeaveStage}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium transition-all hover:bg-white/5 border"
+              style={{ color: THEME.text.secondary, borderColor: THEME.border }}
+              title="Leave the stage and listen"
+            >
+              <ArrowDownFromLine className="w-4 h-4" />
+              <span className="hidden sm:inline">Leave stage</span>
+            </motion.button>
+          )}
 
           {/* Deafen */}
           {onToggleDeafen && (

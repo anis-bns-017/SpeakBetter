@@ -31,8 +31,12 @@ interface VoiceEffectsPanelProps {
   update: (patch: Partial<VoiceEffectsState>) => void;
   applyPreset: (preset: keyof typeof PRESETS) => void;
   reset: () => void;
-  /** Optional: shows a warning about LiveKit republishing */
-  showWarning?: boolean;
+  /** Effects are on and the room hears the processed voice */
+  isLive?: boolean;
+  /** False when you aren't publishing a mic (e.g. in the audience) */
+  canApply?: boolean;
+  noiseSuppression?: boolean;
+  onToggleNoiseSuppression?: () => void;
 }
 
 const PRESET_META: Record<
@@ -54,7 +58,10 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
   update,
   applyPreset,
   reset,
-  showWarning = false,
+  isLive = false,
+  canApply = true,
+  noiseSuppression = true,
+  onToggleNoiseSuppression,
 }) => {
   return (
     <AnimatePresence>
@@ -100,8 +107,24 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                   className="text-[10px] truncate"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  {state.bypass ? "Bypassed — clean mic" : `${state.preset} preset`}
+                  {state.bypass ? "Off — clean mic" : `${state.preset} preset`}
                 </p>
+                {!state.bypass && (
+                  <p
+                    className="text-[11px] font-medium flex items-center gap-1.5"
+                    style={{ color: isLive ? THEME.colors.status.online : THEME.colors.accent.warning }}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: isLive ? THEME.colors.status.online : THEME.colors.accent.warning }}
+                    />
+                    {isLive
+                      ? "Live — everyone hears this"
+                      : canApply
+                        ? "Starting…"
+                        : "Applies when you're speaking"}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -331,19 +354,37 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
               />
             </div>
 
-            {showWarning && (
-              <div
-                className="rounded-xl border px-3 py-2.5 text-[10px] leading-relaxed"
-                style={{
-                  background: "rgba(251,191,36,0.06)",
-                  borderColor: "rgba(251,191,36,0.2)",
-                  color: THEME.colors.accent.warning,
-                }}
+            {onToggleNoiseSuppression && (
+              <button
+                type="button"
+                onClick={onToggleNoiseSuppression}
+                role="switch"
+                aria-checked={noiseSuppression}
+                className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors hover:bg-white/[0.03]"
+                style={{ borderColor: THEME.colors.border.primary }}
               >
-                ⚠️ Effects apply to your outgoing mic. Toggle them off if
-                others say your audio sounds strange.
-              </div>
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold" style={{ color: THEME.colors.text.primary }}>
+                    Noise suppression
+                  </span>
+                  <span className="block text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
+                    {noiseSuppression
+                      ? "Filters background noise — best for talking"
+                      : "Studio mode — natural sound for singing or music"}
+                  </span>
+                </span>
+                <span
+                  className="w-9 h-5 rounded-full p-0.5 transition-colors shrink-0"
+                  style={{ background: noiseSuppression ? THEME.colors.accent.primary : "rgba(255,255,255,0.12)" }}
+                >
+                  <span className={`block w-4 h-4 rounded-full bg-white transition-transform ${noiseSuppression ? "translate-x-4" : "translate-x-0"}`} />
+                </span>
+              </button>
             )}
+
+            <p className="text-[11px] leading-relaxed" style={{ color: THEME.colors.text.muted }}>
+              Effects change what the room hears from your mic. Turn them off any time to go back to your clean voice.
+            </p>
           </div>
         </motion.div>
       )}

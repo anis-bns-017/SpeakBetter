@@ -94,7 +94,7 @@ export function SpeakBetterLogo() {
       <div className="relative min-w-0 text-left">
         {/* Brand name */}
         <motion.p
-          className="relative text-[17px] font-extrabold leading-none tracking-[-0.04em] text-slate-900"
+          className="relative text-[17px] font-extrabold leading-none tracking-[-0.04em] text-slate-900 dark:text-white"
           whileHover={{ letterSpacing: "-0.02em" }}
           transition={{ duration: 0.2 }}
         >

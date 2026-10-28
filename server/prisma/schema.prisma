@@ -558,14 +558,16 @@ model User {
   courseReviews          CourseReview[]
 
   // ===== NEW VOICE RELATIONS =====
-  voiceTranscriptions   VoiceTranscription[]       @relation("TranscriptionUser")
-  voiceClapsSent        VoiceClap[]                @relation("ClapSender")
-  voiceClapsReceived    VoiceClap[]                @relation("ClapReceiver")
-  voiceSpeakerQueues    VoiceSpeakerQueue[]        @relation("QueueUser")
-  voiceInvitesCreated   VoiceRoomInvite[]          @relation("InviteCreator")
-  voiceSpeakerStats     VoiceSpeakerStats[]        @relation("SpeakerStatsUser")
-  voiceQueueInvites     VoiceSpeakerQueue[]        @relation("QueueInviter")
-  voiceMessageReactions VoiceRoomMessageReaction[]
+  voiceTranscriptions      VoiceTranscription[]       @relation("TranscriptionUser")
+  voiceClapsSent           VoiceClap[]                @relation("ClapSender")
+  voiceClapsReceived       VoiceClap[]                @relation("ClapReceiver")
+  voiceSpeakerQueues       VoiceSpeakerQueue[]        @relation("QueueUser")
+  voiceInvitesCreated      VoiceRoomInvite[]          @relation("InviteCreator")
+  voiceSpeakerStats        VoiceSpeakerStats[]        @relation("SpeakerStatsUser")
+  voiceQueueInvites        VoiceSpeakerQueue[]        @relation("QueueInviter")
+  voiceMessageReactions    VoiceRoomMessageReaction[]
+  voiceCorrectionsGiven    VoiceCorrection[]          @relation("CorrectionAuthor")
+  voiceCorrectionsReceived VoiceCorrection[]          @relation("CorrectionTarget")
 }
 
 model Session {
@@ -1630,6 +1632,7 @@ model VoiceRoom {
   invites        VoiceRoomInvite[]
   analytics      VoiceRoomAnalytics[]
   speakerStats   VoiceSpeakerStats[]
+  corrections    VoiceCorrection[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2052,4 +2055,27 @@ model VoiceSpeakerStats {
   @@unique([roomId, userId])
   @@index([roomId])
   @@index([userId])
+}
+
+/// Peer corrections given during voice rooms ("you said X → better: Y")
+model VoiceCorrection {
+  id           String    @id
+  roomId       String
+  room         VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User      @relation("CorrectionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  targetUserId String
+  targetUser   User      @relation("CorrectionTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  original     String
+  corrected    String
+  note         String?
+  /// grammar | vocabulary | pronunciation | word-choice | spelling | other
+  category     String    @default("other")
+  /// pending | accepted | dismissed
+  status       String    @default("pending")
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+
+  @@index([roomId, createdAt])
+  @@index([targetUserId, status])
 }

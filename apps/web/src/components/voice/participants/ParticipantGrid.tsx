@@ -36,7 +36,26 @@ interface ParticipantGridProps {
   onPickTopic?: (topic: string) => void;
   /** Called when a listener wants to suggest a correction to a speaker */
   onCorrect?: (userId: string, userName: string) => void;
+  /** Stage rooms split people into "On stage" and "Audience" */
+  isStageRoom?: boolean;
+  onInviteToStage?: (userId: string) => void;
+  onMoveToAudience?: (userId: string) => void;
 }
+
+const STAGE_ROLES = new Set(["HOST", "MODERATOR", "SPEAKER", "STAGE_SPEAKER"]);
+
+const SectionLabel: React.FC<{ title: string; count: number; hint?: string }> = ({ title, count, hint }) => (
+  <div className="col-span-full flex items-center gap-2 mt-2">
+    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: THEME.colors.text.secondary }}>
+      {title}
+    </span>
+    <span className="text-[11px] tabular-nums px-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)", color: THEME.colors.text.muted }}>
+      {count}
+    </span>
+    {hint && <span className="text-[11px]" style={{ color: THEME.colors.text.muted }}>{hint}</span>}
+    <div className="h-px flex-1" style={{ background: THEME.colors.border.primary }} />
+  </div>
+);
 
 export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   participants,
@@ -62,7 +81,12 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   className,
   onInvite,
   onPickTopic,
+  isStageRoom = false,
+  onInviteToStage,
+  onMoveToAudience,
 }) => {
+  const isOnStage = (p: any) =>
+    hostId === p.id || STAGE_ROLES.has(String(p.role || "").toUpperCase());
   // Dynamic language list from participants
   const roomLanguages = useMemo(() => {
     const set = new Set<string>();
@@ -96,10 +120,49 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
       );
     })
     .sort((a: any, b: any) => {
-      if (a.role === "HOST" && b.role !== "HOST") return -1;
-      if (b.role === "HOST" && a.role !== "HOST") return 1;
+      const aHost = hostId === a.id || a.role === "HOST";
+      const bHost = hostId === b.id || b.role === "HOST";
+      if (aHost !== bHost) return aHost ? -1 : 1;
+      // Raised hands first in the audience, so hosts see them right away
+      if (Boolean(a.raisedHand) !== Boolean(b.raisedHand)) return a.raisedHand ? -1 : 1;
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
+
+  const stageParticipants = isStageRoom ? filteredParticipants.filter(isOnStage) : filteredParticipants;
+  const audienceParticipants = isStageRoom ? filteredParticipants.filter((p: any) => !isOnStage(p)) : [];
+
+  const renderCard = (p: any) => {
+    const isParticipantHost = hostId === p.id || p.role === "HOST";
+    const isCurrentUser = p.id === currentUserId;
+    const onStage = isOnStage(p);
+    const canManageStage = isStageRoom && isModerator && !isParticipantHost && !isCurrentUser;
+
+    return (
+      <ParticipantCard
+        key={p.id}
+        participant={p}
+        isHost={isParticipantHost}
+        isCurrentUser={isCurrentUser}
+        isModerator={isModerator}
+        isFavorite={favoriteParticipants.has(p.id)}
+        onMute={() => (p.isMuted ? onUnmuteUser(p.id) : onMuteUser(p.id))}
+        onKick={() => onKickUser(p.id)}
+        onPromote={() => onPromoteHost(p.id)}
+        onFollow={() => onToggleFavorite(p.id)}
+        onSendMessage={() => onSendMessage(p.id)}
+        onViewProfile={() => onViewProfile(p.id)}
+        onStageAction={
+          canManageStage
+            ? onStage
+              ? onMoveToAudience && (() => onMoveToAudience(p.id))
+              : onInviteToStage && (() => onInviteToStage(p.id))
+            : undefined
+        }
+        stageActionKind={onStage ? "remove" : "invite"}
+        size="sm"
+      />
+    );
+  };
 
   const onlineParticipants = participants.filter(
     (p: any) => p.isOnline === true,
@@ -291,31 +354,29 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
               }}
             />
           </div>
+        ) : isStageRoom ? (
+          <>
+            <SectionLabel title="On stage" count={stageParticipants.length} />
+            {stageParticipants.map(renderCard)}
+            <SectionLabel
+              title="Audience"
+              count={audienceParticipants.length}
+              hint={
+                isModerator && audienceParticipants.some((p: any) => p.raisedHand)
+                  ? "✋ raised hands are listed first"
+                  : undefined
+              }
+            />
+            {audienceParticipants.length === 0 ? (
+              <p className="col-span-full text-xs py-2" style={{ color: THEME.colors.text.muted }}>
+                Everyone here is on stage.
+              </p>
+            ) : (
+              audienceParticipants.map(renderCard)
+            )}
+          </>
         ) : (
-          filteredParticipants.map((p: any) => {
-            const isParticipantHost = hostId === p.id || p.role === "HOST";
-            const isCurrentUser = p.id === currentUserId;
-
-            return (
-              <ParticipantCard
-                key={p.id}
-                participant={p}
-                isHost={isParticipantHost}
-                isCurrentUser={isCurrentUser}
-                isModerator={isModerator}
-                isFavorite={favoriteParticipants.has(p.id)}
-                onMute={() =>
-                  p.isMuted ? onUnmuteUser(p.id) : onMuteUser(p.id)
-                }
-                onKick={() => onKickUser(p.id)}
-                onPromote={() => onPromoteHost(p.id)}
-                onFollow={() => onToggleFavorite(p.id)}
-                onSendMessage={() => onSendMessage(p.id)}
-                onViewProfile={() => onViewProfile(p.id)}
-                size="sm"
-              />
-            );
-          })
+          filteredParticipants.map(renderCard)
         )}
       </div>
     </section>

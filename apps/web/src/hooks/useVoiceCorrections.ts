@@ -2,17 +2,18 @@
 /**
  * useVoiceCorrections — real-time grammar/pronunciation corrections.
  *
- * Data flow:
+ * Data flow (all over the voice socket; the server saves every step):
  *   1. Listener opens CorrectionSheet → fills in original + correction
- *   2. POST to /voice/rooms/:roomId/corrections
- *   3. Socket broadcasts `voice:correction` to everyone in the room
- *   4. Receiver's hook collects them into `inbox`
- *   5. Receiver clicks Accept → POST /corrections/:id/accept
- *   6. Everyone in the room sees the accepted correction as a chat highlight
+ *   2. emit `voice:correction` → server saves it and broadcasts `voice:correction`
+ *      (or replies `voice:correction-failed` to the author)
+ *   3. Receiver's hook collects them into `received`
+ *   4. Receiver accepts/dismisses → `voice:correction-resolve` → `voice:correction-status`
+ *   5. On join the server sends `voice:corrections-history`, so nothing is lost on refresh
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
+import { toast } from "sonner";
 
 export type CorrectionCategory =
   | "grammar"
@@ -66,17 +67,27 @@ export const useVoiceCorrections = ({
   const [corrections, setCorrections] = useState<VoiceCorrection[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Latest values for socket handlers, so listeners are registered once per socket
+  const correctionsRef = useRef(corrections);
+  const onAcceptedRef = useRef(onAccepted);
+  useEffect(() => {
+    correctionsRef.current = corrections;
+    onAcceptedRef.current = onAccepted;
+  });
+
   // ------------------------------------------------------------
   // Socket listeners
   // ------------------------------------------------------------
   useEffect(() => {
     if (!socket) return;
 
+    // The saved copy replaces our optimistic one (same id)
     const handleNew = (c: VoiceCorrection) => {
-      setCorrections((prev) => {
-        if (prev.some((x) => x.id === c.id)) return prev;
-        return [...prev, c];
-      });
+      setCorrections((prev) =>
+        prev.some((x) => x.id === c.id)
+          ? prev.map((x) => (x.id === c.id ? { ...x, ...c } : x))
+          : [...prev, c],
+      );
     };
 
     const handleStatusUpdate = (data: {
@@ -84,41 +95,45 @@ export const useVoiceCorrections = ({
       status: "accepted" | "dismissed";
       resolvedAt?: number;
     }) => {
+      const existing = correctionsRef.current.find((x) => x.id === data.id);
       setCorrections((prev) =>
         prev.map((c) =>
           c.id === data.id
-            ? {
-                ...c,
-                status: data.status,
-                resolvedAt: data.resolvedAt ?? Date.now(),
-              }
+            ? { ...c, status: data.status, resolvedAt: data.resolvedAt ?? Date.now() }
             : c,
         ),
       );
-
-      if (data.status === "accepted") {
-        const c = corrections.find((x) => x.id === data.id);
-        if (c && c.targetUserId === userId) {
-          onAccepted?.(c);
-        }
+      if (data.status === "accepted" && existing && existing.targetUserId === userId) {
+        onAcceptedRef.current?.({ ...existing, status: "accepted" });
       }
     };
 
+    // History from the server, keeping any local corrections still waiting to be saved
     const handleBulk = (list: VoiceCorrection[]) => {
-      if (Array.isArray(list)) setCorrections(list);
+      if (!Array.isArray(list)) return;
+      setCorrections((prev) => {
+        const savedIds = new Set(list.map((c) => c.id));
+        return [...list, ...prev.filter((c) => !savedIds.has(c.id) && c.authorId === userId)];
+      });
+    };
+
+    const handleFailed = (data: { id?: string; message?: string }) => {
+      if (data?.id) setCorrections((prev) => prev.filter((c) => c.id !== data.id));
+      toast.error(data?.message || "Could not send correction");
     };
 
     socket.on("voice:correction", handleNew);
     socket.on("voice:correction-status", handleStatusUpdate);
     socket.on("voice:corrections-history", handleBulk);
+    socket.on("voice:correction-failed", handleFailed);
 
     return () => {
       socket.off("voice:correction", handleNew);
       socket.off("voice:correction-status", handleStatusUpdate);
       socket.off("voice:corrections-history", handleBulk);
+      socket.off("voice:correction-failed", handleFailed);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, corrections, userId]);
+  }, [socket, userId]);
 
   // ------------------------------------------------------------
   // Submit a correction

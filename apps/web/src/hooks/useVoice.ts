@@ -14,6 +14,7 @@ import {
   RemoteTrack,
   Participant,
   ConnectionQuality,
+  DisconnectReason,
 } from "livekit-client";
 
 // ---------- Environment Variables ----------
@@ -1038,16 +1039,59 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
       },
     );
 
-    s.on("participant:joined", (data: { userId: string; user?: any }) => {
-      setParticipants((prev) => {
-        if (prev.some((p) => p.userId === data.userId)) return prev;
-        return [...prev, { userId: data.userId, user: data.user }];
-      });
-    });
+    s.on(
+      "participant:joined",
+      (data: { userId: string; user?: any; role?: string; raisedHand?: boolean }) => {
+        setParticipants((prev) => {
+          if (prev.some((p) => p.userId === data.userId)) return prev;
+          return [
+            ...prev,
+            {
+              userId: data.userId,
+              user: data.user,
+              role: data.role,
+              raisedHand: data.raisedHand ?? false,
+            },
+          ];
+        });
+      },
+    );
+
+    // Stage moves: invited up, moved to the audience, made moderator, etc.
+    s.on(
+      "voice:role-changed",
+      (data: { userId: string; role: string; canSpeak: boolean; by?: string }) => {
+        setParticipants((prev) =>
+          prev.map((p) =>
+            p.userId === data.userId
+              ? { ...p, role: data.role, raisedHand: data.role === "LISTENER" ? p.raisedHand : false }
+              : p,
+          ),
+        );
+        if (data.userId === userId && data.by !== userId) {
+          if (data.role === "LISTENER") toast.info("You were moved to the audience");
+          else if (data.canSpeak) toast.success("🎤 You're on stage! Tap the mic to talk");
+        }
+      },
+    );
 
     s.on("participant:left", (data: { userId: string }) => {
       setParticipants((prev) => prev.filter((p) => p.userId !== data.userId));
     });
+
+    // Someone's connection dropped (server waits ~15s before counting it as leaving)
+    s.on(
+      "voice:presence",
+      (data: { userId: string; status: "reconnecting" | "online" }) => {
+        setParticipants((prev) =>
+          prev.map((p) =>
+            p.userId === data.userId
+              ? { ...p, isReconnecting: data.status === "reconnecting" }
+              : p,
+          ),
+        );
+      },
+    );
 
     s.on("voice:host", (data: { hostId: string }) => {
       setHostId(data.hostId);
@@ -1314,6 +1358,30 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
     [socket, isConnected, roomId],
   );
 
+  /** Host/moderator brings someone up to speak (grants their mic) */
+  const inviteToStage = useCallback(
+    (targetUserId: string) => {
+      if (!socket || !isConnected) {
+        toast.error("Not connected to voice server");
+        return;
+      }
+      socket.emit("voice:promote-speaker", { roomId, userId: targetUserId });
+    },
+    [socket, isConnected, roomId],
+  );
+
+  /** Back to listening — yourself (leave stage) or, for hosts, someone else */
+  const moveToAudience = useCallback(
+    (targetUserId: string) => {
+      if (!socket || !isConnected) {
+        toast.error("Not connected to voice server");
+        return;
+      }
+      socket.emit("voice:move-to-audience", { roomId, userId: targetUserId });
+    },
+    [socket, isConnected, roomId],
+  );
+
   const pinMessage = useCallback(
     (messageId: string, pinned: boolean) => {
       if (!socket || !isConnected) {
@@ -1374,12 +1442,40 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
     [socket, isConnected, roomId],
   );
 
+  // LiveKit reports active speakers many times a second; only send changes, and send
+  // them as volatile so nothing piles up (and floods the room) while we're offline.
+  const lastSpeakingRef = useRef(false);
+  const speakingOffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const broadcastSpeaking = useCallback(
     (isSpeaking: boolean) => {
       if (!socket || !isConnected) return;
-      socket.emit("voice:speaking", { roomId, isSpeaking });
+
+      if (speakingOffTimerRef.current) {
+        clearTimeout(speakingOffTimerRef.current);
+        speakingOffTimerRef.current = null;
+      }
+      if (isSpeaking) {
+        // No "stopped" event comes from LiveKit for us, so infer it from silence
+        speakingOffTimerRef.current = setTimeout(() => {
+          speakingOffTimerRef.current = null;
+          lastSpeakingRef.current = false;
+          socket.volatile.emit("voice:speaking", { roomId, isSpeaking: false });
+        }, 1500);
+      }
+
+      if (lastSpeakingRef.current === isSpeaking) return;
+      lastSpeakingRef.current = isSpeaking;
+      socket.volatile.emit("voice:speaking", { roomId, isSpeaking });
     },
     [socket, isConnected, roomId],
+  );
+
+  useEffect(
+    () => () => {
+      if (speakingOffTimerRef.current) clearTimeout(speakingOffTimerRef.current);
+    },
+    [],
   );
 
     const sendStageReaction = useCallback(
@@ -1413,6 +1509,8 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
     muteSelf,
     fetchMessages,
     promoteHost,
+    inviteToStage,
+    moveToAudience,
     broadcastSpeaking,
     sendStageReaction,
   };
@@ -1447,6 +1545,8 @@ export const useLiveKitRoom = (
   const [room, setRoom] = useState<Room | null>(null);
   const [localTrack, setLocalTrack] = useState<LocalAudioTrack | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  /** False for audience members in stage rooms until the host invites them up */
+  const [canPublish, setCanPublish] = useState(true);
   const [remoteTracks, setRemoteTracks] = useState<Record<string, boolean>>({});
   const [speakingParticipants, setSpeakingParticipants] = useState<
     Record<string, boolean>
@@ -1472,10 +1572,45 @@ export const useLiveKitRoom = (
   const connectionAttemptRef = useRef(0);
   const roomRef = useRef<Room | null>(null);
 
+  /** "reconnecting" covers both LiveKit's own resume and our full re-join */
+  const [connectionState, setConnectionState] = useState<
+    "idle" | "connecting" | "connected" | "reconnecting" | "disconnected"
+  >("idle");
+  /** Bumping this re-runs the connect effect (full re-join with the same token) */
+  const [reconnectNonce, setReconnectNonce] = useState(0);
+  const rejoinAttemptsRef = useRef(0);
+  const rejoinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const MAX_REJOIN_ATTEMPTS = 5;
+
+  const reconnectNow = useCallback(() => {
+    if (rejoinTimerRef.current) clearTimeout(rejoinTimerRef.current);
+    rejoinTimerRef.current = null;
+    rejoinAttemptsRef.current = 0;
+    setError(null);
+    setConnectionState("reconnecting");
+    setReconnectNonce((n) => n + 1);
+  }, []);
+
+  // Coming back online: retry straight away instead of waiting for the back-off timer
+  useEffect(() => {
+    const onOnline = () => {
+      if (connectionState === "reconnecting" || connectionState === "disconnected") {
+        reconnectNow();
+      }
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [connectionState, reconnectNow]);
+
   const toggleMute = useCallback(async () => {
     if (!room) {
       console.warn("⚠️ Cannot toggle mute: LiveKit room is not connected");
       return false;
+    }
+
+    if (room.localParticipant.permissions?.canPublish === false) {
+      toast.info("You're in the audience — raise your hand to speak");
+      return true;
     }
 
     try {
@@ -1703,6 +1838,74 @@ export const useLiveKitRoom = (
           },
         );
 
+        // Connection health: LiveKit first tries to resume by itself
+        livekitRoom.on(RoomEvent.Reconnecting, () => setConnectionState("reconnecting"));
+        livekitRoom.on(RoomEvent.Reconnected, () => {
+          setConnectionState("connected");
+          rejoinAttemptsRef.current = 0;
+        });
+        // ...and if it gives up, we re-join from scratch with back-off
+        livekitRoom.on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
+          if (!isMountedRef.current || attemptId !== connectionAttemptRef.current) return;
+          setIsConnected(false);
+
+          if (reason === DisconnectReason.CLIENT_INITIATED) return;
+          if (reason === DisconnectReason.DUPLICATE_IDENTITY) {
+            setConnectionState("disconnected");
+            setError("You joined this room from another tab or device.");
+            return;
+          }
+          if (
+            reason === DisconnectReason.PARTICIPANT_REMOVED ||
+            reason === DisconnectReason.ROOM_DELETED
+          ) {
+            setConnectionState("disconnected");
+            return;
+          }
+          if (rejoinAttemptsRef.current >= MAX_REJOIN_ATTEMPTS) {
+            setConnectionState("disconnected");
+            setError("Lost connection to the voice server.");
+            return;
+          }
+
+          setConnectionState("reconnecting");
+          const delay = Math.min(30_000, 2_000 * 2 ** rejoinAttemptsRef.current);
+          rejoinAttemptsRef.current += 1;
+          rejoinTimerRef.current = setTimeout(() => {
+            rejoinTimerRef.current = null;
+            if (isMountedRef.current) setReconnectNonce((n) => n + 1);
+          }, delay);
+        });
+
+        // Keep localTrack in sync when the mic is (re)published, e.g. after a stage promotion
+        livekitRoom.on(RoomEvent.LocalTrackPublished, (publication) => {
+          if (
+            publication.source === Track.Source.Microphone &&
+            publication.track?.kind === Track.Kind.Audio
+          ) {
+            setLocalTrack(publication.track as LocalAudioTrack);
+          }
+        });
+        livekitRoom.on(RoomEvent.LocalTrackUnpublished, (publication) => {
+          if (publication.source === Track.Source.Microphone) setLocalTrack(null);
+        });
+
+        // The host invited us on stage or moved us back to the audience
+        livekitRoom.on(
+          RoomEvent.ParticipantPermissionsChanged,
+          (_previous: unknown, participant: Participant) => {
+            if (!participant.isLocal) return;
+            const allowed = participant.permissions?.canPublish ?? false;
+            setCanPublish(allowed);
+            if (!allowed) {
+              // LiveKit has already unpublished the mic
+              setIsMuted(true);
+              setLocalTrack(null);
+            }
+            // When granted we stay muted until the user taps the mic, like Clubhouse
+          },
+        );
+
         livekitRoom.on(
           RoomEvent.ConnectionQualityChanged,
           (quality: ConnectionQuality, participant: Participant) => {
@@ -1732,6 +1935,8 @@ export const useLiveKitRoom = (
         setIsMockMode(false);
         setError(null);
         setIsConnecting(false);
+        setConnectionState("connected");
+        rejoinAttemptsRef.current = 0;
 
         const initialParticipants = Array.from(
           livekitRoom.remoteParticipants.values(),
@@ -1751,6 +1956,15 @@ export const useLiveKitRoom = (
             }
           });
         });
+
+        // Stage-room audience joins listen-only; everyone else starts with the mic on
+        const allowedToPublish =
+          livekitRoom.localParticipant.permissions?.canPublish ?? true;
+        setCanPublish(allowedToPublish);
+        if (!allowedToPublish) {
+          setIsMuted(true);
+          return;
+        }
 
         await livekitRoom.localParticipant.setMicrophoneEnabled(true);
         setIsMuted(false);
@@ -1773,12 +1987,27 @@ export const useLiveKitRoom = (
 
         setIsConnected(false);
         setIsConnecting(false);
+
+        // A re-join that fails (e.g. still offline) keeps retrying with back-off
+        if (rejoinAttemptsRef.current > 0 && rejoinAttemptsRef.current < MAX_REJOIN_ATTEMPTS) {
+          setConnectionState("reconnecting");
+          const delay = Math.min(30_000, 2_000 * 2 ** rejoinAttemptsRef.current);
+          rejoinAttemptsRef.current += 1;
+          rejoinTimerRef.current = setTimeout(() => {
+            rejoinTimerRef.current = null;
+            if (isMountedRef.current) setReconnectNonce((n) => n + 1);
+          }, delay);
+          return;
+        }
+
+        setConnectionState("disconnected");
         setError(
           error instanceof Error ? error.message : "LiveKit connection failed",
         );
       }
     };
 
+    if (rejoinAttemptsRef.current === 0) setConnectionState("connecting");
     connect();
 
     return () => {
@@ -1817,7 +2046,17 @@ export const useLiveKitRoom = (
       setParticipantVoiceStates({});
       setAudioLevel(0);
     };
-  }, [token, roomName, liveKitUrl]);
+  }, [token, roomName, liveKitUrl, reconnectNonce]);
+
+  // Stop any pending re-join when the room changes or the hook unmounts
+  useEffect(
+    () => () => {
+      if (rejoinTimerRef.current) clearTimeout(rejoinTimerRef.current);
+      rejoinTimerRef.current = null;
+      rejoinAttemptsRef.current = 0;
+    },
+    [token, roomName],
+  );
 
   return {
     room,
@@ -1828,6 +2067,9 @@ export const useLiveKitRoom = (
     isMockMode,
     audioLevel,
     isMuted,
+    canPublish,
+    connectionState,
+    reconnectNow,
     toggleMute,
     error,
     isConnecting,

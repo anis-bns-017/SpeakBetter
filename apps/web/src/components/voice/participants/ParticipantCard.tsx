@@ -11,6 +11,8 @@ import {
   VolumeX,
   UserX,
   Star,
+  MicVocal,
+  ArrowDownFromLine,
 } from 'lucide-react';
 import { THEME } from '../VoiceRoomView.theme';
 import { initials, hueFromString, getCountryFlag } from '../VoiceRoomView.helpers';
@@ -27,6 +29,8 @@ export interface RoomParticipant {
   bio?: string;
   interests?: string[];
   isOnline?: boolean;
+  /** Connection dropped; the server keeps their place for a few seconds */
+  isReconnecting?: boolean;
   isSpeaking?: boolean;
   isMuted?: boolean;
   raisedHand?: boolean;
@@ -52,6 +56,9 @@ interface ParticipantCardProps {
   onSendMessage?: () => void;
   onViewProfile?: () => void;
   isFavorite?: boolean;
+  /** Stage rooms: host action to invite this person up or move them to the audience */
+  onStageAction?: () => void;
+  stageActionKind?: 'invite' | 'remove';
 }
 
 export const ParticipantCard: React.FC<ParticipantCardProps> = ({
@@ -67,6 +74,8 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
   onSendMessage,
   onViewProfile,
   isFavorite = false,
+  onStageAction,
+  stageActionKind = 'invite',
 }) => {
   const [showActions, setShowActions] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -287,7 +296,9 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
                   : THEME.colors.text.muted,
             }}
           >
-            {isMuted
+            {participant.isReconnecting
+              ? '📶 Reconnecting…'
+              : isMuted
               ? '🔇 Muted'
               : isOnline
                 ? isSpeaking
@@ -332,6 +343,17 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
             >
               <MessageSquare className="w-3 h-3" />
             </button>
+            {onStageAction && (
+              <button
+                onClick={onStageAction}
+                className={`p-1.5 rounded-lg transition-all ${stageActionKind === 'invite' ? 'hover:bg-emerald-500/20' : 'hover:bg-white/10'}`}
+                title={stageActionKind === 'invite' ? 'Invite to speak' : 'Move to audience'}
+                aria-label={stageActionKind === 'invite' ? `Invite ${participant.name} to speak` : `Move ${participant.name} to the audience`}
+                style={{ color: stageActionKind === 'invite' ? THEME.colors.status.online : THEME.colors.text.muted }}
+              >
+                {stageActionKind === 'invite' ? <MicVocal className="w-3 h-3" /> : <ArrowDownFromLine className="w-3 h-3" />}
+              </button>
+            )}
             {isModerator && (
               <>
                 <button

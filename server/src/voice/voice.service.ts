@@ -16,6 +16,7 @@ import {
   RoomSortType,
   RoomFilterType,
 } from './dto/discovery.dto';
+import { ParticipantRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { LiveKitService } from './livekit.service';
 
@@ -319,6 +320,7 @@ export class VoiceService {
         liveKitRoomId,
         userId,
         userId,
+        { canPublish: this.canSpeakInRoom(room, userId, existingParticipant.role) },
       );
 
       return {
@@ -341,6 +343,7 @@ export class VoiceService {
         data: {
           leftAt: null,
           joinedAt: new Date(),
+          raisedHand: false,
         },
       });
 
@@ -348,6 +351,7 @@ export class VoiceService {
         liveKitRoomId,
         userId,
         userId,
+        { canPublish: this.canSpeakInRoom(room, userId, participant.role) },
       );
 
       return {
@@ -374,18 +378,21 @@ export class VoiceService {
     }
 
     const isFirstJoin = room.status === 'WAITING';
+    const role =
+      isFirstJoin || room.creatorId === userId ? 'MODERATOR' : 'LISTENER';
 
     const token = await this.liveKitService.getParticipantToken(
       liveKitRoomId,
       userId,
       userId,
+      { canPublish: this.canSpeakInRoom(room, userId, role) },
     );
 
     const participant = await this.prisma.voiceParticipant.create({
       data: {
         roomId,
         userId,
-        role: isFirstJoin ? 'MODERATOR' : 'LISTENER',
+        role,
       },
     });
 
@@ -610,17 +617,74 @@ export class VoiceService {
       );
     }
 
-    return this.prisma.voiceParticipant.update({
-      where: {
-        roomId_userId: {
-          roomId,
-          userId: targetUserId,
-        },
-      },
+    const { participant } = await this.applyParticipantRole(
+      roomId,
+      targetUserId,
+      role as ParticipantRole,
+    );
+    return participant;
+  }
+
+  // ============ STAGE ROLES ============
+
+  /** Stage rooms are listen-only unless you're the host, a moderator or a speaker; other rooms are open-mic */
+  canSpeakInRoom(
+    room: { type: string; creatorId: string },
+    userId: string,
+    role?: string | null,
+  ): boolean {
+    if (room.type !== 'STAGE') return true;
+    if (room.creatorId === userId) return true;
+    return role === 'MODERATOR' || role === 'SPEAKER' || role === 'STAGE_SPEAKER';
+  }
+
+  /** True for the room creator and moderators */
+  async isRoomManager(roomId: string, userId: string): Promise<boolean> {
+    const room = await this.prisma.voiceRoom.findUnique({
+      where: { id: roomId },
+      select: { creatorId: true },
+    });
+    if (!room) return false;
+    if (room.creatorId === userId) return true;
+    const participant = await this.prisma.voiceParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+      select: { role: true },
+    });
+    return participant?.role === 'MODERATOR';
+  }
+
+  /**
+   * Saves a participant's role and syncs their LiveKit mic permission.
+   * Moving onto the stage also clears a raised hand.
+   */
+  async applyParticipantRole(
+    roomId: string,
+    targetUserId: string,
+    role: ParticipantRole,
+  ) {
+    const room = await this.prisma.voiceRoom.findUnique({
+      where: { id: roomId },
+    });
+    if (!room) throw new NotFoundException('Room not found');
+
+    const participant = await this.prisma.voiceParticipant.update({
+      where: { roomId_userId: { roomId, userId: targetUserId } },
       data: {
-        role: role as any,
+        role,
+        ...(role !== 'LISTENER' ? { raisedHand: false } : {}),
       },
     });
+
+    const canSpeak = this.canSpeakInRoom(room, targetUserId, role);
+    if (room.type === 'STAGE' && room.liveKitRoomId) {
+      await this.liveKitService.setCanPublish(
+        room.liveKitRoomId,
+        targetUserId,
+        canSpeak,
+      );
+    }
+
+    return { participant, canSpeak, room };
   }
 
   // ============ ROOM DISCOVERY ============
@@ -1554,5 +1618,154 @@ export class VoiceService {
         },
       },
     });
+  }
+
+  // ============ CORRECTIONS ============
+
+  private static readonly CORRECTION_CATEGORIES = new Set([
+    'grammar',
+    'vocabulary',
+    'pronunciation',
+    'word-choice',
+    'spelling',
+    'other',
+  ]);
+
+  private readonly correctionInclude = {
+    author: { select: { id: true, name: true, avatarUrl: true } },
+    targetUser: { select: { id: true, name: true } },
+  } as const;
+
+  /** Shape sent to clients (timestamps in ms, names flattened) */
+  private toCorrectionPayload(c: any) {
+    return {
+      id: c.id,
+      roomId: c.roomId,
+      targetUserId: c.targetUserId,
+      targetUserName: c.targetUser?.name || 'Someone',
+      authorId: c.authorId,
+      authorName: c.author?.name || 'Someone',
+      authorAvatarUrl: c.author?.avatarUrl || undefined,
+      original: c.original,
+      corrected: c.corrected,
+      note: c.note || undefined,
+      category: c.category,
+      status: c.status,
+      createdAt: new Date(c.createdAt).getTime(),
+      resolvedAt: c.resolvedAt ? new Date(c.resolvedAt).getTime() : undefined,
+    };
+  }
+
+  async createCorrection(
+    authorId: string,
+    data: {
+      roomId: string;
+      id?: string;
+      targetUserId: string;
+      original: string;
+      corrected: string;
+      note?: string;
+      category?: string;
+    },
+  ) {
+    const original = String(data.original || '').trim().slice(0, 300);
+    const corrected = String(data.corrected || '').trim().slice(0, 300);
+    if (!original || !corrected) {
+      throw new BadRequestException('Both the original and the correction are required');
+    }
+    if (data.targetUserId === authorId) {
+      throw new BadRequestException("You can't correct yourself here — try the practice journal");
+    }
+
+    const target = await this.prisma.voiceParticipant.findUnique({
+      where: { roomId_userId: { roomId: data.roomId, userId: data.targetUserId } },
+      select: { id: true },
+    });
+    if (!target) {
+      throw new BadRequestException('That person is not in this room');
+    }
+
+    const category = VoiceService.CORRECTION_CATEGORIES.has(String(data.category))
+      ? String(data.category)
+      : 'other';
+    // Keep the client's optimistic id when it looks like ours, so its local copy merges cleanly
+    const id =
+      typeof data.id === 'string' && /^corr-[a-z0-9-]{4,60}$/i.test(data.id)
+        ? data.id
+        : `corr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const saved = await this.prisma.voiceCorrection.create({
+      data: {
+        id,
+        roomId: data.roomId,
+        authorId,
+        targetUserId: data.targetUserId,
+        original,
+        corrected,
+        note: data.note ? String(data.note).trim().slice(0, 200) || null : null,
+        category,
+      },
+      include: this.correctionInclude,
+    });
+    return this.toCorrectionPayload(saved);
+  }
+
+  /** Only the person who was corrected may accept or dismiss it */
+  async resolveCorrection(
+    userId: string,
+    roomId: string,
+    correctionId: string,
+    status: 'accepted' | 'dismissed',
+  ) {
+    if (status !== 'accepted' && status !== 'dismissed') {
+      throw new BadRequestException('Invalid status');
+    }
+    const existing = await this.prisma.voiceCorrection.findUnique({
+      where: { id: correctionId },
+      select: { roomId: true, targetUserId: true },
+    });
+    if (!existing || existing.roomId !== roomId) {
+      throw new NotFoundException('Correction not found');
+    }
+    if (existing.targetUserId !== userId) {
+      throw new ForbiddenException('Only the person who was corrected can do that');
+    }
+
+    const updated = await this.prisma.voiceCorrection.update({
+      where: { id: correctionId },
+      data: { status, resolvedAt: new Date() },
+      include: this.correctionInclude,
+    });
+    return this.toCorrectionPayload(updated);
+  }
+
+  async getRoomCorrections(roomId: string, limit = 100) {
+    const rows = await this.prisma.voiceCorrection.findMany({
+      where: { roomId },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Math.max(limit, 1), 200),
+      include: this.correctionInclude,
+    });
+    return rows.reverse().map((c) => this.toCorrectionPayload(c));
+  }
+
+  /** Corrections a user received across all rooms — feeds the journal and progress pages */
+  async getMyCorrections(userId: string, status?: string, limit = 100) {
+    const rows = await this.prisma.voiceCorrection.findMany({
+      where: {
+        targetUserId: userId,
+        ...(status ? { status } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Math.max(limit, 1), 500),
+      include: {
+        ...this.correctionInclude,
+        room: { select: { id: true, name: true } },
+      },
+    });
+    return rows.map((c) => ({
+      ...this.toCorrectionPayload(c),
+      roomName: c.room?.name,
+    }));
   }
 }

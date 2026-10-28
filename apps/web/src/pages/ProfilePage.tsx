@@ -29,6 +29,7 @@ import { useProfile } from "../hooks/useProfile";
 import { ProfileCard } from "../components/profile/ProfileCard";
 import { EditProfileForm } from "../components/profile/EditProfileForm";
 import { SettingsForm } from "../components/settings/SettingsForm";
+import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
 
 type Tab = "profile" | "stats" | "settings";
 
@@ -59,44 +60,6 @@ const getLevelLabel = (level?: string | null) => {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
-};
-
-const getXpLevel = (xp: number) => {
-  if (xp >= 10000) return 10;
-  if (xp >= 8000) return 9;
-  if (xp >= 6500) return 8;
-  if (xp >= 5000) return 7;
-  if (xp >= 4000) return 6;
-  if (xp >= 3000) return 5;
-  if (xp >= 2000) return 4;
-  if (xp >= 1000) return 3;
-  if (xp >= 500) return 2;
-  return 1;
-};
-
-const getLevelProgress = (xp: number) => {
-  const level = getXpLevel(xp);
-  const thresholds = [0, 500, 1000, 2000, 3000, 4000, 5000, 6500, 8000, 10000];
-  const currentThreshold = thresholds[level - 1] ?? 0;
-  const nextThreshold = thresholds[level] ?? currentThreshold + 2000;
-
-  if (nextThreshold <= currentThreshold) return 100;
-
-  return Math.min(
-    100,
-    Math.max(
-      0,
-      Math.round(
-        ((xp - currentThreshold) / (nextThreshold - currentThreshold)) * 100,
-      ),
-    ),
-  );
-};
-
-const getNextLevelXp = (xp: number) => {
-  const level = getXpLevel(xp);
-  const thresholds = [0, 500, 1000, 2000, 3000, 4000, 5000, 6500, 8000, 10000];
-  return thresholds[level] ?? xp;
 };
 
 interface StatCardProps {
