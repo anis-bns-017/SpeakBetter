@@ -241,6 +241,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
 
     if (userId) {
+      // "Last seen" for chat headers
+      this.prisma.profile
+        .updateMany({ where: { userId }, data: { lastActive: new Date() } })
+        .catch(() => undefined);
+
       // Remove from typing users
       for (const [roomId, users] of this.typingUsers.entries()) {
         if (users.has(userId)) {
@@ -476,6 +481,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       mediaUrl?: string;
       fileUrl?: string;
       replyToId?: string;
+      metadata?: Record<string, unknown>;
     },
   ) {
     const userId = client.data.userId;
@@ -513,6 +519,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         mediaUrl: data.mediaUrl,
         fileUrl: data.fileUrl,
         replyToId: data.replyToId,
+        metadata: data.metadata,
       });
 
       let roomId: string | null = null;
@@ -800,6 +807,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // ==========================
   // READ RECEIPTS
   // ==========================
+
+  /** The corrected person taps "Got it" on a correction; both sides see it accepted */
+  @SubscribeMessage('correction:accept')
+  async handleAcceptCorrection(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId: string },
+  ) {
+    const userId = client.data.userId;
+    if (!userId || !data?.messageId) return;
+
+    try {
+      const result = await this.chatService.acceptCorrection(userId, data.messageId);
+      this.server.to(`chat:${result.chatId}`).emit('correction:accepted', result);
+    } catch (error: any) {
+      client.emit('message:error', {
+        error: error?.message || 'Could not accept correction',
+      });
+    }
+  }
 
   @SubscribeMessage('message:read')
   async handleMarkRead(

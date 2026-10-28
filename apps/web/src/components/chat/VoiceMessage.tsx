@@ -19,7 +19,7 @@ import {
   SkipForward,
   SkipBack,
   Repeat,
-  RepeatOnce,
+  Repeat1 as RepeatOnce,
   Maximize2,
   Minimize2,
   Info,
@@ -35,7 +35,6 @@ import {
   Sparkles,
   Zap,
   Music,
-  WaveformIcon,
 } from "lucide-react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { format, formatDistanceToNow } from "date-fns";
@@ -386,8 +385,8 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
   }, []);
 
   const remainingTime = useMemo(() => {
-    const duration = mediaDuration || duration || 0;
-    return Math.max(duration - currentTime, 0);
+    const total = mediaDuration || duration || 0;
+    return Math.max(total - currentTime, 0);
   }, [mediaDuration, duration, currentTime]);
 
   // Draw waveform on canvas with glow effects

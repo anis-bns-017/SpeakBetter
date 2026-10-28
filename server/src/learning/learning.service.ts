@@ -8,10 +8,14 @@ import { CreateVocabularyDto, ReviewVocabularyDto } from './dto/vocabulary.dto';
 import { CreateFlashcardDto, ReviewFlashcardDto } from './dto/flashcard.dto';
 import { SubmitExerciseDto } from './dto/exercise.dto';
 import { PrismaService } from '../prisma.service';
+import { ActivityService, DAILY_XP_GOAL, XP_REWARDS } from './activity.service';
 
 @Injectable()
 export class LearningService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private activity: ActivityService,
+  ) {}
 
   // ============ VOCABULARY ============
   async getVocabulary(params: {
@@ -154,6 +158,14 @@ export class LearningService {
   }
 
   async createFlashcard(userId: string, data: CreateFlashcardDto) {
+    // Flashcards reference Language; make sure the code exists (e.g. first card saved from chat)
+    const LANGUAGE_NAMES: Record<string, string> = { en: 'English', es: 'Spanish', fr: 'French', de: 'German', bn: 'Bengali', hi: 'Hindi', ar: 'Arabic', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', pt: 'Portuguese', ru: 'Russian' };
+    await this.prisma.language.upsert({
+      where: { code: data.language },
+      create: { code: data.language, name: LANGUAGE_NAMES[data.language] ?? data.language },
+      update: {},
+    });
+
     return this.prisma.flashcard.create({
       data: {
         front: data.front,
@@ -175,6 +187,9 @@ export class LearningService {
 
     const difficultyMap = { easy: 4, medium: 2, hard: 0 };
     const easeFactor = difficultyMap[data.difficulty] || 2;
+
+    // Every review counts toward XP and today's streak
+    await this.activity.recordActivity(userId, XP_REWARDS.flashcardReview, 'FLASHCARD_REVIEW');
 
     const existingReview = await this.prisma.flashcardReview.findFirst({
       where: {
@@ -279,6 +294,185 @@ export class LearningService {
     return result;
   }
 
+  // ============ DASHBOARD ============
+
+  /** Everything the dashboard shows, from real activity, in one request */
+  async getDashboard(userId: string) {
+    const DAY = 24 * 60 * 60 * 1000;
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const historyStart = new Date(todayStart.getTime() - 83 * DAY); // 12 weeks incl. today
+    const weekStart = new Date(todayStart.getTime() - 6 * DAY);
+    const lastWeekStart = new Date(todayStart.getTime() - 13 * DAY);
+
+    const [
+      streakRow,
+      totalXp,
+      recentXp,
+      profile,
+      wordsTotal,
+      wordsThisWeek,
+      flashcardsTotal,
+      dueReviews,
+      newFlashcards,
+      roomsJoined,
+      roomsThisWeek,
+      speaking,
+      correctionsReceived,
+      correctionsAccepted,
+      correctionsPending,
+      correctionsGiven,
+      recentCorrections,
+    ] = await Promise.all([
+      this.prisma.streak.findUnique({ where: { userId } }),
+      this.prisma.xpTransaction.aggregate({ where: { userId }, _sum: { amount: true } }),
+      this.prisma.xpTransaction.findMany({
+        where: { userId, createdAt: { gte: historyStart } },
+        select: { amount: true, createdAt: true, reason: true },
+      }),
+      this.prisma.profile.findUnique({
+        where: { userId },
+        select: { nativeLanguage: true, learningLanguages: true, level: true, goals: true },
+      }),
+      this.prisma.vocabulary.count({ where: { userId } }),
+      this.prisma.vocabulary.count({ where: { userId, createdAt: { gte: weekStart } } }),
+      this.prisma.flashcard.count({ where: { userId } }),
+      this.prisma.flashcardReview.count({ where: { userId, dueAt: { lte: now } } }),
+      this.prisma.flashcard.count({ where: { userId, reviews: { none: { userId } } } }),
+      this.prisma.voiceParticipant.count({ where: { userId } }),
+      this.prisma.voiceParticipant.count({ where: { userId, joinedAt: { gte: weekStart } } }),
+      this.prisma.voiceSpeakerStats.aggregate({
+        where: { userId },
+        _sum: { speakingTime: true, timesSpoken: true },
+      }),
+      this.prisma.voiceCorrection.count({ where: { targetUserId: userId } }),
+      this.prisma.voiceCorrection.count({ where: { targetUserId: userId, status: 'accepted' } }),
+      this.prisma.voiceCorrection.count({ where: { targetUserId: userId, status: 'pending' } }),
+      this.prisma.voiceCorrection.count({ where: { authorId: userId } }),
+      this.prisma.voiceCorrection.findMany({
+        where: { targetUserId: userId, status: 'accepted' },
+        orderBy: { resolvedAt: 'desc' },
+        take: 3,
+        select: {
+          id: true,
+          original: true,
+          corrected: true,
+          note: true,
+          category: true,
+          resolvedAt: true,
+          author: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    // XP per day for the activity heatmap and this-week/last-week comparison
+    const dayKey = (d: Date) => {
+      const local = new Date(d);
+      local.setHours(0, 0, 0, 0);
+      return local.getTime();
+    };
+    const byDay = new Map<number, number>();
+    let speakingXpThisWeek = 0;
+    for (const tx of recentXp) {
+      const key = dayKey(tx.createdAt);
+      byDay.set(key, (byDay.get(key) ?? 0) + tx.amount);
+      if (tx.reason === 'VOICE_SPEAKING' && tx.createdAt >= weekStart) speakingXpThisWeek += tx.amount;
+    }
+    const activity = Array.from({ length: 84 }, (_, i) => {
+      const day = new Date(historyStart.getTime() + i * DAY);
+      return { date: day.toISOString().slice(0, 10), xp: byDay.get(dayKey(day)) ?? 0 };
+    });
+    const sumXp = (from: Date, to: Date) =>
+      recentXp
+        .filter((tx) => tx.createdAt >= from && tx.createdAt < to)
+        .reduce((sum, tx) => sum + tx.amount, 0);
+
+    // Corrections from 1:1 chat live as CORRECTION messages (original = replyTo)
+    const [chatCorrectionsReceived, chatCorrectionsGiven] = await Promise.all([
+      this.prisma.message.findMany({
+        where: { type: 'CORRECTION', isDeleted: false, replyTo: { senderId: userId } },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+        select: {
+          id: true,
+          content: true,
+          metadata: true,
+          createdAt: true,
+          sender: { select: { name: true } },
+          replyTo: { select: { content: true } },
+        },
+      }),
+      this.prisma.message.count({ where: { type: 'CORRECTION', isDeleted: false, senderId: userId } }),
+    ]);
+    const chatMeta = (m: { metadata: unknown }) => (m.metadata ?? {}) as { note?: string; acceptedAt?: string };
+    const chatAccepted = chatCorrectionsReceived.filter((m) => chatMeta(m).acceptedAt);
+    const recentAll = [
+      ...recentCorrections.map((c) => ({
+        id: c.id,
+        original: c.original,
+        corrected: c.corrected,
+        note: c.note,
+        category: c.category,
+        resolvedAt: c.resolvedAt,
+        authorName: c.author?.name ?? 'Someone',
+      })),
+      ...chatAccepted.slice(0, 3).map((m) => ({
+        id: m.id,
+        original: m.replyTo?.content ?? '',
+        corrected: m.content ?? '',
+        note: chatMeta(m).note ?? null,
+        category: 'chat',
+        resolvedAt: chatMeta(m).acceptedAt ? new Date(chatMeta(m).acceptedAt as string) : m.createdAt,
+        authorName: m.sender?.name ?? 'Someone',
+      })),
+    ]
+      .sort((a, b) => new Date(b.resolvedAt ?? 0).getTime() - new Date(a.resolvedAt ?? 0).getTime())
+      .slice(0, 3);
+
+    const streak = ActivityService.effectiveStreak(streakRow);
+    const xpToday = byDay.get(todayStart.getTime()) ?? 0;
+
+    return {
+      streak: {
+        current: streak.current,
+        longest: streakRow?.longestStreak ?? 0,
+        practicedToday: streak.practicedToday,
+      },
+      xp: {
+        total: totalXp._sum.amount ?? 0,
+        today: xpToday,
+        dailyGoal: DAILY_XP_GOAL,
+        thisWeek: sumXp(weekStart, new Date(now.getTime() + 1)),
+        lastWeek: sumXp(lastWeekStart, weekStart),
+      },
+      activity,
+      profile: {
+        nativeLanguage: profile?.nativeLanguage ?? null,
+        learningLanguages: profile?.learningLanguages ?? [],
+        level: profile?.level ?? null,
+        goals: profile?.goals ?? [],
+      },
+      words: { total: wordsTotal, thisWeek: wordsThisWeek },
+      flashcards: { total: flashcardsTotal, due: dueReviews + newFlashcards },
+      voice: {
+        roomsJoined,
+        roomsThisWeek,
+        speakingMinutes: Math.round((speaking._sum.speakingTime ?? 0) / 60),
+        turns: speaking._sum.timesSpoken ?? 0,
+        // 1 XP per 15s spoken → minutes this week
+        speakingMinutesThisWeek: Math.round((speakingXpThisWeek * 15) / 60),
+      },
+      corrections: {
+        received: correctionsReceived + chatCorrectionsReceived.length,
+        accepted: correctionsAccepted + chatAccepted.length,
+        pending: correctionsPending + (chatCorrectionsReceived.length - chatAccepted.length),
+        given: correctionsGiven + chatCorrectionsGiven,
+        recent: recentAll,
+      },
+    };
+  }
+
   // ============ PROGRESS ============
   async getProgress(userId: string) {
     const progress = await this.prisma.progress.findMany({
@@ -296,7 +490,8 @@ export class LearningService {
 
     return {
       progress,
-      streak: streak?.currentStreak || 0,
+      // A streak only survives if they practised today or yesterday
+      streak: ActivityService.effectiveStreak(streak).current,
       totalXP: totalXP._sum.amount || 0,
     };
   }
@@ -327,20 +522,7 @@ export class LearningService {
   }
 
   async awardXP(userId: string, amount: number) {
-    await this.prisma.profile.update({
-      where: { userId },
-      data: {
-        xp: { increment: amount },
-      },
-    });
-
-    return this.prisma.xpTransaction.create({
-      data: {
-        userId,
-        amount,
-        reason: 'EXERCISE_COMPLETED' as any,
-      },
-    });
+    return this.activity.recordActivity(userId, amount, 'EXERCISE_COMPLETED');
   }
 
   // ============ HELPERS ============

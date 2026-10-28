@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ReadReceipt } from '@speakbetter/types';
+import type { ReadReceipt } from '@speakbetter/types';
 import { Check, CheckCheck, Eye, Users } from 'lucide-react';
 
 interface ReadReceiptsProps {

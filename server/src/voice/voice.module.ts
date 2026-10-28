@@ -8,6 +8,7 @@ import { VoiceService } from './voice.service';
 import { VoiceGateway } from './voice.gateway';
 import { LiveKitService } from './livekit.service';
 import { PrismaService } from '../prisma.service';
+import { LearningModule } from '../learning/learning.module';
 
 // Import new services
 import { TranscriptionService } from './services/transcription.service';
@@ -33,6 +34,8 @@ import { AnalyticsController } from './controllers/analytics.controller';
       }),
       inject: [ConfigService],
     }),
+    // ActivityService: XP + streaks for speaking and corrections
+    LearningModule,
   ],
   controllers: [
     VoiceController,

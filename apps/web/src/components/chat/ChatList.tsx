@@ -145,8 +145,10 @@ export const ChatList: React.FC<ChatListProps> = ({
           : "";
 
     // Message status
+    // The server stores the sender's own receipt too, so only count other people
+    const readByOthers = msg.readReceipts?.some((r) => r.userId !== msg.senderId) ?? false;
     const statusIcon = isOwn ? (
-      msg.readReceipts && msg.readReceipts.length > 0 ? (
+      readByOthers ? (
         <CheckCheck className="w-3 h-3 text-sky-400 inline-block mr-0.5" />
       ) : msg.delivered ? (
         <CheckCheck className="w-3 h-3 text-slate-400 inline-block mr-0.5" />
@@ -154,6 +156,16 @@ export const ChatList: React.FC<ChatListProps> = ({
         <Check className="w-3 h-3 text-slate-300 inline-block mr-0.5" />
       )
     ) : null;
+
+    if (msg.type === "CORRECTION") {
+      return (
+        <>
+          {statusIcon}
+          {prefix}
+          <span className="line-clamp-1">✏️ {isOwn ? "Sent a correction" : "Corrected your message"}</span>
+        </>
+      );
+    }
 
     if (msg.content) {
       return (

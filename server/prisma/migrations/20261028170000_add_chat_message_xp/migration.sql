@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "XpReason" ADD VALUE 'CHAT_MESSAGE';
+

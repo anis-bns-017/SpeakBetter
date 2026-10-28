@@ -5,6 +5,7 @@ import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { PrismaService } from '../prisma.service';
+import { LearningModule } from '../learning/learning.module';
 
 @Module({
   imports: [
@@ -15,6 +16,8 @@ import { PrismaService } from '../prisma.service';
       }),
       inject: [ConfigService],
     }),
+    // ActivityService: XP for giving and accepting corrections
+    LearningModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway, PrismaService],

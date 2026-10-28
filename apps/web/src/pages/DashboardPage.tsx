@@ -1,1247 +1,665 @@
 // apps/web/src/pages/DashboardPage.tsx
 /**
- * DashboardPage — the main landing page after login.
- *
- * Improvements vs the original:
- *   - Full dark mode — every color has a dark: variant. The page now
- *     looks right in dark themes (the voice room is dark, so this was
- *     a hard requirement).
- *   - Real user data — streak, XP, level, words learned are read from
- *     user.profile instead of being hardcoded.
- *   - Animated progress ring — the SVG circle's strokeDashoffset now
- *     animates from 0 to the target with framer-motion. Was a static
- *     magic number (54).
- *   - Entrance animations — sections stagger in on mount (fade-up).
- *     Respects prefers-reduced-motion (collapses to instant).
- *   - Sparklines on stat cards — each card shows a tiny inline chart
- *     of the last 6 data points, plus a trend pill (↑ 12% vs last week).
- *   - Activity heatmap — the streak card now has a GitHub-style
- *     contribution graph showing the last 12 weeks of practice.
- *   - Enhanced voice room cards — host avatar, active speaker count,
- *     language tags, capacity bar.
- *   - Smart recommendations — "Continue Learning" reads from
- *     user.profile.currentLesson and shows real progress.
- *   - Fixed the "LingoVerse" branding bug in the footer → "SpeakBetter".
- *   - Removed the redundant Discover banner (duplicated the voice
- *     rooms section below it). Replaced with a "Today's focus" card.
- *   - focus-visible rings on every interactive element.
- *   - Skeleton loaders refined — shimmer gradient instead of pulse.
+ * DashboardPage — the learner's home. Every number comes from real activity
+ * (GET /learning/dashboard): XP is earned by speaking in voice rooms, giving and
+ * accepting corrections, reviewing flashcards and finishing exercises; any of
+ * those also keeps the daily streak alive.
  */
 
 import React, { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import {
+  Flame,
   BookOpen,
   Layers,
   FileText,
   Dumbbell,
-  Users,
-  Flame,
-  Award,
-  Clock,
-  ArrowRight,
   MessageCircle,
   AudioLines,
-  PlayCircle,
   Hash,
-  Headphones,
   Compass,
+  Mic,
+  Radio,
+  Trophy,
   Target,
-  Zap,
-  Shield,
-  BarChart3,
-  ChevronRight,
   TrendingUp,
   TrendingDown,
+  Sparkles,
+  CheckCircle2,
+  ArrowRight,
+  Search,
+  UserPlus,
+  Users,
+  Clock,
+  Wand2,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { useVoiceRooms } from "../hooks/useVoice";
-import { formatDistanceToNow } from "date-fns";
+import { useSidebar } from "../contexts/SidebarContext";
+import { useDashboard, type DashboardData } from "../hooks/useLearning";
+import { useTrendingRooms } from "../hooks/useDiscovery";
+import { useSuggestions, useSendFriendRequest } from "../hooks/useFriends";
+import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
 
 // ============================================================
-// Animation variants
+// Helpers
 // ============================================================
 
-const staggerContainer: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.08 },
-  },
-};
+const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+
+function greeting(date = new Date()): string {
+  const h = date.getHours();
+  if (h < 5) return "Up late";
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function percentChange(current: number, previous: number): number | null {
+  if (previous <= 0) return current > 0 ? null : 0;
+  return Math.round(((current - previous) / previous) * 100);
+}
 
 const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 14 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
-  },
+  hidden: { opacity: 0, y: 12 },
+  show: (i: number = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.35, delay: i * 0.05, ease: "easeOut" } }),
 };
 
-const fadeIn: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.3 } },
-};
+const card =
+  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
 
 // ============================================================
-// Sparkline — tiny inline chart for stat cards
+// Pieces
 // ============================================================
 
-const Sparkline: React.FC<{
-  data: number[];
-  className?: string;
-}> = ({ data, className }) => {
-  if (data.length < 2) return null;
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const w = 100;
-  const h = 28;
-  const points = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * w;
-      const y = h - ((v - min) / range) * (h - 4) - 2;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  const lastVal = data[data.length - 1];
-  const lastX = w;
-  const lastY = h - ((lastVal - min) / range) * (h - 4) - 2;
+const Skeleton: React.FC<{ className?: string }> = ({ className }) => (
+  <div className={`animate-pulse rounded-xl bg-slate-200/70 dark:bg-white/[0.06] ${className ?? ""}`} />
+);
 
+const SectionTitle: React.FC<{ title: string; action?: { label: string; to: string } }> = ({ title, action }) => (
+  <div className="flex items-center justify-between mb-4">
+    <h2 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+    {action && (
+      <Link to={action.to} className="text-xs font-semibold text-indigo-600 dark:text-indigo-300 hover:underline flex items-center gap-1">
+        {action.label} <ArrowRight className="w-3.5 h-3.5" />
+      </Link>
+    )}
+  </div>
+);
+
+/** Daily XP goal ring */
+const GoalRing: React.FC<{ value: number; goal: number; reduced: boolean }> = ({ value, goal, reduced }) => {
+  const size = 132;
+  const stroke = 12;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = Math.min(1, goal > 0 ? value / goal : 0);
+  const done = value >= goal;
   return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="none"
-      className={`h-7 w-full overflow-visible ${className ?? ""}`}
-      fill="none"
-      aria-hidden="true"
-    >
-      <polyline
-        points={points}
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
-      <circle cx={lastX} cy={lastY} r="2.5" fill="currentColor" />
-    </svg>
-  );
-};
-
-// ============================================================
-// ActivityHeatmap — GitHub-style contribution graph
-// ============================================================
-
-const ActivityHeatmap: React.FC<{ streak: number }> = ({ streak }) => {
-  // Deterministic pseudo-data based on streak — visual only, not real
-  // telemetry. Replace with real practice history when available.
-  const cells = useMemo(() => {
-    let seed = streak * 7 + 13;
-    const rand = () => {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      return (seed & 0xffff) / 0xffff;
-    };
-    // 7 rows × 12 columns = 84 days (~12 weeks)
-    return Array.from({ length: 84 }, () => {
-      const v = rand();
-      // Bias toward lower intensity, with occasional spikes
-      return v > 0.85 ? 0.9 : v > 0.5 ? v * 0.6 : v * 0.3;
-    });
-  }, [streak]);
-
-  const opacityFor = (v: number) => {
-    if (v < 0.1) return 0.08;
-    if (v < 0.3) return 0.25;
-    if (v < 0.5) return 0.45;
-    if (v < 0.75) return 0.7;
-    return 1;
-  };
-
-  return (
-    <div className="grid grid-flow-col grid-rows-7 gap-[3px]" aria-hidden="true">
-      {cells.map((v, i) => (
-        <div
-          key={i}
-          className="aspect-square w-[7px] rounded-[2px] bg-indigo-500 dark:bg-indigo-400"
-          style={{ opacity: opacityFor(v) }}
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-white/15" />
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          stroke="url(#goal-gradient)"
+          strokeDasharray={c}
+          initial={{ strokeDashoffset: c }}
+          animate={{ strokeDashoffset: c * (1 - pct) }}
+          transition={reduced ? { duration: 0 } : { duration: 1, ease: "easeOut" }}
         />
-      ))}
+        <defs>
+          <linearGradient id="goal-gradient" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={done ? "#34d399" : "#fbbf24"} />
+            <stop offset="100%" stopColor={done ? "#10b981" : "#f97316"} />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+        {done ? <CheckCircle2 className="w-6 h-6 text-emerald-300 mb-0.5" /> : <Target className="w-5 h-5 text-white/70 mb-0.5" />}
+        <span className="text-2xl font-bold tabular-nums leading-none">{value}</span>
+        <span className="text-[11px] text-white/70 mt-0.5">/ {goal} XP</span>
+      </div>
     </div>
   );
 };
 
-// ============================================================
-// StatCard — with trend and sparkline
-// ============================================================
+/** Last 7 days of XP as bars */
+const WeekBars: React.FC<{ days: Array<{ date: string; xp: number }>; reduced: boolean }> = ({ days, reduced }) => {
+  const max = Math.max(10, ...days.map((d) => d.xp));
+  return (
+    <div className="flex items-end gap-2 h-24">
+      {days.map((d, i) => {
+        const date = new Date(`${d.date}T00:00:00`);
+        const isToday = i === days.length - 1;
+        return (
+          <div key={d.date} className="flex-1 flex flex-col items-center gap-1.5 h-full">
+            <div className="flex-1 w-full flex items-end">
+              <motion.div
+                className={`w-full rounded-lg ${d.xp > 0 ? (isToday ? "bg-gradient-to-t from-indigo-600 to-violet-500" : "bg-indigo-500/70 dark:bg-indigo-400/60") : "bg-slate-100 dark:bg-white/[0.05]"}`}
+                initial={{ height: 0 }}
+                animate={{ height: `${Math.max(6, (d.xp / max) * 100)}%` }}
+                transition={reduced ? { duration: 0 } : { duration: 0.6, delay: i * 0.04, ease: "easeOut" }}
+                title={`${d.xp} XP`}
+              />
+            </div>
+            <span className={`text-[10.5px] ${isToday ? "font-bold text-slate-900 dark:text-slate-100" : "text-slate-400"}`}>
+              {date.toLocaleDateString(undefined, { weekday: "narrow" })}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
-interface StatItem {
-  icon: LucideIcon;
+/** 12-week activity heatmap from real XP per day */
+const ActivityHeatmap: React.FC<{ activity: DashboardData["activity"] }> = ({ activity }) => {
+  // Pad the start so columns are whole weeks starting on Sunday
+  const first = activity.length ? new Date(`${activity[0].date}T00:00:00`) : new Date();
+  const padded: Array<{ date: string; xp: number } | null> = [...Array(first.getDay()).fill(null), ...activity];
+  const max = Math.max(1, ...activity.map((d) => d.xp));
+  const level = (xp: number) => (xp <= 0 ? 0 : xp < max * 0.25 ? 1 : xp < max * 0.5 ? 2 : xp < max * 0.75 ? 3 : 4);
+  const shades = [
+    "bg-slate-100 dark:bg-white/[0.05]",
+    "bg-indigo-200 dark:bg-indigo-500/30",
+    "bg-indigo-300 dark:bg-indigo-500/50",
+    "bg-indigo-500 dark:bg-indigo-400/80",
+    "bg-indigo-700 dark:bg-indigo-300",
+  ];
+
+  return (
+    <div>
+      <div className="grid grid-flow-col grid-rows-7 gap-[4px] w-max">
+        {padded.map((d, i) =>
+          d ? (
+            <div
+              key={d.date}
+              className={`w-[13px] h-[13px] rounded-[3px] ${shades[level(d.xp)]}`}
+              title={`${new Date(`${d.date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}: ${d.xp} XP`}
+            />
+          ) : (
+            <div key={`pad-${i}`} className="w-[13px] h-[13px]" />
+          ),
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 mt-3 text-[10.5px] text-slate-400">
+        Less
+        {shades.map((s) => <span key={s} className={`w-[11px] h-[11px] rounded-[3px] ${s}`} />)}
+        More
+      </div>
+    </div>
+  );
+};
+
+interface Stat {
   label: string;
   value: string;
-  colorBg: string;
-  colorText: string;
-  sparkColor: string;
-  trend?: string;
-  trendUp?: boolean;
-  sparkline: number[];
+  sub?: string;
+  icon: LucideIcon;
+  tone: string;
+  to: string;
 }
 
-const StatCard: React.FC<{ stat: StatItem; index: number; reduced: boolean }> = ({
-  stat,
-  index,
-  reduced,
-}) => {
+const StatTile: React.FC<{ stat: Stat; index: number }> = ({ stat, index }) => {
   const Icon = stat.icon;
   return (
-    <motion.div
-      variants={reduced ? fadeIn : fadeUp}
-      className="group relative rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md dark:border-white/10 dark:bg-white/5 dark:hover:border-indigo-500/30 dark:hover:shadow-black/20"
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${stat.colorBg} ${stat.colorText} transition-transform duration-200 group-hover:scale-105`}
-        >
-          <Icon className="h-5 w-5" />
+    <motion.div variants={fadeUp} initial="hidden" animate="show" custom={index}>
+      <Link
+        to={stat.to}
+        className={`${card} group block p-4 h-full transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60`}
+      >
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${stat.tone}`}>
+          <Icon className="w-[18px] h-[18px]" />
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-            {stat.label}
-          </p>
-          <div className="flex items-baseline gap-2">
-            <p className="truncate text-lg font-extrabold text-slate-800 dark:text-slate-100">
-              {stat.value}
-            </p>
-            {stat.trend && (
-              <span
-                className={`flex items-center gap-0.5 text-[10px] font-bold ${
-                  stat.trendUp
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-rose-500 dark:text-rose-400"
-                }`}
-              >
-                {stat.trendUp ? (
-                  <TrendingUp className="h-3 w-3" />
-                ) : (
-                  <TrendingDown className="h-3 w-3" />
-                )}
-                {stat.trend}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className={`mt-2 ${stat.sparkColor}`}>
-        <Sparkline data={stat.sparkline} />
-      </div>
+        <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 tabular-nums">{stat.value}</p>
+        <p className="text-[12.5px] font-medium text-slate-600 dark:text-slate-300 mt-0.5">{stat.label}</p>
+        {stat.sub && <p className="text-[11.5px] text-slate-400 dark:text-slate-500 mt-1">{stat.sub}</p>}
+      </Link>
     </motion.div>
   );
 };
 
-// ============================================================
-// ShimmerSkeleton — gradient shimmer instead of pulse
-// ============================================================
+interface NextStep {
+  id: string;
+  title: string;
+  detail: string;
+  icon: LucideIcon;
+  tone: string;
+  to: string;
+  cta: string;
+}
 
-const ShimmerSkeleton: React.FC<{ className?: string }> = ({ className }) => (
-  <div
-    className={`relative overflow-hidden rounded bg-slate-200/80 dark:bg-white/5 ${className ?? ""}`}
-  >
-    <div
-      className="absolute inset-0 -translate-x-full animate-[shimmer_1.8s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent dark:via-white/5"
-      style={{
-        animation: "shimmer 1.8s infinite",
-      }}
-    />
-    <style>{`
-      @keyframes shimmer {
-        100% { transform: translateX(100%); }
-      }
-    `}</style>
-  </div>
-);
+/** Suggestions picked from what the learner has (and hasn't) done */
+function buildNextSteps(d: DashboardData, liveRoom?: { id: string; name: string }): NextStep[] {
+  const steps: NextStep[] = [];
+  if (!d.streak.practicedToday && d.streak.current > 0) {
+    steps.push({ id: "streak", title: `Save your ${d.streak.current}-day streak`, detail: "Any practice today keeps it alive", icon: Flame, tone: "bg-orange-500/10 text-orange-500", to: liveRoom ? `/voice/${liveRoom.id}` : "/voice", cta: "Practice now" });
+  }
+  if (d.corrections.pending > 0) {
+    steps.push({ id: "corrections", title: `${d.corrections.pending} correction${d.corrections.pending === 1 ? "" : "s"} waiting for you`, detail: "Accept the ones that help — each earns 5 XP", icon: Wand2, tone: "bg-violet-500/10 text-violet-500", to: "/voice", cta: "Review" });
+  }
+  if (d.flashcards.due > 0) {
+    steps.push({ id: "cards", title: `${d.flashcards.due} flashcard${d.flashcards.due === 1 ? "" : "s"} due`, detail: "A quick review locks words into memory", icon: Layers, tone: "bg-sky-500/10 text-sky-500", to: "/flashcards", cta: "Review" });
+  }
+  if (d.voice.speakingMinutesThisWeek < 10) {
+    steps.push({
+      id: "speak",
+      title: liveRoom ? `Join “${liveRoom.name}”` : "Speak for 10 minutes this week",
+      detail: liveRoom ? "It's live right now — jump in and listen first" : `${d.voice.speakingMinutesThisWeek} of 10 minutes so far · speaking earns the most XP`,
+      icon: Mic,
+      tone: "bg-indigo-500/10 text-indigo-500",
+      to: liveRoom ? `/voice/${liveRoom.id}` : "/voice",
+      cta: liveRoom ? "Join" : "Find a room",
+    });
+  }
+  if (d.words.thisWeek === 0) {
+    steps.push({ id: "words", title: "Save new words you hear", detail: "Build your own vocabulary list from conversations", icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-500", to: "/vocabulary", cta: "Add words" });
+  }
+  if (d.corrections.given === 0) {
+    steps.push({ id: "help", title: "Help someone with a correction", detail: "Teaching is learning — and it earns 3 XP", icon: Sparkles, tone: "bg-amber-500/10 text-amber-500", to: "/voice", cta: "Find a room" });
+  }
+  steps.push({ id: "exercise", title: "Do a short exercise", detail: "10 XP for each one you finish", icon: Dumbbell, tone: "bg-rose-500/10 text-rose-500", to: "/exercises", cta: "Start" });
+  return steps.slice(0, 4);
+}
+
+const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon; tone: string }> = [
+  { to: "/voice", title: "Voice Rooms", desc: "Live speaking practice", icon: AudioLines, tone: "text-indigo-500 bg-indigo-500/10" },
+  { to: "/chat", title: "Chat", desc: "Message partners", icon: MessageCircle, tone: "text-rose-500 bg-rose-500/10" },
+  { to: "/communities", title: "Communities", desc: "Groups by interest", icon: Hash, tone: "text-teal-500 bg-teal-500/10" },
+  { to: "/discover", title: "Discover", desc: "Trending rooms", icon: Compass, tone: "text-amber-500 bg-amber-500/10" },
+  { to: "/vocabulary", title: "Vocabulary", desc: "Your word bank", icon: BookOpen, tone: "text-emerald-500 bg-emerald-500/10" },
+  { to: "/flashcards", title: "Flashcards", desc: "Spaced repetition", icon: Layers, tone: "text-sky-500 bg-sky-500/10" },
+  { to: "/grammar", title: "Grammar", desc: "Rules & tenses", icon: FileText, tone: "text-violet-500 bg-violet-500/10" },
+  { to: "/exercises", title: "Exercises", desc: "Quizzes & drills", icon: Dumbbell, tone: "text-orange-500 bg-orange-500/10" },
+];
 
 // ============================================================
-// Main component
+// Page
 // ============================================================
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const reduced = useReducedMotion();
+  const reduced = Boolean(useReducedMotion());
+  const { openPalette } = useSidebar();
 
-  const { data: voiceRooms, isLoading: voiceLoading } = useVoiceRooms();
+  const { data, isLoading, isError, refetch } = useDashboard();
+  const { data: trending } = useTrendingRooms(6);
+  const { data: suggestionsData } = useSuggestions();
+  const sendRequest = useSendFriendRequest();
 
-  // ----------------------------------------------------------
-  // Real user data (with graceful fallbacks)
-  // ----------------------------------------------------------
-  const profile = (user as any)?.profile;
-  const streak = profile?.streak ?? 12;
-  const xp = profile?.xp ?? 2450;
-  const wordsLearned = profile?.wordsLearned ?? 342;
-  const timeSpent = profile?.timeSpentHours ?? 14.5;
-  const voiceHours = profile?.voiceHours ?? 8.2;
-  const roomsJoined = profile?.roomsJoined ?? 24;
-  const learningLanguage = profile?.learningLanguage ?? "Spanish";
-  const level = profile?.level ?? "B1 Intermediate";
-  const weeklyGoalMinutes = profile?.weeklyGoalMinutes ?? 60;
-  const weeklyProgressMinutes = profile?.weeklyProgressMinutes ?? 45;
-
-  const weeklyGoalPct = Math.min(
-    100,
-    (weeklyProgressMinutes / weeklyGoalMinutes) * 100,
+  const liveRooms = useMemo(
+    () => (Array.isArray(trending) ? trending : []).filter((r) => r && r.isLive !== false && (r.participantCount ?? 0) > 0).slice(0, 4),
+    [trending],
   );
 
-  // ----------------------------------------------------------
-  // Voice rooms
-  // ----------------------------------------------------------
-  const activeVoiceRooms =
-    voiceRooms?.filter((room) => room.status !== "ENDED") || [];
-  const liveVoiceRooms = activeVoiceRooms.slice(0, 4);
-  const hasLiveRooms = liveVoiceRooms.length > 0;
+  const suggestions = useMemo(() => {
+    const list = Array.isArray(suggestionsData) ? suggestionsData : Array.isArray(suggestionsData?.suggestions) ? suggestionsData.suggestions : [];
+    return (list as Array<{ id: string; name?: string; avatarUrl?: string; profile?: { nativeLanguage?: string; learningLanguages?: string[] }; isRequested?: boolean }>).slice(0, 4);
+  }, [suggestionsData]);
 
-  // ----------------------------------------------------------
-  // Stats (dynamic + sparklines)
-  // ----------------------------------------------------------
-  const stats: StatItem[] = useMemo(
-    () => [
-      {
-        icon: Flame,
-        label: "Streak",
-        value: `${streak} Days`,
-        colorBg: "bg-amber-50 dark:bg-amber-500/10",
-        colorText: "text-amber-600 dark:text-amber-400",
-        sparkColor: "text-amber-500 dark:text-amber-400",
-        trend: "+2",
-        trendUp: true,
-        sparkline: [3, 5, 4, 7, 8, 12],
-      },
-      {
-        icon: BookOpen,
-        label: "Words Learned",
-        value: wordsLearned.toLocaleString(),
-        colorBg: "bg-indigo-50 dark:bg-indigo-500/10",
-        colorText: "text-indigo-600 dark:text-indigo-400",
-        sparkColor: "text-indigo-500 dark:text-indigo-400",
-        trend: "+18",
-        trendUp: true,
-        sparkline: [280, 295, 310, 318, 325, 342],
-      },
-      {
-        icon: Clock,
-        label: "Time Spent",
-        value: `${timeSpent}h`,
-        colorBg: "bg-emerald-50 dark:bg-emerald-500/10",
-        colorText: "text-emerald-600 dark:text-emerald-400",
-        sparkColor: "text-emerald-500 dark:text-emerald-400",
-        trend: "+1.2h",
-        trendUp: true,
-        sparkline: [8, 9.5, 11, 12, 13, 14.5],
-      },
-      {
-        icon: Award,
-        label: "Total XP",
-        value: xp.toLocaleString(),
-        colorBg: "bg-violet-50 dark:bg-violet-500/10",
-        colorText: "text-violet-600 dark:text-violet-400",
-        sparkColor: "text-violet-500 dark:text-violet-400",
-        trend: "+150",
-        trendUp: true,
-        sparkline: [1800, 2000, 2150, 2300, 2380, 2450],
-      },
-      {
-        icon: AudioLines,
-        label: "Voice Hours",
-        value: `${voiceHours}h`,
-        colorBg: "bg-sky-50 dark:bg-sky-500/10",
-        colorText: "text-sky-600 dark:text-sky-400",
-        sparkColor: "text-sky-500 dark:text-sky-400",
-        trend: "+0.5h",
-        trendUp: true,
-        sparkline: [4, 5, 6, 7, 7.5, 8.2],
-      },
-      {
-        icon: Users,
-        label: "Rooms Joined",
-        value: roomsJoined.toString(),
-        colorBg: "bg-rose-50 dark:bg-rose-500/10",
-        colorText: "text-rose-600 dark:text-rose-400",
-        sparkColor: "text-rose-500 dark:text-rose-400",
-        sparkline: [12, 15, 18, 20, 22, 24],
-      },
-    ],
-    [streak, wordsLearned, timeSpent, xp, voiceHours, roomsJoined],
-  );
+  const firstName = (user?.name || "there").split(" ")[0];
+  const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 
-  // ----------------------------------------------------------
-  // Learning hub items
-  // ----------------------------------------------------------
-  const learningHubItems = [
-    {
-      to: "/discover",
-      title: "Discover",
-      desc: "Find and join live voice rooms from around the world.",
-      icon: Compass,
-      colorBg: "bg-indigo-50 dark:bg-indigo-500/10",
-      colorText: "text-indigo-600 dark:text-indigo-400",
-      hoverBg: "group-hover:bg-indigo-600",
-    },
-    {
-      to: "/vocabulary",
-      title: "Vocabulary",
-      desc: "Expand your word bank with spaced repetition.",
-      icon: BookOpen,
-      colorBg: "bg-indigo-50 dark:bg-indigo-500/10",
-      colorText: "text-indigo-600 dark:text-indigo-400",
-      hoverBg: "group-hover:bg-indigo-600",
-    },
-    {
-      to: "/flashcards",
-      title: "Flashcards",
-      desc: "Master difficult terms using interactive cards.",
-      icon: Layers,
-      colorBg: "bg-violet-50 dark:bg-violet-500/10",
-      colorText: "text-violet-600 dark:text-violet-400",
-      hoverBg: "group-hover:bg-violet-600",
-    },
-    {
-      to: "/grammar",
-      title: "Grammar Rules",
-      desc: "Understand tense usage, syntax, and structures.",
-      icon: FileText,
-      colorBg: "bg-sky-50 dark:bg-sky-500/10",
-      colorText: "text-sky-600 dark:text-sky-400",
-      hoverBg: "group-hover:bg-sky-600",
-    },
-    {
-      to: "/exercises",
-      title: "Interactive Exercises",
-      desc: "Test your skills with quizzes and listening drills.",
-      icon: Dumbbell,
-      colorBg: "bg-emerald-50 dark:bg-emerald-500/10",
-      colorText: "text-emerald-600 dark:text-emerald-400",
-      hoverBg: "group-hover:bg-emerald-600",
-    },
-    {
-      to: "/chat",
-      title: "AI Chat Practice",
-      desc: "Have real conversations and get instant feedback.",
-      icon: MessageCircle,
-      colorBg: "bg-rose-50 dark:bg-rose-500/10",
-      colorText: "text-rose-600 dark:text-rose-400",
-      hoverBg: "group-hover:bg-rose-600",
-    },
-    {
-      to: "/voice",
-      title: "Voice Rooms",
-      desc: "Practice speaking with others in live rooms.",
-      icon: AudioLines,
-      colorBg: "bg-amber-50 dark:bg-amber-500/10",
-      colorText: "text-amber-600 dark:text-amber-400",
-      hoverBg: "group-hover:bg-amber-600",
-    },
-    {
-      to: "/communities",
-      title: "Communities",
-      desc: "Join language communities and grow together.",
-      icon: Hash,
-      colorBg: "bg-teal-50 dark:bg-teal-500/10",
-      colorText: "text-teal-600 dark:text-teal-400",
-      hoverBg: "group-hover:bg-teal-600",
-    },
+  // ---------------- Loading / error ----------------
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <Skeleton className="h-9 w-72" />
+        <div className="grid lg:grid-cols-3 gap-5">
+          <Skeleton className="h-56 lg:col-span-2 rounded-3xl" />
+          <Skeleton className="h-56 rounded-3xl" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-3xl" />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <div className="max-w-xl mx-auto px-6 py-24 text-center">
+        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">We couldn't load your dashboard</p>
+        <p className="text-sm text-slate-500 mt-1">Check your connection and try again.</p>
+        <button type="button" onClick={() => refetch()} className="mt-5 px-4 h-10 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  // ---------------- Derived ----------------
+  const level = getXpLevel(data.xp.total);
+  const levelPct = getLevelProgress(data.xp.total);
+  const xpToNext = Math.max(0, getNextLevelXp(data.xp.total) - data.xp.total);
+  const weekChange = percentChange(data.xp.thisWeek, data.xp.lastWeek);
+  const lastSeven = data.activity.slice(-7);
+  const activeDays = data.activity.filter((d) => d.xp > 0).length;
+  const goalDone = data.xp.today >= data.xp.dailyGoal;
+  const nextSteps = buildNextSteps(data, liveRooms[0]);
+  const isNewLearner = data.xp.total === 0 && data.voice.roomsJoined === 0;
+  const learning = data.profile.learningLanguages[0] ?? "English";
+
+  const statusLine = goalDone
+    ? "Daily goal complete — brilliant work today! 🎉"
+    : data.streak.practicedToday
+      ? `${data.xp.dailyGoal - data.xp.today} XP to go for today's goal`
+      : data.streak.current > 0
+        ? `Practice today to keep your ${data.streak.current}-day streak 🔥`
+        : "Let's make today your first practice day";
+
+  const stats: Stat[] = [
+    { label: `Level ${level}`, value: data.xp.total.toLocaleString(), sub: xpToNext > 0 ? `${xpToNext.toLocaleString()} XP to level ${level + 1}` : "Max level", icon: Trophy, tone: "bg-violet-500/10 text-violet-500", to: "/progress" },
+    { label: "Day streak", value: String(data.streak.current), sub: `Best: ${data.streak.longest} day${data.streak.longest === 1 ? "" : "s"}`, icon: Flame, tone: "bg-orange-500/10 text-orange-500", to: "/progress" },
+    { label: "Minutes spoken", value: String(data.voice.speakingMinutes), sub: `${data.voice.speakingMinutesThisWeek} this week`, icon: Mic, tone: "bg-indigo-500/10 text-indigo-500", to: "/voice" },
+    { label: "Rooms joined", value: String(data.voice.roomsJoined), sub: `${data.voice.roomsThisWeek} this week`, icon: Users, tone: "bg-sky-500/10 text-sky-500", to: "/voice" },
+    { label: "Corrections learned", value: String(data.corrections.accepted), sub: `${data.corrections.given} given to others`, icon: Wand2, tone: "bg-fuchsia-500/10 text-fuchsia-500", to: "/progress" },
+    { label: "Words saved", value: data.words.total.toLocaleString(), sub: `${data.words.thisWeek} this week`, icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-500", to: "/vocabulary" },
   ];
 
-  // ----------------------------------------------------------
-  // Progress ring math
-  // ----------------------------------------------------------
-  const ringRadius = 43;
-  const ringCircumference = 2 * Math.PI * ringRadius;
-  const ringOffset = ringCircumference * (1 - weeklyGoalPct / 100);
-
-  // ----------------------------------------------------------
-  // Date
-  // ----------------------------------------------------------
-  const today = useMemo(
-    () =>
-      new Date().toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-    [],
-  );
-
-  // ============================================================
-  // RENDER
-  // ============================================================
-
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-[#0a0a14] dark:text-slate-100">
-      <div className="min-h-screen">
-        {/* ====================================================
-            TOP HEADER
-        ===================================================== */}
-        <header className="sticky top-0 z-40 h-[72px] border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-slate-800/80 dark:bg-[#0a0a14]/90">
-          <div className="flex h-full items-center justify-between px-6 lg:px-8">
-            {/* Left — date + title */}
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                <BarChart3 className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                  {today}
-                </p>
-                <h1 className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">
-                  Your learning dashboard
-                </h1>
-              </div>
-            </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 space-y-6">
+      {/* ================= Header ================= */}
+      <motion.header variants={fadeUp} initial="hidden" animate="show" className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{today}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-0.5">
+            {greeting()}, {firstName} 👋
+          </h1>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{statusLine}</p>
+        </div>
+        <button
+          type="button"
+          onClick={openPalette}
+          className="hidden sm:flex items-center gap-2 h-10 pl-3 pr-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-slate-500 hover:border-slate-300 dark:hover:border-white/20 transition-colors"
+        >
+          <Search className="w-4 h-4" /> Jump to anything
+          <kbd className="ml-3 rounded-md border border-slate-200 dark:border-white/10 px-1.5 py-0.5 text-[11px] font-sans">{IS_MAC ? "⌘" : "Ctrl"} K</kbd>
+        </button>
+      </motion.header>
 
-            {/* Right — quick stats + profile */}
-            <div className="flex items-center gap-2.5">
-              {/* XP */}
-              <div className="hidden items-center gap-2 rounded-xl border border-violet-100 bg-violet-50 px-3 py-2 dark:border-violet-500/20 dark:bg-violet-500/10 sm:flex">
-                <Award className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                <span className="text-xs font-bold text-violet-700 dark:text-violet-300">
-                  {xp.toLocaleString()} XP
-                </span>
-              </div>
-
-              {/* Streak */}
-              <div className="hidden items-center gap-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300 sm:flex">
-                <Flame className="h-3.5 w-3.5 fill-amber-500 text-amber-500 dark:fill-amber-400 dark:text-amber-400" />
-                <span>{streak}</span>
-              </div>
-
-              {/* Live rooms */}
-              {hasLiveRooms && (
-                <button
-                  type="button"
-                  onClick={() => navigate("/discover")}
-                  className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"
-                >
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 dark:bg-red-500" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" />
-                  </span>
-                  {liveVoiceRooms.length} Live
-                </button>
-              )}
-
-              {/* Profile */}
-              <button
-                type="button"
-                onClick={() => navigate("/profile")}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-sm font-bold text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                title="Open profile"
-              >
-                {user?.name?.charAt(0).toUpperCase() || "U"}
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {/* ====================================================
-            PAGE CONTENT
-        ===================================================== */}
-        <motion.main
+      {/* ================= Hero: today + this week ================= */}
+      <div className="grid lg:grid-cols-3 gap-5">
+        <motion.section
+          variants={fadeUp}
           initial="hidden"
           animate="show"
-          variants={staggerContainer}
-          className="mx-auto max-w-[1500px] space-y-8 px-6 py-7 lg:px-8"
+          custom={1}
+          className="lg:col-span-2 relative overflow-hidden rounded-3xl p-6 sm:p-7 text-white bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 shadow-xl shadow-indigo-500/20"
         >
-          {/* ==================================================
-              WELCOME HERO — with animated progress ring
-          ================================================== */}
-          <motion.section
-            variants={fadeUp}
-            className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 p-8 text-white shadow-xl shadow-indigo-200/40 dark:shadow-indigo-900/40"
-          >
-            {/* Background decoration */}
-            <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-28 right-1/4 h-72 w-72 rounded-full bg-violet-400/20 blur-3xl" />
-            <div className="pointer-events-none absolute left-1/3 top-0 h-40 w-40 rounded-full bg-indigo-400/10 blur-3xl" />
+          <div className="absolute -top-24 -right-16 w-72 h-72 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-28 left-1/3 w-72 h-72 rounded-full bg-fuchsia-400/20 blur-3xl pointer-events-none" />
 
-            <div className="relative z-10 flex items-center justify-between gap-12">
-              {/* Hero text */}
-              <div className="max-w-2xl">
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-indigo-100 backdrop-blur-md">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  {learningLanguage} · {level}
-                </div>
-
-                <h2 className="mb-3 text-3xl font-extrabold tracking-tight lg:text-4xl">
-                  Welcome back, {user?.name || "Learner"}! 👋
-                </h2>
-
-                <p className="mb-6 max-w-xl text-sm leading-relaxed text-indigo-100/90">
-                  You're making great progress. Keep the momentum going and
-                  turn today's practice into tomorrow's fluency.
-                </p>
-
-                <div className="flex flex-wrap gap-2.5">
-                  <motion.button
-                    type="button"
-                    onClick={() => navigate("/exercises")}
-                    whileHover={reduced ? undefined : { y: -2 }}
-                    whileTap={reduced ? undefined : { scale: 0.97 }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-indigo-700 shadow-sm transition-all hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-                  >
-                    <PlayCircle className="h-4 w-4" />
-                    Resume Lesson
-                  </motion.button>
-
-                  <motion.button
-                    type="button"
-                    onClick={() => navigate("/discover")}
-                    whileHover={reduced ? undefined : { y: -2 }}
-                    whileTap={reduced ? undefined : { scale: 0.97 }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-                  >
-                    <Compass className="h-4 w-4" />
-                    Discover
-                  </motion.button>
-
-                  <motion.button
-                    type="button"
-                    onClick={() => navigate("/voice")}
-                    whileHover={reduced ? undefined : { y: -2 }}
-                    whileTap={reduced ? undefined : { scale: 0.97 }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/20 px-4 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-emerald-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60"
-                  >
-                    <AudioLines className="h-4 w-4" />
-                    Join Voice
-                  </motion.button>
-                </div>
-              </div>
-
-              {/* Animated progress ring */}
-              <div className="relative mr-4 hidden shrink-0 sm:block">
-                <div className="absolute inset-0 rounded-full bg-white/10 blur-2xl" />
-                <svg
-                  className="relative h-32 w-32 -rotate-90"
-                  viewBox="0 0 100 100"
-                >
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r={ringRadius}
-                    stroke="rgba(255,255,255,0.16)"
-                    strokeWidth="7"
-                    fill="none"
-                  />
-                  <motion.circle
-                    cx="50"
-                    cy="50"
-                    r={ringRadius}
-                    stroke="white"
-                    strokeWidth="7"
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeDasharray={ringCircumference}
-                    initial={{ strokeDashoffset: ringCircumference }}
-                    animate={{ strokeDashoffset: ringOffset }}
-                    transition={
-                      reduced
-                        ? { duration: 0 }
-                        : { duration: 1.2, ease: "easeOut", delay: 0.4 }
-                    }
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <motion.span
-                    initial={reduced ? false : { opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.8, duration: 0.4 }}
-                    className="text-3xl font-extrabold"
-                  >
-                    {Math.round(weeklyGoalPct)}%
-                  </motion.span>
-                  <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-100">
-                    Weekly Goal
-                  </span>
-                </div>
-              </div>
-            </div>
-          </motion.section>
-
-          {/* ==================================================
-              STATS — with sparklines + trends
-          ================================================== */}
-          <motion.section
-            variants={staggerContainer}
-            className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6"
-          >
-            {stats.map((stat, i) => (
-              <StatCard
-                key={stat.label}
-                stat={stat}
-                index={i}
-                reduced={Boolean(reduced)}
-              />
-            ))}
-          </motion.section>
-
-          {/* ==================================================
-              TWO COLUMN AREA — Voice Rooms + Continue Learning
-          ================================================== */}
-          <section className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.75fr)]">
-            {/* ===========================================
-                LIVE VOICE ROOMS
-            ============================================ */}
-            <motion.div variants={fadeUp}>
-              <div className="mb-4 flex items-end justify-between">
-                <div>
-                  <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 dark:bg-red-500" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500 dark:bg-red-400" />
-                    </span>
-                    Live Voice Rooms
-                  </h2>
-                  <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-                    Join a conversation and practice speaking.
-                  </p>
-                </div>
-                <Link
-                  to="/voice"
-                  className="flex items-center gap-1 text-sm font-semibold text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 rounded"
-                >
-                  View all
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-
-              {voiceLoading ? (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {[1, 2].map((item) => (
-                    <div
-                      key={item}
-                      className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5"
-                    >
-                      <div className="flex items-center gap-4">
-                        <ShimmerSkeleton className="h-14 w-14 rounded-xl" />
-                        <div className="flex-1 space-y-2">
-                          <ShimmerSkeleton className="h-4 w-3/4" />
-                          <ShimmerSkeleton className="h-3 w-1/2" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : hasLiveRooms ? (
-                <motion.div
-                  variants={staggerContainer}
-                  className="grid grid-cols-1 gap-4 md:grid-cols-2"
-                >
-                  {liveVoiceRooms.map((room) => {
-                    const participantCount = room.participants?.length || 0;
-                    const isFull =
-                      room.maxParticipants &&
-                      participantCount >= room.maxParticipants;
-                    const isAlmostFull =
-                      room.maxParticipants &&
-                      participantCount / room.maxParticipants >= 0.8;
-                    const activeSpeakers =
-                      room.participants?.filter((p: any) => p.isSpeaking)
-                        .length || 0;
-                    const host = room.participants?.find(
-                      (p: any) =>
-                        p.role === "HOST" || p.userId === room.creatorId,
-                    );
-
-                    return (
-                      <motion.div
-                        key={room.id}
-                        variants={fadeUp}
-                        onClick={() => navigate(`/voice/${room.id}`)}
-                        className="group cursor-pointer rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-lg dark:border-white/10 dark:bg-white/5 dark:hover:border-indigo-500/30 dark:hover:shadow-black/20"
-                      >
-                        <div className="flex items-center gap-4">
-                          {/* Icon with live indicator */}
-                          <div className="relative shrink-0">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-amber-100 to-indigo-100 transition-transform duration-200 group-hover:scale-105 dark:from-amber-500/20 dark:to-indigo-500/20">
-                              <AudioLines className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
-                            </div>
-                            <span className="absolute -right-1 -top-1 h-3 w-3 animate-pulse rounded-full bg-red-500 ring-2 ring-white dark:ring-[#0a0a14]" />
-                          </div>
-
-                          {/* Content */}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="truncate font-bold text-slate-800 dark:text-slate-100">
-                                {room.name}
-                              </h3>
-                              {isAlmostFull && !isFull && (
-                                <span className="whitespace-nowrap rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                                  Almost full
-                                </span>
-                              )}
-                              {isFull && (
-                                <span className="whitespace-nowrap rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-500/20 dark:text-red-300">
-                                  Full
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                              <span className="flex items-center gap-1">
-                                <Users className="h-3 w-3" />
-                                {participantCount}
-                                {room.maxParticipants
-                                  ? `/${room.maxParticipants}`
-                                  : ""}
-                              </span>
-                              {activeSpeakers > 0 && (
-                                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 dark:bg-emerald-400" />
-                                  {activeSpeakers} speaking
-                                </span>
-                              )}
-                              {room.language && (
-                                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium dark:bg-white/10">
-                                  {room.language}
-                                </span>
-                              )}
-                              {room.type && (
-                                <span>
-                                  {room.type === "PRIVATE" ? "🔒" : "🌎"}{" "}
-                                  {room.type.toLowerCase()}
-                                </span>
-                              )}
-                            </div>
-
-                            {room.description && (
-                              <p className="mt-1 truncate text-xs text-slate-400 dark:text-slate-500">
-                                {room.description}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Join button */}
-                          <motion.button
-                            type="button"
-                            disabled={isFull}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              if (!isFull) navigate(`/voice/${room.id}`);
-                            }}
-                            whileTap={reduced ? undefined : { scale: 0.95 }}
-                            className={`shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${
-                              isFull
-                                ? "cursor-not-allowed bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500"
-                                : "bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md dark:bg-indigo-500 dark:hover:bg-indigo-400"
-                            }`}
-                          >
-                            {isFull ? "Full" : "Join"}
-                          </motion.button>
-                        </div>
-
-                        {/* Capacity bar */}
-                        {room.maxParticipants && (
-                          <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                            <motion.div
-                              className={`h-full rounded-full ${
-                                isFull
-                                  ? "bg-red-500"
-                                  : isAlmostFull
-                                    ? "bg-amber-500"
-                                    : "bg-emerald-500"
-                              }`}
-                              initial={{ width: 0 }}
-                              whileInView={{
-                                width: `${(participantCount / room.maxParticipants) * 100}%`,
-                              }}
-                              viewport={{ once: true }}
-                              transition={
-                                reduced
-                                  ? { duration: 0 }
-                                  : { duration: 0.6, ease: "easeOut" }
-                              }
-                            />
-                          </div>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </motion.div>
-              ) : (
-                <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center shadow-sm dark:border-white/10 dark:bg-white/5">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-500/10">
-                    <AudioLines className="h-8 w-8 text-amber-500 dark:text-amber-400" />
-                  </div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100">
-                    No Live Voice Rooms
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Be the first to start a conversation.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/voice")}
-                    className="mt-4 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                  >
-                    Start a Room
-                  </button>
-                </div>
-              )}
-            </motion.div>
-
-            {/* ===========================================
-                CONTINUE LEARNING — with animated progress
-            ============================================ */}
-            <motion.div variants={fadeUp}>
-              <div className="mb-4 flex items-end justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                    Continue Learning
-                  </h2>
-                  <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-                    Pick up where you left off.
-                  </p>
-                </div>
-                <Link
-                  to="/progress"
-                  className="text-sm font-semibold text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 rounded"
-                >
-                  View all
-                </Link>
-              </div>
-
-              <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5">
-                <div className="mb-5 flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-bold text-slate-800 dark:text-slate-100">
-                          Subjunctive Mood: Basics
-                        </h3>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          Lesson 4 of 8
-                        </p>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                        50%
-                      </span>
-                    </div>
-
-                    {/* Animated progress bar */}
-                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                      <motion.div
-                        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
-                        initial={{ width: 0 }}
-                        whileInView={{ width: "50%" }}
-                        viewport={{ once: true }}
-                        transition={
-                          reduced
-                            ? { duration: 0 }
-                            : { duration: 0.8, ease: "easeOut", delay: 0.3 }
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <motion.button
-                  type="button"
-                  onClick={() => navigate("/exercises")}
-                  whileTap={reduced ? undefined : { scale: 0.98 }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-50 px-4 py-2.5 text-sm font-bold text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                >
-                  <PlayCircle className="h-4 w-4" />
-                  Resume Lesson
-                </motion.button>
-              </div>
-            </motion.div>
-          </section>
-
-          {/* ==================================================
-              SPEAKING GOAL + STREAK HEATMAP
-          ================================================== */}
-          <motion.section
-            variants={fadeUp}
-            className="relative overflow-hidden rounded-2xl border border-amber-100/60 bg-gradient-to-r from-amber-50 to-indigo-50 p-6 shadow-sm dark:border-amber-500/20 dark:from-amber-500/10 dark:to-indigo-500/10"
-          >
-            <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-indigo-200/20 blur-2xl dark:bg-indigo-500/10" />
-
-            <div className="relative">
-              <div className="flex items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-indigo-500 shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/40">
-                    <Target className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100">
-                      Weekly Speaking Goal
-                    </h3>
-                    <div className="mt-1 flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
-                      <span className="flex items-center gap-1">
-                        <AudioLines className="h-3.5 w-3.5" />
-                        {weeklyProgressMinutes}/{weeklyGoalMinutes} min
-                      </span>
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
-                        {Math.round(weeklyGoalPct)}% complete
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <motion.button
-                  type="button"
-                  onClick={() => navigate("/voice")}
-                  whileTap={reduced ? undefined : { scale: 0.97 }}
-                  className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-200/50 transition hover:bg-indigo-700 dark:bg-indigo-500 dark:shadow-indigo-900/40 dark:hover:bg-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                >
-                  Practice Now
-                </motion.button>
-              </div>
-
-              {/* Animated progress bar */}
-              <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/70 dark:bg-white/5">
-                <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-indigo-600"
-                  initial={{ width: 0 }}
-                  whileInView={{ width: `${weeklyGoalPct}%` }}
-                  viewport={{ once: true }}
-                  transition={
-                    reduced
-                      ? { duration: 0 }
-                      : { duration: 0.9, ease: "easeOut", delay: 0.2 }
-                  }
-                />
-              </div>
-
-              <div className="mt-3 flex items-center justify-between gap-4">
-                <p className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                  <Zap className="h-3 w-3 text-amber-500 dark:text-amber-400" />
-                  {weeklyGoalMinutes - weeklyProgressMinutes} more minutes to hit
-                  your goal.
-                </p>
-
-                {/* Activity heatmap */}
-                <div className="hidden items-center gap-2 md:flex">
-                  <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
-                    Last 12 weeks
-                  </span>
-                  <ActivityHeatmap streak={streak} />
-                </div>
-              </div>
-            </div>
-          </motion.section>
-
-          {/* ==================================================
-              LEARNING HUB
-          ================================================== */}
-          <motion.section variants={fadeUp}>
-            <div className="mb-5">
-              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                Learning Hub
+          <div className="relative flex flex-col sm:flex-row sm:items-center gap-6">
+            <GoalRing value={data.xp.today} goal={data.xp.dailyGoal} reduced={reduced} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">Today's goal</p>
+              <h2 className="text-2xl font-bold mt-1 leading-snug">
+                {isNewLearner ? `Your ${learning} journey starts here` : goalDone ? "Goal smashed!" : "Earn today's XP by speaking"}
               </h2>
-              <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-                Choose an activity to start practicing.
+              <p className="text-sm text-white/80 mt-1.5 max-w-md">
+                {isNewLearner
+                  ? "Join a live room and just listen at first. When you're ready, raise your hand and say hello."
+                  : "Speaking earns 4 XP a minute, corrections 3–5 XP, flashcards 2 XP each."}
               </p>
-            </div>
 
-            <motion.div
-              variants={staggerContainer}
-              className="grid grid-cols-2 gap-4 xl:grid-cols-4"
-            >
-              {learningHubItems.map(
-                ({ to, title, desc, icon: Icon, colorBg, colorText, hoverBg }) => {
-                  const isVoiceCard = to === "/voice";
-                  const hasLive = isVoiceCard && hasLiveRooms;
-
-                  return (
-                    <motion.div key={to} variants={fadeUp}>
-                      <Link
-                        to={to}
-                        className={`group relative block h-full overflow-hidden rounded-2xl border bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 dark:bg-white/5 dark:hover:shadow-black/20 ${
-                          hasLive
-                            ? "border-amber-200 shadow-amber-100/50 dark:border-amber-500/30 dark:shadow-amber-900/20"
-                            : "border-slate-100 dark:border-white/10"
-                        }`}
-                      >
-                        {hasLive && (
-                          <div className="absolute right-0 top-0 flex items-center gap-1 rounded-bl-lg rounded-tr-lg bg-red-500 px-2 py-0.5 text-[8px] font-extrabold text-white">
-                            <span className="h-1 w-1 animate-pulse rounded-full bg-white" />
-                            LIVE
-                          </div>
-                        )}
-
-                        <div
-                          className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 group-hover:scale-105 ${colorBg} ${colorText} ${hoverBg} group-hover:text-white`}
-                        >
-                          <Icon className="h-5 w-5" />
-                        </div>
-
-                        <h3 className="mb-1 flex items-center justify-between font-bold text-slate-800 transition-colors group-hover:text-indigo-600 dark:text-slate-100 dark:group-hover:text-indigo-400">
-                          <span>{title}</span>
-                          <ArrowRight className="h-4 w-4 -translate-x-2 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
-                        </h3>
-
-                        <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                          {desc}
-                        </p>
-
-                        {hasLive && (
-                          <span className="mt-2 inline-block rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-500/10 dark:text-red-400">
-                            {liveVoiceRooms.length} active rooms
-                          </span>
-                        )}
-                      </Link>
-                    </motion.div>
-                  );
-                },
-              )}
-            </motion.div>
-          </motion.section>
-
-          {/* ==================================================
-              RECENT VOICE ACTIVITY
-          ================================================== */}
-          <motion.section variants={fadeUp}>
-            <div className="mb-4 flex items-end justify-between">
-              <div>
-                <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                  <Headphones className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                  Recent Voice Activity
-                </h2>
-                <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-                  Your recent voice room sessions.
-                </p>
-              </div>
-              <Link
-                to="/voice"
-                className="text-sm font-semibold text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 rounded"
-              >
-                History
-              </Link>
-            </div>
-
-            {voiceLoading ? (
-              <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5">
-                <div className="space-y-4">
-                  {[1, 2, 3].map((item) => (
-                    <div key={item} className="flex items-center gap-4">
-                      <ShimmerSkeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <ShimmerSkeleton className="h-4 w-3/4" />
-                        <ShimmerSkeleton className="h-3 w-1/2" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : hasLiveRooms ? (
-              <motion.div
-                variants={staggerContainer}
-                className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-white/10 dark:bg-white/5"
-              >
-                <div className="divide-y divide-slate-100 dark:divide-white/5">
-                  {liveVoiceRooms.slice(0, 3).map((room) => (
-                    <motion.button
-                      key={room.id}
-                      variants={fadeUp}
-                      type="button"
-                      onClick={() => navigate(`/voice/${room.id}`)}
-                      className="group flex w-full items-center gap-4 p-4 text-left transition hover:bg-slate-50 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:bg-slate-50 dark:focus-visible:bg-white/5"
-                    >
-                      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-100 to-indigo-100 dark:from-amber-500/20 dark:to-indigo-500/20">
-                        <AudioLines className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#0a0a14] dark:bg-emerald-400" />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">
-                          {room.name}
-                        </p>
-                        <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {room.participants?.length || 0} participants
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {room.createdAt
-                              ? formatDistanceToNow(new Date(room.createdAt), {
-                                  addSuffix: true,
-                                })
-                              : "Just now"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 dark:bg-emerald-400" />
-                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                          Live
-                        </span>
-                        <ChevronRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-500 dark:text-slate-600 dark:group-hover:text-indigo-400" />
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-            ) : (
-              <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/5">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-white/5">
-                  <Headphones className="h-6 w-6 text-slate-400 dark:text-slate-500" />
-                </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  No recent voice activity.
-                </p>
+              <div className="flex flex-wrap items-center gap-2.5 mt-5">
                 <button
                   type="button"
-                  onClick={() => navigate("/voice")}
-                  className="mt-3 text-sm font-semibold text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 rounded"
+                  onClick={() => navigate(liveRooms[0] ? `/voice/${liveRooms[0].id}` : "/voice")}
+                  className="h-11 px-5 rounded-xl bg-white text-indigo-700 font-semibold text-sm flex items-center gap-2 shadow-lg shadow-black/10 hover:-translate-y-0.5 transition-transform"
                 >
-                  Start your first voice session →
+                  <Mic className="w-4 h-4" /> {liveRooms[0] ? "Join a live room" : "Start speaking"}
                 </button>
-              </div>
-            )}
-          </motion.section>
-
-          {/* ==================================================
-              FOOTER — fixed branding
-          ================================================== */}
-          <motion.footer
-            variants={fadeUp}
-            className="border-t border-slate-200/70 py-5 dark:border-slate-800/70"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                © {new Date().getFullYear()} SpeakBetter · Learn without
-                limits.
-              </p>
-              <div className="flex items-center gap-5 text-xs text-slate-400 dark:text-slate-500">
-                <Link
-                  to="/settings"
-                  className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 rounded"
-                >
-                  Settings
-                </Link>
-                <Link
-                  to="/communities"
-                  className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 rounded"
-                >
-                  Community
-                </Link>
-                <span className="flex items-center gap-1">
-                  <Shield className="h-3 w-3" />
-                  Secure
-                </span>
+                {data.flashcards.due > 0 && (
+                  <button type="button" onClick={() => navigate("/flashcards")} className="h-11 px-4 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-sm flex items-center gap-2 transition-colors">
+                    <Layers className="w-4 h-4" /> Review {data.flashcards.due} card{data.flashcards.due === 1 ? "" : "s"}
+                  </button>
+                )}
               </div>
             </div>
-          </motion.footer>
-        </motion.main>
+
+            <div className="hidden xl:flex flex-col items-center justify-center w-28 shrink-0 rounded-2xl bg-white/10 py-4">
+              <Flame className={`w-8 h-8 ${data.streak.current > 0 ? "text-amber-300 fill-amber-300/40" : "text-white/40"}`} />
+              <p className="text-3xl font-bold tabular-nums mt-1">{data.streak.current}</p>
+              <p className="text-[11px] text-white/70">day streak</p>
+              <div className="flex gap-1 mt-2.5">
+                {lastSeven.map((d) => (
+                  <span key={d.date} className={`w-2 h-2 rounded-full ${d.xp > 0 ? "bg-amber-300" : "bg-white/20"}`} title={d.date} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.section variants={fadeUp} initial="hidden" animate="show" custom={2} className={`${card} p-6`}>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">This week</p>
+              <p className="text-3xl font-bold text-slate-900 dark:text-white mt-1 tabular-nums">
+                {data.xp.thisWeek.toLocaleString()} <span className="text-base font-semibold text-slate-400">XP</span>
+              </p>
+            </div>
+            {weekChange !== null && weekChange !== 0 && (
+              <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${weekChange > 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"}`}>
+                {weekChange > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                {weekChange > 0 ? "+" : ""}{weekChange}%
+              </span>
+            )}
+            {weekChange === null && data.xp.thisWeek > 0 && (
+              <span className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">
+                <Zap className="w-3.5 h-3.5" /> New
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">vs {data.xp.lastWeek.toLocaleString()} XP last week</p>
+          <div className="mt-5"><WeekBars days={lastSeven} reduced={reduced} /></div>
+        </motion.section>
       </div>
+
+      {/* ================= Stats ================= */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        {stats.map((stat, i) => <StatTile key={stat.label} stat={stat} index={i + 3} />)}
+      </div>
+
+      {/* ================= Next steps + Live now ================= */}
+      <div className="grid lg:grid-cols-5 gap-5">
+        <motion.section variants={fadeUp} initial="hidden" animate="show" custom={4} className={`${card} p-6 lg:col-span-3`}>
+          <SectionTitle title="Your next steps" />
+          <div className="space-y-2.5">
+            {nextSteps.map((step) => {
+              const Icon = step.icon;
+              return (
+                <Link
+                  key={step.id}
+                  to={step.to}
+                  className="group flex items-center gap-3.5 p-3 rounded-2xl border border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
+                >
+                  <span className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${step.tone}`}>
+                    <Icon className="w-5 h-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{step.title}</span>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">{step.detail}</span>
+                  </span>
+                  <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-300 flex items-center gap-1 shrink-0">
+                    {step.cta} <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </motion.section>
+
+        <motion.section variants={fadeUp} initial="hidden" animate="show" custom={5} className={`${card} p-6 lg:col-span-2`}>
+          <SectionTitle title="Live now" action={{ label: "All rooms", to: "/voice" }} />
+          {liveRooms.length === 0 ? (
+            <div className="text-center py-6">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto mb-3">
+                <Radio className="w-6 h-6" />
+              </div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">No rooms live right now</p>
+              <p className="text-xs text-slate-500 mt-1">Start one — others will join you.</p>
+              <button type="button" onClick={() => navigate("/voice")} className="mt-4 h-9 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
+                Start a room
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {liveRooms.map((room) => (
+                <button
+                  key={room.id}
+                  type="button"
+                  onClick={() => navigate(`/voice/${room.id}`)}
+                  className="group w-full flex items-center gap-3 p-3 rounded-2xl text-left hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
+                >
+                  <span className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 text-white flex items-center justify-center shrink-0">
+                    <AudioLines className="w-5 h-5" />
+                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-rose-500 ring-2 ring-white dark:ring-[#0f172a]">
+                      <span className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-70" />
+                    </span>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{room.name}</span>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {room.participantCount} in room{room.language ? ` · ${room.language}` : ""}{room.creator?.name ? ` · ${room.creator.name}` : ""}
+                    </span>
+                  </span>
+                  <span className="h-8 px-3 rounded-lg bg-indigo-600 text-white text-xs font-semibold flex items-center opacity-90 group-hover:opacity-100">Join</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </motion.section>
+      </div>
+
+      {/* ================= Activity + corrections ================= */}
+      <div className="grid lg:grid-cols-5 gap-5">
+        <motion.section variants={fadeUp} initial="hidden" animate="show" custom={6} className={`${card} p-6 lg:col-span-3 overflow-hidden`}>
+          <SectionTitle title="Your practice, last 12 weeks" action={{ label: "Progress", to: "/progress" }} />
+          <div className="flex flex-wrap items-end gap-x-10 gap-y-5">
+            <div className="overflow-x-auto max-w-full pb-1"><ActivityHeatmap activity={data.activity} /></div>
+            <div className="space-y-3">
+              <div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">{activeDays}</p>
+                <p className="text-xs text-slate-500">active days</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">{data.streak.longest}</p>
+                <p className="text-xs text-slate-500">longest streak</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-5">
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Level {level}</span>
+              <span className="text-slate-500">{xpToNext > 0 ? `${xpToNext.toLocaleString()} XP to level ${level + 1}` : "Max level"}</span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500"
+                initial={{ width: 0 }}
+                animate={{ width: `${levelPct}%` }}
+                transition={reduced ? { duration: 0 } : { duration: 0.9, ease: "easeOut" }}
+              />
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.section variants={fadeUp} initial="hidden" animate="show" custom={7} className={`${card} p-6 lg:col-span-2`}>
+          <SectionTitle title="Learned from the community" />
+          {data.corrections.recent.length === 0 ? (
+            <div className="py-4">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                When someone in a voice room corrects your English and you accept it, it shows up here so you can review it.
+              </p>
+              <div className="mt-4 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 p-4 text-sm">
+                <p className="text-slate-400 line-through">I am agree with you</p>
+                <p className="text-emerald-600 dark:text-emerald-400 font-medium mt-1">I agree with you</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {data.corrections.recent.map((c) => (
+                <div key={c.id} className="rounded-2xl bg-slate-50 dark:bg-white/[0.03] p-3.5">
+                  <p className="text-sm text-slate-400 line-through decoration-rose-400/70">{c.original}</p>
+                  <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">{c.corrected}</p>
+                  {c.note && <p className="text-xs text-slate-500 mt-1.5">{c.note}</p>}
+                  <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1.5">
+                    <span className="capitalize">{c.category.replace("-", " ")}</span> · from {c.authorName}
+                    {c.resolvedAt && <><Clock className="w-3 h-3 ml-1" /> {new Date(c.resolvedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</>}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.section>
+      </div>
+
+      {/* ================= Partners ================= */}
+      {suggestions.length > 0 && (
+        <motion.section variants={fadeUp} initial="hidden" animate="show" custom={8} className={`${card} p-6`}>
+          <SectionTitle title="Practice partners for you" action={{ label: "See more", to: "/suggestions" }} />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {suggestions.map((person) => (
+              <div key={person.id} className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200/80 dark:border-white/[0.07]">
+                <span className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-bold flex items-center justify-center shrink-0">
+                  {person.avatarUrl ? <img src={person.avatarUrl} alt="" className="w-full h-full object-cover" /> : (person.name || "?").charAt(0).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{person.name || "Learner"}</span>
+                  <span className="block text-xs text-slate-500 truncate">
+                    {person.profile?.nativeLanguage ? `Speaks ${person.profile.nativeLanguage}` : "Language learner"}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  disabled={person.isRequested || sendRequest.isPending}
+                  onClick={() => sendRequest.mutate(person.id)}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-40 transition-colors"
+                  aria-label={`Add ${person.name || "this person"} as a friend`}
+                  title="Add friend"
+                >
+                  <UserPlus className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </motion.section>
+      )}
+
+      {/* ================= Explore ================= */}
+      <motion.section variants={fadeUp} initial="hidden" animate="show" custom={9}>
+        <SectionTitle title="Explore" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {EXPLORE.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`${card} group flex items-center gap-3 p-3.5 hover:-translate-y-0.5 hover:shadow-md transition-all`}
+              >
+                <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.tone}`}>
+                  <Icon className="w-5 h-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{item.title}</span>
+                  <span className="block text-xs text-slate-500 truncate">{item.desc}</span>
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </motion.section>
     </div>
   );
 };

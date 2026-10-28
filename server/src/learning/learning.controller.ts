@@ -105,4 +105,9 @@ export class LearningController {
   async getProgress(@Request() req) {
     return this.learningService.getProgress(req.user.id);
   }
+
+  @Get('dashboard')
+  async getDashboard(@Request() req) {
+    return this.learningService.getDashboard(req.user.id);
+  }
 }

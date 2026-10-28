@@ -54,6 +54,12 @@ Status: ✅ done · 🔧 in progress · ⬜ not started
    - Fixed the flood of `voice:speaking` events: only changes are sent, as volatile messages that are dropped while offline (before: dozens queued and burst on reconnect); "stopped speaking" is now sent too.
    - UI: reconnect banner with **Retry now**, "📶 Reconnecting…" on people whose connection dropped, and the control bar's reconnecting indicator is wired up.
 
+## Activity engine & dashboard (2026-10-28)
+- `ActivityService` (server/src/learning/activity.service.ts) is the one place that awards XP and keeps the daily streak (practising on consecutive days grows it; a missed day restarts it). Before this, streaks were never updated and speaking time was never recorded.
+- XP: speaking 1 XP / 15 s (tracked server-side from `voice:speaking` turns into `VoiceSpeakerStats`), giving a correction +3, accepting one +5, flashcard review +2, exercise +10. Daily goal: 50 XP.
+- Migration `20261028120000_add_activity_xp_reasons` adds `VOICE_SPEAKING`, `CORRECTION_GIVEN`, `CORRECTION_ACCEPTED` to `XpReason` (additive).
+- `GET /learning/dashboard` returns streak, XP (today / this week / last week), 84-day activity, words, cards due, speaking minutes, rooms joined and recent corrections. The dashboard page is built entirely on it (no placeholder numbers).
+
 ## Phase 2 — Learning features (beat HelloTalk / Hilokal)
 5. ⬜ **Room level & language tags** — CEFR level (A1–C2), topic, accent; filter rooms by them.
 6. ⬜ **Topic cards for hosts** — conversation prompts and role-plays pushed to the stage.

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Reaction } from '@speakbetter/types';
+import type { Reaction } from '@speakbetter/types';
 import { Smile, ChevronDown, ChevronUp } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 

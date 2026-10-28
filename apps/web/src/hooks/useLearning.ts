@@ -205,3 +205,52 @@ export const useProgress = () => {
     },
   });
 };
+// ---------- Dashboard ----------
+export interface DashboardData {
+  streak: { current: number; longest: number; practicedToday: boolean };
+  xp: { total: number; today: number; dailyGoal: number; thisWeek: number; lastWeek: number };
+  /** XP earned per day for the last 84 days, oldest first */
+  activity: Array<{ date: string; xp: number }>;
+  profile: {
+    nativeLanguage: string | null;
+    learningLanguages: string[];
+    level: string | null;
+    goals: string[];
+  };
+  words: { total: number; thisWeek: number };
+  flashcards: { total: number; due: number };
+  voice: {
+    roomsJoined: number;
+    roomsThisWeek: number;
+    speakingMinutes: number;
+    turns: number;
+    speakingMinutesThisWeek: number;
+  };
+  corrections: {
+    received: number;
+    accepted: number;
+    pending: number;
+    given: number;
+    recent: Array<{
+      id: string;
+      original: string;
+      corrected: string;
+      note?: string | null;
+      category: string;
+      resolvedAt?: string | null;
+      authorName: string;
+    }>;
+  };
+}
+
+export const useDashboard = () => {
+  return useQuery({
+    queryKey: ['learning-dashboard'],
+    queryFn: async () => {
+      const response = await apiClient.get<DashboardData>('/learning/dashboard');
+      return response.data;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+};

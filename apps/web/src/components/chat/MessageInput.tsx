@@ -11,7 +11,8 @@ import {
   MicOff,
   Check,
   Edit,
-  File,
+  // Renamed: a lucide "File" import shadowed the browser File constructor used for voice uploads
+  File as FileIcon,
   Video,
   Music,
   AtSign,
@@ -1043,7 +1044,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               {!isUploading && !isUploadingVoice && fileAttachment && (
                 <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 w-full max-w-sm shadow-sm">
                   <div className="p-2 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg text-indigo-600 dark:text-indigo-400">
-                    <File className="w-5 h-5" />
+                    <FileIcon className="w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -1100,7 +1101,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 bg: "bg-purple-50 dark:bg-purple-500/10",
               },
               {
-                icon: File,
+                icon: FileIcon,
                 label: "Doc",
                 action: fileInputRef,
                 color: "text-orange-500",
@@ -1136,7 +1137,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                       },
                       () => toast.error("Unable to get location."),
                     );
-                  } else if (item.action?.current) {
+                  } else if (item.action && typeof item.action !== "string" && item.action.current) {
                     item.action.current.click();
                   } else {
                     toast.info(`${item.label} coming soon!`);
@@ -1206,6 +1207,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           ref={textareaRef}
           value={content}
           onChange={(e) => handleTyping(e.target.value)}
+          onPaste={(e) => {
+            // Paste a screenshot/image straight into the chat
+            const file = Array.from(e.clipboardData?.files ?? []).find((f) => f.type.startsWith("image/"));
+            if (!file) return;
+            e.preventDefault();
+            void handleFileUpload(
+              { target: { files: [file], value: "" } } as unknown as React.ChangeEvent<HTMLInputElement>,
+              "image",
+            );
+          }}
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}

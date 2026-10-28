@@ -20,6 +20,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
+import { CorrectionComposer } from "./CorrectionCard";
 import {
   Reply,
   X,
@@ -52,8 +53,16 @@ import {
   Minimize2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
+import { format, isToday, isYesterday, formatDistanceToNow, formatDistanceToNowStrict } from "date-fns";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { WordLookup, readSelection, type WordSelection } from "./WordLookup";
+
+/** Openers for an empty conversation — friendly, easy, good English practice */
+const CONVERSATION_STARTERS = [
+  "👋 Hi! Nice to meet you. Where are you from?",
+  "What do you like to do on weekends?",
+  "Could you help me practise my English? Feel free to correct me!",
+];
 
 interface ChatWindowProps {
   chatId?: string;
@@ -77,6 +86,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const targetId = chatId || communityId || "";
 
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  /** Partner's message being corrected (inline correction composer) */
+  const [correcting, setCorrecting] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,6 +171,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     deleteMessage: deleteSocketMessage,
     editMessage: editSocketMessage,
     pinMessage: pinSocketMessage,
+    acceptCorrection,
   } = useChatSocket(targetId, user?.id || "", socketOptions);
 
   const chatName = useMemo(() => {
@@ -187,6 +199,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       : null;
   const isOnline = otherUser ? onlineUsers.has(otherUser.id) : false;
   const isGroup = !isCommunity && chat?.type !== "PRIVATE";
+
+  /** "Last seen 5 minutes ago" from the partner's profile (updated when they disconnect) */
+  const lastSeenText = useMemo(() => {
+    const lastActive = (otherUser as { profile?: { lastActive?: string } } | null | undefined)?.profile?.lastActive;
+    if (!lastActive) return "Last seen recently";
+    const date = new Date(lastActive);
+    if (Number.isNaN(date.getTime())) return "Last seen recently";
+    if (Date.now() - date.getTime() < 60_000) return "Last seen just now";
+    return `Last seen ${formatDistanceToNowStrict(date, { addSuffix: true })}`;
+  }, [otherUser]);
+
+  // Select a word or phrase in a message → dictionary, pronunciation, save to flashcards
+  const [lookup, setLookup] = useState<WordSelection | null>(null);
+  const handleSelectionEnd = useCallback(() => {
+    // Let the browser finish updating the selection first
+    window.setTimeout(() => {
+      const next = readSelection(messagesContainerRef.current);
+      if (next) setLookup(next);
+    }, 0);
+  }, []);
 
   useEffect(() => {
     if (!searchQuery.trim() || !messages) {
@@ -692,10 +724,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               ) : isOnline ? (
                 <span className="flex items-center gap-1 text-emerald-600">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  Online
+                  Active now
                 </span>
               ) : (
-                "Last seen recently"
+                lastSeenText
               )}
             </p>
           </div>
@@ -818,6 +850,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
+        onMouseUp={handleSelectionEnd}
+        onTouchEnd={handleSelectionEnd}
         className="custom-scrollbar relative flex-1 overflow-y-auto px-2 py-4 sm:px-6"
       >
         {isLoadingMore && (
@@ -906,6 +940,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         onDelete={() => handleDelete(msg.id)}
                         onPin={(pinned) => handlePin(msg.id, pinned)}
                         onReact={(emoji) => handleReact(msg.id, emoji)}
+                        onCorrect={
+                          isCommunity
+                            ? undefined
+                            : () => {
+                                setCorrecting(msg);
+                                setReplyTo(null);
+                                setEditingMessage(null);
+                              }
+                        }
+                        onAcceptCorrection={() => acceptCorrection(msg.id)}
                         isPinned={!!msg.isPinned}
                         isSelected={selectedMessages.has(msg.id)}
                         isSelectionMode={isSelectionMode}
@@ -939,6 +983,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               <p className="mt-1.5 max-w-xs text-[13px] text-slate-400">
                 Start the conversation with a message or voice note
               </p>
+              {!isCommunity && (
+                <div className="mt-5 flex w-full max-w-sm flex-col gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Tap to send an opener
+                  </p>
+                  {CONVERSATION_STARTERS.map((starter) => (
+                    <button
+                      key={starter}
+                      type="button"
+                      disabled={!isConnected}
+                      onClick={() => sendSocketMessage({ content: starter, type: "TEXT" })}
+                      className="rounded-2xl border border-indigo-100 bg-white/80 px-4 py-2.5 text-left text-[13.5px] text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md disabled:opacity-50"
+                    >
+                      {starter}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </LayoutGroup>
@@ -1060,6 +1122,37 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               </motion.button>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Word lookup popup (select text in a message) ─────────────── */}
+      <AnimatePresence>
+        {lookup && (
+          <WordLookup
+            key={`${lookup.text}-${lookup.rect.top}`}
+            selection={lookup}
+            onClose={() => setLookup(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ─── Correction composer (tap "Correct" on a partner's message) ── */}
+      <AnimatePresence>
+        {correcting && (
+          <CorrectionComposer
+            key={correcting.id}
+            target={correcting}
+            onCancel={() => setCorrecting(null)}
+            onSend={(corrected, note) => {
+              sendSocketMessage({
+                type: "CORRECTION",
+                content: corrected,
+                replyToId: correcting.id,
+                metadata: note ? { note } : {},
+              });
+              setCorrecting(null);
+            }}
+          />
         )}
       </AnimatePresence>
 

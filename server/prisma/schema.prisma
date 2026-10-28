@@ -80,6 +80,8 @@ enum MessageType {
   LOCATION
   CONTACT
   SYSTEM
+  /// Language correction of the message in replyToId; content = corrected text
+  CORRECTION
 }
 
 enum AttachmentType {
@@ -164,6 +166,10 @@ enum XpReason {
   FLASHCARD_REVIEW
   BONUS
   EXERCISE_COMPLETED
+  VOICE_SPEAKING
+  CORRECTION_GIVEN
+  CORRECTION_ACCEPTED
+  CHAT_MESSAGE
 }
 
 enum BadgeCategory {
@@ -742,6 +748,8 @@ model Message {
   replyToId    String?
   mediaUrl     String?
   fileUrl      String?
+  /// Extra data per type, e.g. CORRECTION: { note?, acceptedAt? }
+  metadata     Json?
   replyTo      Message?             @relation("MessageReply", fields: [replyToId], references: [id])
   replies      Message[]            @relation("MessageReply")
   isEdited     Boolean              @default(false)

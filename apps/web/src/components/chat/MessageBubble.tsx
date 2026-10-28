@@ -9,7 +9,12 @@ import React, {
 import { format, formatDistanceToNow } from "date-fns";
 import type { Message } from "../../hooks/useChat";
 import { useAuth } from "../../contexts/AuthContext";
+import { CorrectionCard } from "./CorrectionCard";
+import { canSpeak, speak, stopSpeaking } from "../../lib/speech";
 import {
+  SpellCheck2,
+  Volume2 as ListenIcon,
+  Square as StopIcon,
   Reply,
   Smile,
   Check,
@@ -55,6 +60,10 @@ interface MessageBubbleProps {
   onDelete?: () => void;
   onPin?: (pinned: boolean) => void;
   onReact?: (emoji: string) => void;
+  /** Open the correction composer for this (someone else's) message */
+  onCorrect?: () => void;
+  /** Accept a CORRECTION message addressed to me */
+  onAcceptCorrection?: () => void;
 }
 
 const COMMON_EMOJIS = [
@@ -90,6 +99,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onDelete,
   onPin,
   onReact,
+  onCorrect,
+  onAcceptCorrection,
 }) => {
   const { user } = useAuth();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -104,6 +115,24 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  /** Reading this message aloud (pronunciation practice) */
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const toggleListen = useCallback(
+    async (slow: boolean) => {
+      if (isSpeaking) {
+        stopSpeaking();
+        setIsSpeaking(false);
+        return;
+      }
+      const text = message.content;
+      if (!text?.trim()) return;
+      setIsSpeaking(true);
+      await speak(text, { rate: slow ? 0.7 : 0.95 });
+      setIsSpeaking(false);
+    },
+    [isSpeaking, message.content, message.type],
+  );
 
   // Lightbox states
   const [imageZoom, setImageZoom] = useState(1);
@@ -363,15 +392,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const MessageStatus = () => {
     if (!isOwn) return null;
-    if (message.readReceipts && message.readReceipts.length > 0) {
+    // The server also stores the sender's own receipt, so only others count as "Seen"
+    const seenBy = message.readReceipts?.find((r) => r.userId !== message.senderId);
+    if (seenBy) {
       return (
         <motion.div
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
           className="flex items-center gap-0.5"
+          title={seenBy.readAt ? `Seen ${formatDistanceToNow(new Date(seenBy.readAt), { addSuffix: true })}` : "Seen"}
         >
           <CheckCheck className="w-3.5 h-3.5 text-sky-400 stroke-[2.5]" />
-          <span className="text-[8px] font-medium text-sky-400/70">Read</span>
+          <span className="text-[10px] font-medium text-sky-400/80">Seen</span>
         </motion.div>
       );
     }
@@ -409,6 +441,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   }, []);
 
   const renderContent = () => {
+    // LANGUAGE CORRECTION (diff of the original vs corrected text)
+    if (message.type === "CORRECTION") {
+      return (
+        <CorrectionCard
+          message={message}
+          isOwn={isOwn}
+          isRecipient={!isOwn && message.replyTo?.senderId === user?.id}
+          onAccept={onAcceptCorrection}
+        />
+      );
+    }
+
     // VOICE / AUDIO
     if (showVoicePlayer) {
       return (
@@ -750,9 +794,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 type="button"
                 onClick={onReply}
                 className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
+                title="Reply"
+                aria-label="Reply"
               >
                 <Reply className="w-3.5 h-3.5" />
               </button>
+              {canSpeak() && (message.type === "TEXT" || message.type === "CORRECTION") && message.content?.trim() && (
+                <button
+                  type="button"
+                  onClick={(e) => void toggleListen(e.shiftKey)}
+                  className={`p-1.5 rounded-full transition-all ${isSpeaking ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15" : "hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-500"}`}
+                  title={isSpeaking ? "Stop" : "Listen (Shift+click for slow)"}
+                  aria-label={isSpeaking ? "Stop reading aloud" : "Read aloud"}
+                >
+                  {isSpeaking ? <StopIcon className="w-3.5 h-3.5" /> : <ListenIcon className="w-3.5 h-3.5" />}
+                </button>
+              )}
+              {!isOwn && onCorrect && message.type === "TEXT" && message.content?.trim() && (
+                <button
+                  type="button"
+                  onClick={onCorrect}
+                  className="p-1.5 hover:bg-violet-50 dark:hover:bg-violet-500/15 rounded-full text-slate-500 dark:text-slate-400 hover:text-violet-600 transition-all"
+                  title="Correct their English"
+                  aria-label="Correct this message"
+                >
+                  <SpellCheck2 className="w-3.5 h-3.5" />
+                </button>
+              )}
               {isOwn && (
                 <>
                   <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
@@ -886,7 +954,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </div>
             )}
 
-            {message.replyTo && (
+            {/* Corrections show the original inside the card, so skip the reply quote */}
+            {message.replyTo && message.type !== "CORRECTION" && (
               <motion.div
                 initial={{ opacity: 0, x: isOwn ? 10 : -10 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -904,7 +973,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </motion.div>
             )}
 
-            {renderContent()}
+            {/* data-message-text lets the word-lookup popup save the full sentence as context */}
+            <div data-message-text={message.content ?? ""}>{renderContent()}</div>
 
             {translation && !isPureVoiceMessage && (
               <motion.button

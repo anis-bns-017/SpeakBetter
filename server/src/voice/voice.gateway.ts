@@ -36,6 +36,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private pendingLeaves: Map<string, NodeJS.Timeout> = new Map();
   /** How long a dropped connection may come back before it counts as leaving */
   private static readonly RECONNECT_GRACE_MS = 15_000;
+  /** `${roomId}:${userId}` → when their current speaking turn started (ms) */
+  private speakingSince: Map<string, number> = new Map();
 
   constructor(
     private jwtService: JwtService,
@@ -130,6 +132,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /** Called when the grace period ends without the user coming back */
   private async removeFromRoom(roomId: string, userId: string) {
+    this.flushSpeaking(roomId, userId);
     const participants = this.roomParticipants.get(roomId);
     if (!participants?.has(userId)) return;
 
@@ -477,6 +480,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
+    this.flushSpeaking(data.roomId, userId);
+
     try {
       await this.prisma.voiceParticipant.update({
         where: {
@@ -539,7 +544,28 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       isSpeaking: data.isSpeaking,
     });
 
-    this.logger.log(`🎤 User ${userId} speaking: ${data.isSpeaking}`);
+    // Measure each speaking turn; it feeds speaker stats, XP and the streak
+    const key = `${data.roomId}:${userId}`;
+    if (data.isSpeaking) {
+      if (!this.speakingSince.has(key)) this.speakingSince.set(key, Date.now());
+    } else {
+      this.flushSpeaking(data.roomId, userId);
+    }
+  }
+
+  /** Ends an open speaking turn and records its length */
+  private flushSpeaking(roomId: string, userId: string) {
+    const key = `${roomId}:${userId}`;
+    const since = this.speakingSince.get(key);
+    if (since === undefined) return;
+    this.speakingSince.delete(key);
+    // The client reports "stopped" after ~1.5s of silence; don't count that tail
+    const seconds = Math.min(600, (Date.now() - since) / 1000 - 1.5);
+    if (seconds >= 1) {
+      void this.voiceService
+        .recordSpeakingTime(roomId, userId, Math.round(seconds))
+        .catch((error) => this.logger.warn(`Could not record speaking time: ${error?.message}`));
+    }
   }
 
   // ============ CHAT MESSAGES ============

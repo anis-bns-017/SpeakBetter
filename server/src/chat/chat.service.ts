@@ -6,16 +6,20 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateChatDto, SendMessageDto, GetMessagesDto } from './dto/chat.dto';
-import { MessageType } from '@prisma/client';
+import { MessageType, Prisma } from '@prisma/client';
+import { ActivityService, XP_REWARDS, CHAT_XP_DAILY_CAP } from '../learning/activity.service';
 
 @Injectable()
 export class ChatService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private activity: ActivityService,
+  ) {}
 
   // ============ CHATS ============
 
   async getUserChats(userId: string) {
-    return this.prisma.chat.findMany({
+    const chats = await this.prisma.chat.findMany({
       where: {
         participants: {
           some: { userId },
@@ -30,6 +34,8 @@ export class ChatService {
                 name: true,
                 email: true,
                 avatarUrl: true,
+                // "Active now / last seen" in the chat header and list
+                profile: { select: { lastActive: true, nativeLanguage: true, learningLanguages: true } },
               },
             },
           },
@@ -44,6 +50,23 @@ export class ChatService {
         updatedAt: 'desc',
       },
     });
+
+    // Unread = messages from others after my last read
+    const unreadCounts = await Promise.all(
+      chats.map((chat) => {
+        const me = chat.participants.find((p) => p.userId === userId);
+        return this.prisma.message.count({
+          where: {
+            chatId: chat.id,
+            isDeleted: false,
+            senderId: { not: userId },
+            ...(me?.lastReadAt ? { createdAt: { gt: me.lastReadAt } } : {}),
+          },
+        });
+      }),
+    );
+
+    return chats.map((chat, i) => ({ ...chat, unreadCount: unreadCounts[i] }));
   }
 
   async getChatById(chatId: string, userId: string) {
@@ -58,6 +81,7 @@ export class ChatService {
                 name: true,
                 email: true,
                 avatarUrl: true,
+                profile: { select: { lastActive: true, nativeLanguage: true, learningLanguages: true } },
               },
             },
           },
@@ -390,14 +414,33 @@ export class ChatService {
     }
 
     // Validate reply
+    let replyMessage: { chatId: string | null; senderId: string; content: string | null; isDeleted: boolean } | null = null;
     if (replyToId) {
-      const replyMessage = await this.prisma.message.findUnique({
+      replyMessage = await this.prisma.message.findUnique({
         where: { id: replyToId },
-        select: { chatId: true },
+        select: { chatId: true, senderId: true, content: true, isDeleted: true },
       });
       if (!replyMessage || replyMessage.chatId !== chatId) {
         throw new BadRequestException('Invalid reply message');
       }
+    }
+
+    // A correction rewrites someone else's message (replyToId) — HelloTalk-style
+    const isCorrection = type === 'CORRECTION';
+    let metadata: Prisma.InputJsonValue | undefined;
+    if (isCorrection) {
+      if (!replyMessage || replyMessage.isDeleted) {
+        throw new BadRequestException('Choose a message to correct');
+      }
+      if (replyMessage.senderId === userId) {
+        throw new BadRequestException("You can't correct your own message");
+      }
+      const corrected = (content || '').trim();
+      if (!corrected || corrected === (replyMessage.content || '').trim()) {
+        throw new BadRequestException('Change something to make a correction');
+      }
+      const note = typeof dto.metadata?.note === 'string' ? dto.metadata.note.trim().slice(0, 300) : '';
+      metadata = note ? { note } : {};
     }
 
     // Create message
@@ -405,11 +448,12 @@ export class ChatService {
       data: {
         chatId: chatId!,
         senderId: userId,
-        content: content || 'Voice message',
+        content: isCorrection ? (content || '').trim().slice(0, 2000) : content || 'Voice message',
         type: (type as MessageType) || MessageType.VOICE_NOTE,
         mediaUrl: mediaUrl || null,
         fileUrl: fileUrl || null,
         replyToId: replyToId || null,
+        ...(metadata !== undefined ? { metadata } : {}),
       },
       include: {
         sender: {
@@ -451,6 +495,13 @@ export class ChatService {
       where: { id: chatId },
       data: { updatedAt: new Date() },
     });
+
+    if (isCorrection) {
+      await this.activity.recordActivity(userId, XP_REWARDS.correctionGiven, 'CORRECTION_GIVEN');
+    } else if (message.type === 'TEXT' || message.type === 'VOICE_NOTE') {
+      // Chatting is practice too: small XP per message, capped per day
+      await this.activity.recordCappedActivity(userId, XP_REWARDS.chatMessage, 'CHAT_MESSAGE', CHAT_XP_DAILY_CAP);
+    }
 
     // Create read receipt for sender
     await this.prisma.readReceipt.create({
@@ -1065,6 +1116,41 @@ export class ChatService {
     };
   }
 
+  // ============ CORRECTIONS ============
+
+  /** The corrected person accepts a correction: stamps it once and awards XP */
+  async acceptCorrection(userId: string, messageId: string) {
+    const correction = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      select: {
+        id: true,
+        chatId: true,
+        type: true,
+        metadata: true,
+        replyTo: { select: { senderId: true } },
+      },
+    });
+    if (!correction || correction.type !== 'CORRECTION' || !correction.chatId) {
+      throw new NotFoundException('Correction not found');
+    }
+    if (correction.replyTo?.senderId !== userId) {
+      throw new ForbiddenException('Only the person who was corrected can accept it');
+    }
+
+    const previous = (correction.metadata ?? {}) as Record<string, unknown>;
+    if (previous.acceptedAt) {
+      return { messageId, chatId: correction.chatId, metadata: previous };
+    }
+
+    const metadata = { ...previous, acceptedAt: new Date().toISOString() };
+    await this.prisma.message.update({
+      where: { id: messageId },
+      data: { metadata: metadata as Prisma.InputJsonValue },
+    });
+    await this.activity.recordActivity(userId, XP_REWARDS.correctionAccepted, 'CORRECTION_ACCEPTED');
+    return { messageId, chatId: correction.chatId, metadata };
+  }
+
   // ============ READ RECEIPTS ============
 
   async markMessageRead(userId: string, chatId: string, messageId: string) {
@@ -1082,10 +1168,18 @@ export class ChatService {
 
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
-      select: { chatId: true },
+      select: { chatId: true, createdAt: true },
     });
     if (!message || message.chatId !== chatId) {
       throw new BadRequestException('Message does not belong to this chat');
+    }
+
+    // Everything up to this message is now read (drives unread counts)
+    if (message.createdAt > participant.lastReadAt) {
+      await this.prisma.chatParticipant.update({
+        where: { chatId_userId: { chatId, userId } },
+        data: { lastReadAt: message.createdAt },
+      });
     }
 
     const receipt = await this.prisma.readReceipt.findUnique({

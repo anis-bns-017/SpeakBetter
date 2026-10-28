@@ -15,6 +15,8 @@ export interface Chat {
   ownerId?: string;
   participants: ChatParticipant[];
   messages?: Message[];
+  /** Messages from others after my last read (computed by the server) */
+  unreadCount?: number;
   updatedAt: string;
 }
 
@@ -57,6 +59,10 @@ export interface Message {
   reactions: Reaction[];
   attachments: Attachment[];
   translations: Translation[];
+  readReceipts?: Array<{ userId: string; readAt?: string }>;
+  delivered?: boolean;
+  /** CORRECTION: { note?: string; acceptedAt?: string } */
+  metadata?: { note?: string; acceptedAt?: string } & Record<string, unknown>;
 }
 
 export interface Reaction {
@@ -94,6 +100,7 @@ export interface SendMessagePayload {
   mediaUrl?: string;
   fileUrl?: string;
   replyToId?: string;
+  metadata?: Record<string, unknown>;
 }
 
 // ---------- API Calls ----------
@@ -194,28 +201,69 @@ export const useChat = (chatId: string) => {
   });
 };
 
-export const useMessages = (chatId: string, limit = 50) => {
-  return useQuery({
-    queryKey: ["messages", chatId],
+/**
+ * Latest `limit` messages (oldest first), plus `fetchNextPage` to prepend older ones
+ * using the server's `before` cursor. Live socket updates keep editing the same cache.
+ */
+const usePagedMessages = (
+  queryKey: readonly unknown[],
+  id: string,
+  limit: number,
+  fetchPage: (params: { limit: number; before?: string }) => Promise<Message[]>,
+) => {
+  const queryClient = useQueryClient();
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
+
+  const query = useQuery({
+    queryKey,
     queryFn: async () => {
-      const response = await chatApi.getMessages(chatId, { limit });
-      return response.data.slice().reverse();
+      const page = await fetchPage({ limit });
+      setHasNextPage(page.length >= limit);
+      return page.slice().reverse();
     },
-    enabled: !!chatId,
+    enabled: !!id,
   });
+
+  const fetchNextPage = useCallback(async () => {
+    const current = queryClient.getQueryData<Message[]>(queryKey);
+    const oldest = current?.[0];
+    if (!oldest || isFetchingNextPage) return;
+    setIsFetchingNextPage(true);
+    try {
+      const page = await fetchPage({ limit, before: oldest.id });
+      setHasNextPage(page.length >= limit);
+      const older = page.slice().reverse();
+      queryClient.setQueryData<Message[]>(queryKey, (prev) => {
+        const existing = new Set((prev ?? []).map((m) => m.id));
+        return [...older.filter((m) => !existing.has(m.id)), ...(prev ?? [])];
+      });
+    } finally {
+      setIsFetchingNextPage(false);
+    }
+    // queryKey is rebuilt each render; its contents are what matter
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, JSON.stringify(queryKey), limit, fetchPage, isFetchingNextPage]);
+
+  return { ...query, fetchNextPage, hasNextPage, isFetchingNextPage };
+};
+
+export const useMessages = (chatId: string, limit = 50) => {
+  const fetchPage = useCallback(
+    async (params: { limit: number; before?: string }) =>
+      (await chatApi.getMessages(chatId, params)).data,
+    [chatId],
+  );
+  return usePagedMessages(["messages", chatId], chatId, limit, fetchPage);
 };
 
 export const useCommunityMessages = (communityId: string, limit = 50) => {
-  return useQuery({
-    queryKey: ["community-messages", communityId],
-    queryFn: async () => {
-      const response = await chatApi.getCommunityMessages(communityId, {
-        limit,
-      });
-      return response.data.slice().reverse();
-    },
-    enabled: !!communityId,
-  });
+  const fetchPage = useCallback(
+    async (params: { limit: number; before?: string }) =>
+      (await chatApi.getCommunityMessages(communityId, params)).data,
+    [communityId],
+  );
+  return usePagedMessages(["community-messages", communityId], communityId, limit, fetchPage);
 };
 
 // ---------- Message Mutations ----------
@@ -639,6 +687,12 @@ export const useChatSocket = (
   const queryClient = useQueryClient();
 
   const socketRef = useRef<Socket | null>(null);
+  // The socket lives across chat switches; handlers read the current chat from here
+  const chatIdRef = useRef(chatId);
+  useEffect(() => {
+    chatIdRef.current = chatId;
+    setTypingUsers(new Set());
+  }, [chatId]);
   const isConnectingRef = useRef(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -738,9 +792,10 @@ export const useChatSocket = (
       setIsConnected(true);
       setReconnectAttempts(0);
 
-      if (chatId) {
-        console.log(`📚 Joining chat room: ${chatId}`);
-        s.emit("chat:join", { chatId });
+      const currentChatId = chatIdRef.current;
+      if (currentChatId) {
+        console.log(`📚 Joining chat room: ${currentChatId}`);
+        s.emit("chat:join", { chatId: currentChatId });
       }
     };
 
@@ -823,7 +878,7 @@ export const useChatSocket = (
 
     // ---------- Message Events ----------
 
-    s.on("message:new", (message: Message) => {
+    const handleIncomingMessage = (message: Message) => {
       console.log("📩 New message received:", message);
 
       options?.onNewMessage?.(message);
@@ -843,7 +898,21 @@ export const useChatSocket = (
       }
 
       queryClient.invalidateQueries({ queryKey: ["chats"] });
-    });
+    };
+
+    s.on("message:new", handleIncomingMessage);
+    // Voice notes arrive on their own event but belong in the same message list
+    s.on("voice:message:new", handleIncomingMessage);
+
+    // A correction was accepted ("Got it") — both sides update the badge
+    s.on(
+      "correction:accepted",
+      (data: { messageId: string; chatId: string; metadata: Message["metadata"] }) => {
+        queryClient.setQueryData<Message[]>(["messages", data.chatId], (old) =>
+          old?.map((m) => (m.id === data.messageId ? { ...m, metadata: data.metadata } : m)),
+        );
+      },
+    );
 
     s.on("message:sent", (message: Message) => {
       console.log("✅ Message sent confirmation:", message);
@@ -1002,10 +1071,25 @@ export const useChatSocket = (
 
     // ---------- Read Receipts ----------
 
+    // The other person read up to messageId: everything I sent before it is "Seen"
     s.on(
       "message:read",
       (data: { userId: string; messageId: string; chatId: string }) => {
-        console.log("👀 Message read:", data);
+        queryClient.setQueryData<Message[]>(["messages", data.chatId], (old) => {
+          if (!old) return old;
+          const upTo = old.find((m) => m.id === data.messageId);
+          if (!upTo) return old;
+          const cutoff = new Date(upTo.createdAt).getTime();
+          return old.map((m) => {
+            if (m.senderId === data.userId || new Date(m.createdAt).getTime() > cutoff) return m;
+            if (m.readReceipts?.some((r) => r.userId === data.userId)) return m;
+            return {
+              ...m,
+              readReceipts: [...(m.readReceipts ?? []), { userId: data.userId, readAt: new Date().toISOString() }],
+            };
+          });
+        });
+        queryClient.invalidateQueries({ queryKey: ["chats"] });
       },
     );
 
@@ -1016,7 +1100,7 @@ export const useChatSocket = (
       (data: { userId: string; chatId: string; communityId?: string }) => {
         const targetId = data.chatId || data.communityId;
 
-        if (targetId === chatId && data.userId !== userId) {
+        if (targetId === chatIdRef.current && data.userId !== userId) {
           setTypingUsers((previous) => {
             const next = new Set(previous);
             next.add(data.userId);
@@ -1031,7 +1115,7 @@ export const useChatSocket = (
       (data: { userId: string; chatId: string; communityId?: string }) => {
         const targetId = data.chatId || data.communityId;
 
-        if (targetId === chatId) {
+        if (targetId === chatIdRef.current) {
           setTypingUsers((previous) => {
             const next = new Set(previous);
             next.delete(data.userId);
@@ -1101,6 +1185,8 @@ export const useChatSocket = (
       s.off("connection:established");
 
       s.removeAllListeners("message:new");
+      s.removeAllListeners("voice:message:new");
+      s.removeAllListeners("correction:accepted");
       s.removeAllListeners("message:sent");
       s.removeAllListeners("message:deleted");
       s.removeAllListeners("message:edited");
@@ -1276,6 +1362,18 @@ export const useChatSocket = (
     [isConnected],
   );
 
+  /** Corrected person accepts a correction (+5 XP on the server) */
+  const acceptCorrection = useCallback(
+    (messageId: string) => {
+      if (!socketRef.current?.connected || !isConnected) {
+        toast.error("Not connected to chat server");
+        return;
+      }
+      socketRef.current.emit("correction:accept", { messageId });
+    },
+    [isConnected],
+  );
+
   const joinChat = useCallback(
     (chatIdToJoin: string) => {
       if (!socketRef.current?.connected || !isConnected) {
@@ -1310,6 +1408,7 @@ export const useChatSocket = (
     editMessage,
     pinMessage,
     fetchMessages,
+    acceptCorrection,
     joinChat,
     leaveChat,
     reconnectAttempts,

@@ -9,6 +9,7 @@ import {
   IsUUID,
   IsNumber,
   IsNotEmpty,
+  IsObject,
 } from 'class-validator';
 
 export class CreateChatDto {
@@ -51,8 +52,14 @@ export class SendMessageDto {
     'LOCATION',
     'CONTACT',
     'SYSTEM',
+    'CORRECTION',
   ])
   type?: string;
+
+  /** CORRECTION: { note?: string } */
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 
   @IsOptional()
   @IsString()

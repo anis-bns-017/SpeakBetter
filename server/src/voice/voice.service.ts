@@ -19,6 +19,7 @@ import {
 import { ParticipantRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { LiveKitService } from './livekit.service';
+import { ActivityService, XP_REWARDS } from '../learning/activity.service';
 
 @Injectable()
 export class VoiceService {
@@ -27,7 +28,38 @@ export class VoiceService {
   constructor(
     private prisma: PrismaService,
     private liveKitService: LiveKitService,
+    private activity: ActivityService,
   ) {}
+
+  // ============ SPEAKING TIME ============
+
+  /**
+   * Adds a finished speaking turn to the speaker's stats and awards XP for every
+   * full 15 seconds spoken in this room (turns accumulate, so short turns still count).
+   */
+  async recordSpeakingTime(roomId: string, userId: string, seconds: number) {
+    if (seconds <= 0) return;
+    const existing = await this.prisma.voiceSpeakerStats.findFirst({
+      where: { roomId, userId },
+      select: { id: true, speakingTime: true },
+    });
+    const before = existing?.speakingTime ?? 0;
+    const after = before + seconds;
+
+    if (existing) {
+      await this.prisma.voiceSpeakerStats.update({
+        where: { id: existing.id },
+        data: { speakingTime: { increment: seconds }, timesSpoken: { increment: 1 } },
+      });
+    } else {
+      await this.prisma.voiceSpeakerStats.create({
+        data: { roomId, userId, speakingTime: seconds, timesSpoken: 1 },
+      });
+    }
+
+    const xp = (Math.floor(after / 15) - Math.floor(before / 15)) * XP_REWARDS.speakingPer15s;
+    await this.activity.recordActivity(userId, xp, 'VOICE_SPEAKING');
+  }
 
   // ============ ROOM CRUD ============
 
@@ -1707,6 +1739,8 @@ export class VoiceService {
       },
       include: this.correctionInclude,
     });
+    // Helping someone else learn is rewarded too
+    await this.activity.recordActivity(authorId, XP_REWARDS.correctionGiven, 'CORRECTION_GIVEN');
     return this.toCorrectionPayload(saved);
   }
 
@@ -1736,6 +1770,9 @@ export class VoiceService {
       data: { status, resolvedAt: new Date() },
       include: this.correctionInclude,
     });
+    if (status === 'accepted') {
+      await this.activity.recordActivity(userId, XP_REWARDS.correctionAccepted, 'CORRECTION_ACCEPTED');
+    }
     return this.toCorrectionPayload(updated);
   }
 

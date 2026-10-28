@@ -13,7 +13,10 @@ export type MessageType =
   | "STICKER"
   | "LOCATION"
   | "CONTACT"
-  | "POLL";
+  | "POLL"
+  | "SYSTEM"
+  /** Language correction of the message in replyToId; content = corrected text */
+  | "CORRECTION";
 
 export type MessageStatus = "SENT" | "DELIVERED" | "READ" | "FAILED";
 
@@ -74,6 +77,8 @@ export interface Message {
   reactions: Reaction[];
   attachments: Attachment[];
   translations: Translation[];
+  /** CORRECTION: { note?: string; acceptedAt?: string } */
+  metadata?: { note?: string; acceptedAt?: string } & Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
