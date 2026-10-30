@@ -16,6 +16,8 @@ import { TranslationService } from './services/translation.service';
 import { ClapService } from './services/clap.service';
 import { SpeakerQueueService } from './services/queue.service';
 import { AnalyticsService } from './services/analytics.service';
+import { CoachService } from './coach/coach.service';
+import { CoachController } from './coach/coach.controller';
 
 // Import new controllers
 import { TranscriptionController } from './controllers/transcription.controller';
@@ -44,6 +46,7 @@ import { AnalyticsController } from './controllers/analytics.controller';
     QueueController,
     InviteController,
     AnalyticsController,
+    CoachController,
   ],
   providers: [
     VoiceService,
@@ -55,6 +58,7 @@ import { AnalyticsController } from './controllers/analytics.controller';
     ClapService,
     SpeakerQueueService,
     AnalyticsService,
+    CoachService,
   ],
   exports: [
     VoiceService,

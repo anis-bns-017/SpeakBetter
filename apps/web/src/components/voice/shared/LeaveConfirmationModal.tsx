@@ -4,19 +4,36 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { PhoneOff } from 'lucide-react';
 import { THEME } from '../VoiceRoomView.theme';
+import type { FluencySnapshot } from '../../../hooks/useRoomCoach';
 
 interface LeaveConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  /** Your live coach numbers, shown as a "how it went" recap before you leave */
+  summary?: FluencySnapshot | null;
+  missionsCompleted?: number;
 }
 
 export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
+  summary,
+  missionsCompleted = 0,
 }) => {
   if (!isOpen) return null;
+
+  const stats = summary && summary.words > 0
+    ? [
+        { label: 'Words spoken', value: String(summary.words) },
+        { label: 'Fluency', value: summary.fluency === null ? '—' : `${summary.fluency}/100` },
+        { label: 'Pace', value: summary.wpm === null ? '—' : `${summary.wpm} wpm` },
+        { label: 'Fillers', value: String(summary.fillerCount) },
+        { label: 'Missions', value: String(missionsCompleted) },
+        { label: 'New strong words', value: String(summary.richWords.length) },
+      ]
+    : null;
 
   return (
     <motion.div
@@ -45,9 +62,34 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
           <h3 className="font-bold text-xl mb-2" style={{ color: THEME.colors.text.primary }}>
             Leave Room?
           </h3>
-          <p className="text-sm mb-6" style={{ color: THEME.colors.text.muted }}>
+          <p className="text-sm mb-5" style={{ color: THEME.colors.text.muted }}>
             Are you sure you want to leave this room? You can always join back later.
           </p>
+
+          {stats && (
+            <div className="mb-5 text-left">
+              <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: THEME.colors.text.muted }}>
+                Your session so far · saved to your progress
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {stats.map((s) => (
+                  <div
+                    key={s.label}
+                    className="rounded-xl px-2 py-2 text-center"
+                    style={{ background: 'rgba(255,255,255,0.04)' }}
+                  >
+                    <div className="text-sm font-bold" style={{ color: THEME.colors.text.primary }}>
+                      {s.value}
+                    </div>
+                    <div className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+                      {s.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}

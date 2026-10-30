@@ -60,6 +60,16 @@ Status: ✅ done · 🔧 in progress · ⬜ not started
 - Migration `20261028120000_add_activity_xp_reasons` adds `VOICE_SPEAKING`, `CORRECTION_GIVEN`, `CORRECTION_ACCEPTED` to `XpReason` (additive).
 - `GET /learning/dashboard` returns streak, XP (today / this week / last week), 84-day activity, words, cards due, speaking minutes, rooms joined and recent corrections. The dashboard page is built entirely on it (no placeholder numbers).
 
+## Room Coach (2026-10-30)
+A coach built into the room itself — the thing other language apps don't have. Open it from the 🎯 button in the room tool rail.
+- **Live fluency coach (private)** — from each learner's final captions the server measures pace (words/min vs. a 100–150 comfort band), smoothness (fillers like "um", "like", "you know", plus restarts such as "I I think") and variety. A gentle tip appears at most once every 20 s; a 0–100 fluency score and a trend versus the last session are shown. Only the speaker sees it. Browser speech recognition often drops "um/uh", so "like", "you know", "basically" and restarts are the most reliable signals.
+- **Secret-word missions** — host/moderator starts a round (level A1–C1, 3/5/10 min). Everyone gets a *private* word with meaning and example; using it in a final caption completes it (any inflection, phrases supported). Points = level base (5–12) + speed bonus for the first three (+5/+3/+1); XP goes through `ActivityService` (`MISSION_COMPLETED`, capped at 60 XP/day). One free swap per round; late joiners get a word; the leaderboard reveals every word when the round ends (stopped or timed out).
+- **Airtime balance + spotlight** — the room sees a "conversation balance" meter (entropy of speaking time); hosts also see who is quiet. **Spotlight** aims a topic card (30 cards, A1–C1: daily life, opinion, story, role-play, fun; follow-ups and useful phrases included) at the quietest speaker — or push a card to everyone.
+- **Session reports** — saved whenever someone leaves (`VoiceSessionReport`, one row per room per learner): speaking time, words, fillers, pace, fluency, missions, corrections given/received, strong words. The leave dialog shows the recap first. REST: `GET /voice/coach/reports/me`, `GET /voice/coach/reports/room/:roomId` (404 until there is one), `GET /voice/coach/cards`.
+- Code: `server/src/voice/coach/` (pure engine + data + service + controller, 48 unit tests), gateway events `voice:coach*`, `voice:mission-*`, `voice:airtime`, `voice:spotlight`; client `useRoomCoach`, `RoomCoachPanel`, `SpotlightBanner`. Migration `20261030120000_add_voice_session_reports` (additive).
+- Limits to know: missions and coaching read the browser captions, which the client can fake — fine for practice, don't use for prizes. In-room state is in memory (like the rest of the gateway) so a server restart ends a running round; saved reports survive.
+- Verified: unit tests, a 37-check live socket run (permissions, secrecy, bonuses, no double payout, airtime, spotlight, reports), and the panel/banner/leave dialog in a browser. **Not verified:** the full room page, because LiveKit (Docker) wasn't running here.
+
 ## Phase 2 — Learning features (beat HelloTalk / Hilokal)
 5. ⬜ **Room level & language tags** — CEFR level (A1–C2), topic, accent; filter rooms by them.
 6. ⬜ **Topic cards for hosts** — conversation prompts and role-plays pushed to the stage.
