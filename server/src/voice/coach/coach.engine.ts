@@ -140,10 +140,7 @@ export const PACE_BAND = { min: 100, max: 150 } as const;
 const MIN_WORDS_FOR_SCORES = 25;
 const MIN_SECONDS_FOR_WPM = 15;
 const MAX_TRACKED_VOCAB = 2000;
-<<<<<<< HEAD
 const VARIETY_WINDOW = 50;
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 
 export class FluencyTracker {
   private utterances = 0;
@@ -153,11 +150,8 @@ export class FluencyTracker {
   private fillers: Record<string, number> = {};
   private vocab = new Set<string>();
   private rich: string[] = [];
-<<<<<<< HEAD
   /** The most recent words, for the variety score */
   private recent: string[] = [];
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 
   add(text: string): UtteranceAnalysis {
     const a = analyzeUtterance(text);
@@ -169,12 +163,9 @@ export class FluencyTracker {
     this.repeats += a.repeats;
     for (const [k, v] of Object.entries(a.fillers)) this.fillers[k] = (this.fillers[k] ?? 0) + v;
 
-<<<<<<< HEAD
     this.recent.push(...a.tokens);
     if (this.recent.length > VARIETY_WINDOW) this.recent.splice(0, this.recent.length - VARIETY_WINDOW);
 
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
     for (const t of a.tokens) {
       if (this.vocab.size < MAX_TRACKED_VOCAB) this.vocab.add(t);
       if (t.length >= 8 && /^\p{L}+$/u.test(t) && !this.rich.includes(t)) {
@@ -220,19 +211,12 @@ export class FluencyTracker {
       ? Math.round(clamp(100 - ((this.fillerCount + this.repeats) / words) * 100 * 8, 10, 100))
       : null;
 
-<<<<<<< HEAD
     // Share of distinct words in the last 50 (a moving window, so the score doesn't depend on
     // how long someone has talked): ~0.5 means lots of repeats, 0.85+ is very varied
     const variety =
       enoughSpeech && this.recent.length >= 20
         ? Math.round(clamp(((new Set(this.recent).size / this.recent.length - 0.5) / 0.35) * 100, 5, 100))
         : null;
-=======
-    // Guiraud's index (unique / √words) so longer talks aren't punished for repeating common words
-    const variety = enoughSpeech
-      ? Math.round(clamp(((this.vocab.size / Math.sqrt(words) - 3) / 5) * 100, 10, 100))
-      : null;
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 
     const available = [paceScore, smoothness, variety].filter((s): s is number => s !== null);
     const fluency = enoughSpeech && available.length
@@ -450,7 +434,6 @@ export function pickTopicCard(
         : TOPIC_CARDS;
   return pool[Math.floor(rng() * pool.length)];
 }
-<<<<<<< HEAD
 
 // ------------------------------------------------------------------
 // Saved words (spaced repetition)
@@ -484,5 +467,3 @@ export function cleanNote(raw: unknown, max: number): string | null {
   const s = String(raw ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
   return s || null;
 }
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf

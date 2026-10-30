@@ -587,10 +587,7 @@ model User {
   voiceCorrectionsGiven    VoiceCorrection[]          @relation("CorrectionAuthor")
   voiceCorrectionsReceived VoiceCorrection[]          @relation("CorrectionTarget")
   voiceSessionReports      VoiceSessionReport[]       @relation("SessionReportUser")
-<<<<<<< HEAD
   voiceSavedWords          VoiceSavedWord[]           @relation("SavedWordUser")
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 }
 
 model Session {
@@ -2206,7 +2203,6 @@ model VoiceSessionReport {
   @@unique([roomId, userId])
   @@index([userId, createdAt])
 }
-<<<<<<< HEAD
 
 /// A word a learner tapped in a room's live captions, with a simple spaced-repetition schedule (Leitner boxes)
 model VoiceSavedWord {
@@ -2230,5 +2226,3 @@ model VoiceSavedWord {
   @@unique([userId, word])
   @@index([userId, dueAt])
 }
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf

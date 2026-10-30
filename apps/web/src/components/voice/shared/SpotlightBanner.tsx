@@ -40,11 +40,7 @@ export const SpotlightBanner: React.FC<SpotlightBannerProps> = ({
           initial={{ opacity: 0, y: -16, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -16, scale: 0.97 }}
-<<<<<<< HEAD
           className="fixed top-48 left-1/2 -translate-x-1/2 z-[85] w-[min(94vw,520px)] rounded-2xl border shadow-2xl backdrop-blur-xl"
-=======
-          className="fixed top-36 left-1/2 -translate-x-1/2 z-[85] w-[min(94vw,520px)] rounded-2xl border shadow-2xl backdrop-blur-xl"
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
           style={{
             background: mine ? "rgba(40,30,8,0.95)" : "rgba(14,14,26,0.95)",
             borderColor: mine ? "rgba(251,191,36,0.5)" : THEME.colors.border.accent,

@@ -18,7 +18,6 @@ const makeService = () => {
       ),
     },
     voiceCorrection: { count: jest.fn().mockResolvedValue(2) },
-<<<<<<< HEAD
     voiceSavedWord: {
       findUnique: jest.fn().mockResolvedValue(null),
       count: jest.fn().mockResolvedValue(0),
@@ -28,8 +27,6 @@ const makeService = () => {
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       findMany: jest.fn().mockResolvedValue([]),
     },
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
     voiceSessionReport: { upsert: jest.fn().mockImplementation(({ create }) => Promise.resolve(create)) },
   };
   const activity: any = { recordCappedActivity: jest.fn().mockResolvedValue(undefined) };
@@ -253,7 +250,6 @@ describe('CoachService coaching, airtime and reports', () => {
     expect(service.hasUser('r1', 'u2')).toBe(false);
   });
 });
-<<<<<<< HEAD
 
 describe('CoachService word bank', () => {
   it('saves a cleaned word with its sentence and room', async () => {
@@ -306,5 +302,3 @@ describe('CoachService word bank', () => {
     await expect(service.deleteWord('u2', 'w1')).rejects.toThrow(/not found/);
   });
 });
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf

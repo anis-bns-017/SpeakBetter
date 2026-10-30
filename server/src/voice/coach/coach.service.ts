@@ -5,17 +5,10 @@
 // State lives in memory for the life of a room (like the gateway's other room state);
 // each learner's results are saved to VoiceSessionReport whenever they leave.
 
-<<<<<<< HEAD
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { ActivityService, XP_REWARDS } from '../../learning/activity.service';
-=======
-import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../prisma.service';
-import { ActivityService } from '../../learning/activity.service';
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 import {
   MISSION_POINTS,
   MISSION_SPEED_BONUS,
@@ -26,7 +19,6 @@ import {
 } from './coach.data';
 import {
   FluencyTracker,
-<<<<<<< HEAD
   MAX_SAVED_WORDS,
   buildAirtime,
   cleanNote,
@@ -37,13 +29,6 @@ import {
   nextBox,
   normalizeLevel,
   normalizeSavedWord,
-=======
-  buildAirtime,
-  coachTip,
-  matchesMissionWord,
-  missionPoints,
-  normalizeLevel,
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
   pickMissionWord,
   pickQuietest,
   pickTopicCard,
@@ -578,7 +563,6 @@ export class CoachService {
       where: { roomId_userId: { roomId, userId } },
     });
   }
-<<<<<<< HEAD
 
   // ------------------------------------------------------------------
   // Word bank: words tapped in live captions, reviewed with spaced repetition
@@ -649,6 +633,4 @@ export class CoachService {
     if (!count) throw new NotFoundException('Word not found');
     return { success: true };
   }
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 }

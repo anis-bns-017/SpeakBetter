@@ -65,7 +65,6 @@ import {
   X,
   Lock,
   Target,
-<<<<<<< HEAD
   Clock,
   MessageCircle,
   Smile,
@@ -75,9 +74,6 @@ import {
   Headphones,
   HeadphoneOff,
   PhoneOff,
-=======
-  type LucideIcon,
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -120,14 +116,11 @@ import { PracticeJournal } from "./shared/PracticeJournal";
 import { usePracticeJournal } from "../../hooks/usePracticeJournal";
 import { RoomCoachPanel } from "./shared/RoomCoachPanel";
 import { SpotlightBanner } from "./shared/SpotlightBanner";
-<<<<<<< HEAD
 import { LiveCaptions } from "./shared/LiveCaptions";
 import { CoachHud } from "./shared/CoachHud";
 import { CoachDock, type CoachTab } from "./shared/CoachDock";
 import { MissionBar, MissionCelebration } from "./shared/MissionBar";
 import { useWordBank } from "../../hooks/useWordBank";
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 import { useRoomCoach } from "../../hooks/useRoomCoach";
 import {
   AttachmentPreviewModal,
@@ -2036,7 +2029,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     isConnected,
   });
 
-<<<<<<< HEAD
   // Words tapped in the live captions, reviewed with spaced repetition
   const wordBank = useWordBank();
 
@@ -2064,8 +2056,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     [allParticipants, isModerator, coach.airtime, coach.mission, coach.spotlight],
   );
 
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
   const openCorrectionSheet = useCallback(
     (targetUserId: string, targetUserName: string) => {
       const original = transcriptions
@@ -3147,72 +3137,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     ...(panels.stats
       ? [
           {
-<<<<<<< HEAD
             id: "online",
-=======
-            id: "insights",
-            label: panels.insights
-              ? "Hide session insights"
-              : "Show session insights",
-            icon: BarChart3,
-            active: panels.insights,
-            hidden: !isModerator,
-            onClick: () => togglePanel("insights"),
-          },
-          {
-            id: "cohost",
-            label: panels.cohost ? "Hide AI co-host" : "Open AI co-host",
-            icon: Sparkles,
-            active: panels.cohost,
-            dot: Boolean(aiCoHost.suggestion),
-            hidden: !isModerator,
-            onClick: () => togglePanel("cohost"),
-          },
-        ]}
-        right={[
-          {
-            id: "coach",
-            label: panels.coach ? "Hide room coach" : "Room coach & missions",
-            icon: Target,
-            active: panels.coach,
-            tone: "warning",
-            dot: Boolean(
-              coach.mission && coach.myMission && !coach.myMission.completed,
-            ),
-            onClick: () => togglePanel("coach"),
-          },
-          {
-            id: "corrections",
-            label: panels.corrections
-              ? "Hide corrections inbox"
-              : "Corrections inbox",
-            icon: SpellCheck,
-            active: panels.corrections,
-            tone: "success",
-            badge: corrections.received.length,
-            onClick: () => togglePanel("corrections"),
-          },
-          {
-            id: "journal",
-            label: "Practice journal",
-            icon: BookOpen,
-            active: panels.journal,
-            badge: journal.stats.dueForReview.length,
-            onClick: () => togglePanel("journal"),
-          },
-          {
-            id: "effects",
-            label: panels.effects ? "Hide voice effects" : "Voice effects",
-            icon: Mic2,
-            active: panels.effects,
-            onClick: () => togglePanel("effects"),
-          },
-          {
-            id: "quality",
-            label: panels.quality
-              ? "Hide connection info"
-              : "Show connection info",
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
             icon: Wifi,
             label: "Online",
             value: onlineCount,
@@ -3855,7 +3780,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         onStopMission={coach.stopMission}
         onSwapWord={coach.swapWord}
         onSpotlight={coach.sendSpotlight}
-<<<<<<< HEAD
         openTab={coachTabRequest}
         words={wordBank.words}
         dueWords={wordBank.due}
@@ -3879,8 +3803,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         celebration={coach.celebration}
         userId={user?.id || ""}
         onDone={coach.clearCelebration}
-=======
->>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
       />
 
       <SpotlightBanner
