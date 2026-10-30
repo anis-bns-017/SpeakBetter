@@ -1,12 +1,11 @@
 // apps/web/src/components/voice/participants/ParticipantGrid.tsx
 
 import React, { useMemo } from "react";
-import { Users, Search, UserRoundSearch } from "lucide-react";
+import { Users, Search } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { THEME } from "../VoiceRoomView.theme";
 import { ParticipantCard } from "./ParticipantCard";
 import { EmptyParticipantState } from "../shared/EmptyParticipantState";
-import type { RoomParticipant } from "../VoiceRoomView.types";
 
 interface ParticipantGridProps {
   participants: any[];
@@ -77,7 +76,6 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   onPromoteHost,
   onSendMessage,
   onViewProfile,
-  showChat,
   className,
   onInvite,
   onPickTopic,

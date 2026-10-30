@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useVocabulary, useReviewVocabulary } from '../hooks/useLearning';
 import { toast } from 'sonner';
 import {
@@ -11,7 +11,6 @@ import {
   Meh,
   Frown,
   Quote,
-  Sparkles,
   Inbox,
 } from 'lucide-react';
 

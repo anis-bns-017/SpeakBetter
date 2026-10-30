@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useProgress } from "../hooks/useLearning";
 import {
   TrendingUp,
@@ -6,11 +6,8 @@ import {
   Flame,
   Award,
   CheckCircle2,
-  BookOpen,
   Globe2,
   Search,
-  Sparkles,
-  Loader2,
   AlertCircle,
   BarChart3,
 } from "lucide-react";

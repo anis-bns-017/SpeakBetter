@@ -37,11 +37,7 @@ import {
   Archive,
   EyeOff,
   Flag,
-  Link2,
   MessageCircle,
-  ChevronRight,
-  Sparkles,
-  Circle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";

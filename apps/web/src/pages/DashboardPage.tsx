@@ -301,8 +301,7 @@ const DashboardPage: React.FC = () => {
   );
 
   const suggestions = useMemo(() => {
-    const list = Array.isArray(suggestionsData) ? suggestionsData : Array.isArray(suggestionsData?.suggestions) ? suggestionsData.suggestions : [];
-    return (list as Array<{ id: string; name?: string; avatarUrl?: string; profile?: { nativeLanguage?: string; learningLanguages?: string[] }; isRequested?: boolean }>).slice(0, 4);
+    return (Array.isArray(suggestionsData) ? suggestionsData : []).slice(0, 4);
   }, [suggestionsData]);
 
   const firstName = (user?.name || "there").split(" ")[0];

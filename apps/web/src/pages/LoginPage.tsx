@@ -10,7 +10,6 @@ import {
   Loader2,
   ArrowRight,
   Globe,
-  Sparkles,
   BookOpen,
   Zap,
   ShieldCheck,

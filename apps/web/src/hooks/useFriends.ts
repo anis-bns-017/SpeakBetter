@@ -249,12 +249,23 @@ export const useCheckFriendship = (userId: string) => {
 };
 
 
+export interface FriendSuggestion {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+  profile?: {
+    nativeLanguage?: string;
+    learningLanguages?: string[];
+  };
+  isRequested?: boolean;
+}
+
 export const useSuggestions = () => {
   return useQuery({
     queryKey: ['friend-suggestions'],
     queryFn: async () => {
-      const response = await apiClient.get('/friends/suggestions');
-      return response.data; // Assuming it returns UserSearchResult[] or similar
+      const response = await apiClient.get<FriendSuggestion[]>('/friends/suggestions');
+      return response.data;
     },
   });
 };

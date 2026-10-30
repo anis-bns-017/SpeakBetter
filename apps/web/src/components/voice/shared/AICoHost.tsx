@@ -17,7 +17,6 @@ import {
   Loader2,
   Wand2,
   Lightbulb,
-  MessageSquare,
   Download,
   Zap,
 } from "lucide-react";

@@ -2,7 +2,6 @@ import React, { useMemo, useState } from "react";
 import {
   AlertCircle,
   BarChart3,
-  Bell,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
@@ -29,6 +28,7 @@ import { useProfile } from "../hooks/useProfile";
 import { ProfileCard } from "../components/profile/ProfileCard";
 import { EditProfileForm } from "../components/profile/EditProfileForm";
 import { SettingsForm } from "../components/settings/SettingsForm";
+import { useSettings } from "../hooks/useSettings";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
 
 type Tab = "profile" | "stats" | "settings";
@@ -131,6 +131,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
 export const ProfilePage: React.FC = () => {
   const { profile, isLoading, error } = useProfile();
+  const { settings, isLoading: settingsLoading } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
@@ -711,7 +712,15 @@ export const ProfilePage: React.FC = () => {
               </div>
             </div>
 
-            <SettingsForm />
+            {settings ? (
+              <SettingsForm settings={settings} />
+            ) : (
+              <p className="py-6 text-center text-sm text-slate-500">
+                {settingsLoading
+                  ? "Loading your settings…"
+                  : "We couldn't load your settings. Please refresh and try again."}
+              </p>
+            )}
           </section>
         )}
       </div>

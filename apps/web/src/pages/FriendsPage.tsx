@@ -9,7 +9,6 @@ import {
   useSendFriendRequest,
   useUnblockUser,
 } from "../hooks/useFriends";
-import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import {
   Users,
@@ -31,7 +30,6 @@ import {
 type Tab = "friends" | "requests" | "search" | "blocked";
 
 export const FriendsPage = () => {
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("friends");
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);

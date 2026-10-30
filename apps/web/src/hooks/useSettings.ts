@@ -1,28 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api/client';
 
+/** Mirrors the Settings model in server/prisma/schema.prisma */
 export interface Settings {
   id: string;
   userId: string;
   emailNotifications: boolean;
   pushNotifications: boolean;
   soundEffects: boolean;
-  theme: 'light' | 'dark' | 'system';
+  /** LIGHT | DARK | SYSTEM */
+  theme: string;
   language: string;
-  dailyReminderTime: string[];
+  dailyReminderEnabled?: boolean;
+  /** "HH:mm", or null when no reminder time is set */
+  dailyReminderTime?: string | null;
   shareActivityWithFriends: boolean;
   showOnlineStatus: boolean;
+  showProfilePublic?: boolean;
+  allowFriendRequests?: boolean;
+  allowDirectMessages?: boolean;
+  autoTranslateMessages?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UpdateSettingsData {
   emailNotifications?: boolean;
   pushNotifications?: boolean;
   soundEffects?: boolean;
-  theme?: 'light' | 'dark' | 'system';
+  theme?: string;
   language?: string;
-  dailyReminderTime?: string[];
+  dailyReminderEnabled?: boolean;
+  dailyReminderTime?: string | null;
   shareActivityWithFriends?: boolean;
   showOnlineStatus?: boolean;
+  showProfilePublic?: boolean;
+  allowFriendRequests?: boolean;
+  allowDirectMessages?: boolean;
+  autoTranslateMessages?: boolean;
 }
 
 export const useSettings = () => {

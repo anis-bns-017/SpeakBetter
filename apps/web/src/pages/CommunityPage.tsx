@@ -31,7 +31,7 @@ export const CommunityPage = () => {
     if (!communityId) return;
     try {
       await joinCommunity.mutateAsync(communityId);
-      toast.success(`Joined ${community.name}!`);
+      toast.success(community ? `Joined ${community.name}!` : 'Joined!');
       refetch();
     } catch (error) {
       toast.error('Failed to join community.');
@@ -42,7 +42,7 @@ export const CommunityPage = () => {
     if (communityId && window.confirm('Are you sure you want to leave this community?')) {
       try {
         await leaveCommunity.mutateAsync(communityId);
-        toast.success(`Left ${community.name}`);
+        toast.success(community ? `Left ${community.name}` : 'Left the community');
         navigate('/communities');
       } catch (error) {
         toast.error('Failed to leave community.');
@@ -308,7 +308,6 @@ export const CommunityPage = () => {
 
 // ---------- Channel View Component ----------
 const ChannelView: React.FC<{ communityId: string; channelId: string; isAdmin: boolean }> = ({
-  communityId,
   channelId,
   isAdmin,
 }) => {

@@ -1,11 +1,9 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useExercises, useSubmitExercise } from "../hooks/useLearning";
 import { toast } from "sonner";
 import {
   Dumbbell,
   Filter,
-  CheckCircle2,
-  XCircle,
   Loader2,
   BookOpen,
   Send,

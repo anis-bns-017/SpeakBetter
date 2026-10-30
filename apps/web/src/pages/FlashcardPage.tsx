@@ -1,18 +1,13 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useFlashcards, useReviewFlashcard } from "../hooks/useLearning";
 import { toast } from "sonner";
 import {
   Layers,
   RotateCcw,
-  Sparkles,
   ChevronLeft,
   ChevronRight,
   CheckCircle,
-  Globe,
   Loader2,
-  Volume2,
-  HelpCircle,
-  Flame,
 } from "lucide-react";
 
 export const FlashcardPage = () => {
@@ -20,9 +15,9 @@ export const FlashcardPage = () => {
   const [dueOnly, setDueOnly] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showBack, setShowBack] = useState(false);
-  const [isFlipping, setIsFlipping] = useState(false);
+  const [, setIsFlipping] = useState(false);
 
-  const { data, isLoading, isError, refetch } = useFlashcards({
+  const { data, isLoading, refetch } = useFlashcards({
     language,
     dueOnly,
   });
@@ -207,11 +202,6 @@ export const FlashcardPage = () => {
                 <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight leading-relaxed">
                   {showBack ? back : front}
                 </h2>
-                {card?.vocabulary?.partOfSpeech && (
-                  <p className="text-xs italic text-indigo-600 font-medium">
-                    ({card.vocabulary.partOfSpeech})
-                  </p>
-                )}
               </div>
 
               {/* Card Hint Footer */}

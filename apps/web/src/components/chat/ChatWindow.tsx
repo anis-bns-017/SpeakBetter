@@ -41,9 +41,6 @@ import { isChatUnlocked, unlockChat } from "../../lib/chatUnlock";
 import {
   Reply,
   X,
-  Users,
-  Circle,
-  Mic,
   Loader2,
   MoreVertical,
   Search,
@@ -61,11 +58,7 @@ import {
   MessageCircle,
   Check,
   ArrowLeft,
-  Sparkles,
   Clock,
-  Star,
-  Maximize2,
-  Minimize2,
   Bookmark,
   BookmarkX,
   Info,
@@ -78,7 +71,7 @@ import {
   CheckSquare,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format, isToday, isYesterday, formatDistanceToNow, formatDistanceToNowStrict } from "date-fns";
+import { format, isToday, isYesterday, formatDistanceToNowStrict } from "date-fns";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { WordLookup, readSelection, type WordSelection } from "./WordLookup";
 
@@ -97,9 +90,6 @@ interface ChatWindowProps {
 
 // ─── Styled Components ─────────────────────────────────────────────
 
-const glassMorphism = "bg-white/80 backdrop-blur-xl border-white/20 shadow-lg";
-const glassMorphismDark =
-  "bg-slate-900/80 backdrop-blur-xl border-slate-700/30 shadow-xl";
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
   chatId,
@@ -129,8 +119,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
+  const [, setIsHovering] = useState(false);
   // Premium features
   const [forwardIds, setForwardIds] = useState<string[] | null>(null);
   const [infoMessageId, setInfoMessageId] = useState<string | null>(null);

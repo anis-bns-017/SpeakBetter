@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useSuggestions, useSendFriendRequest } from '../hooks/useFriends';
 import { toast } from 'sonner';
 import { UserPlus, Users, Languages, Check, Sparkles } from 'lucide-react';

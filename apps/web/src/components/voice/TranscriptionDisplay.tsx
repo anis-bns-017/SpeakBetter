@@ -4,7 +4,6 @@ import React, {
   useState,
   useRef,
   useEffect,
-  useCallback,
   useMemo,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,41 +19,13 @@ import {
   ChevronDown,
   ArrowDown,
   ChevronUp,
-  Filter,
   Search,
   X,
-  Clock,
-  User,
-  Volume2,
-  VolumeX,
-  Settings,
-  Sparkles,
-  Zap,
-  AlertCircle,
-  RefreshCw,
   FileText,
-  File,
-  Share2,
-  Link,
   Globe,
-  Play,
-  Pause,
-  SkipForward,
-  SkipBack,
-  Volume,
-  Activity,
   BarChart3,
-  PieChart,
-  LineChart,
-  DownloadCloud,
-  UploadCloud,
-  Copy as CopyIcon,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Info,
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { cn } from "../../lib/utils";
 
 // ---- Types ----
@@ -567,9 +538,6 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
   className = "",
   maxHeight = "h-80",
   showControls = true,
-  showTimestamps = true,
-  showSpeakers = true,
-  autoTranslate = false,
   targetLanguage = "en",
   onLanguageChange,
 }) => {
@@ -719,11 +687,6 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
     return Array.from(speakers);
   }, [transcriptions]);
 
-  const scrollToBottom = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  };
 
   return (
     <div

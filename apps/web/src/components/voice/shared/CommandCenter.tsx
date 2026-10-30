@@ -43,7 +43,6 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
   isDeafened,
   soundEnabled,
   showChat,
-  showParticipants,
   showLiveStats,
   isRecording,
   onMute,

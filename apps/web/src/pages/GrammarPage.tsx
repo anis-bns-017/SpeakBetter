@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useGrammar } from "../hooks/useLearning";
 import {
   BookOpen,
-  Filter,
   Search,
   Sparkles,
   ChevronDown,

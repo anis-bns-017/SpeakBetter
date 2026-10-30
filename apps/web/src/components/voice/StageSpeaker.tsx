@@ -5,7 +5,6 @@ import React, {
   useEffect,
   useMemo,
   useRef,
-  useCallback,
 } from "react";
 import {
   useVoiceRoom,
@@ -25,48 +24,20 @@ import {
   UserPlus,
   ArrowLeft,
   Users,
-  Star,
-  Sparkles,
-  Zap,
-  Shield,
   ShieldCheck,
-  Award,
-  Trophy,
-  Medal,
-  Heart,
-  ThumbsUp,
-  Gift,
-  Music,
   Radio,
-  Volume2,
-  VolumeX,
   Headphones,
-  UserCheck,
   UserX,
-  Clock,
-  Calendar,
   Loader2,
-  MoreVertical,
   Check,
-  CheckCheck,
-  Send,
-  Reply,
-  Pin,
-  Trash2,
-  Edit,
-  Copy,
-  Link2,
   Share2,
   Search,
   Filter,
   ChevronDown,
   ChevronUp,
-  Gavel,
-  Timer,
-  Award as AwardIcon,
   Crown as CrownIcon,
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { cn } from "../../lib/utils";
 
 // ---- Types ----
@@ -159,13 +130,6 @@ function hueFromString(str: string) {
   return Math.abs(hash) % 360;
 }
 
-function formatTime(date: string) {
-  try {
-    return format(new Date(date), "h:mm a");
-  } catch {
-    return "";
-  }
-}
 
 function getCountryFlag(countryCode?: string): string {
   if (!countryCode) return "🌍";
@@ -895,7 +859,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
     }
   };
 
-  const handleKickUser = async (userId: string) => {
+  const handleKickUser = async (_userId: string) => {
     try {
       toast.success("User removed from room");
       refetch();
@@ -918,12 +882,12 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
     toast.success("Hand lowered");
   };
 
-  const handleMuteSpeaker = async (userId: string) => {
+  const handleMuteSpeaker = async (_userId: string) => {
     toast.success("Speaker muted");
     refetch();
   };
 
-  const handleUnmuteSpeaker = async (userId: string) => {
+  const handleUnmuteSpeaker = async (_userId: string) => {
     toast.success("Speaker unmuted");
     refetch();
   };

@@ -46,7 +46,6 @@ interface ChatSettingsProps {
 }
 
 export const ChatSettings: React.FC<ChatSettingsProps> = ({
-  chatId,
   chatName,
   chatType,
   settings,

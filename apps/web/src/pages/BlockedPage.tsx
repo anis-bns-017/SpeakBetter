@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useBlockedUsers, useUnblockUser } from "../hooks/useFriends";
 import { toast } from "sonner";
 import {
@@ -32,7 +32,7 @@ export const BlockedPage = () => {
   // Filter blocked users by search term
   const filteredUsers =
     data?.filter((block) =>
-      block.blocked.name.toLowerCase().includes(searchQuery.toLowerCase())
+      block.name.toLowerCase().includes(searchQuery.toLowerCase())
     ) || [];
 
   return (
@@ -129,7 +129,7 @@ export const BlockedPage = () => {
           /* List of Blocked Users */
           <div className="space-y-3">
             {filteredUsers.map((block) => {
-              const isUnblocking = unblockingId === block.blocked.id;
+              const isUnblocking = unblockingId === block.id;
 
               return (
                 <div
@@ -139,12 +139,12 @@ export const BlockedPage = () => {
                   <div className="flex items-center gap-3">
                     {/* User Avatar */}
                     <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
-                      {block.blocked.name ? block.blocked.name[0].toUpperCase() : "U"}
+                      {block.name ? block.name[0].toUpperCase() : "U"}
                     </div>
 
                     <div>
                       <h3 className="font-semibold text-slate-800 text-sm">
-                        {block.blocked.name}
+                        {block.name}
                       </h3>
                       {block.reason ? (
                         <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
@@ -160,7 +160,7 @@ export const BlockedPage = () => {
                   {/* Unblock Action Button */}
                   <button
                     onClick={() =>
-                      handleUnblock(block.blocked.id, block.blocked.name)
+                      handleUnblock(block.id, block.name)
                     }
                     disabled={isUnblocking || unblockMutation.isPending}
                     className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-slate-700 font-medium rounded-xl text-xs border border-slate-200/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 self-end sm:self-auto"

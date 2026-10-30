@@ -8,7 +8,6 @@ import React, {
 import {
   Play,
   Pause,
-  Mic,
   Volume2,
   VolumeX,
   Download,
@@ -23,21 +22,15 @@ import {
   Maximize2,
   Minimize2,
   Info,
-  MoreVertical,
   Heart,
   HeartOff,
   Bookmark,
   BookmarkCheck,
-  Link2,
   MessageCircle,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
-  Zap,
-  Music,
 } from "lucide-react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 
 interface VoiceMessageProps {
   audioUrl: string;
@@ -122,19 +115,18 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
   const [volume, setVolume] = useState(1);
   const [isLooping, setIsLooping] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isSeeking, setIsSeeking] = useState(false);
+  const [isSeeking] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentWaveformIndex, setCurrentWaveformIndex] = useState(0);
-  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
 
   const isPlaying =
     externalIsPlaying !== undefined ? externalIsPlaying : internalIsPlaying;
@@ -406,7 +398,6 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
     const width = rect.width;
     const height = rect.height;
     const barWidth = width / waveformData.length;
-    const progress = currentWaveformIndex / waveformData.length;
 
     ctx.clearRect(0, 0, width, height);
 
@@ -955,7 +946,16 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
 
 // Canvas roundRect polyfill
 if (!CanvasRenderingContext2D.prototype.roundRect) {
-  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+  CanvasRenderingContext2D.prototype.roundRect = function (
+    this: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    radii?: number | DOMPointInit | (number | DOMPointInit)[],
+  ) {
+    // Only a single numeric radius is needed here
+    let r = typeof radii === "number" ? radii : 0;
     if (r > w / 2) r = w / 2;
     if (r > h / 2) r = h / 2;
     this.moveTo(x + r, y);
@@ -963,6 +963,5 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     this.arcTo(x + w, y + h, x, y + h, r);
     this.arcTo(x, y + h, x, y, r);
     this.arcTo(x, y, x + w, y, r);
-    return this;
   };
 }

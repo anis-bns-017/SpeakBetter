@@ -516,7 +516,7 @@ export const useJoinVoiceRoom = () => {
       };
     },
 
-    onSuccess: (data, roomId) => {
+    onSuccess: (_data, roomId) => {
       queryClient.invalidateQueries({ queryKey: ["voice-room", roomId] });
       queryClient.invalidateQueries({
         queryKey: ["voice-participants", roomId],

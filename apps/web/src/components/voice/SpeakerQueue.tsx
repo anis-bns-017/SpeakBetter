@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import {
   Users,
   Mic,
-  Crown,
   Star,
   Clock,
   ChevronUp,

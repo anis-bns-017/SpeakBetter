@@ -1,7 +1,6 @@
 import React, {
   useState,
   useEffect,
-  useRef,
   useCallback,
   useMemo,
 } from "react";
@@ -27,87 +26,33 @@ import {
   LogIn,
   Square,
   Loader2,
-  AudioLines,
   KeyRound,
   EyeOff,
   MessageCircle,
   Clock,
   Crown,
-  Volume2,
-  VolumeX,
-  Headphones,
   Sparkles,
-  Zap,
   Flame,
-  Star,
-  TrendingUp,
-  CheckCircle,
   AlertCircle,
-  Shield,
-  UserPlus,
-  UserMinus,
-  MoreVertical,
   Share2,
-  Copy,
-  Link2,
-  Phone,
-  PhoneOff,
-  MessageSquare,
-  Gift,
-  Heart,
-  ThumbsUp,
-  Send,
-  Hash,
   Search,
   Filter,
   LayoutGrid,
   List,
   RefreshCw,
   ChevronDown,
-  ChevronUp,
-  Globe,
-  MapPin,
   Coffee,
   Music,
   BookOpen,
   Gamepad2,
-  Smile,
-  Tag,
-  Sparkle,
-  Compass,
-  Wand2,
-  Stars,
-  Rocket,
   PartyPopper,
   ArrowRight,
   Check,
-  ChevronRight,
-  Sun,
-  Moon,
-  Palette,
-  Brush,
   Minimize2,
   Maximize2,
-  Bell,
-  BellOff,
-  Pin as PinIcon,
-  PinOff,
-  Volume,
-  VolumeOff as VolumeOffIcon,
-  UserCheck,
-  UserX as UserXIcon,
-  Crown as CrownIcon,
-  ShieldCheck,
-  BadgeCheck,
-  Verified,
-  Award as AwardIcon,
-  Trophy,
-  Medal,
-  Star as StarIcon,
-  Sparkle as SparkleIcon,
   Eye,
 } from "lucide-react";
-import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { VoiceRoomView } from "../components/voice/VoiceRoomView";
  import { useChatSocket } from "../hooks/useChat";
 import { useQueryClient } from "@tanstack/react-query";
@@ -403,7 +348,7 @@ const CreateRoomModal: React.FC<{
   isPending: boolean;
   onMinimize?: () => void;
   isMinimized?: boolean;
-}> = ({ isOpen, onClose, onCreate, isPending, onMinimize, isMinimized }) => {
+}> = ({ isOpen, onClose, onCreate, isPending, onMinimize }) => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: "",
@@ -1054,7 +999,7 @@ const RoomCard: React.FC<{
   hasMoreParticipants,
   isUserInRoom,
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
+  const [, setIsHovered] = useState(false);
   const TypeIcon = typeConfig.icon;
   const StatusIcon = status.icon;
 
@@ -1697,13 +1642,6 @@ export const VoicePage = () => {
   // becomes visible underneath it.
   const showRoomView = !!activeRoomId && !showMiniRoom;
 
-  // Determine the active room object so we can choose which view to render
-  const activeRoom = useMemo(
-    () => (rooms || []).find((r) => r.id === activeRoomId) || null,
-    [rooms, activeRoomId],
-  );
-
-  const isStageRoom = activeRoom?.type === "STAGE";
 
   return (
     <div className="min-h-screen font-sans" style={{ background: COLORS.void }}>

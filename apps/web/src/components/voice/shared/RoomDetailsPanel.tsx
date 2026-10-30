@@ -21,10 +21,8 @@ interface RoomDetailsPanelProps {
 }
 
 export const RoomDetailsPanel: React.FC<RoomDetailsPanelProps> = ({
-  room,
   totalParticipants,
   speakingCount,
-  onlineCount,
   messages,
   duration,
   premiumCount,

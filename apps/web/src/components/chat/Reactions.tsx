@@ -73,7 +73,7 @@ export const Reactions: React.FC<ReactionsProps> = ({
     if (userList.length === 0) return '';
 
     const names = userList.map((r) =>
-      r.userId === currentUserId ? 'You' : r.userName || 'Someone'
+      r.userId === currentUserId ? 'You' : r.user?.name || 'Someone'
     );
 
     if (names.length === 1) return names[0];

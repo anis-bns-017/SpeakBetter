@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { useCommunities, useCreateCommunity, useJoinCommunity, useLeaveCommunity } from '../hooks/useCommunities';
-import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -43,7 +42,6 @@ function hueFromString(str: string) {
 }
 
 export const CommunitiesPage = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const { data, isLoading } = useCommunities();
   const createCommunity = useCreateCommunity();

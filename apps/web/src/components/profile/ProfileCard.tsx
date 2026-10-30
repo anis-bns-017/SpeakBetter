@@ -25,7 +25,7 @@ interface Profile {
   // Stats
   xp?: number;
   streak?: number;
-  level?: string;
+  level?: string | null;
   followersCount?: number;
   followingCount?: number;
   isVerified?: boolean;
@@ -238,7 +238,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
         </div>
 
         {/* ===== INTERESTS ===== */}
-        {profile.interests?.length > 0 && (
+        {profile.interests && profile.interests.length > 0 && (
           <div className="mb-4">
             <p className="text-sm font-semibold text-gray-500 mb-2">Interests</p>
             <div className="flex flex-wrap gap-2">
@@ -252,7 +252,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
         )}
 
         {/* ===== GOALS ===== */}
-        {profile.goals?.length > 0 && (
+        {profile.goals && profile.goals.length > 0 && (
           <div className="mb-4">
             <p className="text-sm font-semibold text-gray-500 mb-2">🎯 Goals</p>
             <div className="flex flex-wrap gap-2">

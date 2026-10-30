@@ -13,6 +13,15 @@ export interface Profile {
   xp: number;
   streak: number;
   lastActive: string;
+  // Also on the Profile row (server/prisma/schema.prisma)
+  username?: string | null;
+  displayName?: string | null;
+  city?: string | null;
+  level?: string | null;
+  followersCount?: number;
+  followingCount?: number;
+  isVerified?: boolean;
+  createdAt?: string;
   user: {
     id: string;
     email: string;

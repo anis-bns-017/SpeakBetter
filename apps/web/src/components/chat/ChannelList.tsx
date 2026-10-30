@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 // Extended Chat interface fallback in case parentId/isPrivate aren't on core type
-interface ExtendedChat extends Chat {
+interface ExtendedChat extends Omit<Chat, 'type'> {
   type: 'TEXT' | 'VOICE' | 'ANNOUNCEMENT' | 'CATEGORY' | 'PRIVATE';
   parentId?: string | null;
   isPrivate?: boolean;

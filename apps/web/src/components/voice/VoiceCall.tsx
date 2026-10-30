@@ -9,7 +9,6 @@ import React, {
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { format, formatDistanceToNow } from "date-fns";
 import {
   Phone,
   PhoneOff,
@@ -21,49 +20,14 @@ import {
   VideoOff,
   ScreenShare,
   ScreenShareOff,
-  User,
   Users,
   Maximize2,
   Minimize2,
   Clock,
-  Activity,
   X,
-  Check,
   AlertCircle,
   Loader2,
-  Signal,
-  Wifi,
-  WifiOff,
-  Bluetooth,
-  BluetoothOff,
-  Headphones,
-  Speaker,
-  Settings,
-  MoreVertical,
-  Smile,
-  Camera,
-  Image,
-  Gift,
-  Circle,
-  StopCircle,
-  Download,
-  Share2,
   Link,
-  Copy,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Info,
-  ChevronDown,
-  ChevronUp,
-  Grid,
-  List,
-  Maximize,
-  Minimize,
-  PhoneCall,
-  PhoneIncoming,
-  PhoneOutgoing,
-  PhoneMissed,
 } from "lucide-react";
 
 import { useAuth } from "../../contexts/AuthContext";
@@ -329,7 +293,6 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
   const [isVideoOn, setIsVideoOn] = useState(isVideo);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
-  const [volume, setVolume] = useState(80);
   const [audioLevel, setAudioLevel] = useState(0);
 
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
@@ -372,10 +335,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
   );
 
   const {
-    isConnected,
     toggleMute,
     isMuted: liveKitIsMuted,
-    error,
     speakingParticipants,
     remoteAudioLevels,
     isMockMode,

@@ -26,7 +26,6 @@ import {
   Play,
   Pause,
 } from "lucide-react";
-import { toast } from "sonner";
 import { THEME } from "../VoiceRoomView.theme";
 
 export interface PendingAttachment {

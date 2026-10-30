@@ -24,8 +24,6 @@ import {
   Mic,
   MessageCircle,
   Smile,
-  Users,
-  Crown,
   TrendingUp,
   Award,
   Timer,

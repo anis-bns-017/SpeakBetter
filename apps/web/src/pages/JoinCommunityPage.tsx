@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useJoinByInvite } from '../hooks/useCommunities';
 import { toast } from 'sonner';

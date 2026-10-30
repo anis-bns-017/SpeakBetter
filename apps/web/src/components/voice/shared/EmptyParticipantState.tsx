@@ -88,7 +88,6 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
   variant,
   isHost,
   isModerator,
-  roomName,
   searchQuery,
   onInvite,
   onClearFilters,

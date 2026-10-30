@@ -31,7 +31,6 @@ const LANGUAGES: LanguageOption[] = [
 
 export const MessageTranslation: React.FC<MessageTranslationProps> = ({
   translations = [],
-  originalContent,
   onTranslate,
   isOwn = false,
 }) => {

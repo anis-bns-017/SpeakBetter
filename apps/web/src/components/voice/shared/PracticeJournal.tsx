@@ -15,13 +15,10 @@ import {
   Trash2,
   Download,
   Sparkles,
-  Filter,
   Brain,
   Zap,
   Trophy,
   Calendar,
-  ChevronRight,
-  Lightbulb,
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Users, MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 
 interface TypingIndicatorProps {
   users: string[];
@@ -19,7 +19,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
   variant = 'light',
   onUserClick,
 }) => {
-  const [visibleUsers, setVisibleUsers] = useState<string[]>([]);
+  const [, setVisibleUsers] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Animate users entering and leaving

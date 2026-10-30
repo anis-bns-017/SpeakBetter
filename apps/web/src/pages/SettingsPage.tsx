@@ -1,4 +1,3 @@
-import React from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { SettingsForm } from '../components/settings/SettingsForm';
 import { Sliders, AlertCircle, RefreshCw } from 'lucide-react';

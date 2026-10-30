@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import type { ReadReceipt } from '@speakbetter/types';
 import { Check, CheckCheck, Eye, Users } from 'lucide-react';
 
@@ -12,7 +12,6 @@ interface ReadReceiptsProps {
 export const ReadReceipts: React.FC<ReadReceiptsProps> = ({
   receipts = [],
   totalParticipants = 2,
-  messageId,
   isOwn,
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -23,7 +22,6 @@ export const ReadReceipts: React.FC<ReadReceiptsProps> = ({
   // Senders are excluded from expected read receipts count
   const expectedReadersCount = Math.max(1, totalParticipants - 1);
   const readCount = receipts.length;
-  const deliveredCount = Math.max(0, expectedReadersCount - readCount);
   const isAllRead = readCount >= expectedReadersCount;
 
   const formatReadTime = (timestamp?: string | Date) => {
@@ -91,9 +89,9 @@ export const ReadReceipts: React.FC<ReadReceiptsProps> = ({
                   className="flex items-center justify-between text-[11px] py-0.5"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    {receipt.user.avatar ? (
+                    {receipt.user.avatarUrl ? (
                       <img
-                        src={receipt.user.avatar}
+                        src={receipt.user.avatarUrl}
                         alt={receipt.user.name}
                         className="w-4 h-4 rounded-full object-cover flex-shrink-0"
                       />

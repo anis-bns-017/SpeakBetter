@@ -14,7 +14,6 @@ import { ScheduleDialog } from "./ChatDialogs";
 import {
   Send,
   Image as ImageIcon,
-  Paperclip,
   Smile,
   X,
   Loader2,
@@ -26,17 +25,13 @@ import {
   File as FileIcon,
   Video,
   Music,
-  AtSign,
   MapPin,
-  Circle,
-  CircleCheck,
   Clock,
   Play,
   Pause,
   Trash2,
   Sticker,
   Plus,
-  Sparkles,
   CalendarClock,
   AlertCircle,
 } from "lucide-react";
@@ -132,12 +127,10 @@ const toAbsoluteUploadUrl = (url: string) => {
 export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(function MessageInput({
   onSend,
   onTyping,
-  onVoiceRecording,
   editingMessage = null,
   onCancelEdit,
   isConnected = true,
   onEmojiPickerToggle,
-  onSelectMessages,
   isSelectionMode = false,
   draftKey,
   mentionCandidates,
@@ -310,7 +303,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   );
 
   const uploadVoiceToCloudinary = useCallback(
-    async (blob: Blob, duration: number): Promise<string | null> => {
+    async (blob: Blob, _duration: number): Promise<string | null> => {
       setIsUploadingVoice(true);
       try {
         const file = new File([blob], `voice-${Date.now()}.webm`, {
@@ -739,12 +732,8 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     let fileUrl = fileAttachment?.url;
 
     if (mediaPreview) {
-      messageType =
-        mediaPreview.type === "video"
-          ? "VIDEO"
-          : mediaPreview.type === "audio"
-            ? "AUDIO"
-            : "IMAGE";
+      // Audio previews are sent by the voice-message branch above
+      messageType = mediaPreview.type === "video" ? "VIDEO" : "IMAGE";
       if (mediaPreview.type === "image" || mediaPreview.type === "video") {
         fileUrl = mediaPreview.url;
       }

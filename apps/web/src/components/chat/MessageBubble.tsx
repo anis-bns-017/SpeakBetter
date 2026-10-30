@@ -43,7 +43,6 @@ import {
   ZoomOut,
   RotateCw,
   Info,
-  MoreVertical,
   Trash2,
   Forward,
   Timer,

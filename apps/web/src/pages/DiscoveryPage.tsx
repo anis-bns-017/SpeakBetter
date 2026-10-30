@@ -35,7 +35,6 @@
 
 import React, {
   useState,
-  useMemo,
   useRef,
   useEffect,
   useCallback,
@@ -64,20 +63,11 @@ import {
   Star,
   Zap,
   Crown,
-  Headphones,
   Mic,
   Radio,
-  Filter,
   SlidersHorizontal,
   X,
   ChevronDown,
-  Loader2,
-  AlertCircle,
-  Check,
-  Heart,
-  ThumbsUp,
-  MessageCircle,
-  Share2,
   Bookmark,
   BookmarkCheck,
   ArrowRight,
@@ -87,7 +77,6 @@ import {
   BookOpen,
   Languages,
   Globe2,
-  Hash,
   LayoutGrid,
   List,
   type LucideIcon,
@@ -995,7 +984,6 @@ const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
 // ============================================================
 
 const RecommendedCarousel: React.FC<{ rooms: any[] }> = ({ rooms }) => {
-  const navigate = useNavigate();
   const reduced = useReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -1189,13 +1177,6 @@ export const DiscoveryPage: React.FC = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [searchQuery]);
 
-  const toggleViewMode = () => {
-    const next = viewMode === "grid" ? "list" : "grid";
-    setViewMode(next);
-    try {
-      localStorage.setItem("speakbetter-discovery-view", next);
-    } catch {}
-  };
 
   // Constrain the dual range — min can't exceed max and vice versa
   const handleMinChange = (val: number) => {

@@ -8,7 +8,7 @@
 
 import React, { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, MicOff, Crown, Volume2 } from "lucide-react";
+import { MicOff, Crown, Volume2 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
 import { initials, hueFromString } from "../VoiceRoomView.helpers";
 
