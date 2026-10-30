@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, isThisYear, isToday } from "date-fns";
 import type { Message } from "../../hooks/useChat";
 import { useAuth } from "../../contexts/AuthContext";
 import { CorrectionCard } from "./CorrectionCard";
@@ -35,7 +35,6 @@ import {
   Maximize2,
   Minimize2,
   Download,
-  Clock,
   Bookmark,
   BookmarkCheck,
   Link2,
@@ -46,8 +45,35 @@ import {
   Info,
   MoreVertical,
   Trash2,
+  Forward,
+  Timer,
+  Eye,
+  EyeOff,
+  Loader2,
+  Captions,
+  AtSign,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import { apiErrorMessage, chatApi } from "../../hooks/useChat";
+
+const formatBytes = (bytes: number) =>
+  bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+/** Highlights @mentions in message text */
+const withMentions = (text: string, isOwn: boolean) =>
+  text.split(/(@[\p{L}\p{N}_.-]+)/u).map((part, i) =>
+    part.startsWith("@") && part.length > 1 ? (
+      <span
+        key={i}
+        className={`rounded px-0.5 font-semibold ${isOwn ? "bg-white/15 text-white" : "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"}`}
+      >
+        {part}
+      </span>
+    ) : (
+      <React.Fragment key={i}>{part}</React.Fragment>
+    ),
+  );
 
 interface MessageBubbleProps {
   message: Message;
@@ -64,6 +90,11 @@ interface MessageBubbleProps {
   onCorrect?: () => void;
   /** Accept a CORRECTION message addressed to me */
   onAcceptCorrection?: () => void;
+  onForward?: () => void;
+  /** Save / unsave (bookmark) this message */
+  onToggleSave?: () => void;
+  /** Sent / delivered / read details (own messages) */
+  onInfo?: () => void;
 }
 
 const COMMON_EMOJIS = [
@@ -101,8 +132,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReact,
   onCorrect,
   onAcceptCorrection,
+  onForward,
+  onToggleSave,
+  onInfo,
 }) => {
   const { user } = useAuth();
+  const [showEditHistory, setShowEditHistory] = useState(false);
+  /** Clicked album item for the lightbox (defaults to the message's own media) */
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  /** View-once media URL while it's open (it's deleted after) */
+  const [viewOnceMedia, setViewOnceMedia] = useState<{ url: string; type: string } | null>(null);
+  const [openingViewOnce, setOpeningViewOnce] = useState(false);
+  const [transcript, setTranscript] = useState<string | null>(message.metadata?.transcript?.text ?? null);
+  const [transcriptTranslation, setTranscriptTranslation] = useState<string | null>(null);
+  const [transcribing, setTranscribing] = useState<"transcribe" | "translate" | null>(null);
+  const mentionsMe = !isOwn && !!user?.id && !!message.metadata?.mentions?.includes(user.id);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
@@ -114,7 +158,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
   /** Reading this message aloud (pronunciation practice) */
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -168,19 +211,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const isSticker = message.type === "STICKER";
   const isFile = message.type === "FILE";
 
-  const mediaSrc =
+  const rawMediaSrc =
     message.mediaUrl || message.fileUrl || message.attachments?.[0]?.url || "";
+  // Older messages may hold a blob: preview link that only ever existed in the sender's
+  // tab — it can never load, so treat it as unavailable instead of requesting it
+  const isLostAttachment = rawMediaSrc.startsWith("blob:");
+  const mediaSrc = isLostAttachment ? "" : rawMediaSrc;
 
   const isVoiceOrAudio = isVoiceNote || isAudio;
 
+  // Document messages are never guessed to be media from their URL
+  // (a raw Cloudinary PDF link would otherwise look like an image)
   const isActuallyVideo =
     !isVoiceOrAudio &&
+    !isFile &&
     (isVideo ||
       Boolean(mediaSrc?.match(/\.(mp4|webm|mov|avi|mkv)/i)) ||
       Boolean(mediaSrc?.includes("video")));
 
   const isActuallyImage =
     !isVoiceOrAudio &&
+    !isFile &&
     !isActuallyVideo &&
     (isImage ||
       Boolean(mediaSrc?.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)/i)) ||
@@ -195,7 +246,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   };
 
   const showVoicePlayer = isVoiceOrAudio && Boolean(mediaSrc);
-  const messageDuration = duration || typedMessage.duration || 0;
+  // Length saved by the sender when recording (browser-recorded WebM files often
+  // carry no duration, so the <audio> element reports Infinity)
+  const metaDuration = Number(message.metadata?.duration);
+  const storedDuration =
+    Number.isFinite(metaDuration) && metaDuration > 0
+      ? metaDuration
+      : typeof typedMessage.duration === "number"
+        ? typedMessage.duration
+        : 0;
+  const messageDuration = duration || storedDuration || 0;
+  /** True while seeking to the end to make Chrome compute a WebM file's length */
+  const fixingDurationRef = useRef(false);
 
   const isPureVoiceMessage =
     showVoicePlayer &&
@@ -207,21 +269,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     setProgress(0);
     setIsPlaying(false);
     setLoadError(false);
-    setDuration(
-      typeof typedMessage.duration === "number" ? typedMessage.duration : 0,
-    );
+    setDuration(storedDuration);
     setIsLoading(false);
-  }, [mediaSrc, typedMessage.duration]);
+  }, [mediaSrc, storedDuration]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !showVoicePlayer || !mediaSrc) return;
 
+    const knownLength = () =>
+      isFinite(audio.duration) && audio.duration > 0 ? audio.duration : storedDuration;
+
     const onTimeUpdate = () => {
-      if (isDraggingRef.current) return;
-      if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
-        setProgress(audio.currentTime / audio.duration);
-      }
+      if (isDraggingRef.current || fixingDurationRef.current) return;
+      const length = knownLength();
+      if (length > 0) setProgress(Math.min(1, audio.currentTime / length));
     };
 
     const onLoaded = () => {
@@ -229,6 +291,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         setDuration(audio.duration);
         setLoadError(false);
         setIsLoading(false);
+        // Finished the WebM fix-up: jump back to the start
+        if (fixingDurationRef.current) {
+          fixingDurationRef.current = false;
+          audio.currentTime = 0;
+        }
+        return;
+      }
+      // WebM recorded in the browser: duration is Infinity until we seek past the end
+      if (audio.duration === Infinity && !fixingDurationRef.current) {
+        fixingDurationRef.current = true;
+        audio.currentTime = 1e101;
       }
     };
 
@@ -277,7 +350,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       audio.removeEventListener("error", onError);
       audio.removeEventListener("waiting", onWaiting);
     };
-  }, [mediaSrc, showVoicePlayer, playbackRate]);
+  }, [mediaSrc, showVoicePlayer, playbackRate, storedDuration]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -416,11 +489,67 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const messageTime = message.createdAt
     ? new Date(message.createdAt)
     : new Date();
-  const timeStr = format(messageTime, "HH:mm");
-  const relativeTime = formatDistanceToNow(messageTime, { addSuffix: true });
+  /** "14:05" today, "Oct 29, 14:05" this year, "Oct 29, 2025, 14:05" before that */
+  const hoverTimeLabel = isToday(messageTime)
+    ? format(messageTime, "HH:mm")
+    : isThisYear(messageTime)
+      ? format(messageTime, "MMM d, HH:mm")
+      : format(messageTime, "MMM d, yyyy, HH:mm");
 
   const translation = message.translations?.[0] || null;
   const hasUrl = message.content?.match(/(https?:\/\/[^\s]+)/g);
+  const linkPreview = message.metadata?.linkPreview;
+  const editHistory = message.metadata?.editHistory ?? [];
+  const albumItems = (message.attachments ?? []).filter((a) => a.type === "IMAGE" || a.type === "VIDEO");
+  const viewedBy = message.metadata?.viewedBy ?? [];
+  const iOpenedViewOnce = viewedBy.some((v) => v.userId === user?.id);
+
+  /** Text sent with a photo, video or file (placeholders like the file name aren't captions) */
+  const caption = useMemo(() => {
+    const text = message.content?.trim();
+    if (!text) return "";
+    if (message.type === "IMAGE" || message.type === "VIDEO") return text === "Voice message" ? "" : text;
+    if (message.type === "FILE") {
+      return text === "File" || text === message.metadata?.fileName || text === "Voice message" ? "" : text;
+    }
+    return "";
+  }, [message.content, message.type, message.metadata?.fileName]);
+
+  const openViewOnce = useCallback(async () => {
+    setOpeningViewOnce(true);
+    try {
+      const { data } = await chatApi.openViewOnce(message.id);
+      setViewOnceMedia(data);
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Couldn't open this"));
+    } finally {
+      setOpeningViewOnce(false);
+    }
+  }, [message.id]);
+
+  const runTranscribe = useCallback(async () => {
+    setTranscribing("transcribe");
+    try {
+      const { data } = await chatApi.transcribe(message.id);
+      setTranscript(data.text);
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Couldn't transcribe this voice message"));
+    } finally {
+      setTranscribing(null);
+    }
+  }, [message.id]);
+
+  const runTranslateTranscript = useCallback(async () => {
+    setTranscribing("translate");
+    try {
+      const { data } = await chatApi.translateTranscript(message.id);
+      setTranscriptTranslation(data.text);
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Couldn't translate the transcript"));
+    } finally {
+      setTranscribing(null);
+    }
+  }, [message.id]);
 
   const handleZoomIn = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -450,6 +579,106 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           isRecipient={!isOwn && message.replyTo?.senderId === user?.id}
           onAccept={onAcceptCorrection}
         />
+      );
+    }
+
+    // VIEW-ONCE PHOTO / VIDEO: the file is fetched only when opened
+    if (message.isViewOnce) {
+      const label = message.type === "VIDEO" ? "video" : "photo";
+      const opened = isOwn ? viewedBy.length > 0 : iOpenedViewOnce;
+      return (
+        <button
+          type="button"
+          disabled={isOwn || opened || openingViewOnce}
+          onClick={openViewOnce}
+          className={`flex min-w-[180px] items-center gap-3 rounded-xl px-3.5 py-3 text-left text-xs font-semibold transition ${
+            isOwn
+              ? "bg-white/10 text-white"
+              : opened
+                ? "bg-slate-100 text-slate-400 dark:bg-slate-800"
+                : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/15 dark:text-indigo-300"
+          }`}
+        >
+          <span
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-dashed ${
+              isOwn ? "border-white/50" : "border-current"
+            }`}
+          >
+            {openingViewOnce ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : opened ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <span className="text-[13px] font-bold">1</span>
+            )}
+          </span>
+          <span>
+            {isOwn
+              ? `View-once ${label}`
+              : opened
+                ? "Opened"
+                : `Tap to view ${label}`}
+            <span className="block text-[10px] font-normal opacity-70">
+              {isOwn ? (opened ? "Opened" : "Not opened yet") : opened ? `View-once ${label}` : "You can open it once"}
+            </span>
+          </span>
+        </button>
+      );
+    }
+
+    // ALBUM: several photos/videos sent together
+    if (albumItems.length > 1) {
+      const shown = albumItems.slice(0, 4);
+      return (
+        <div className="grid grid-cols-2 gap-1 overflow-hidden rounded-xl">
+          {shown.map((item, i) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                if (item.type === "VIDEO") {
+                  window.open(item.url, "_blank", "noopener,noreferrer");
+                  return;
+                }
+                setLightboxSrc(item.url);
+                setImageZoom(1);
+                setImageRotation(0);
+                setShowFullImage(true);
+              }}
+              className={`relative overflow-hidden bg-black/10 ${shown.length === 3 && i === 0 ? "col-span-2 aspect-[2/1]" : "aspect-square"}`}
+            >
+              {item.type === "VIDEO" ? (
+                <>
+                  <video src={item.url} muted preload="metadata" className="h-full w-full object-cover" />
+                  <Play className="absolute inset-0 m-auto h-8 w-8 fill-white text-white drop-shadow-lg" />
+                </>
+              ) : (
+                <img src={item.url} alt="" loading="lazy" className="h-full w-full object-cover transition hover:scale-[1.03]" />
+              )}
+              {i === 3 && albumItems.length > 4 && (
+                <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xl font-bold text-white">
+                  +{albumItems.length - 4}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    // ATTACHMENT THAT WAS NEVER UPLOADED (saved with a local blob: link)
+    if (isLostAttachment) {
+      return (
+        <div
+          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium ${
+            isOwn ? "bg-white/10 text-white/80" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+          }`}
+        >
+          <ImageIcon className="w-4 h-4 shrink-0" />
+          <span>
+            {isVoiceNote || isAudio ? "Voice note" : isFile ? "File" : "Attachment"} unavailable — it didn't finish uploading
+          </span>
+        </div>
       );
     }
 
@@ -659,10 +888,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
 
     // FILE
-    if (isFile && message.fileUrl) {
+    if (isFile && mediaSrc) {
+      const fileMeta = (message.metadata ?? {}) as {
+        fileName?: string;
+        fileSize?: number;
+      };
+      // Messages sent before the name was stored: take it from the URL ("report_ab12cd.pdf")
+      const urlName = decodeURIComponent(mediaSrc.split("?")[0].split("/").pop() || "");
+      const fileName = fileMeta.fileName || urlName || "Download attachment";
+      const fileSizeLabel = fileMeta.fileSize ? formatBytes(fileMeta.fileSize) : "";
+
       return (
         <motion.a
-          href={message.fileUrl}
+          href={mediaSrc}
           target="_blank"
           rel="noreferrer"
           whileHover={{ scale: 1.01 }}
@@ -676,8 +914,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <FileText className="w-4 h-4" />
           </div>
           <span className="truncate flex-1">
-            {(message as { fileName?: string }).fileName ||
-              "Download attachment"}
+            {fileName}
+            {fileSizeLabel && (
+              <span className="block text-[10px] font-normal opacity-70">{fileSizeLabel}</span>
+            )}
           </span>
           <Download className="w-3.5 h-3.5 opacity-70 shrink-0" />
         </motion.a>
@@ -690,7 +930,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <div className="leading-relaxed font-normal whitespace-pre-wrap break-words tracking-normal">
           {hasUrl ? (
             <div className="space-y-1">
-              <span>{message.content.replace(hasUrl[0], "")}</span>
+              <span>{withMentions(message.content.replace(hasUrl[0], ""), isOwn)}</span>
               <a
                 href={hasUrl[0]}
                 target="_blank"
@@ -709,7 +949,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </a>
             </div>
           ) : (
-            message.content
+            withMentions(message.content, isOwn)
           )}
         </div>
       );
@@ -752,7 +992,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               )}
             </div>
           </div>
-          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-800 shadow-sm" />
         </motion.div>
       )}
 
@@ -853,12 +1092,36 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </>
               )}
               <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
+              {onForward && !message.isViewOnce && (
+                <button
+                  type="button"
+                  onClick={onForward}
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
+                  title="Forward"
+                  aria-label="Forward"
+                >
+                  <Forward className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {isOwn && onInfo && (
+                <button
+                  type="button"
+                  onClick={onInfo}
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
+                  title="Message info"
+                  aria-label="Message info"
+                >
+                  <Info className="w-3.5 h-3.5" />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setIsBookmarked(!isBookmarked)}
+                onClick={onToggleSave}
                 className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
+                title={message.isSaved ? "Remove from saved" : "Save message"}
+                aria-label={message.isSaved ? "Remove from saved" : "Save message"}
               >
-                {isBookmarked ? (
+                {message.isSaved ? (
                   <BookmarkCheck className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />
                 ) : (
                   <Bookmark className="w-3.5 h-3.5" />
@@ -942,15 +1205,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               isOwn
                 ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-tr-sm shadow-indigo-500/20 dark:shadow-indigo-500/30"
                 : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-slate-800 rounded-tl-sm shadow-slate-200/50 dark:shadow-slate-800/30"
-            } ${isSelected ? "ring-2 ring-indigo-400 ring-offset-2 dark:ring-offset-slate-900" : ""}`}
+            } ${isSelected ? "ring-2 ring-indigo-400 ring-offset-2 dark:ring-offset-slate-900" : mentionsMe ? "ring-2 ring-amber-300/70" : ""}`}
           >
+            {(message.metadata?.forwarded || mentionsMe) && (
+              <div className={`flex items-center gap-2 text-[10px] font-semibold italic ${isOwn ? "text-indigo-100/80" : "text-slate-400"}`}>
+                {message.metadata?.forwarded && (
+                  <span className="flex items-center gap-1">
+                    <Forward className="w-3 h-3" /> Forwarded
+                  </span>
+                )}
+                {mentionsMe && (
+                  <span className="flex items-center gap-1 not-italic text-amber-600 dark:text-amber-400">
+                    <AtSign className="w-3 h-3" /> Mentioned you
+                  </span>
+                )}
+              </div>
+            )}
             {!isOwn && message.sender?.name && !isPureVoiceMessage && (
-              <div className="flex items-center gap-2 font-bold text-[11px] text-indigo-600 dark:text-indigo-400 tracking-wide">
-                <span>{message.sender.name}</span>
-                <span className="w-1 h-1 rounded-full bg-indigo-300 dark:bg-indigo-700" />
-                <span className="text-[9px] font-medium text-slate-400 dark:text-slate-500">
-                  {relativeTime}
-                </span>
+              <div className="font-bold text-[11px] text-indigo-600 dark:text-indigo-400 tracking-wide">
+                {message.sender.name}
               </div>
             )}
 
@@ -976,6 +1249,83 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             {/* data-message-text lets the word-lookup popup save the full sentence as context */}
             <div data-message-text={message.content ?? ""}>{renderContent()}</div>
 
+            {/* Caption sent with a photo, video or file */}
+            {caption && !message.isViewOnce && (
+              <p className="leading-relaxed whitespace-pre-wrap break-words" data-message-text={caption}>
+                {withMentions(caption, isOwn)}
+              </p>
+            )}
+
+            {/* Link preview card */}
+            {linkPreview && message.type === "TEXT" && (
+              <a
+                href={linkPreview.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`block overflow-hidden rounded-xl border transition hover:opacity-95 ${
+                  isOwn ? "border-white/20 bg-white/10" : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/70"
+                }`}
+              >
+                {linkPreview.image && (
+                  <img
+                    src={linkPreview.image}
+                    alt=""
+                    loading="lazy"
+                    className="max-h-40 w-full object-cover"
+                    onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
+                  />
+                )}
+                <div className="space-y-0.5 px-3 py-2">
+                  {linkPreview.siteName && (
+                    <p className={`text-[10px] font-semibold uppercase tracking-wide ${isOwn ? "text-indigo-100/70" : "text-slate-400"}`}>
+                      {linkPreview.siteName}
+                    </p>
+                  )}
+                  {linkPreview.title && <p className="line-clamp-2 text-[12px] font-semibold">{linkPreview.title}</p>}
+                  {linkPreview.description && (
+                    <p className={`line-clamp-2 text-[11px] ${isOwn ? "text-indigo-100/80" : "text-slate-500 dark:text-slate-400"}`}>
+                      {linkPreview.description}
+                    </p>
+                  )}
+                </div>
+              </a>
+            )}
+
+            {/* Voice transcription (and translation of the transcript) */}
+            {showVoicePlayer && (
+              <div className="space-y-1.5">
+                {transcript ? (
+                  <div
+                    className={`rounded-xl px-3 py-2 text-[12px] leading-relaxed ${
+                      isOwn ? "bg-white/10 text-indigo-50" : "bg-slate-100/80 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    }`}
+                    data-message-text={transcript}
+                  >
+                    {transcript}
+                    {transcriptTranslation && (
+                      <p className={`mt-1.5 border-t pt-1.5 italic ${isOwn ? "border-white/20 text-indigo-100" : "border-slate-200 text-slate-500 dark:border-slate-700"}`}>
+                        {transcriptTranslation}
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+                <div className={`flex items-center gap-3 text-[10px] font-semibold ${isOwn ? "text-indigo-100" : "text-indigo-600 dark:text-indigo-400"}`}>
+                  {!transcript && (
+                    <button type="button" onClick={runTranscribe} disabled={!!transcribing} className="flex items-center gap-1 hover:underline disabled:opacity-60">
+                      {transcribing === "transcribe" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Captions className="h-3 w-3" />}
+                      Transcribe
+                    </button>
+                  )}
+                  {transcript && !transcriptTranslation && (
+                    <button type="button" onClick={runTranslateTranscript} disabled={!!transcribing} className="flex items-center gap-1 hover:underline disabled:opacity-60">
+                      {transcribing === "translate" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Languages className="h-3 w-3" />}
+                      Translate
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {translation && !isPureVoiceMessage && (
               <motion.button
                 type="button"
@@ -1000,31 +1350,74 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </motion.div>
             )}
 
+            {/* Only state markers live in the bubble; the send time shows on hover beside it */}
+            {(isOwn || message.isEdited || message.expiresAt) && (
             <div
-              className={`flex items-center justify-end gap-2 text-[10px] font-medium pt-1 select-none ${isOwn ? "text-indigo-100/70" : "text-slate-400 dark:text-slate-500"}`}
+              className={`flex items-center justify-end gap-1.5 text-[10px] font-medium -mt-1 select-none ${isOwn ? "text-indigo-100/70" : "text-slate-400 dark:text-slate-500"}`}
             >
-              {message.isEdited && (
-                <span className="flex items-center gap-0.5 opacity-80 italic text-[9px]">
-                  <Pencil className="w-2.5 h-2.5" /> edited
+              {message.expiresAt && (
+                <span
+                  className="flex items-center opacity-80"
+                  title={`Disappears ${formatDistanceToNow(new Date(message.expiresAt), { addSuffix: true })}`}
+                >
+                  <Timer className="w-3 h-3" />
                 </span>
               )}
-              <span
-                className="flex items-center gap-1"
-                title={format(messageTime, "PPpp")}
-              >
-                <Clock className="w-2.5 h-2.5 opacity-50" /> {timeStr}
-              </span>
-              <span className="text-[8px] opacity-50">•</span>
-              <span className="text-[9px] opacity-70">{relativeTime}</span>
-              {isOwn && (
-                <>
-                  <span className="text-[8px] opacity-50">•</span>
-                  <MessageStatus />
-                </>
+              {message.isEdited && (
+                <span className="relative">
+                  <button
+                    type="button"
+                    onClick={() => editHistory.length && setShowEditHistory((v) => !v)}
+                    className={`flex items-center gap-0.5 opacity-80 italic text-[9px] ${editHistory.length ? "hover:underline cursor-pointer" : "cursor-default"}`}
+                    title={editHistory.length ? "See edit history" : undefined}
+                  >
+                    <Pencil className="w-2.5 h-2.5" /> edited
+                  </button>
+                  <AnimatePresence>
+                    {showEditHistory && editHistory.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 4 }}
+                        className={`absolute bottom-full z-30 mb-2 w-64 rounded-2xl border border-slate-200 bg-white p-3 text-left text-slate-700 shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 ${isOwn ? "right-0" : "left-0"}`}
+                      >
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Edit history</p>
+                        <ol className="max-h-48 space-y-2 overflow-y-auto">
+                          {[...editHistory].reverse().map((v, i) => (
+                            <li key={i} className="border-l-2 border-slate-200 pl-2 dark:border-slate-700">
+                              <p className="whitespace-pre-wrap break-words text-[12px] not-italic">{v.content || "—"}</p>
+                              <p className="text-[9px] text-slate-400">{format(new Date(v.at), "MMM d, HH:mm")}</p>
+                            </li>
+                          ))}
+                        </ol>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </span>
               )}
+              {isOwn && <MessageStatus />}
             </div>
+            )}
           </motion.div>
         )}
+
+        {/* Send time: appears beside the bubble on hover (full date in the tooltip) */}
+        <AnimatePresence>
+          {isHovered && !isSelectionMode && (
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
+              title={format(messageTime, "PPpp")}
+              className={`absolute bottom-2 whitespace-nowrap rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-white shadow-sm dark:bg-slate-700/90 ${
+                isOwn ? "right-full mr-2" : "left-full ml-2"
+              }`}
+            >
+              {hoverTimeLabel}
+            </motion.span>
+          )}
+        </AnimatePresence>
 
         {/* Reactions Bar */}
         {Object.keys(aggregatedReactions).length > 0 && (
@@ -1059,9 +1452,41 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
       </div>
 
+      {/* View-once viewer: no download; the file is deleted after it's opened */}
+      <AnimatePresence>
+        {viewOnceMedia && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 bg-black/95 p-4 backdrop-blur-2xl"
+            onClick={() => setViewOnceMedia(null)}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/80">
+              <Eye className="h-3.5 w-3.5" /> View once — this closes for good
+            </div>
+            <div onClick={(e) => e.stopPropagation()} className="max-h-[80vh] max-w-4xl select-none">
+              {viewOnceMedia.type === "VIDEO" ? (
+                <video src={viewOnceMedia.url} autoPlay controls controlsList="nodownload" className="max-h-[80vh] rounded-2xl" />
+              ) : (
+                <img src={viewOnceMedia.url} alt="" draggable={false} className="max-h-[80vh] rounded-2xl object-contain" />
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setViewOnceMedia(null)}
+              className="rounded-full bg-white/15 px-5 py-2 text-sm font-semibold text-white hover:bg-white/25"
+            >
+              Close
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Lightbox - Image Viewer with Zoom & Rotation */}
       <AnimatePresence>
-        {showFullImage && mediaSrc && isActuallyImage && (
+        {showFullImage && (lightboxSrc || (mediaSrc && isActuallyImage)) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1069,6 +1494,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-8"
             onClick={() => {
               setShowFullImage(false);
+              setLightboxSrc(null);
               setImageZoom(1);
               setImageRotation(0);
             }}
@@ -1086,7 +1512,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 style={{ minHeight: "50vh", maxHeight: "85vh" }}
               >
                 <motion.img
-                  src={mediaSrc}
+                  src={lightboxSrc || mediaSrc}
                   alt="Full preview"
                   className="object-contain rounded-2xl select-none"
                   style={{
@@ -1159,7 +1585,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     <Minimize2 className="w-4 h-4" />
                   </motion.button>
                   <motion.a
-                    href={mediaSrc}
+                    href={lightboxSrc || mediaSrc}
                     target="_blank"
                     rel="noreferrer"
                     download
@@ -1176,6 +1602,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     type="button"
                     onClick={() => {
                       setShowFullImage(false);
+                      setLightboxSrc(null);
                       setImageZoom(1);
                       setImageRotation(0);
                     }}

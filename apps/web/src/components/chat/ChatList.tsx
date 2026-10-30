@@ -1,7 +1,24 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../contexts/AuthContext";
-import type { Chat } from "../../hooks/useChat";
 import {
+  apiErrorMessage,
+  chatApi,
+  isMutedNow,
+  useChatPrivacy,
+  useUpdateChatState,
+  type Chat,
+} from "../../hooks/useChat";
+import { getDraft, onDraftChange } from "../../lib/chatDrafts";
+import { relockChat } from "../../lib/chatUnlock";
+import { ChatPinDialog, MUTE_OPTIONS, ReportDialog } from "./ChatDialogs";
+import {
+  Lock,
+  Unlock,
+  Bell,
+  Timer,
+  ArchiveRestore,
+  Eraser,
   Users,
   User,
   Image as ImageIcon,
@@ -17,11 +34,9 @@ import {
   MoreVertical,
   Star,
   StarOff,
-  Trash2,
   Archive,
   EyeOff,
   Flag,
-  Copy,
   Link2,
   MessageCircle,
   ChevronRight,
@@ -36,6 +51,7 @@ interface ChatListProps {
   selectedChatId?: string;
   onSelectChat: (chatId: string) => void;
   onlineUserIds?: Set<string>;
+  /** Pinned section (each chat's own isPinned drives its menu and badge) */
   isPinned?: boolean;
 }
 
@@ -83,11 +99,20 @@ export const ChatList: React.FC<ChatListProps> = ({
   selectedChatId,
   onSelectChat,
   onlineUserIds,
-  isPinned = false,
 }) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const updateState = useUpdateChatState();
+  const { data: privacy } = useChatPrivacy();
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
   const [showContextMenu, setShowContextMenu] = useState<string | null>(null);
+  const [muteMenuFor, setMuteMenuFor] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ type: "USER"; id: string; label: string } | null>(null);
+  /** Chat to lock once a PIN has been set */
+  const [pinSetupFor, setPinSetupFor] = useState<string | null>(null);
+  // Re-render "Draft:" previews when a draft changes in the composer
+  const [, setDraftVersion] = useState(0);
+  useEffect(() => onDraftChange(() => setDraftVersion((v) => v + 1)), []);
 
   const getOtherParticipant = (chat: Chat) =>
     chat.participants?.find((p) => p.userId !== user?.id)?.user;
@@ -132,8 +157,25 @@ export const ChatList: React.FC<ChatListProps> = ({
   };
 
   const renderLastMessage = (chat: Chat) => {
+    if (chat.isLocked) {
+      return (
+        <span className="inline-flex items-center gap-1 italic">
+          <Lock className="w-3 h-3" /> Locked chat
+        </span>
+      );
+    }
+    const draft = chat.id !== selectedChatId ? getDraft(chat.id) : "";
+    if (draft) {
+      return (
+        <span className="line-clamp-1">
+          <span className="font-semibold text-rose-500">Draft: </span>
+          {draft}
+        </span>
+      );
+    }
     const msg = chat.messages?.[0];
     if (!msg) return <span className="italic">No messages yet</span>;
+    if (msg.type === "SYSTEM") return <span className="line-clamp-1 italic">{msg.content}</span>;
     if (msg.isDeleted) return <span className="italic">Message deleted</span>;
 
     const isOwn = msg.senderId === user?.id;
@@ -191,38 +233,71 @@ export const ChatList: React.FC<ChatListProps> = ({
     );
   };
 
-  const handleChatAction = (action: string, chatId: string) => {
-    const chat = chats.find(c => c.id === chatId);
-    const name = chat ? getChatName(chat) : "Chat";
-    switch (action) {
-      case "pin":
-        toast.success(`${name} ${isPinned ? "unpinned" : "pinned"}`);
-        break;
-      case "archive":
-        toast.success(`${name} archived`);
-        break;
-      case "mute":
-        toast.success(`${name} muted`);
-        break;
-      case "delete":
-        toast.warning(`${name} deleted`);
-        break;
-      case "mark-read":
-        toast.success(`${name} marked as read`);
-        break;
-      case "report":
-        toast.info(`${name} reported`);
-        break;
-      default:
-        toast.info(`Action: ${action}`);
-    }
+  const handleChatAction = async (action: string, chatId: string) => {
+    const chat = chats.find((c) => c.id === chatId);
+    if (!chat) return;
+    const name = getChatName(chat);
     setShowContextMenu(null);
+    try {
+      switch (action) {
+        case "pin":
+          await updateState.mutateAsync({ chatId, isPinned: !chat.isPinned });
+          toast.success(`${name} ${chat.isPinned ? "unpinned" : "pinned"}`);
+          break;
+        case "archive":
+          await updateState.mutateAsync({ chatId, isArchived: !chat.isArchived });
+          toast.success(`${name} ${chat.isArchived ? "moved back to chats" : "archived"}`);
+          break;
+        case "mute":
+          if (isMutedNow(chat.mutedUntil)) {
+            await updateState.mutateAsync({ chatId, mutedUntil: null });
+            toast.success(`${name} unmuted`);
+          } else {
+            setMuteMenuFor(chatId);
+          }
+          break;
+        case "lock":
+          if (chat.isLocked) {
+            relockChat(chatId);
+            await updateState.mutateAsync({ chatId, isLocked: false });
+            toast.success(`${name} unlocked`);
+          } else if (!privacy?.hasChatLockPin) {
+            setPinSetupFor(chatId);
+          } else {
+            relockChat(chatId);
+            await updateState.mutateAsync({ chatId, isLocked: true });
+            toast.success(`${name} locked`);
+          }
+          break;
+        case "mark-read":
+          await chatApi.markChatRead(chatId);
+          queryClient.setQueryData<Chat[]>(["chats"], (old) =>
+            old?.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)),
+          );
+          toast.success(`${name} marked as read`);
+          break;
+        case "clear":
+          if (!window.confirm(`Clear all messages in ${name} for you? Others keep their copy.`)) break;
+          await chatApi.clearHistory(chatId);
+          queryClient.setQueryData(["messages", chatId], []);
+          queryClient.invalidateQueries({ queryKey: ["chats"] });
+          toast.success(`${name} cleared for you`);
+          break;
+        case "report": {
+          const other = getOtherParticipant(chat);
+          if (other) setReportTarget({ type: "USER", id: other.id, label: other.name });
+          break;
+        }
+      }
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Something went wrong"));
+    }
   };
 
   const sortedChats = useMemo(() => {
     return [...chats].sort((a, b) => {
-      const aPinned = getMyParticipant(a)?.isPinned ? 1 : 0;
-      const bPinned = getMyParticipant(b)?.isPinned ? 1 : 0;
+      const aPinned = a.isPinned ? 1 : 0;
+      const bPinned = b.isPinned ? 1 : 0;
       if (aPinned !== bPinned) return bPinned - aPinned;
       
       // Sort by last message time
@@ -233,14 +308,14 @@ export const ChatList: React.FC<ChatListProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chats, user?.id]);
 
-  const contextMenuItems = [
-    { icon: isPinned ? StarOff : Star, label: isPinned ? "Unpin" : "Pin", action: "pin" },
-    { icon: Archive, label: "Archive", action: "archive" },
-    { icon: BellOff, label: "Mute", action: "mute" },
-    { icon: EyeOff, label: "Mark as read", action: "mark-read" },
-    { icon: Copy, label: "Copy link", action: "copy" },
-    { icon: Trash2, label: "Delete", action: "delete", danger: true },
-    { icon: Flag, label: "Report", action: "report", danger: true },
+  const contextMenuItems = (chat: Chat) => [
+    { icon: chat.isPinned ? StarOff : Star, label: chat.isPinned ? "Unpin" : "Pin", action: "pin" },
+    { icon: chat.isArchived ? ArchiveRestore : Archive, label: chat.isArchived ? "Unarchive" : "Archive", action: "archive" },
+    { icon: isMutedNow(chat.mutedUntil) ? Bell : BellOff, label: isMutedNow(chat.mutedUntil) ? "Unmute" : "Mute", action: "mute" },
+    { icon: chat.isLocked ? Unlock : Lock, label: chat.isLocked ? "Unlock chat" : "Lock chat", action: "lock" },
+    ...((chat.unreadCount ?? 0) > 0 ? [{ icon: EyeOff, label: "Mark as read", action: "mark-read" }] : []),
+    { icon: Eraser, label: "Clear history", action: "clear", danger: true },
+    ...(chat.type === "PRIVATE" ? [{ icon: Flag, label: "Report", action: "report", danger: true }] : []),
   ];
 
   if (sortedChats.length === 0) {
@@ -273,7 +348,6 @@ export const ChatList: React.FC<ChatListProps> = ({
           const online = isOnline(chat);
           const unread = isUnread(chat);
           const unreadCount = getUnreadCount(chat);
-          const me = getMyParticipant(chat);
           const lastMsg = chat.messages?.[0];
           const isHovered = hoveredChatId === chat.id;
           const isContextOpen = showContextMenu === chat.id;
@@ -302,6 +376,7 @@ export const ChatList: React.FC<ChatListProps> = ({
               onMouseLeave={() => {
                 setHoveredChatId(null);
                 setShowContextMenu(null);
+                setMuteMenuFor(null);
               }}
               className="relative"
             >
@@ -374,7 +449,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      {me?.isPinned && (
+                      {chat.isPinned && (
                         <Pin className="w-3 h-3 text-amber-400 shrink-0" />
                       )}
                       <h4
@@ -393,9 +468,13 @@ export const ChatList: React.FC<ChatListProps> = ({
                           {chat.participants?.length || 0}
                         </span>
                       )}
-                      {me?.isMuted && (
-                        <BellOff className="w-3 h-3 text-slate-300 shrink-0" />
+                      {isMutedNow(chat.mutedUntil) && (
+                        <BellOff className="w-3 h-3 text-slate-300 shrink-0" aria-label="Muted" />
                       )}
+                      {chat.disappearingSeconds ? (
+                        <Timer className="w-3 h-3 text-indigo-300 shrink-0" aria-label="Disappearing messages on" />
+                      ) : null}
+                      {chat.isLocked && <Lock className="w-3 h-3 text-slate-300 shrink-0" aria-label="Locked" />}
                     </div>
                     {lastMsg && (
                       <motion.span
@@ -476,11 +555,11 @@ export const ChatList: React.FC<ChatListProps> = ({
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="py-1.5">
-                        {contextMenuItems.map((item) => (
+                        {contextMenuItems(chat).map((item) => (
                           <motion.button
                             key={item.action}
                             whileHover={{ x: 4 }}
-                            onClick={() => handleChatAction(item.action, chat.id)}
+                            onClick={() => void handleChatAction(item.action, chat.id)}
                             className={`flex items-center gap-2.5 w-full px-3.5 py-2 text-xs font-medium transition-colors ${
                               item.danger
                                 ? "text-red-600 hover:bg-red-50"
@@ -495,10 +574,55 @@ export const ChatList: React.FC<ChatListProps> = ({
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {/* Mute duration picker */}
+                <AnimatePresence>
+                  {muteMenuFor === chat.id && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: -5 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: -5 }}
+                      className="absolute right-0 top-full mt-1 z-10 min-w-[160px] bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden py-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <p className="px-3.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Mute for</p>
+                      {MUTE_OPTIONS.map((o) => (
+                        <button
+                          key={o.label}
+                          type="button"
+                          onClick={() => {
+                            updateState.mutate({ chatId: chat.id, mutedUntil: o.value() });
+                            toast.success(`${name} muted`);
+                            setMuteMenuFor(null);
+                          }}
+                          className="block w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             </motion.div>
           );
         })}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {pinSetupFor && (
+          <ChatPinDialog
+            hasPin={false}
+            onClose={() => setPinSetupFor(null)}
+            onSaved={() => {
+              updateState.mutate({ chatId: pinSetupFor, isLocked: true });
+              toast.success("Chat locked");
+            }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {reportTarget && <ReportDialog target={reportTarget} onClose={() => setReportTarget(null)} />}
       </AnimatePresence>
     </div>
   );

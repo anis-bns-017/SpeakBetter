@@ -18,7 +18,83 @@ export interface Chat {
   /** Messages from others after my last read (computed by the server) */
   unreadCount?: number;
   updatedAt: string;
+  /** My own state for this chat */
+  isPinned?: boolean;
+  isArchived?: boolean;
+  /** Muted until this time (year 9999 = always) */
+  mutedUntil?: string | null;
+  isLocked?: boolean;
+  /** Disappearing messages timer in seconds (null = off) */
+  disappearingSeconds?: number | null;
 }
+
+export interface LinkPreview {
+  url: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+}
+
+/** Free-form per-message data the server attaches */
+export interface MessageMeta {
+  note?: string;
+  acceptedAt?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  duration?: number;
+  forwarded?: boolean;
+  mentions?: string[];
+  linkPreview?: LinkPreview;
+  editHistory?: Array<{ content: string | null; at: string }>;
+  transcript?: { text: string; language?: string | null };
+  transcriptTranslations?: Record<string, string>;
+  viewedBy?: Array<{ userId: string; at: string }>;
+  event?: string;
+  seconds?: number;
+}
+
+export interface ChatPrivacySettings {
+  showOnlineStatus: boolean;
+  showLastSeen: boolean;
+  sendReadReceipts: boolean;
+  showTypingIndicator: boolean;
+  hasChatLockPin: boolean;
+}
+
+export interface MessageInfo {
+  messageId: string;
+  sentAt: string;
+  deliveredAt?: string | null;
+  editedAt?: string | null;
+  expiresAt?: string | null;
+  recipients: number;
+  readBy: Array<{ id: string; name: string; avatarUrl?: string | null; readAt: string }>;
+  receiptsHidden: boolean;
+  viewedBy?: Array<{ userId: string; at: string }>;
+}
+
+export interface ScheduledMessage {
+  id: string;
+  chatId: string;
+  content?: string | null;
+  type: string;
+  sendAt: string;
+  createdAt: string;
+}
+
+export interface AlbumAttachment {
+  url: string;
+  type: "IMAGE" | "VIDEO";
+  filename: string;
+  mimeType?: string;
+  size: number;
+}
+
+/** "Mute always" is stored as year 9999 */
+export const isMutedNow = (mutedUntil?: string | null) =>
+  !!mutedUntil && new Date(mutedUntil).getTime() > Date.now();
 
 export interface ChatParticipant {
   userId: string;
@@ -61,8 +137,19 @@ export interface Message {
   translations: Translation[];
   readReceipts?: Array<{ userId: string; readAt?: string }>;
   delivered?: boolean;
-  /** CORRECTION: { note?: string; acceptedAt?: string } */
-  metadata?: { note?: string; acceptedAt?: string } & Record<string, unknown>;
+  deliveredAt?: string | null;
+  metadata?: MessageMeta & Record<string, unknown>;
+  /** I saved (bookmarked) this message */
+  isSaved?: boolean;
+  savedAt?: string;
+  /** Photo/video the recipient can open once (its URL is never in the message) */
+  isViewOnce?: boolean;
+  /** Disappearing messages: removed after this time */
+  expiresAt?: string | null;
+  forwardedFromId?: string | null;
+  editedAt?: string | null;
+  /** Saved-messages list across chats */
+  chat?: { id: string; type: string; name?: string | null };
 }
 
 export interface Reaction {
@@ -83,6 +170,7 @@ export interface Attachment {
   url: string;
   type: string;
   filename: string;
+  mimeType?: string | null;
   size: number;
 }
 
@@ -101,6 +189,8 @@ export interface SendMessagePayload {
   fileUrl?: string;
   replyToId?: string;
   metadata?: Record<string, unknown>;
+  isViewOnce?: boolean;
+  attachments?: AlbumAttachment[];
 }
 
 // ---------- API Calls ----------
@@ -155,7 +245,60 @@ export const chatApi = {
       replyToId?: string;
     },
   ) => apiClient.post<Message>(`/communities/${communityId}/messages`, data),
+
+  // ---------- Privacy & chat lock ----------
+  getPrivacy: () => apiClient.get<ChatPrivacySettings>("/chat/me/privacy"),
+  updatePrivacy: (data: Partial<Omit<ChatPrivacySettings, "hasChatLockPin">>) =>
+    apiClient.put<ChatPrivacySettings>("/chat/me/privacy", data),
+  setPin: (pin: string, currentPin?: string) =>
+    apiClient.put<ChatPrivacySettings>("/chat/me/pin", { pin, ...(currentPin ? { currentPin } : {}) }),
+  verifyPin: (pin: string) => apiClient.post("/chat/me/pin/verify", { pin }),
+  removePin: (pin: string) => apiClient.post<ChatPrivacySettings>("/chat/me/pin/remove", { pin }),
+  report: (data: { targetType: "USER" | "MESSAGE"; targetId: string; reason: string; description?: string }) =>
+    apiClient.post("/chat/me/report", data),
+
+  // ---------- Chat state ----------
+  updateChatState: (
+    chatId: string,
+    data: { isPinned?: boolean; isArchived?: boolean; isLocked?: boolean; mutedUntil?: string | null },
+  ) => apiClient.put(`/chat/${chatId}/state`, data),
+  clearHistory: (chatId: string) => apiClient.post(`/chat/${chatId}/clear`),
+  markChatRead: (chatId: string) => apiClient.post(`/chat/${chatId}/read-all`),
+  setDisappearing: (chatId: string, seconds: number) =>
+    apiClient.put(`/chat/${chatId}/disappearing`, { seconds }),
+  getMedia: (chatId: string, kind: "media" | "files" | "links", before?: string) =>
+    apiClient.get<Message[]>(`/chat/${chatId}/media`, { params: { kind, ...(before ? { before } : {}) } }),
+  getSaved: (chatId: string) => apiClient.get<Message[]>(`/chat/${chatId}/saved`),
+
+  // ---------- Scheduled ----------
+  listScheduled: (chatId: string) => apiClient.get<ScheduledMessage[]>(`/chat/${chatId}/scheduled`),
+  scheduleMessage: (chatId: string, data: { content: string; sendAt: string; replyToId?: string }) =>
+    apiClient.post<ScheduledMessage>(`/chat/${chatId}/scheduled`, data),
+  cancelScheduled: (id: string) => apiClient.delete(`/chat/scheduled/${id}`),
+
+  // ---------- Message actions ----------
+  hideMessages: (messageIds: string[]) =>
+    apiClient.post<{ messageIds: string[] }>("/chat/messages/hide", { messageIds }),
+  forwardMessages: (messageIds: string[], chatIds: string[]) =>
+    apiClient.post<{ sent: number; failed: number; chatIds: string[] }>("/chat/messages/forward", {
+      messageIds,
+      chatIds,
+    }),
+  saveMessage: (messageId: string, saved: boolean) =>
+    apiClient.put(`/chat/messages/${messageId}/save`, { saved }),
+  getMessageInfo: (messageId: string) => apiClient.get<MessageInfo>(`/chat/messages/${messageId}/info`),
+  openViewOnce: (messageId: string) =>
+    apiClient.post<{ url: string; type: string }>(`/chat/messages/${messageId}/view-once`),
+  transcribe: (messageId: string) =>
+    apiClient.post<{ text: string; language?: string | null }>(`/chat/messages/${messageId}/transcribe`),
+  translateTranscript: (messageId: string) =>
+    apiClient.post<{ text: string; language: string }>(`/chat/messages/${messageId}/translate-transcript`),
 };
+
+/** Server error text from an axios error, for toasts */
+export const apiErrorMessage = (error: unknown, fallback: string) =>
+  (error as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message?.toString() ||
+  fallback;
 
 // ---------- Message Cache Helpers ----------
 const updateMessageInAllCaches = (
@@ -177,6 +320,70 @@ const updateMessageInAllCaches = (
       ),
   );
 };
+
+/** Drop messages from every message list (expired, deleted for me) */
+export const removeMessagesFromCaches = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  messageIds: Iterable<string>,
+) => {
+  const gone = new Set(messageIds);
+  for (const key of ["messages", "community-messages"]) {
+    queryClient.setQueriesData<Message[]>({ queryKey: [key] }, (old) =>
+      old?.filter((message) => !gone.has(message.id)),
+    );
+  }
+};
+
+/** Patch a message wherever it's cached */
+export const patchMessage = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  messageId: string,
+  changes: Partial<Message>,
+) => updateMessageInAllCaches(queryClient, messageId, (message) => ({ ...message, ...changes }));
+
+// ---------- Premium chat hooks ----------
+
+export const useChatPrivacy = () => {
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["chat-privacy"],
+    queryFn: async () => (await chatApi.getPrivacy()).data,
+  });
+  const update = useMutation({
+    mutationFn: async (data: Partial<Omit<ChatPrivacySettings, "hasChatLockPin">>) =>
+      (await chatApi.updatePrivacy(data)).data,
+    onSuccess: (data) => queryClient.setQueryData(["chat-privacy"], data),
+    onError: (error) => toast.error(apiErrorMessage(error, "Couldn't save privacy settings")),
+  });
+  return { ...query, update };
+};
+
+/** Pin / archive / mute / lock a chat (my own view of it) */
+export const useUpdateChatState = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      chatId,
+      ...data
+    }: { chatId: string; isPinned?: boolean; isArchived?: boolean; isLocked?: boolean; mutedUntil?: string | null }) =>
+      (await chatApi.updateChatState(chatId, data)).data as Partial<Chat> & { chatId: string },
+    onSuccess: (state) => {
+      const { chatId, ...changes } = state;
+      queryClient.setQueryData<Chat[]>(["chats"], (old) =>
+        old?.map((chat) => (chat.id === chatId ? { ...chat, ...changes } : chat)),
+      );
+      queryClient.setQueryData<Chat>(["chat", chatId], (old) => (old ? { ...old, ...changes } : old));
+    },
+    onError: (error) => toast.error(apiErrorMessage(error, "Couldn't update the chat")),
+  });
+};
+
+export const useScheduledMessages = (chatId: string) =>
+  useQuery({
+    queryKey: ["scheduled", chatId],
+    queryFn: async () => (await chatApi.listScheduled(chatId)).data,
+    enabled: !!chatId,
+  });
 
 // ---------- Query hooks ----------
 
@@ -883,6 +1090,12 @@ export const useChatSocket = (
 
       options?.onNewMessage?.(message);
 
+      if (message.senderId !== userId && message.metadata?.mentions?.includes(userId)) {
+        toast(`${message.sender?.name || "Someone"} mentioned you`, {
+          description: message.content?.slice(0, 80) || undefined,
+        });
+      }
+
       const queryKey = message.chatId
         ? ["messages", message.chatId]
         : message.communityId
@@ -975,11 +1188,58 @@ export const useChatSocket = (
                   ...item,
                   content: message.content,
                   isEdited: true,
+                  editedAt: message.editedAt ?? item.editedAt,
+                  // Carries the edit history
+                  metadata: message.metadata ?? item.metadata,
                 }
               : item,
           );
         });
       }
+    });
+
+    // The server changed a message (link preview added, view-once opened)
+    s.on("message:updated", (message: Message) => {
+      updateMessageInAllCaches(queryClient, message.id, (old) => ({
+        ...old,
+        ...message,
+        // Saved state is per viewer and isn't in broadcasts
+        isSaved: old.isSaved,
+      }));
+    });
+
+    // Disappearing messages whose timer ran out
+    s.on("messages:expired", (data: { chatId: string; messageIds: string[] }) => {
+      removeMessagesFromCaches(queryClient, data.messageIds);
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
+    });
+
+    // The other person's device came online: my earlier messages are delivered
+    s.on("messages:delivered", (data: { chatId: string; at: string }) => {
+      const cutoff = new Date(data.at).getTime();
+      queryClient.setQueryData<Message[]>(["messages", data.chatId], (old) =>
+        old?.map((m) =>
+          m.senderId === userId && !m.delivered && new Date(m.createdAt).getTime() <= cutoff
+            ? { ...m, delivered: true, deliveredAt: data.at }
+            : m,
+        ),
+      );
+    });
+
+    s.on("chat:updated", (data: { chatId: string; disappearingSeconds: number | null }) => {
+      queryClient.setQueryData<Chat>(["chat", data.chatId], (old) =>
+        old ? { ...old, disappearingSeconds: data.disappearingSeconds } : old,
+      );
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
+    });
+
+    s.on("scheduled:sent", (data: { chatId: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["scheduled", data.chatId] });
+    });
+
+    s.on("scheduled:failed", (data: { chatId: string; error?: string }) => {
+      toast.error(`A scheduled message couldn't be sent${data.error ? `: ${data.error}` : ""}`);
+      queryClient.invalidateQueries({ queryKey: ["scheduled", data.chatId] });
     });
 
     s.on(
@@ -1191,6 +1451,12 @@ export const useChatSocket = (
       s.removeAllListeners("message:deleted");
       s.removeAllListeners("message:edited");
       s.removeAllListeners("message:pinned");
+      s.removeAllListeners("message:updated");
+      s.removeAllListeners("messages:expired");
+      s.removeAllListeners("messages:delivered");
+      s.removeAllListeners("chat:updated");
+      s.removeAllListeners("scheduled:sent");
+      s.removeAllListeners("scheduled:failed");
       s.removeAllListeners("reaction:new");
       s.removeAllListeners("reaction:removed");
       s.removeAllListeners("reaction:error");

@@ -1,26 +1,7 @@
 // apps/web/src/lib/uploadToCloudinary.ts
+import { apiClient } from "./api/client";
 
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-
-const PRESETS = {
-  image:
-    import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_IMAGE ||
-    "lingoverse_chat_images",
-  video:
-    import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_VIDEO ||
-    "lingoverse_chat_videos",
-  audio:
-    import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_VOICE ||
-    "lingoverse_voice_messages",
-  voice:
-    import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_VOICE ||
-    "lingoverse_voice_messages",
-  file:
-    import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_FILE ||
-    "lingoverse_chat_files",
-};
-
-export type UploadKind = keyof typeof PRESETS;
+export type UploadKind = "image" | "video" | "audio" | "voice" | "file";
 
 export interface CloudinaryUploadResult {
   url: string;
@@ -53,41 +34,46 @@ export function kindToMessageType(kind: UploadKind): string {
   }
 }
 
-const RESOURCE_TYPE: Record<UploadKind, string> = {
+/** Server endpoint per kind: POST /upload/:kind (signed with the Cloudinary API secret) */
+const SERVER_KIND: Record<UploadKind, "image" | "video" | "audio" | "file"> = {
   image: "image",
   video: "video",
-  audio: "video", // Cloudinary treats audio as video resource
-  voice: "video",
-  file: "auto",
+  audio: "audio",
+  voice: "audio",
+  file: "file",
 };
 
+/**
+ * Uploads through our server, which signs the Cloudinary upload — so no unsigned
+ * upload presets need to exist in the Cloudinary console.
+ */
 export async function uploadToCloudinary(
   file: File,
 ): Promise<CloudinaryUploadResult> {
-  if (!CLOUDINARY_CLOUD_NAME) {
-    throw new Error("Cloudinary cloud name is not configured");
-  }
-
   const kind = detectUploadKind(file);
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("upload_preset", PRESETS[kind]);
 
-  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${RESOURCE_TYPE[kind]}/upload`;
-
-  const response = await fetch(url, { method: "POST", body: formData });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(
-      err?.error?.message || `Upload failed (${response.status})`,
-    );
+  let data: { url?: string; duration?: number; message?: string };
+  try {
+    ({ data } = await apiClient.post(`/upload/${SERVER_KIND[kind]}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120_000,
+    }));
+  } catch (error: unknown) {
+    const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+    throw new Error(message || (error as Error)?.message || "Upload failed", { cause: error });
   }
 
-  const data = await response.json();
+  if (!data?.url) throw new Error("Upload returned no file URL");
+
+  // Local-storage fallback returns "/uploads/..."; load it from the API origin
+  const url = data.url.startsWith("/")
+    ? new URL(data.url, apiClient.defaults.baseURL || window.location.origin).toString()
+    : data.url;
 
   return {
-    url: data.secure_url,
+    url,
     kind,
     name: file.name,
     size: file.size,

@@ -40,6 +40,7 @@ import React, {
   useRef,
 } from "react";
 import { useChats } from "../hooks/useChat";
+import { ChatPrivacyDialog } from "../components/chat/ChatDialogs";
 import { ChatList } from "../components/chat/ChatList";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { ChatWindow } from "../components/chat/ChatWindow";
@@ -171,13 +172,14 @@ const ShimmerBox: React.FC<{ className?: string }> = ({ className = "" }) => (
 // Filter tabs
 // ============================================================
 
-type FilterTab = "all" | "unread" | "groups" | "direct";
+type FilterTab = "all" | "unread" | "groups" | "direct" | "archived";
 
 const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "all", label: "All" },
   { key: "unread", label: "Unread" },
   { key: "groups", label: "Groups" },
   { key: "direct", label: "Direct" },
+  { key: "archived", label: "Archived" },
 ];
 
 // ============================================================
@@ -215,6 +217,7 @@ export const ChatPage: React.FC = () => {
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("recent");
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
@@ -287,15 +290,18 @@ export const ChatPage: React.FC = () => {
   // Apply filter tab
   // ----------------------------------------------------------
   const tabFiltered = useMemo(() => {
+    // Archived chats live only in the Archived tab
+    if (filterTab === "archived") return searchFiltered.filter((c: any) => c.isArchived);
+    const active = searchFiltered.filter((c: any) => !c.isArchived);
     switch (filterTab) {
       case "unread":
-        return searchFiltered.filter((c: any) => (c.unreadCount || 0) > 0);
+        return active.filter((c: any) => (c.unreadCount || 0) > 0);
       case "groups":
-        return searchFiltered.filter((c: any) => c.type === "GROUP");
+        return active.filter((c: any) => c.type === "GROUP");
       case "direct":
-        return searchFiltered.filter((c: any) => c.type === "PRIVATE");
+        return active.filter((c: any) => c.type === "PRIVATE");
       default:
-        return searchFiltered;
+        return active;
     }
   }, [searchFiltered, filterTab]);
 
@@ -492,12 +498,14 @@ export const ChatPage: React.FC = () => {
   // Filter tab counts
   // ----------------------------------------------------------
   const tabCounts = useMemo(() => {
-    if (!chats) return { all: 0, unread: 0, groups: 0, direct: 0 };
+    if (!chats) return { all: 0, unread: 0, groups: 0, direct: 0, archived: 0 };
+    const active = chats.filter((c: any) => !c.isArchived);
     return {
-      all: chats.length,
-      unread: chats.filter((c: any) => (c.unreadCount || 0) > 0).length,
-      groups: chats.filter((c: any) => c.type === "GROUP").length,
-      direct: chats.filter((c: any) => c.type === "PRIVATE").length,
+      all: active.length,
+      unread: active.filter((c: any) => (c.unreadCount || 0) > 0).length,
+      groups: active.filter((c: any) => c.type === "GROUP").length,
+      direct: active.filter((c: any) => c.type === "PRIVATE").length,
+      archived: chats.length - active.length,
     };
   }, [chats]);
 
@@ -919,9 +927,9 @@ export const ChatPage: React.FC = () => {
                 whileHover={reduced ? undefined : { scale: 1.05 }}
                 whileTap={reduced ? undefined : { scale: 0.9 }}
                 type="button"
-                onClick={() => toast.info("Settings coming soon")}
+                onClick={() => setShowPrivacy(true)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:hover:text-slate-200 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                title="Settings"
+                title="Chat privacy settings"
               >
                 <Settings className="w-4 h-4" />
               </motion.button>
@@ -940,6 +948,10 @@ export const ChatPage: React.FC = () => {
             </div>
           </div>
         </motion.div>
+
+        <AnimatePresence>
+          {showPrivacy && <ChatPrivacyDialog onClose={() => setShowPrivacy(false)} />}
+        </AnimatePresence>
 
         {/* =================================================
             MAIN CONTENT

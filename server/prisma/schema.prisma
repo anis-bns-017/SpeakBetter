@@ -202,6 +202,14 @@ model ChatParticipant {
   isPinned   Boolean             @default(false)
   joinedAt   DateTime            @default(now())
   lastReadAt DateTime            @default(now())
+  /// Per-user chat list state (isMuted above is an admin mute that blocks sending)
+  isArchived Boolean             @default(false)
+  /// Notifications silenced until this time (far future = always)
+  mutedUntil DateTime?
+  /// Hidden behind the user's chat-lock PIN (Settings.chatLockPinHash)
+  isLocked   Boolean             @default(false)
+  /// "Clear history": messages before this are hidden for this user only
+  clearedAt  DateTime?
 
   @@unique([chatId, userId])
   @@index([chatId])
@@ -502,6 +510,9 @@ model User {
   messages               Message[]
   reactions              Reaction[]
   readReceipts           ReadReceipt[]
+  savedMessages          SavedMessage[]
+  hiddenMessages         MessageHidden[]
+  scheduledMessages      ScheduledMessage[]
   messageTranslations    MessageTranslation[]
   createdRooms           VoiceRoom[]             @relation("RoomCreator")
   voiceParticipants      VoiceParticipant[]
@@ -649,6 +660,12 @@ model Settings {
   allowFriendRequests      Boolean  @default(true)
   allowDirectMessages      Boolean  @default(true)
   autoTranslateMessages    Boolean  @default(false)
+  /// Chat privacy — each one is mutual: hide yours and you stop seeing other people's
+  showLastSeen             Boolean  @default(true)
+  sendReadReceipts         Boolean  @default(true)
+  showTypingIndicator      Boolean  @default(true)
+  /// bcrypt hash of the PIN that opens locked chats
+  chatLockPinHash          String?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }
@@ -710,8 +727,11 @@ model Chat {
   ownerId      String?
   owner        User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   isPublic     Boolean           @default(false)
+  /// Disappearing messages: new messages expire after this many seconds (null = off)
+  disappearingSeconds Int?
   participants ChatParticipant[]
   messages     Message[]
+  scheduledMessages ScheduledMessage[]
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
@@ -757,10 +777,20 @@ model Message {
   isPinned     Boolean              @default(false)
   editedAt     DateTime?
   deletedAt    DateTime?
+  /// Disappearing messages: removed for everyone after this time
+  expiresAt    DateTime?
+  /// Photo/video that the recipient can open once; the file is deleted after
+  isViewOnce   Boolean              @default(false)
+  /// First time any recipient's device was connected after it was sent
+  deliveredAt  DateTime?
+  /// Set on forwarded copies: the message this was forwarded from
+  forwardedFromId String?
   reactions    Reaction[]
   readReceipts ReadReceipt[]
   translations MessageTranslation[]
   attachments  MessageAttachment[]
+  savedBy      SavedMessage[]
+  hiddenFor    MessageHidden[]
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
@@ -769,6 +799,53 @@ model Message {
   @@index([senderId])
   @@index([replyToId])
   @@index([isPinned])
+  @@index([expiresAt])
+}
+
+/// "Saved messages" (the bookmark on a message), per user
+model SavedMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, messageId])
+  @@index([userId])
+}
+
+/// "Delete for me": the message stays for everyone else
+model MessageHidden {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, messageId])
+  @@index([userId])
+}
+
+/// A message the sender scheduled; the server sends it at sendAt
+model ScheduledMessage {
+  id        String   @id @default(cuid())
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content   String?
+  type      MessageType @default(TEXT)
+  mediaUrl  String?
+  fileUrl   String?
+  metadata  Json?
+  replyToId String?
+  sendAt    DateTime
+  createdAt DateTime @default(now())
+
+  @@index([sendAt])
+  @@index([chatId, senderId])
 }
 
 model Reaction {

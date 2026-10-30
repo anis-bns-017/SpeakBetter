@@ -1,0 +1,106 @@
+name: CI
+
+# Runs on every push to master and on every pull request.
+#
+# Gate status as measured on the dev machine (2026-10-30):
+#   server typecheck  PASS   (tsc --noEmit, clean)
+#   server tests      PASS   (1 test)
+#   web typecheck     FAIL   (~364 errors: 306 unused-local, ~58 real type errors)
+#
+# The web steps are therefore non-blocking so this pipeline is green on
+# day one. Flip `continue-on-error` to false for each step as you fix it.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # prisma.config.ts calls env('DATABASE_URL') while the config loads, so
+  # `prisma generate` throws if this is unset. No database is contacted:
+  # a placeholder is enough. Tests are unit-level and need no DB service.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+
+jobs:
+  server:
+    name: Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Must precede setup-node so `cache: pnpm` can locate pnpm.
+      # Matches package.json devEngines.packageManager (^11.17.0).
+      # If this version does not resolve, use the version that generated
+      # pnpm-lock.yaml (12.8.1 on the dev machine).
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # There is no postinstall hook, so the Prisma client is never
+      # generated automatically. Without this the server cannot typecheck
+      # or build, because @prisma/client ships no generated types.
+      - name: Generate Prisma client
+        run: pnpm --filter server exec prisma generate
+
+      - name: Typecheck
+        run: pnpm --filter server exec tsc --noEmit -p tsconfig.build.json
+
+      - name: Test
+        run: pnpm --filter server exec jest --ci --passWithNoTests
+
+      - name: Build
+        run: pnpm --filter server run build
+
+      # Non-blocking: remove continue-on-error once existing violations
+      # are fixed, otherwise lint findings stay invisible.
+      - name: Lint (non-blocking)
+        continue-on-error: true
+        run: pnpm --filter server exec eslint "{src,test}/**/*.ts"
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # TODO: currently ~364 type errors, so the `build` script
+      # (`tsc -b && vite build`) cannot succeed. Make this blocking once
+      # the errors are gone.
+      - name: Typecheck (non-blocking)
+        continue-on-error: true
+        run: pnpm --filter web exec tsc --noEmit -p tsconfig.app.json
+
+      - name: Build (non-blocking)
+        continue-on-error: true
+        run: pnpm --filter web run build
+
+      - name: Lint (non-blocking)
+        continue-on-error: true
+        run: pnpm --filter web exec eslint .

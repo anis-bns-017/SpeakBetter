@@ -1,5 +1,16 @@
 // apps/web/src/components/chat/MessageInput.tsx
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
+import type { AlbumAttachment } from "../../hooks/useChat";
+import { getDraft, setDraft } from "../../lib/chatDrafts";
+import { ScheduleDialog } from "./ChatDialogs";
 import {
   Send,
   Image as ImageIcon,
@@ -26,9 +37,12 @@ import {
   Sticker,
   Plus,
   Sparkles,
+  CalendarClock,
+  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { apiClient } from "../../lib/api/client";
 
 interface MessageInputProps {
   onSend: (
@@ -36,7 +50,19 @@ interface MessageInputProps {
     type?: string,
     mediaUrl?: string,
     fileUrl?: string,
+    /**
+     * Voice notes: recorded length in seconds (WebM files often don't store it).
+     * Files: original name, size and mime type, shown on the file card.
+     * Photos/videos: view-once, or several sent together as an album.
+     */
+    extra?: SendExtra,
   ) => void;
+  /** Unsent text is kept per chat under this key */
+  draftKey?: string;
+  /** Group members for @mention suggestions */
+  mentionCandidates?: Array<{ id: string; name: string }>;
+  /** Schedule the typed text; resolves true when it was scheduled */
+  onSchedule?: (content: string, sendAt: Date) => Promise<boolean>;
   onTyping?: (isTyping: boolean) => void;
   onVoiceRecording?: (blob: Blob, duration: number) => void;
   editingMessage?: { id: string; content: string } | null;
@@ -49,54 +75,61 @@ interface MessageInputProps {
   recordingDuration?: number;
 }
 
+export interface SendExtra {
+  duration?: number;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  isViewOnce?: boolean;
+  attachments?: AlbumAttachment[];
+}
+
+/** Lets the chat window hand over files dropped anywhere on it */
+export interface MessageInputHandle {
+  addFiles: (files: File[]) => void;
+}
+
+/** One photo/video of an album being uploaded */
+interface AlbumItem {
+  id: string;
+  file: File;
+  localUrl: string;
+  kind: "IMAGE" | "VIDEO";
+  progress: number;
+  url?: string;
+  failed?: boolean;
+}
+
+const MAX_ALBUM = 10;
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const DOC_EXTENSIONS = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|txt|csv)$/i;
+
 const BAR_COUNT = 32;
 
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_UPLOAD_PRESET_VOICE =
-  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_VOICE ||
-  "lingoverse_voice_messages";
-const CLOUDINARY_UPLOAD_PRESET_IMAGE =
-  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_IMAGE ||
-  "lingoverse_chat_images";
-const CLOUDINARY_UPLOAD_PRESET_VIDEO =
-  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_VIDEO ||
-  "lingoverse_chat_videos";
-const CLOUDINARY_UPLOAD_PRESET_FILE =
-  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_FILE || "lingoverse_chat_files";
-const CLOUDINARY_UPLOAD_PRESET_AVATAR =
-  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_AVATAR ||
-  "lingoverse_user_avatars";
+/**
+ * Uploads go through our server (POST /upload/:kind), which signs them with the
+ * Cloudinary API secret — no unsigned upload presets needed in the Cloudinary console.
+ * Documents are stored as "raw" so PDFs always download.
+ */
+const SERVER_UPLOAD_KIND: Record<string, "image" | "video" | "audio" | "file"> = {
+  image: "image",
+  video: "video",
+  audio: "audio",
+  voice: "audio",
+  file: "file",
+};
 
-const getUploadPreset = (type: string) => {
-  switch (type) {
-    case "audio":
-    case "voice":
-      return CLOUDINARY_UPLOAD_PRESET_VOICE;
-    case "image":
-      return CLOUDINARY_UPLOAD_PRESET_IMAGE;
-    case "video":
-      return CLOUDINARY_UPLOAD_PRESET_VIDEO;
-    case "avatar":
-      return CLOUDINARY_UPLOAD_PRESET_AVATAR;
-    default:
-      return CLOUDINARY_UPLOAD_PRESET_FILE;
+/** The server's local-storage fallback returns "/uploads/..."; serve it from the API origin */
+const toAbsoluteUploadUrl = (url: string) => {
+  if (!url.startsWith("/")) return url;
+  try {
+    return new URL(url, apiClient.defaults.baseURL || window.location.origin).toString();
+  } catch {
+    return url;
   }
 };
 
-const getResourceType = (type: string) => {
-  switch (type) {
-    case "image":
-      return "image";
-    case "video":
-    case "audio":
-    case "voice":
-      return "video";
-    default:
-      return "auto";
-  }
-};
-
-export const MessageInput: React.FC<MessageInputProps> = ({
+export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(function MessageInput({
   onSend,
   onTyping,
   onVoiceRecording,
@@ -106,9 +139,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onEmojiPickerToggle,
   onSelectMessages,
   isSelectionMode = false,
-}) => {
-  const [content, setContent] = useState("");
+  draftKey,
+  mentionCandidates,
+  onSchedule,
+}, ref) {
+  const [content, setContent] = useState(() => (draftKey ? getDraft(draftKey) : ""));
   const [isUploading, setIsUploading] = useState(false);
+  /** 0–1 while a single attachment uploads */
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [album, setAlbum] = useState<AlbumItem[]>([]);
+  /** Next photo/video is view-once */
+  const [viewOnce, setViewOnce] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [mentionIndex, setMentionIndex] = useState(0);
   const [mediaPreview, setMediaPreview] = useState<{
     url: string;
     type: "image" | "video" | "audio" | "file";
@@ -241,33 +284,25 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   }, []);
 
+  /** Uploads via our server (signed Cloudinary upload); returns the public URL or null */
   const uploadToCloudinary = useCallback(
-    async (file: File, type: string): Promise<string | null> => {
+    async (file: File, type: string, onProgress?: (fraction: number) => void): Promise<string | null> => {
       try {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("upload_preset", getUploadPreset(type));
 
-        const resourceType = getResourceType(type);
-        const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
-
-        const response = await fetch(uploadUrl, {
-          method: "POST",
-          body: formData,
+        const kind = SERVER_UPLOAD_KIND[type] ?? "file";
+        const { data } = await apiClient.post<{ url?: string }>(`/upload/${kind}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+          timeout: 120_000,
+          onUploadProgress: (e) => onProgress?.(e.total ? e.loaded / e.total : 0),
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(
-            errorData.error?.message || `Upload failed: ${response.status}`,
-          );
-        }
-
-        const data = await response.json();
-        return data.secure_url;
+        if (!data?.url) throw new Error("Upload returned no file URL");
+        return toAbsoluteUploadUrl(data.url);
       } catch (error: any) {
         console.error(`Upload error (${type}):`, error);
-        toast.error(error.message || "Upload failed");
+        toast.error(error?.response?.data?.message || error?.message || "Upload failed");
         return null;
       }
     },
@@ -514,6 +549,40 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingMessage?.id]);
 
+  // Back from editing a message: bring back this chat's unsent draft
+  // (declared before the save effect so the draft is read before it's overwritten)
+  useEffect(() => {
+    if (!editingMessage && draftKey) setContent(getDraft(draftKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingMessage?.id]);
+
+  // Keep the draft while typing (not while editing an existing message)
+  useEffect(() => {
+    if (draftKey && !editingMessage) setDraft(draftKey, content);
+  }, [content, draftKey, editingMessage]);
+
+  // ── @mentions (groups) ─────────────────────────────────────
+  const mentionQuery = useMemo(() => {
+    if (!mentionCandidates?.length || editingMessage) return null;
+    const match = /(?:^|\s)@([\p{L}\p{N}_]*)$/u.exec(content);
+    return match ? match[1].toLowerCase() : null;
+  }, [content, mentionCandidates, editingMessage]);
+
+  const mentionMatches = useMemo(
+    () =>
+      mentionQuery === null
+        ? []
+        : (mentionCandidates ?? []).filter((c) => c.name.toLowerCase().includes(mentionQuery)).slice(0, 6),
+    [mentionQuery, mentionCandidates],
+  );
+
+  useEffect(() => setMentionIndex(0), [mentionQuery]);
+
+  const insertMention = useCallback((name: string) => {
+    setContent((prev) => prev.replace(/@([\p{L}\p{N}_]*)$/u, `@${name} `));
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -575,7 +644,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         uploadVoiceToCloudinary(recordingBlob, dur)
           .then((url) => {
             if (url) {
-              onSend("🎤 Voice message", "VOICE_NOTE", url, url);
+              onSend("🎤 Voice message", "VOICE_NOTE", url, url, { duration: dur });
               toast.success("🎙️ Voice message sent!");
               discardRecording();
               setContent("");
@@ -595,7 +664,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       // Case B: already uploaded → send immediately
       if (audioUrl.startsWith("http")) {
-        onSend("🎤 Voice message", "VOICE_NOTE", audioUrl, audioUrl);
+        const dur = Math.max(
+          1,
+          Math.round(audioDuration || recordingDurationRef.current || 1),
+        );
+        onSend("🎤 Voice message", "VOICE_NOTE", audioUrl, audioUrl, { duration: dur });
         toast.success("🎙️ Voice message sent!");
         discardRecording();
         setContent("");
@@ -606,14 +679,60 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         return;
       }
 
-      // Fallback: unknown URL — send as-is
-      onSend("🎤 Voice message", "VOICE_NOTE", audioUrl, audioUrl);
-      discardRecording();
+      // Anything else isn't a real uploaded file — never send it
+      toast.error("This voice note couldn't be uploaded. Please record it again.");
+      return;
+    }
+
+    // ── Photos / videos (one, view-once, or an album) ─────────
+    if (album.length) {
+      if (album.some((a) => !a.url && !a.failed)) {
+        toast.error("Still uploading — send it in a moment");
+        return;
+      }
+      const ready = album.filter((a) => a.url);
+      if (!ready.length) {
+        toast.error("Upload failed. Remove the attachments and try again.");
+        return;
+      }
+      const attachments: AlbumAttachment[] = ready.map((a) => ({
+        url: a.url!,
+        type: a.kind,
+        filename: a.file.name,
+        mimeType: a.file.type,
+        size: a.file.size,
+      }));
+      const first = attachments[0];
+      onSend(
+        content.trim(),
+        first.type,
+        first.url,
+        first.url,
+        attachments.length > 1 ? { attachments } : { isViewOnce: viewOnce },
+      );
+      album.forEach((a) => URL.revokeObjectURL(a.localUrl));
+      setAlbum([]);
+      setViewOnce(false);
+      setContent("");
+      setShowAttachmentMenu(false);
+      setShowEmojiPicker(false);
+      stopTyping();
       return;
     }
 
     // ── Text / image / video / file branch ────────────────────
     if (!content.trim() && !mediaPreview && !fileAttachment) return;
+
+    // A blob: preview only exists in this browser tab; sending it would leave a broken
+    // message for everyone (and for you after a refresh)
+    if (mediaPreview && !mediaPreview.url.startsWith("http")) {
+      toast.error(
+        isUploading
+          ? "Still uploading — send it in a moment"
+          : "Upload failed. Remove the attachment and try again.",
+      );
+      return;
+    }
 
     let messageType = "TEXT";
     let mediaUrl = mediaPreview?.url;
@@ -634,7 +753,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       mediaUrl = fileAttachment.url;
     }
 
-    onSend(content.trim(), messageType, mediaUrl, fileUrl);
+    onSend(
+      content.trim(),
+      messageType,
+      mediaUrl,
+      fileUrl,
+      messageType === "FILE" && fileAttachment
+        ? {
+            fileName: fileAttachment.name,
+            fileSize: fileAttachment.size,
+            mimeType: fileAttachment.type,
+          }
+        : messageType === "IMAGE" || messageType === "VIDEO"
+          ? { isViewOnce: viewOnce }
+          : undefined,
+    );
+    setViewOnce(false);
 
     setContent("");
     setMediaPreview(null);
@@ -648,91 +782,118 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     content,
     mediaPreview,
     fileAttachment,
+    isUploading,
     recordingBlob,
     audioDuration,
     onSend,
     uploadVoiceToCloudinary,
     discardRecording,
     stopTyping,
+    album,
+    viewOnce,
   ]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // @mention suggestions take the arrow keys, Enter and Tab while open
+      if (mentionMatches.length) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          setMentionIndex((i) => (i + (e.key === "ArrowDown" ? 1 : -1) + mentionMatches.length) % mentionMatches.length);
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          insertMention(mentionMatches[mentionIndex]?.name ?? mentionMatches[0].name);
+          return;
+        }
+      }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
       if (e.key === "Escape" && editingMessage) handleCancelEdit();
     },
-    [handleSend, editingMessage, handleCancelEdit],
+    [handleSend, editingMessage, handleCancelEdit, mentionMatches, mentionIndex, insertMention],
   );
 
-  const handleFileUpload = useCallback(
-    async (
-      e: React.ChangeEvent<HTMLInputElement>,
-      type: "image" | "video" | "audio" | "file",
-    ) => {
-      if (editingMessage) return;
-      const file = e.target.files?.[0];
-      if (!file) return;
+  // ── Albums: several photos/videos, each uploading with its own progress ──
+  const albumRef = useRef<AlbumItem[]>([]);
+  useEffect(() => {
+    albumRef.current = album;
+  }, [album]);
 
-      if (file.size > 50 * 1024 * 1024) {
+  const addToAlbum = useCallback(
+    (files: File[]) => {
+      const tooBig = files.filter((f) => f.size > MAX_FILE_BYTES);
+      if (tooBig.length) toast.error(`${tooBig.length} file${tooBig.length > 1 ? "s are" : " is"} over 50MB and skipped`);
+
+      const room = MAX_ALBUM - albumRef.current.length;
+      const usable = files.filter((f) => f.size <= MAX_FILE_BYTES);
+      if (usable.length > room) toast.info(`You can send up to ${MAX_ALBUM} photos and videos at once`);
+
+      const items: AlbumItem[] = usable.slice(0, Math.max(0, room)).map((file) => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file,
+        localUrl: URL.createObjectURL(file),
+        kind: file.type.startsWith("video/") ? "VIDEO" : "IMAGE",
+        progress: 0,
+      }));
+      if (!items.length) return;
+
+      albumRef.current = [...albumRef.current, ...items];
+      setAlbum(albumRef.current);
+      if (albumRef.current.length > 1) setViewOnce(false);
+      setShowAttachmentMenu(false);
+
+      const update = (id: string, changes: Partial<AlbumItem>) =>
+        setAlbum((prev) => prev.map((a) => (a.id === id ? { ...a, ...changes } : a)));
+      for (const item of items) {
+        void uploadToCloudinary(item.file, item.kind === "VIDEO" ? "video" : "image", (p) =>
+          update(item.id, { progress: p }),
+        ).then((url) => update(item.id, url ? { url, progress: 1 } : { failed: true }));
+      }
+    },
+    [uploadToCloudinary],
+  );
+
+  const removeAlbumItem = useCallback((id: string) => {
+    setAlbum((prev) => {
+      prev.find((a) => a.id === id && URL.revokeObjectURL(a.localUrl));
+      return prev.filter((a) => a.id !== id);
+    });
+  }, []);
+
+  /** One attachment (audio file or document) with a preview before sending */
+  const uploadSingle = useCallback(
+    async (file: File, type: "audio" | "file") => {
+      if (file.size > MAX_FILE_BYTES) {
         toast.error("File size exceeds 50MB limit");
         return;
       }
 
       setIsUploading(true);
+      setUploadProgress(0);
+      const localUrl = URL.createObjectURL(file);
 
       try {
-        const localUrl = URL.createObjectURL(file);
-
-        if (type === "image") {
-          setMediaPreview({ url: localUrl, type: "image" });
-        } else if (type === "video") {
-          setMediaPreview({ url: localUrl, type: "video", name: file.name });
-        } else if (type === "audio") {
+        if (type === "audio") {
           setMediaPreview({ url: localUrl, type: "audio", name: file.name });
         } else {
-          setFileAttachment({
-            name: file.name,
-            url: localUrl,
-            size: file.size,
-            type: file.type,
-          });
+          setFileAttachment({ name: file.name, url: localUrl, size: file.size, type: file.type });
         }
 
-        const uploadedUrl = await uploadToCloudinary(file, type);
+        const uploadedUrl = await uploadToCloudinary(file, type, setUploadProgress);
 
         if (uploadedUrl) {
-          if (type === "image") {
-            setMediaPreview({ url: uploadedUrl, type: "image" });
-          } else if (type === "video") {
-            setMediaPreview({
-              url: uploadedUrl,
-              type: "video",
-              name: file.name,
-            });
-          } else if (type === "audio") {
-            setMediaPreview({
-              url: uploadedUrl,
-              type: "audio",
-              name: file.name,
-            });
+          if (type === "audio") {
+            setMediaPreview({ url: uploadedUrl, type: "audio", name: file.name });
           } else {
-            setFileAttachment({
-              name: file.name,
-              url: uploadedUrl,
-              size: file.size,
-              type: file.type,
-            });
+            setFileAttachment({ name: file.name, url: uploadedUrl, size: file.size, type: file.type });
           }
-
           URL.revokeObjectURL(localUrl);
-          toast.success(
-            `📤 ${type.charAt(0).toUpperCase() + type.slice(1)} uploaded!`,
-          );
         } else {
-          toast.warning("⚠️ Upload failed. Using local preview.");
+          toast.error("Upload failed — remove the attachment and try again.");
         }
       } catch (error) {
         console.error("Upload error:", error);
@@ -740,10 +901,81 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       } finally {
         setIsUploading(false);
         setShowAttachmentMenu(false);
-        e.target.value = "";
       }
     },
-    [editingMessage, uploadToCloudinary],
+    [uploadToCloudinary],
+  );
+
+  /** Several documents at once: each is uploaded and sent as its own message */
+  const sendDocuments = useCallback(
+    async (docs: File[]) => {
+      if (docs.length === 1 && !fileAttachment) {
+        await uploadSingle(docs[0], "file");
+        return;
+      }
+      setIsUploading(true);
+      let sent = 0;
+      try {
+        for (const [i, doc] of docs.entries()) {
+          if (doc.size > MAX_FILE_BYTES) {
+            toast.error(`${doc.name} is over 50MB`);
+            continue;
+          }
+          const url = await uploadToCloudinary(doc, "file", (p) => setUploadProgress((i + p) / docs.length));
+          if (url) {
+            onSend("", "FILE", url, url, { fileName: doc.name, fileSize: doc.size, mimeType: doc.type });
+            sent++;
+          }
+        }
+        if (sent) toast.success(`📤 Sent ${sent} file${sent > 1 ? "s" : ""}`);
+      } finally {
+        setIsUploading(false);
+        setUploadProgress(0);
+        setShowAttachmentMenu(false);
+      }
+    },
+    [fileAttachment, uploadSingle, uploadToCloudinary, onSend],
+  );
+
+  /** Routes picked, pasted or dropped files to the right flow */
+  const addFiles = useCallback(
+    (files: File[]) => {
+      if (editingMessage || isSelectionMode || !files.length) return;
+      const media = files.filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
+      const audio = files.filter((f) => f.type.startsWith("audio/"));
+      const docs = files.filter((f) => !media.includes(f) && !audio.includes(f) && DOC_EXTENSIONS.test(f.name));
+      const unsupported = files.length - media.length - audio.length - docs.length;
+
+      if (unsupported) toast.error(`${unsupported} file${unsupported > 1 ? "s aren't" : " isn't"} a supported type`);
+      if (media.length) addToAlbum(media);
+      if (audio.length) void uploadSingle(audio[0], "audio");
+      if (docs.length) void sendDocuments(docs);
+    },
+    [editingMessage, isSelectionMode, addToAlbum, uploadSingle, sendDocuments],
+  );
+
+  useImperativeHandle(ref, () => ({ addFiles }), [addFiles]);
+
+  const handleFileUpload = useCallback(
+    async (
+      e: React.ChangeEvent<HTMLInputElement>,
+      type: "image" | "video" | "audio" | "file",
+    ) => {
+      if (editingMessage) return;
+      const picked = Array.from(e.target.files ?? []);
+      e.target.value = "";
+      if (!picked.length) return;
+      if (type === "image" || type === "video") {
+        addToAlbum(picked);
+        return;
+      }
+      if (type === "file") {
+        void sendDocuments(picked);
+        return;
+      }
+      await uploadSingle(picked[0], "audio");
+    },
+    [editingMessage, addToAlbum, sendDocuments, uploadSingle],
   );
 
   const removeAttachment = useCallback(() => {
@@ -756,11 +988,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       setMediaPreview(null);
     }
     setFileAttachment(null);
+    album.forEach((a) => URL.revokeObjectURL(a.localUrl));
+    setAlbum([]);
+    setViewOnce(false);
     if (imageInputRef.current) imageInputRef.current.value = "";
     if (videoInputRef.current) videoInputRef.current.value = "";
     if (audioInputRef.current) audioInputRef.current.value = "";
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [discardRecording, mediaPreview, recordingBlob]);
+  }, [discardRecording, mediaPreview, recordingBlob, album]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + " B";
@@ -801,10 +1036,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const isEditMode = !!editingMessage;
   const hasVoice = mediaPreview?.type === "audio" || !!recordingBlob;
   const canSend =
-    (content.trim() || mediaPreview || fileAttachment || hasVoice) &&
+    (content.trim() || mediaPreview || fileAttachment || hasVoice || album.length > 0) &&
     !isUploading &&
     !isRecording &&
     !isSelectionMode;
+  const canSchedule =
+    !!onSchedule && !isEditMode && !!content.trim() && !album.length && !mediaPreview && !fileAttachment && !hasVoice;
 
   return (
     <motion.div
@@ -817,6 +1054,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         type="file"
         ref={imageInputRef}
         accept="image/*"
+        multiple
         className="hidden"
         onChange={(e) => handleFileUpload(e, "image")}
       />
@@ -824,6 +1062,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         type="file"
         ref={videoInputRef}
         accept="video/*"
+        multiple
         className="hidden"
         onChange={(e) => handleFileUpload(e, "video")}
       />
@@ -838,6 +1077,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         type="file"
         ref={fileInputRef}
         accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
+        multiple
         className="hidden"
         onChange={(e) => handleFileUpload(e, "file")}
       />
@@ -933,7 +1173,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Media Previews */}
       <AnimatePresence>
-        {(mediaPreview || fileAttachment || isUploading || isUploadingVoice) &&
+        {(mediaPreview || fileAttachment || isUploading || isUploadingVoice || album.length > 0) &&
           !isEditMode &&
           !isRecording && (
             <motion.div
@@ -949,9 +1189,87 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 </div>
               )}
               {isUploading && (
-                <div className="flex w-full items-center justify-center gap-2 py-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Uploading attachment…
+                <div className="w-full space-y-1.5 py-1">
+                  <div className="flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Uploading… {Math.round(uploadProgress * 100)}%
+                  </div>
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-200"
+                      style={{ width: `${Math.round(uploadProgress * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {album.length > 0 && !isUploading && (
+                <div className="w-full space-y-2">
+                  <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                    {album.map((item) => (
+                      <div key={item.id} className="group/preview relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-900 shadow-sm">
+                        {item.kind === "VIDEO" ? (
+                          <>
+                            <video src={item.localUrl} muted className="h-full w-full object-cover" />
+                            <Video className="absolute bottom-1 left-1 h-3.5 w-3.5 text-white drop-shadow" />
+                          </>
+                        ) : (
+                          <img src={item.localUrl} alt="" className="h-full w-full object-cover" />
+                        )}
+                        {!item.url && !item.failed && (
+                          <div className="absolute inset-0 flex items-end bg-black/40">
+                            <div className="h-1 bg-indigo-400 transition-[width] duration-200" style={{ width: `${Math.round(item.progress * 100)}%` }} />
+                          </div>
+                        )}
+                        {item.failed && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-red-500/70" title="Upload failed">
+                            <AlertCircle className="h-5 w-5 text-white" />
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeAlbumItem(item.id)}
+                          aria-label="Remove"
+                          className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition group-hover/preview:opacity-100"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {album.length < MAX_ALBUM && (
+                      <button
+                        type="button"
+                        onClick={() => imageInputRef.current?.click()}
+                        aria-label="Add more photos"
+                        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-slate-300 text-slate-400 transition hover:border-indigo-400 hover:text-indigo-500 dark:border-slate-600"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <span>
+                      {album.length} {album.length === 1 ? "item" : "items"}
+                      {album.length > 1 ? " · sent as an album" : ""} · add a caption below
+                    </span>
+                    {album.length === 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setViewOnce((v) => !v)}
+                        title="The recipient can open it only once"
+                        className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold transition ${
+                          viewOnce
+                            ? "bg-indigo-500 text-white"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                        }`}
+                      >
+                        <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-dashed text-[9px] ${viewOnce ? "border-white" : "border-current"}`}>
+                          1
+                        </span>
+                        View once
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1156,6 +1474,41 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         )}
       </AnimatePresence>
 
+      {/* @mention suggestions */}
+      <AnimatePresence>
+        {mentionMatches.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            role="listbox"
+            aria-label="Mention someone"
+            className="absolute bottom-[4.5rem] left-14 z-50 w-60 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 py-1 shadow-2xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/95"
+          >
+            {mentionMatches.map((c, i) => (
+              <button
+                key={c.id}
+                type="button"
+                role="option"
+                aria-selected={i === mentionIndex}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  insertMention(c.name);
+                }}
+                className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition ${
+                  i === mentionIndex ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300" : "text-slate-700 dark:text-slate-200"
+                }`}
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-[11px] font-semibold text-white">
+                  {c.name.charAt(0).toUpperCase()}
+                </span>
+                {c.name}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Main Composer */}
       <motion.div
         className={`relative flex items-end gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border p-2 rounded-2xl shadow-sm transition-all duration-200 ${
@@ -1208,14 +1561,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           value={content}
           onChange={(e) => handleTyping(e.target.value)}
           onPaste={(e) => {
-            // Paste a screenshot/image straight into the chat
-            const file = Array.from(e.clipboardData?.files ?? []).find((f) => f.type.startsWith("image/"));
-            if (!file) return;
+            // Paste screenshots, photos or files straight into the chat
+            const files = Array.from(e.clipboardData?.files ?? []);
+            if (!files.length) return;
             e.preventDefault();
-            void handleFileUpload(
-              { target: { files: [file], value: "" } } as unknown as React.ChangeEvent<HTMLInputElement>,
-              "image",
-            );
+            addFiles(files);
           }}
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
@@ -1288,6 +1638,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               title="Emoji"
             >
               <Smile className="w-5 h-5" />
+            </motion.button>
+          )}
+
+          {canSchedule && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              type="button"
+              onClick={() => setShowSchedule(true)}
+              className="p-2.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all"
+              title="Schedule message"
+              aria-label="Schedule message"
+            >
+              <CalendarClock className="w-5 h-5" />
             </motion.button>
           )}
 
@@ -1368,6 +1734,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showSchedule && onSchedule && (
+          <ScheduleDialog
+            text={content.trim()}
+            onClose={() => setShowSchedule(false)}
+            onSchedule={async (sendAt) => {
+              if (await onSchedule(content.trim(), sendAt)) {
+                setContent("");
+                stopTyping();
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
-};
+});

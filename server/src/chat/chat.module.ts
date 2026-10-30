@@ -6,6 +6,11 @@ import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { PrismaService } from '../prisma.service';
 import { LearningModule } from '../learning/learning.module';
+import { ChatFeaturesController } from './chat-features.controller';
+import { ChatPrivacyService } from './chat-privacy.service';
+import { ChatFeaturesService } from './chat-features.service';
+import { LinkPreviewService } from './link-preview.service';
+import { ChatSchedulerService } from './chat-scheduler.service';
 
 @Module({
   imports: [
@@ -19,8 +24,16 @@ import { LearningModule } from '../learning/learning.module';
     // ActivityService: XP for giving and accepting corrections
     LearningModule,
   ],
-  controllers: [ChatController],
-  providers: [ChatService, ChatGateway, PrismaService],
+  controllers: [ChatController, ChatFeaturesController],
+  providers: [
+    ChatService,
+    ChatGateway,
+    PrismaService,
+    ChatPrivacyService,
+    ChatFeaturesService,
+    LinkPreviewService,
+    ChatSchedulerService,
+  ],
   exports: [ChatService],
 })
 export class ChatModule {}

@@ -15,12 +15,29 @@ import {
   useDeleteMessage,
   useEditMessage,
   usePinMessage,
+  useScheduledMessages,
+  chatApi,
+  apiErrorMessage,
+  patchMessage,
+  removeMessagesFromCaches,
+  isMutedNow,
   type Message,
 } from "../../hooks/useChat";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../contexts/AuthContext";
 import { MessageBubble } from "./MessageBubble";
-import { MessageInput } from "./MessageInput";
+import { MessageInput, type MessageInputHandle, type SendExtra } from "./MessageInput";
 import { CorrectionComposer } from "./CorrectionCard";
+import { ChatInfoPanel } from "./ChatInfoPanel";
+import {
+  ChatLockGate,
+  ChatPrivacyDialog,
+  ForwardDialog,
+  MessageInfoDialog,
+  ReportDialog,
+  disappearingLabel,
+} from "./ChatDialogs";
+import { isChatUnlocked, unlockChat } from "../../lib/chatUnlock";
 import {
   Reply,
   X,
@@ -47,10 +64,18 @@ import {
   Sparkles,
   Clock,
   Star,
-  Volume2,
-  VolumeX,
   Maximize2,
   Minimize2,
+  Bookmark,
+  BookmarkX,
+  Info,
+  Lock,
+  Timer,
+  BellOff,
+  CalendarClock,
+  UploadCloud,
+  EyeOff,
+  CheckSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, isToday, isYesterday, formatDistanceToNow, formatDistanceToNowStrict } from "date-fns";
@@ -104,9 +129,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  // Premium features
+  const [forwardIds, setForwardIds] = useState<string[] | null>(null);
+  const [infoMessageId, setInfoMessageId] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ type: "USER" | "MESSAGE"; id: string; label: string } | null>(null);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [unlocked, setUnlocked] = useState(() => (chatId ? isChatUnlocked(chatId) : true));
+  const [isDragging, setIsDragging] = useState(false);
+  const [showScheduled, setShowScheduled] = useState(false);
+  /** Message briefly highlighted after jumping to it */
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const inputRef = useRef<MessageInputHandle>(null);
+  const dragDepthRef = useRef(0);
+  const queryClient = useQueryClient();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -210,6 +247,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     return `Last seen ${formatDistanceToNowStrict(date, { addSuffix: true })}`;
   }, [otherUser]);
 
+  /** Locked chat that hasn't been opened with the PIN in this tab yet */
+  const isLocked = !isCommunity && !!chat?.isLocked && !unlocked;
+  const isMutedChat = isMutedNow(chat?.mutedUntil);
+  const { data: scheduled = [] } = useScheduledMessages(isCommunity ? "" : chatId || "");
+
+  /** Group members I can @mention */
+  const mentionCandidates = useMemo(
+    () =>
+      isGroup && chat
+        ? chat.participants
+            .filter((p) => p.userId !== user?.id && p.user?.name)
+            .map((p) => ({ id: p.userId, name: p.user.name }))
+        : undefined,
+    [isGroup, chat, user?.id],
+  );
+
   // Select a word or phrase in a message → dictionary, pronunciation, save to flashcards
   const [lookup, setLookup] = useState<WordSelection | null>(null);
   const handleSelectionEnd = useCallback(() => {
@@ -253,12 +306,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [messages.length, isNearBottom, scrollToBottom]);
 
   useEffect(() => {
-    if (!messages?.length || !user?.id) return;
+    // A locked chat isn't "read" until it's opened with the PIN
+    if (!messages?.length || !user?.id || isLocked) return;
     const last = messages[messages.length - 1];
     if (last.senderId === user.id || lastReadIdRef.current === last.id) return;
     lastReadIdRef.current = last.id;
     emitRead?.(last.id);
-  }, [messages, user?.id, emitRead]);
+  }, [messages, user?.id, emitRead, isLocked]);
 
   const handleScroll = useCallback(() => {
     const el = messagesContainerRef.current;
@@ -297,6 +351,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       type?: string,
       mediaUrl?: string,
       fileUrl?: string,
+      extra?: SendExtra,
     ) => {
       const trimmed = content.trim();
       if (!trimmed && !mediaUrl && !fileUrl) return;
@@ -327,6 +382,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         mediaUrl,
         fileUrl,
         replyToId: replyTo?.id,
+        // Voice notes keep their recorded length so the player can show it
+        ...(extra?.duration ? { metadata: { duration: extra.duration } } : {}),
+        // Files keep their name / size / type so the bubble can show them
+        ...(type === "FILE" && extra?.fileName
+          ? {
+              metadata: {
+                fileName: extra.fileName,
+                fileSize: extra.fileSize,
+                mimeType: extra.mimeType,
+              },
+            }
+          : {}),
+        ...(extra?.isViewOnce ? { isViewOnce: true } : {}),
+        ...(extra?.attachments?.length ? { attachments: extra.attachments } : {}),
       };
 
       try {
@@ -483,6 +552,114 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     setShowMessageActions(null);
   }, []);
 
+  const handleToggleSave = useCallback(
+    async (message: Message) => {
+      const saved = !message.isSaved;
+      patchMessage(queryClient, message.id, { isSaved: saved });
+      setShowMessageActions(null);
+      try {
+        await chatApi.saveMessage(message.id, saved);
+        queryClient.invalidateQueries({ queryKey: ["chat-gallery", chatId, "saved"] });
+        toast.success(saved ? "Saved — find it in Chat info → Saved" : "Removed from saved");
+      } catch (error) {
+        patchMessage(queryClient, message.id, { isSaved: !saved });
+        toast.error(apiErrorMessage(error, "Couldn't update saved messages"));
+      }
+    },
+    [queryClient, chatId],
+  );
+
+  /** Delete for me: gone from my view only */
+  const handleDeleteForMe = useCallback(
+    async (ids: string[]) => {
+      setShowMessageActions(null);
+      try {
+        const { data } = await chatApi.hideMessages(ids);
+        removeMessagesFromCaches(queryClient, data.messageIds);
+        queryClient.invalidateQueries({ queryKey: ["chats"] });
+        toast.success(ids.length > 1 ? `Deleted ${ids.length} messages for you` : "Deleted for you");
+      } catch (error) {
+        toast.error(apiErrorMessage(error, "Couldn't delete"));
+      }
+    },
+    [queryClient],
+  );
+
+  const handleSchedule = useCallback(
+    async (content: string, sendAt: Date) => {
+      if (!chatId) return false;
+      try {
+        await chatApi.scheduleMessage(chatId, {
+          content,
+          sendAt: sendAt.toISOString(),
+          ...(replyTo?.id ? { replyToId: replyTo.id } : {}),
+        });
+        queryClient.invalidateQueries({ queryKey: ["scheduled", chatId] });
+        setReplyTo(null);
+        toast.success(`Scheduled for ${format(sendAt, "EEE, MMM d 'at' HH:mm")}`);
+        return true;
+      } catch (error) {
+        toast.error(apiErrorMessage(error, "Couldn't schedule the message"));
+        return false;
+      }
+    },
+    [chatId, replyTo?.id, queryClient],
+  );
+
+  const cancelScheduled = useCallback(
+    async (id: string) => {
+      try {
+        await chatApi.cancelScheduled(id);
+        queryClient.invalidateQueries({ queryKey: ["scheduled", chatId] });
+        toast.success("Scheduled message cancelled");
+      } catch (error) {
+        toast.error(apiErrorMessage(error, "Couldn't cancel"));
+      }
+    },
+    [queryClient, chatId],
+  );
+
+  /** Scroll to a message (from Saved / Media) and flash it */
+  const jumpToMessage = useCallback((messageId: string) => {
+    setShowInfo(false);
+    window.setTimeout(() => {
+      const el = messagesContainerRef.current?.querySelector(`[data-message-id="${CSS.escape(messageId)}"]`);
+      if (!el) {
+        toast.info("That message is further back — scroll up to load older messages");
+        return;
+      }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFlashId(messageId);
+      window.setTimeout(() => setFlashId(null), 1600);
+    }, 250);
+  }, []);
+
+  // Drop files anywhere on the chat to attach them
+  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
+  const dropHandlers = {
+    onDragEnter: (e: React.DragEvent) => {
+      if (!hasFiles(e) || isLocked) return;
+      e.preventDefault();
+      dragDepthRef.current += 1;
+      setIsDragging(true);
+    },
+    onDragOver: (e: React.DragEvent) => {
+      if (hasFiles(e) && !isLocked) e.preventDefault();
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!hasFiles(e)) return;
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (!dragDepthRef.current) setIsDragging(false);
+    },
+    onDrop: (e: React.DragEvent) => {
+      if (!hasFiles(e) || isLocked) return;
+      e.preventDefault();
+      dragDepthRef.current = 0;
+      setIsDragging(false);
+      inputRef.current?.addFiles(Array.from(e.dataTransfer.files));
+    },
+  };
+
   const handleTyping = useCallback(
     (typing: boolean) => {
       sendTyping?.(typing, targetId, isCommunity);
@@ -503,6 +680,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     setIsSelectionMode(false);
     setSelectedMessages(new Set());
   }, []);
+
+  const selectedList = useMemo(
+    () => messages.filter((m) => selectedMessages.has(m.id)),
+    [messages, selectedMessages],
+  );
 
   const formatDateLabel = (date: Date) => {
     if (isToday(date)) return "Today";
@@ -552,33 +734,63 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               onClose();
             }}
           />
-          {message.content && (
+          {message.content && !message.isViewOnce && (
             <MenuItem
               icon={<Copy className="h-4 w-4" />}
               label="Copy text"
               onClick={() => handleCopy(message.content!)}
             />
           )}
+          {!isCommunity && !message.isViewOnce && (
+            <MenuItem
+              icon={<Forward className="h-4 w-4" />}
+              label="Forward"
+              onClick={() => {
+                setForwardIds([message.id]);
+                onClose();
+              }}
+            />
+          )}
+          {!isCommunity && (
+            <MenuItem
+              icon={message.isSaved ? <BookmarkX className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+              label={message.isSaved ? "Remove from saved" : "Save message"}
+              onClick={() => handleToggleSave(message)}
+            />
+          )}
+          {isOwn && !isCommunity && (
+            <MenuItem
+              icon={<Info className="h-4 w-4" />}
+              label="Message info"
+              onClick={() => {
+                setInfoMessageId(message.id);
+                onClose();
+              }}
+            />
+          )}
           <MenuItem
-            icon={<Forward className="h-4 w-4" />}
-            label="Forward"
+            icon={<CheckSquare className="h-4 w-4" />}
+            label="Select"
             onClick={() => {
-              toast.info("Forward feature coming soon");
+              setIsSelectionMode(true);
+              setSelectedMessages(new Set([message.id]));
               onClose();
             }}
           />
           {isOwn && (
             <>
               <div className="my-1.5 border-t border-slate-100/60" />
-              <MenuItem
-                icon={<Edit className="h-4 w-4" />}
-                label="Edit"
-                onClick={() => {
-                  setEditingMessage(message);
-                  setReplyTo(null);
-                  onClose();
-                }}
-              />
+              {message.type === "TEXT" && (
+                <MenuItem
+                  icon={<Edit className="h-4 w-4" />}
+                  label="Edit"
+                  onClick={() => {
+                    setEditingMessage(message);
+                    setReplyTo(null);
+                    onClose();
+                  }}
+                />
+              )}
               <MenuItem
                 icon={
                   message.isPinned ? (
@@ -590,24 +802,36 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 label={message.isPinned ? "Unpin" : "Pin"}
                 onClick={() => handlePin(message.id, !message.isPinned)}
               />
-              <MenuItem
-                icon={<Trash2 className="h-4 w-4" />}
-                label="Delete"
-                danger
-                onClick={() => handleDelete(message.id)}
-              />
             </>
           )}
           <div className="my-1.5 border-t border-slate-100/60" />
-          <MenuItem
-            icon={<Flag className="h-4 w-4" />}
-            label="Report"
-            danger
-            onClick={() => {
-              toast.info("Report submitted successfully");
-              onClose();
-            }}
-          />
+          {!isCommunity && (
+            <MenuItem
+              icon={<EyeOff className="h-4 w-4" />}
+              label="Delete for me"
+              danger
+              onClick={() => handleDeleteForMe([message.id])}
+            />
+          )}
+          {isOwn && (
+            <MenuItem
+              icon={<Trash2 className="h-4 w-4" />}
+              label="Delete for everyone"
+              danger
+              onClick={() => handleDelete(message.id)}
+            />
+          )}
+          {!isOwn && !isCommunity && (
+            <MenuItem
+              icon={<Flag className="h-4 w-4" />}
+              label="Report"
+              danger
+              onClick={() => {
+                setReportTarget({ type: "MESSAGE", id: message.id, label: "message" });
+                onClose();
+              }}
+            />
+          )}
         </div>
       </motion.div>
     );
@@ -659,7 +883,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       className="relative flex h-full flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50/80"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
+      {...dropHandlers}
     >
+      {/* ─── Drop zone overlay ───────────────────────────────────── */}
+      <AnimatePresence>
+        {isDragging && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-none absolute inset-3 z-50 flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-indigo-400 bg-indigo-50/90 text-indigo-600 backdrop-blur-sm"
+          >
+            <UploadCloud className="h-10 w-10" />
+            <p className="text-sm font-semibold">Drop photos, videos or files to send</p>
+            <p className="text-xs text-indigo-400">Up to 10 photos and videos as one album</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ─── Animated Background ─────────────────────────────────── */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-indigo-400/5 blur-3xl" />
@@ -708,8 +949,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             )}
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-[15px] font-semibold leading-tight text-slate-900">
-              {chatName}
+            <h2 className="flex items-center gap-1.5 text-[15px] font-semibold leading-tight text-slate-900">
+              <span className="truncate">{chatName}</span>
+              {chat?.disappearingSeconds ? (
+                <span
+                  title={`Disappearing messages: ${disappearingLabel(chat.disappearingSeconds)}`}
+                  className="flex shrink-0 items-center gap-0.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600"
+                >
+                  <Timer className="h-3 w-3" />
+                  {disappearingLabel(chat.disappearingSeconds)}
+                </span>
+              ) : null}
+              {isMutedChat && <BellOff className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-label="Muted" />}
+              {chat?.isLocked && <Lock className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-label="Locked chat" />}
             </h2>
             <p className="truncate text-[12px] leading-tight text-slate-500">
               {!isConnected ? (
@@ -847,6 +1099,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       </AnimatePresence>
 
       {/* ─── Messages ────────────────────────────────────────────── */}
+      {isLocked ? (
+        <div className="relative flex-1 overflow-hidden">
+          <ChatLockGate
+            chatName={chatName}
+            onUnlock={() => {
+              if (chatId) unlockChat(chatId);
+              setUnlocked(true);
+            }}
+          />
+        </div>
+      ) : (
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
@@ -877,6 +1140,27 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               const isSearchHit =
                 searchResults[searchIndex]?.id === msg.id && !!searchQuery;
 
+              // Chat events (e.g. disappearing messages turned on) are centred notices
+              if (msg.type === "SYSTEM") {
+                return (
+                  <div key={msg.id} data-message-id={msg.id}>
+                    {showDate && (
+                      <div className="my-4 flex justify-center">
+                        <span className="rounded-full bg-white/80 px-4 py-1.5 text-[11px] font-medium text-slate-500 shadow-sm ring-1 ring-black/5 backdrop-blur-sm">
+                          {formatDateLabel(new Date(msg.createdAt))}
+                        </span>
+                      </div>
+                    )}
+                    <div className="my-3 flex justify-center px-6">
+                      <span className="flex max-w-md items-center gap-1.5 rounded-2xl bg-amber-50/90 px-3.5 py-1.5 text-center text-[11px] font-medium text-amber-800 shadow-sm ring-1 ring-amber-200/60">
+                        {msg.metadata?.event === "disappearing" && <Timer className="h-3.5 w-3.5 shrink-0" />}
+                        {msg.content}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <motion.div
                   key={msg.id}
@@ -894,12 +1178,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   )}
                   <div
                     ref={isSearchHit ? searchHighlightRef : undefined}
-                    className={`group relative ${
+                    data-message-id={msg.id}
+                    className={`group relative transition-colors duration-500 ${
                       isSelectionMode ? "cursor-pointer" : ""
                     } ${
                       isSearchHit
                         ? "rounded-2xl ring-2 ring-indigo-400/50 ring-offset-2 ring-offset-transparent"
-                        : ""
+                        : flashId === msg.id
+                          ? "rounded-2xl bg-amber-100/60"
+                          : ""
                     }`}
                     onClick={() => isSelectionMode && toggleSelection(msg.id)}
                     onContextMenu={(e) => {
@@ -950,6 +1237,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                               }
                         }
                         onAcceptCorrection={() => acceptCorrection(msg.id)}
+                        onForward={isCommunity ? undefined : () => setForwardIds([msg.id])}
+                        onToggleSave={isCommunity ? undefined : () => handleToggleSave(msg)}
+                        onInfo={isCommunity ? undefined : () => setInfoMessageId(msg.id)}
                         isPinned={!!msg.isPinned}
                         isSelected={selectedMessages.has(msg.id)}
                         isSelectionMode={isSelectionMode}
@@ -1006,6 +1296,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </LayoutGroup>
         <div ref={messagesEndRef} className="h-2" />
       </div>
+      )}
 
       {/* ─── Scroll to Bottom ────────────────────────────────────── */}
       <AnimatePresence>
@@ -1037,27 +1328,62 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               {selectedMessages.size} selected
             </span>
             <div className="flex items-center gap-0.5">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={() => toast.info("Forward feature coming soon")}
-                className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100/80"
-              >
-                <Forward className="h-4 w-4" />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
+              {!isCommunity && (
+                <SelectionAction
+                  label="Forward"
+                  icon={<Forward className="h-4 w-4" />}
+                  onClick={() => {
+                    const ids = selectedList.filter((m) => !m.isViewOnce).map((m) => m.id);
+                    if (!ids.length) return toast.info("View-once media can't be forwarded");
+                    setForwardIds(ids);
+                  }}
+                />
+              )}
+              <SelectionAction
+                label="Copy"
+                icon={<Copy className="h-4 w-4" />}
                 onClick={() => {
-                  selectedMessages.forEach((id) => handleDelete(id));
+                  const text = selectedList
+                    .filter((m) => m.content && !m.isViewOnce)
+                    .map((m) => `[${format(new Date(m.createdAt), "HH:mm")}] ${m.sender?.name ?? ""}: ${m.content}`)
+                    .join("\n");
+                  if (!text) return toast.info("Nothing to copy");
+                  handleCopy(text);
                   exitSelection();
                 }}
-                className="rounded-full p-2 text-red-500 transition-colors hover:bg-red-50/80"
-              >
-                <Trash2 className="h-4 w-4" />
-              </motion.button>
+              />
+              {!isCommunity && (
+                <SelectionAction
+                  label="Save"
+                  icon={<Bookmark className="h-4 w-4" />}
+                  onClick={() => {
+                    selectedList.filter((m) => !m.isSaved).forEach((m) => void handleToggleSave(m));
+                    exitSelection();
+                  }}
+                />
+              )}
+              {!isCommunity && (
+                <SelectionAction
+                  label="Delete for me"
+                  icon={<EyeOff className="h-4 w-4" />}
+                  danger
+                  onClick={() => {
+                    void handleDeleteForMe([...selectedMessages]);
+                    exitSelection();
+                  }}
+                />
+              )}
+              {selectedList.length > 0 && selectedList.every((m) => m.senderId === user?.id) && (
+                <SelectionAction
+                  label="Delete for everyone"
+                  icon={<Trash2 className="h-4 w-4" />}
+                  danger
+                  onClick={() => {
+                    selectedMessages.forEach((id) => handleDelete(id));
+                    exitSelection();
+                  }}
+                />
+              )}
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -1156,9 +1482,59 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         )}
       </AnimatePresence>
 
+      {/* ─── Scheduled messages ───────────────────────────────────── */}
+      {!isLocked && scheduled.length > 0 && (
+        <div className="mx-3 mb-1">
+          <button
+            type="button"
+            onClick={() => setShowScheduled((v) => !v)}
+            className="flex w-full items-center gap-2 rounded-2xl bg-indigo-50/80 px-3.5 py-2 text-left text-xs font-medium text-indigo-700 ring-1 ring-indigo-100 transition hover:bg-indigo-50"
+          >
+            <CalendarClock className="h-4 w-4" />
+            <span className="flex-1">
+              {scheduled.length} scheduled message{scheduled.length > 1 ? "s" : ""} · next{" "}
+              {format(new Date(scheduled[0].sendAt), "EEE HH:mm")}
+            </span>
+            {showScheduled ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </button>
+          <AnimatePresence>
+            {showScheduled && (
+              <motion.ul
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="mt-1 max-h-48 space-y-1 overflow-y-auto"
+              >
+                {scheduled.map((s) => (
+                  <li key={s.id} className="flex items-center gap-3 rounded-xl bg-white/90 px-3 py-2 text-xs shadow-sm ring-1 ring-black/5">
+                    <Clock className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-slate-700">{s.content}</span>
+                      <span className="text-[10px] text-slate-400">{format(new Date(s.sendAt), "EEE, MMM d 'at' HH:mm")}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => cancelScheduled(s.id)}
+                      className="rounded-lg px-2 py-1 text-[11px] font-semibold text-red-500 hover:bg-red-50"
+                    >
+                      Cancel
+                    </button>
+                  </li>
+                ))}
+              </motion.ul>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       {/* ─── Composer ─────────────────────────────────────────────── */}
+      {!isLocked && (
       <div className="relative shrink-0 border-t border-white/20 bg-white/70 px-2 py-2.5 backdrop-blur-sm sm:px-4">
         <MessageInput
+          ref={inputRef}
+          draftKey={targetId || undefined}
+          mentionCandidates={mentionCandidates}
+          onSchedule={isCommunity ? undefined : handleSchedule}
           onSend={handleSend}
           onTyping={handleTyping}
           onVoiceRecording={handleVoiceBlob}
@@ -1179,6 +1555,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           isSelectionMode={isSelectionMode}
         />
       </div>
+      )}
 
       {/* ─── Typing Indicator ────────────────────────────────────── */}
       <AnimatePresence>
@@ -1211,95 +1588,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         )}
       </AnimatePresence>
 
-      {/* ─── Info Sidebar ─────────────────────────────────────────── */}
+      {/* ─── Chat info panel ──────────────────────────────────────── */}
       <AnimatePresence>
         {showInfo && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowInfo(false)}
-              className="absolute inset-0 z-30 bg-black/20 backdrop-blur-sm"
-            />
-            <motion.aside
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 350 }}
-              className="absolute right-0 top-0 z-40 flex h-full w-[min(100%,22rem)] flex-col bg-white/95 shadow-2xl backdrop-blur-xl"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100/60 px-5 py-4">
-                <h3 className="text-lg font-semibold text-slate-900">
-                  Chat Info
-                </h3>
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  type="button"
-                  onClick={() => setShowInfo(false)}
-                  className="rounded-full p-2 transition-colors hover:bg-slate-100/80"
-                >
-                  <X className="h-5 w-5" />
-                </motion.button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-5">
-                <div className="mb-6 text-center">
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="mx-auto mb-3 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-3xl font-bold text-white shadow-lg shadow-indigo-500/20"
-                  >
-                    {chatAvatar ? (
-                      <img
-                        src={chatAvatar}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      chatName.charAt(0).toUpperCase()
-                    )}
-                  </motion.div>
-                  <h4 className="text-xl font-semibold text-slate-900">
-                    {chatName}
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    {isGroup
-                      ? `${chat?.participants?.length || 0} members`
-                      : isCommunity
-                        ? "Community"
-                        : isOnline
-                          ? "🟢 Online"
-                          : "Private chat"}
-                  </p>
-                </div>
-
-                <div className="mb-6 grid grid-cols-3 gap-2">
-                  {!isCommunity && !isGroup && (
-                    <>
-                      <QuickAction
-                        icon={<Phone className="h-5 w-5" />}
-                        label="Call"
-                      />
-                      <QuickAction
-                        icon={<Video className="h-5 w-5" />}
-                        label="Video"
-                      />
-                    </>
-                  )}
-                  <QuickAction
-                    icon={
-                      isMuted ? (
-                        <VolumeX className="h-5 w-5" />
-                      ) : (
-                        <Volume2 className="h-5 w-5" />
-                      )
-                    }
-                    label={isMuted ? "Unmute" : "Mute"}
-                    onClick={() => setIsMuted((v) => !v)}
-                  />
-                </div>
-
-                {isGroup && chat?.participants && (
+          <ChatInfoPanel
+            chat={chat}
+            chatId={isCommunity ? undefined : chatId}
+            chatName={chatName}
+            chatAvatar={chatAvatar}
+            subtitle={
+              isGroup
+                ? `${chat?.participants?.length || 0} members`
+                : isCommunity
+                  ? "Community"
+                  : isOnline
+                    ? "🟢 Online"
+                    : lastSeenText
+            }
+            isGroup={isGroup}
+            otherUser={otherUser ? { id: otherUser.id, name: otherUser.name } : null}
+            onClose={() => setShowInfo(false)}
+            onJumpTo={jumpToMessage}
+            onReport={setReportTarget}
+            onOpenPrivacy={() => setShowPrivacy(true)}
+            onCleared={() => setShowInfo(false)}
+            members={
+                isGroup && chat?.participants ? (
                   <div>
                     <h5 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
                       Members
@@ -1331,35 +1645,53 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
-            </motion.aside>
-          </>
+                ) : undefined
+            }
+          />
         )}
       </AnimatePresence>
+
+      {/* ─── Dialogs ──────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {forwardIds && (
+          <ForwardDialog messageIds={forwardIds} onClose={() => setForwardIds(null)} onForwarded={exitSelection} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {infoMessageId && <MessageInfoDialog messageId={infoMessageId} onClose={() => setInfoMessageId(null)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {reportTarget && <ReportDialog target={reportTarget} onClose={() => setReportTarget(null)} />}
+      </AnimatePresence>
+      <AnimatePresence>{showPrivacy && <ChatPrivacyDialog onClose={() => setShowPrivacy(false)} />}</AnimatePresence>
     </div>
   );
 };
 
-// ─── Quick Action Button ──────────────────────────────────────────
+// ─── Selection bar button ─────────────────────────────────────────
 
-const QuickAction = ({
+const SelectionAction = ({
   icon,
   label,
   onClick,
+  danger,
 }: {
   icon: React.ReactNode;
   label: string;
-  onClick?: () => void;
+  onClick: () => void;
+  danger?: boolean;
 }) => (
   <motion.button
-    whileHover={{ y: -2, scale: 1.02 }}
+    whileHover={{ scale: 1.05 }}
     whileTap={{ scale: 0.95 }}
     type="button"
     onClick={onClick}
-    className="flex flex-col items-center gap-1.5 rounded-2xl bg-slate-50/80 py-3.5 transition-colors hover:bg-slate-100/80"
+    title={label}
+    aria-label={label}
+    className={`rounded-full p-2 transition-colors ${
+      danger ? "text-red-500 hover:bg-red-50/80" : "text-slate-600 hover:bg-slate-100/80"
+    }`}
   >
-    <span className="text-indigo-500">{icon}</span>
-    <span className="text-[10px] font-medium text-slate-500">{label}</span>
+    {icon}
   </motion.button>
 );

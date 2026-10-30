@@ -13,6 +13,10 @@ import { parse as parseCookie } from 'cookie';
 import { Logger } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { PrismaService } from '../prisma.service';
+import { ChatPrivacyService } from './chat-privacy.service';
+import { ChatFeaturesService } from './chat-features.service';
+
+const MEMBERS_CACHE_MS = 30_000;
 
 @WebSocketGateway({
   cors: {
@@ -41,11 +45,109 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private typingUsers: Map<string, Set<string>> = new Map();
   private readonly CONNECTION_TIMEOUT = 30000;
 
+  private chatMembers = new Map<string, { ids: string[]; at: number }>();
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly chatService: ChatService,
     private readonly prisma: PrismaService,
+    private readonly privacy: ChatPrivacyService,
+    private readonly features: ChatFeaturesService,
   ) {}
+
+  // ==========================
+  // EMIT HELPERS (also used by the REST controller and the scheduler)
+  // ==========================
+
+  emitToUser(userId: string, event: string, payload: unknown) {
+    for (const socketId of this.userSockets.get(userId) ?? []) {
+      this.server.to(socketId).emit(event, payload);
+    }
+  }
+
+  emitToChat(chatId: string, event: string, payload: unknown) {
+    this.server.to(`chat:${chatId}`).emit(event, payload);
+  }
+
+  isOnline(userId: string) {
+    return this.userSockets.has(userId);
+  }
+
+  /** Participant ids of a chat (cached briefly — typing events are frequent) */
+  private async chatMemberIds(chatId: string): Promise<string[]> {
+    const hit = this.chatMembers.get(chatId);
+    if (hit && Date.now() - hit.at < MEMBERS_CACHE_MS) return hit.ids;
+    const rows = await this.prisma.chatParticipant.findMany({ where: { chatId }, select: { userId: true } });
+    const ids = rows.map((r) => r.userId);
+    this.chatMembers.set(chatId, { ids, at: Date.now() });
+    return ids;
+  }
+
+  /**
+   * Sends to the other members of a chat who allow `setting` themselves —
+   * typing and read receipts are mutual, like WhatsApp.
+   */
+  private async emitToMembersWho(
+    chatId: string,
+    senderId: string,
+    setting: 'showTypingIndicator' | 'sendReadReceipts',
+    event: string,
+    payload: unknown,
+  ) {
+    const others = (await this.chatMemberIds(chatId)).filter((id) => id !== senderId && this.isOnline(id));
+    const privacy = await this.privacy.getMany(others);
+    for (const id of others) {
+      if (privacy.get(id)?.[setting] !== false) this.emitToUser(id, event, payload);
+    }
+  }
+
+  /** Online/offline is shared only when both people show their online status */
+  private async broadcastPresence(userId: string, online: boolean, chatIds: string[], communityIds: string[]) {
+    if (!(await this.privacy.get(userId)).showOnlineStatus) return;
+    const event = online ? 'user:online' : 'user:offline';
+
+    const partners = await this.prisma.chatParticipant.findMany({
+      where: { chatId: { in: chatIds }, userId: { not: userId } },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+    const onlinePartners = partners.map((p) => p.userId).filter((id) => this.isOnline(id));
+    const privacy = await this.privacy.getMany(onlinePartners);
+    for (const id of onlinePartners) {
+      if (privacy.get(id)?.showOnlineStatus !== false) this.emitToUser(id, event, { userId });
+    }
+    for (const communityId of communityIds) {
+      this.server.to(`community:${communityId}`).emit(event, { userId });
+    }
+  }
+
+  /** Who a user may see online: nobody if they hide their own status */
+  private async visibleOnlineUsers(viewerId: string) {
+    if (!(await this.privacy.get(viewerId)).showOnlineStatus) return [];
+    const ids = [...this.userSockets.keys()].filter((id) => id !== viewerId);
+    const privacy = await this.privacy.getMany(ids);
+    return ids.filter((id) => privacy.get(id)?.showOnlineStatus !== false);
+  }
+
+  /** A message is "delivered" as soon as another member of the chat is connected */
+  private async deliverIfOnline<T extends { id: string; chatId?: string | null; senderId: string }>(message: T) {
+    if (!message.chatId) return message;
+    const members = await this.chatMemberIds(message.chatId);
+    if (!members.some((id) => id !== message.senderId && this.isOnline(id))) return message;
+    const deliveredAt = await this.features.markDelivered(message.id);
+    return { ...message, delivered: true, deliveredAt };
+  }
+
+  /** Link preview cards are fetched after sending, then pushed as an update */
+  private emitLinkPreview(message: { id: string; chatId?: string | null; type?: string; content?: string | null }) {
+    if (!message.chatId || message.type !== 'TEXT' || !/https?:\/\//i.test(message.content || '')) return;
+    this.features
+      .attachLinkPreview(message.id)
+      .then((updated) => {
+        if (updated) this.emitToChat(message.chatId!, 'message:updated', updated);
+      })
+      .catch((error) => this.logger.debug(`Link preview failed: ${error?.message || error}`));
+  }
 
   // ==========================
   // CONNECTION / DISCONNECTION
@@ -172,8 +274,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             await client.join(roomId);
 
             this.logger.log(`📚 User ${userId} joined room ${roomId}`);
-
-            client.to(roomId).emit('user:online', { userId });
           }
 
           // Join community rooms
@@ -188,20 +288,32 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             await client.join(roomId);
 
             this.logger.log(`📚 User ${userId} joined community ${roomId}`);
+          }
 
-            client.to(roomId).emit('user:online', { userId });
+          // Only the first device announces "online"
+          if (sockets.length === 1) {
+            await this.broadcastPresence(
+              userId,
+              true,
+              chats.map((c) => c.id),
+              communities.map((m) => m.communityId),
+            );
           }
 
           this.logger.log(
             `✅ User ${userId} fully connected with ${chats.length} chat rooms and ${communities.length} communities`,
           );
 
-          // Send initial online users list
-          const onlineUsers = Array.from(this.userSockets.keys());
-
+          // Send initial online users list (respecting everyone's privacy)
           client.emit('users:online', {
-            users: onlineUsers,
+            users: await this.visibleOnlineUsers(userId),
           });
+
+          // This device can now receive: messages waiting for it are "delivered"
+          const delivered = await this.features.markDeliveredFor(userId);
+          for (const chatId of delivered.chatIds) {
+            this.emitToChat(chatId, 'messages:delivered', { chatId, at: delivered.at });
+          }
         } catch (dbError) {
           this.logger.error('Database error during connection:', dbError);
 
@@ -280,7 +392,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
           this.logger.log(`👤 User ${userId} is now offline`);
 
-          // Notify chat rooms
+          // Notify chat partners (respecting everyone's privacy)
           try {
             const chats = await this.prisma.chat.findMany({
               where: {
@@ -291,20 +403,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
               select: { id: true },
             });
 
-            for (const chat of chats) {
-              client.to(`chat:${chat.id}`).emit('user:offline', { userId });
-            }
-
             const communities = await this.prisma.communityMember.findMany({
               where: { userId },
               select: { communityId: true },
             });
 
-            for (const member of communities) {
-              client
-                .to(`community:${member.communityId}`)
-                .emit('user:offline', { userId });
-            }
+            await this.broadcastPresence(
+              userId,
+              false,
+              chats.map((c) => c.id),
+              communities.map((m) => m.communityId),
+            );
           } catch (error) {
             this.logger.error('Error notifying offline status:', error);
           }
@@ -482,6 +591,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       fileUrl?: string;
       replyToId?: string;
       metadata?: Record<string, unknown>;
+      isViewOnce?: boolean;
+      attachments?: Array<{ url: string; type: 'IMAGE' | 'VIDEO'; filename: string; mimeType?: string; size: number }>;
     },
   ) {
     const userId = client.data.userId;
@@ -520,7 +631,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         fileUrl: data.fileUrl,
         replyToId: data.replyToId,
         metadata: data.metadata,
-      });
+        isViewOnce: data.isViewOnce,
+        attachments: Array.isArray(data.attachments)
+          ? data.attachments.filter((a) => typeof a?.url === 'string' && a.url.startsWith('https://'))
+          : undefined,
+      }).then((sent) => this.deliverIfOnline(sent));
+
+      this.emitLinkPreview(message);
 
       let roomId: string | null = null;
 
@@ -759,10 +876,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.typingUsers.get(roomId)!.add(userId);
 
-    client.to(roomId).emit('typing:start', {
-      userId,
-      chatId: data.chatId,
-      communityId: data.communityId,
+    const payload = { userId, chatId: data.chatId, communityId: data.communityId };
+    void this.privacy.get(userId).then(async (mine) => {
+      // Typing indicator off: nobody sees you typing (and you don't see others)
+      if (!mine.showTypingIndicator) return;
+      if (data.chatId) {
+        await this.emitToMembersWho(data.chatId, userId, 'showTypingIndicator', 'typing:start', payload);
+      } else {
+        client.to(roomId).emit('typing:start', payload);
+      }
     });
   }
 
@@ -847,17 +969,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      await this.chatService.markMessageRead(
+      const receipt = await this.chatService.markMessageRead(
         userId,
         data.chatId,
         data.messageId,
       );
 
-      client.to(`chat:${data.chatId}`).emit('message:read', {
-        userId,
-        messageId: data.messageId,
-        chatId: data.chatId,
-      });
+      // null = this user turned read receipts off
+      if (receipt) {
+        await this.emitToMembersWho(data.chatId, userId, 'sendReadReceipts', 'message:read', {
+          userId,
+          messageId: data.messageId,
+          chatId: data.chatId,
+        });
+      }
     } catch (error) {
       this.logger.error('Error marking message as read:', error);
 
@@ -1152,11 +1277,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // ==========================
 
   @SubscribeMessage('users:getOnline')
-  handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
-    const onlineUsers = Array.from(this.userSockets.keys());
+  async handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
+    const userId = client.data.userId;
+    if (!userId) return;
 
     client.emit('users:online', {
-      users: onlineUsers,
+      users: await this.visibleOnlineUsers(userId),
     });
   }
 }

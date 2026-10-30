@@ -8,12 +8,32 @@ import { PrismaService } from '../prisma.service';
 import { CreateChatDto, SendMessageDto, GetMessagesDto } from './dto/chat.dto';
 import { MessageType, Prisma } from '@prisma/client';
 import { ActivityService, XP_REWARDS, CHAT_XP_DAILY_CAP } from '../learning/activity.service';
+import { ChatPrivacyService } from './chat-privacy.service';
+import { MESSAGE_INCLUDE, metaOf, presentMessage, visibleMessagesWhere } from './chat.presenter';
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** FILE messages keep the original name / size / type so the bubble can show them */
+function fileMetadata(meta?: Record<string, unknown>): Prisma.InputJsonValue | undefined {
+  if (!meta) return undefined;
+  const out: Record<string, string | number> = {};
+  if (typeof meta.fileName === 'string' && meta.fileName.trim()) {
+    out.fileName = meta.fileName.trim().slice(0, 255);
+  }
+  if (typeof meta.mimeType === 'string' && meta.mimeType) {
+    out.mimeType = meta.mimeType.slice(0, 100);
+  }
+  const size = Number(meta.fileSize);
+  if (Number.isFinite(size) && size > 0) out.fileSize = Math.round(size);
+  return Object.keys(out).length ? out : undefined;
+}
 
 @Injectable()
 export class ChatService {
   constructor(
     private prisma: PrismaService,
     private activity: ActivityService,
+    private privacy: ChatPrivacyService,
   ) {}
 
   // ============ CHATS ============
@@ -40,10 +60,15 @@ export class ChatService {
             },
           },
         },
+        // A few, because "clear history" is per chat and filtered below
         messages: {
           orderBy: { createdAt: 'desc' },
-          take: 1,
-          where: { isDeleted: false },
+          take: 5,
+          where: visibleMessagesWhere(userId),
+          include: {
+            sender: { select: { id: true, name: true } },
+            readReceipts: { select: { userId: true, readAt: true } },
+          },
         },
       },
       orderBy: {
@@ -51,22 +76,63 @@ export class ChatService {
       },
     });
 
-    // Unread = messages from others after my last read
+    // Unread = visible messages from others after my last read
     const unreadCounts = await Promise.all(
       chats.map((chat) => {
         const me = chat.participants.find((p) => p.userId === userId);
         return this.prisma.message.count({
           where: {
             chatId: chat.id,
-            isDeleted: false,
             senderId: { not: userId },
+            ...visibleMessagesWhere(userId, me?.clearedAt),
             ...(me?.lastReadAt ? { createdAt: { gt: me.lastReadAt } } : {}),
           },
         });
       }),
     );
 
-    return chats.map((chat, i) => ({ ...chat, unreadCount: unreadCounts[i] }));
+    const shaped = chats.map((chat, i) => {
+      const me = chat.participants.find((p) => p.userId === userId);
+      const last = chat.messages.find((m) => !me?.clearedAt || m.createdAt > me.clearedAt);
+      return {
+        ...chat,
+        // A locked chat shows no preview until it's opened with the PIN
+        messages: last && !me?.isLocked ? [presentMessage(last)] : [],
+        unreadCount: unreadCounts[i],
+        ...this.myChatState(me),
+      };
+    });
+
+    return this.hideLastSeen(shaped, userId);
+  }
+
+  /** My per-user state for a chat (pinned / archived / muted / locked) */
+  private myChatState(
+    me?: { isPinned: boolean; isArchived: boolean; mutedUntil: Date | null; isLocked: boolean } | null,
+  ) {
+    return {
+      isPinned: me?.isPinned ?? false,
+      isArchived: me?.isArchived ?? false,
+      mutedUntil: me?.mutedUntil ?? null,
+      isLocked: me?.isLocked ?? false,
+    };
+  }
+
+  /** "Last seen" is mutual: hidden when the other person hides theirs or you hide yours */
+  private async hideLastSeen<
+    T extends { participants: Array<{ userId: string; user: { profile?: { lastActive: Date | null } | null } }> },
+  >(chats: T[], viewerId: string): Promise<T[]> {
+    const ids = chats.flatMap((c) => c.participants.map((p) => p.userId));
+    const privacy = await this.privacy.getMany([viewerId, ...ids]);
+    const viewerShows = privacy.get(viewerId)?.showLastSeen !== false;
+    return chats.map((chat) => ({
+      ...chat,
+      participants: chat.participants.map((p) => {
+        if (p.userId === viewerId || !p.user?.profile) return p;
+        if (viewerShows && privacy.get(p.userId)?.showLastSeen !== false) return p;
+        return { ...p, user: { ...p.user, profile: { ...p.user.profile, lastActive: null } } };
+      }),
+    }));
   }
 
   async getChatById(chatId: string, userId: string) {
@@ -91,11 +157,12 @@ export class ChatService {
 
     if (!chat) throw new NotFoundException('Chat not found');
 
-    const isParticipant = chat.participants.some((p) => p.userId === userId);
-    if (!isParticipant)
+    const me = chat.participants.find((p) => p.userId === userId);
+    if (!me)
       throw new ForbiddenException('You are not a participant in this chat');
 
-    return chat;
+    const [shaped] = await this.hideLastSeen([chat], userId);
+    return { ...shaped, ...this.myChatState(me) };
   }
 
   async createPrivateChat(userId: string, otherUserId: string) {
@@ -301,7 +368,10 @@ export class ChatService {
     if (!participant)
       throw new ForbiddenException('You are not a participant in this chat');
 
-    const where: any = { chatId, isDeleted: false };
+    const where: Prisma.MessageWhereInput = {
+      chatId,
+      ...visibleMessagesWhere(userId, participant.clearedAt),
+    };
     if (before) {
       const beforeMessage = await this.prisma.message.findUnique({
         where: { id: before },
@@ -312,52 +382,44 @@ export class ChatService {
       }
     }
 
-    const messages = await this.prisma.message.findMany({
-      where,
-      take,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatarUrl: true,
-          },
+    const [messages, privacy] = await Promise.all([
+      this.prisma.message.findMany({
+        where,
+        take,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          ...MESSAGE_INCLUDE,
+          savedBy: { where: { userId }, select: { id: true } },
         },
-        reactions: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                avatarUrl: true,
-              },
-            },
-          },
-        },
-        replyTo: {
-          include: {
-            sender: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-        attachments: true,
-        translations: true,
-      },
-    });
+      }),
+      this.privacy.get(userId),
+    ]);
 
     // Return in chronological order (oldest first) for frontend display
-    return messages.reverse();
+    return messages.reverse().map(({ savedBy, ...message }) =>
+      presentMessage({
+        ...message,
+        isSaved: savedBy.length > 0,
+        // Read receipts are mutual: turn yours off and you don't see other people's
+        readReceipts: privacy.sendReadReceipts
+          ? message.readReceipts
+          : message.readReceipts.filter((r) => r.userId === userId),
+      }),
+    );
   }
 
-  async sendMessage(userId: string, dto: SendMessageDto) {
-    const { chatId, communityId, content, type, mediaUrl, fileUrl, replyToId } =
-      dto;
+  /** `forwardedFromId` is set only by forwarding (never taken from the client) */
+  async sendMessage(
+    userId: string,
+    dto: SendMessageDto,
+    options?: { forwardedFromId?: string },
+  ) {
+    const { chatId, communityId, content, type, replyToId } = dto;
+    // An album: the first item also fills mediaUrl so older clients still show something
+    const attachments =
+      type === 'IMAGE' || type === 'VIDEO' ? (dto.attachments ?? []).slice(0, 10) : [];
+    const mediaUrl = dto.mediaUrl || attachments[0]?.url;
+    const fileUrl = dto.fileUrl || (attachments.length ? mediaUrl : undefined);
 
     if (!chatId && !communityId) {
       throw new BadRequestException('Either chatId or communityId is required');
@@ -394,7 +456,7 @@ export class ChatService {
     // Check block status for all participants in group chats
     const chat = await this.prisma.chat.findUnique({
       where: { id: chatId },
-      include: { participants: true },
+      include: { participants: { include: { user: { select: { id: true, name: true } } } } },
     });
 
     if (chat) {
@@ -441,53 +503,73 @@ export class ChatService {
       }
       const note = typeof dto.metadata?.note === 'string' ? dto.metadata.note.trim().slice(0, 300) : '';
       metadata = note ? { note } : {};
+    } else if (type === 'VOICE_NOTE' || type === 'AUDIO') {
+      // Browser-recorded WebM often has no duration header; keep the recorded length
+      const duration = Number(dto.metadata?.duration);
+      if (Number.isFinite(duration) && duration > 0) {
+        metadata = { duration: Math.min(Math.round(duration), 60 * 60) };
+      }
+    } else if (type === 'FILE') {
+      metadata = fileMetadata(dto.metadata);
     }
+
+    const extra: Record<string, unknown> = {};
+    if (options?.forwardedFromId) extra.forwarded = true;
+    // @mentions in groups: "@Name" of another member
+    if (chat && chat.type !== 'PRIVATE' && content?.includes('@')) {
+      const mentions = chat.participants
+        .filter((p) => p.userId !== userId && p.user?.name)
+        .filter((p) => new RegExp(`@${escapeRegExp(p.user.name)}(?![\\w])`, 'i').test(content))
+        .map((p) => p.userId);
+      if (mentions.length) extra.mentions = mentions;
+    }
+    if (Object.keys(extra).length) {
+      metadata = { ...((metadata as Record<string, unknown> | undefined) ?? {}), ...extra } as Prisma.InputJsonValue;
+    }
+
+    // Only voice notes get the "Voice message" placeholder; a file without a caption is
+    // named after the file; photos and videos may have no caption at all
+    const fallbackContent =
+      type === 'FILE'
+        ? ((metadata as { fileName?: string } | undefined)?.fileName ?? 'File')
+        : !type || type === 'VOICE_NOTE' || type === 'AUDIO'
+          ? 'Voice message'
+          : '';
+
+    // Disappearing messages: the chat's timer applies to every new message
+    const expiresAt = chat?.disappearingSeconds
+      ? new Date(Date.now() + chat.disappearingSeconds * 1000)
+      : null;
 
     // Create message
     const message = await this.prisma.message.create({
       data: {
         chatId: chatId!,
         senderId: userId,
-        content: isCorrection ? (content || '').trim().slice(0, 2000) : content || 'Voice message',
+        content: isCorrection ? (content || '').trim().slice(0, 2000) : content || fallbackContent,
         type: (type as MessageType) || MessageType.VOICE_NOTE,
         mediaUrl: mediaUrl || null,
         fileUrl: fileUrl || null,
         replyToId: replyToId || null,
+        isViewOnce: Boolean(dto.isViewOnce) && (type === 'IMAGE' || type === 'VIDEO'),
+        expiresAt,
+        forwardedFromId: options?.forwardedFromId ?? null,
         ...(metadata !== undefined ? { metadata } : {}),
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatarUrl: true,
-          },
-        },
-        reactions: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                avatarUrl: true,
+        ...(attachments.length
+          ? {
+              attachments: {
+                create: attachments.map((a) => ({
+                  type: a.type,
+                  url: a.url,
+                  filename: (a.filename || 'attachment').slice(0, 255),
+                  mimeType: a.mimeType ?? null,
+                  size: Math.max(0, Math.round(a.size || 0)),
+                })),
               },
-            },
-          },
-        },
-        replyTo: {
-          include: {
-            sender: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-        attachments: true,
-        translations: true,
+            }
+          : {}),
       },
+      include: MESSAGE_INCLUDE,
     });
 
     // Update chat timestamp
@@ -498,7 +580,7 @@ export class ChatService {
 
     if (isCorrection) {
       await this.activity.recordActivity(userId, XP_REWARDS.correctionGiven, 'CORRECTION_GIVEN');
-    } else if (message.type === 'TEXT' || message.type === 'VOICE_NOTE') {
+    } else if (!options?.forwardedFromId && (message.type === 'TEXT' || message.type === 'VOICE_NOTE')) {
       // Chatting is practice too: small XP per message, capped per day
       await this.activity.recordCappedActivity(userId, XP_REWARDS.chatMessage, 'CHAT_MESSAGE', CHAT_XP_DAILY_CAP);
     }
@@ -512,7 +594,7 @@ export class ChatService {
       },
     });
 
-    return message;
+    return presentMessage(message);
   }
 
   // ============ COMMUNITY MESSAGES ============
@@ -582,6 +664,9 @@ export class ChatService {
         mediaUrl,
         fileUrl,
         replyToId,
+        ...(messageType === MessageType.FILE && fileMetadata(dto.metadata)
+          ? { metadata: fileMetadata(dto.metadata) }
+          : {}),
       },
       include: {
         sender: {
@@ -787,48 +872,29 @@ export class ChatService {
     if (message.isDeleted) {
       throw new BadRequestException('Cannot edit a deleted message');
     }
+    if (trimmedContent === (message.content || '').trim()) {
+      throw new BadRequestException('Nothing changed');
+    }
 
-    return this.prisma.message.update({
+    // Edit history: each earlier version with the time it was written (last 10)
+    const metadata = metaOf(message);
+    const history = Array.isArray(metadata.editHistory) ? metadata.editHistory : [];
+    metadata.editHistory = [
+      ...history,
+      { content: message.content, at: (message.editedAt ?? message.createdAt).toISOString() },
+    ].slice(-10);
+
+    const updated = await this.prisma.message.update({
       where: { id: messageId },
       data: {
         content: trimmedContent,
         isEdited: true,
         editedAt: new Date(),
+        metadata,
       },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatarUrl: true,
-          },
-        },
-        reactions: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                avatarUrl: true,
-              },
-            },
-          },
-        },
-        replyTo: {
-          include: {
-            sender: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-        attachments: true,
-        translations: true,
-      },
+      include: MESSAGE_INCLUDE,
     });
+    return presentMessage(updated);
   }
 
   async pinMessage(userId: string, messageId: string, pinned: boolean) {
@@ -1181,6 +1247,9 @@ export class ChatService {
         data: { lastReadAt: message.createdAt },
       });
     }
+
+    // Read receipts off: unread counts still clear, but nobody sees "Seen"
+    if (!(await this.privacy.get(userId)).sendReadReceipts) return null;
 
     const receipt = await this.prisma.readReceipt.findUnique({
       where: {

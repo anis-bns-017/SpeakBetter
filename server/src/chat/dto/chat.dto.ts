@@ -10,7 +10,12 @@ import {
   IsNumber,
   IsNotEmpty,
   IsObject,
+  IsUrl,
+  MaxLength,
+  ArrayMaxSize,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateChatDto {
   @IsEnum(['PRIVATE', 'GROUP'])
@@ -77,6 +82,40 @@ export class SendMessageDto {
   @IsNumber()
   @Min(0)
   duration?: number; // For voice messages
+
+  /** Photo/video the recipient can open only once */
+  @IsOptional()
+  @IsBoolean()
+  isViewOnce?: boolean;
+
+  /** Album: several photos/videos in one message */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => MessageAttachmentInputDto)
+  attachments?: MessageAttachmentInputDto[];
+}
+
+export class MessageAttachmentInputDto {
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  url: string;
+
+  @IsEnum(['IMAGE', 'VIDEO'])
+  type: 'IMAGE' | 'VIDEO';
+
+  @IsString()
+  @MaxLength(255)
+  filename: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  mimeType?: string;
+
+  @IsNumber()
+  @Min(0)
+  size: number;
 }
 
 export class GetMessagesDto {
