@@ -170,6 +170,7 @@ enum XpReason {
   CORRECTION_GIVEN
   CORRECTION_ACCEPTED
   CHAT_MESSAGE
+  MISSION_COMPLETED
 }
 
 enum BadgeCategory {
@@ -585,6 +586,7 @@ model User {
   voiceMessageReactions    VoiceRoomMessageReaction[]
   voiceCorrectionsGiven    VoiceCorrection[]          @relation("CorrectionAuthor")
   voiceCorrectionsReceived VoiceCorrection[]          @relation("CorrectionTarget")
+  voiceSessionReports      VoiceSessionReport[]       @relation("SessionReportUser")
 }
 
 model Session {
@@ -1718,6 +1720,7 @@ model VoiceRoom {
   analytics      VoiceRoomAnalytics[]
   speakerStats   VoiceSpeakerStats[]
   corrections    VoiceCorrection[]
+  sessionReports VoiceSessionReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2163,4 +2166,39 @@ model VoiceCorrection {
 
   @@index([roomId, createdAt])
   @@index([targetUserId, status])
+}
+
+/// One learner's results from one voice room: fluency, missions and corrections (updated each time they leave)
+model VoiceSessionReport {
+  id                  String    @id @default(cuid())
+  roomId              String
+  room                VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User      @relation("SessionReportUser", fields: [userId], references: [id], onDelete: Cascade)
+  /// Room name at the time, so the history still reads well after the room is gone
+  roomName            String
+  durationSec         Int       @default(0)
+  speakingSec         Int       @default(0)
+  words               Int       @default(0)
+  uniqueWords         Int       @default(0)
+  fillerCount         Int       @default(0)
+  repeatCount         Int       @default(0)
+  wpm                 Int?
+  /// 0–100, null when there was too little speech to judge
+  fluencyScore        Int?
+  missionsCompleted   Int       @default(0)
+  missionXp           Int       @default(0)
+  correctionsReceived Int       @default(0)
+  correctionsGiven    Int       @default(0)
+  /// [{ "word": "um", "count": 4 }]
+  topFillers          Json      @default("[]")
+  /// Mission words used correctly this session
+  missionWords        String[]
+  /// Longer words (8+ letters) the learner used
+  richWords           String[]
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([roomId, userId])
+  @@index([userId, createdAt])
 }

@@ -12,9 +12,10 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { parse } from 'cookie';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleInit } from '@nestjs/common';
 import { VoiceService } from './voice.service';
 import { PrismaService } from '../prisma.service';
+import { CoachService } from './coach/coach.service';
 
 @WebSocketGateway({
   cors: {
@@ -23,7 +24,9 @@ import { PrismaService } from '../prisma.service';
   },
   namespace: 'voice',
 })
-export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class VoiceGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
+{
   @WebSocketServer()
   server: Server;
 
@@ -38,12 +41,59 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private static readonly RECONNECT_GRACE_MS = 15_000;
   /** `${roomId}:${userId}` → when their current speaking turn started (ms) */
   private speakingSince: Map<string, number> = new Map();
+  /** roomId → timer for the next airtime update (batches bursts of speaking turns) */
+  private airtimeTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
     private jwtService: JwtService,
     private voiceService: VoiceService,
     private prisma: PrismaService,
+    private coach: CoachService,
   ) {}
+
+  onModuleInit() {
+    // A mission round that runs out of time is announced to the room from here
+    this.coach.onMissionEnd((roomId, result) => {
+      this.server?.to(`voice:${roomId}`).emit('voice:mission-ended', result);
+    });
+  }
+
+  /** Sends an event to every open tab/device of one user */
+  private emitToUser(userId: string, event: string, payload: unknown) {
+    for (const socketId of this.userSockets.get(userId) ?? []) {
+      this.server.to(socketId).emit(event, payload);
+    }
+  }
+
+  /** Pushes the room's airtime bars, at most once every couple of seconds */
+  private scheduleAirtime(roomId: string) {
+    if (this.airtimeTimers.has(roomId)) return;
+    this.airtimeTimers.set(
+      roomId,
+      setTimeout(() => {
+        this.airtimeTimers.delete(roomId);
+        void this.coach
+          .airtime(roomId)
+          .then((airtime) => this.server.to(`voice:${roomId}`).emit('voice:airtime', airtime))
+          .catch((error) => this.logger.warn(`Could not build airtime: ${error?.message}`));
+      }, 2000),
+    );
+  }
+
+  /** Saves the person's coach report; frees the room's coach state once nobody is left */
+  private async finishCoachSession(roomId: string, userId: string) {
+    try {
+      await this.coach.leave(roomId, userId);
+      if (!this.roomParticipants.has(roomId)) {
+        await this.coach.closeRoom(roomId);
+        const timer = this.airtimeTimers.get(roomId);
+        if (timer) clearTimeout(timer);
+        this.airtimeTimers.delete(roomId);
+      }
+    } catch (error) {
+      this.logger.warn(`Coach session end failed for ${userId} in ${roomId}: ${error?.message}`);
+    }
+  }
 
   async handleConnection(client: Socket) {
     try {
@@ -157,6 +207,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     }
     this.server.to(`voice:${roomId}`).emit('participant:left', { userId });
+    void this.finishCoachSession(roomId, userId);
     this.logger.log(`User ${userId} left room ${roomId} (did not reconnect)`);
   }
 
@@ -334,6 +385,17 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         );
       } catch (error) {
         this.logger.warn(`Could not load corrections history: ${error?.message}`);
+      }
+
+      // Coach: start tracking this person and catch them up on the mission / airtime
+      try {
+        this.coach.join(data.roomId, userId, userName);
+        const mission = this.coach.assignLate(data.roomId, userId, userName);
+        if (mission) this.emitToUser(userId, 'voice:mission-word', mission);
+        client.emit('voice:coach-state', await this.buildCoachState(data.roomId, userId));
+        this.scheduleAirtime(data.roomId);
+      } catch (error) {
+        this.logger.warn(`Could not start coach for ${userId}: ${error?.message}`);
       }
 
       // Send message history
@@ -520,6 +582,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       client.to(roomName).emit('participant:left', { userId });
+      void this.finishCoachSession(data.roomId, userId);
 
       this.logger.log(`User ${userId} left voice room ${data.roomId}`);
     } catch (error) {
@@ -562,6 +625,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // The client reports "stopped" after ~1.5s of silence; don't count that tail
     const seconds = Math.min(600, (Date.now() - since) / 1000 - 1.5);
     if (seconds >= 1) {
+      this.coach.noteSpeaking(roomId, userId, seconds);
+      this.scheduleAirtime(roomId);
       void this.voiceService
         .recordSpeakingTime(roomId, userId, Math.round(seconds))
         .catch((error) => this.logger.warn(`Could not record speaking time: ${error?.message}`));
@@ -1239,7 +1304,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('voice:transcription')
-  handleTranscription(
+  async handleTranscription(
     @ConnectedSocket() client: Socket,
     @MessageBody()
     data: {
@@ -1262,8 +1327,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Broadcast to everyone in the room (including the sender is fine,
     // the client ignores its own echo)
+    const id = data.id || `${userId}-${Date.now()}`;
     this.server.to(`voice:${data.roomId}`).emit('voice:transcription', {
-      id: data.id || `${userId}-${Date.now()}`,
+      id,
       userId,
       userName,
       text,
@@ -1272,6 +1338,143 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       language: data.language,
       createdAt: Date.now(),
     });
+
+    // Coach: only finished lines from people who are really in the room count
+    if (!data.isFinal || !this.roomParticipants.get(data.roomId)?.has(userId)) return;
+    try {
+      const { live, completion } = await this.coach.onFinalUtterance(data.roomId, userId, text, id);
+      if (live) this.emitToUser(userId, 'voice:coach', live);
+      if (completion) {
+        const roomName = `voice:${data.roomId}`;
+        this.server.to(roomName).emit('voice:mission-complete', completion);
+        this.server.to(roomName).emit('voice:mission-progress', this.coach.missionPublic(data.roomId));
+        this.emitToUser(userId, 'voice:mission-word', this.coach.missionPrivate(data.roomId, userId));
+      }
+    } catch (error) {
+      this.logger.warn(`Coach could not process a caption: ${error?.message}`);
+    }
+  }
+
+  // ============ ROOM COACH ============
+
+  /** Everything one person needs to draw the coach panel */
+  private async buildCoachState(roomId: string, userId: string) {
+    return {
+      coach: this.coach.getLive(roomId, userId),
+      mission: this.coach.missionPublic(roomId),
+      myMission: this.coach.missionPrivate(roomId, userId),
+      airtime: await this.coach.airtime(roomId),
+    };
+  }
+
+  @SubscribeMessage('voice:coach-get')
+  async handleCoachGet(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    const userId = client.data.userId;
+    if (!userId || !data?.roomId || !this.roomParticipants.get(data.roomId)?.has(userId)) return;
+    try {
+      client.emit('voice:coach-state', await this.buildCoachState(data.roomId, userId));
+    } catch (error) {
+      this.logger.warn(`Could not send coach state: ${error?.message}`);
+    }
+  }
+
+  /** Host/moderator starts a round: everyone in the room gets a private secret word */
+  @SubscribeMessage('voice:mission-start')
+  async handleMissionStart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; level?: string; durationSec?: number },
+  ) {
+    const actorId = client.data.userId;
+    if (!actorId || !data?.roomId) return;
+    try {
+      if (!(await this.voiceService.isRoomManager(data.roomId, actorId))) {
+        client.emit('voice:error', { message: 'Only the host or a moderator can start a mission round' });
+        return;
+      }
+      const people = (await this.coach.airtimePeople(data.roomId)).filter((p) =>
+        this.roomParticipants.get(data.roomId)?.has(p.userId),
+      );
+      const mission = this.coach.startMission(
+        data.roomId,
+        { level: data.level, durationSec: data.durationSec, startedBy: actorId },
+        people,
+      );
+      this.server.to(`voice:${data.roomId}`).emit('voice:mission-started', mission);
+      for (const p of people) {
+        this.emitToUser(p.userId, 'voice:mission-word', this.coach.missionPrivate(data.roomId, p.userId));
+      }
+    } catch (error) {
+      client.emit('voice:error', { message: error?.message || 'Could not start the mission round' });
+    }
+  }
+
+  @SubscribeMessage('voice:mission-stop')
+  async handleMissionStop(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    const actorId = client.data.userId;
+    if (!actorId || !data?.roomId) return;
+    try {
+      if (!(await this.voiceService.isRoomManager(data.roomId, actorId))) {
+        client.emit('voice:error', { message: 'Only the host or a moderator can end a mission round' });
+        return;
+      }
+      const result = this.coach.stopMission(data.roomId, 'stopped');
+      if (result) this.server.to(`voice:${data.roomId}`).emit('voice:mission-ended', result);
+    } catch (error) {
+      client.emit('voice:error', { message: error?.message || 'Could not end the mission round' });
+    }
+  }
+
+  @SubscribeMessage('voice:mission-swap')
+  handleMissionSwap(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    const userId = client.data.userId;
+    if (!userId || !data?.roomId || !this.roomParticipants.get(data.roomId)?.has(userId)) return;
+    try {
+      this.emitToUser(userId, 'voice:mission-word', this.coach.swapWord(data.roomId, userId));
+    } catch (error) {
+      client.emit('voice:error', { message: error?.message || 'Could not swap your word' });
+    }
+  }
+
+  /** Host/moderator puts a topic card in front of the room, aimed at one person (default: whoever has spoken least) */
+  @SubscribeMessage('voice:spotlight')
+  async handleSpotlight(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { roomId: string; targetUserId?: string; cardId?: string; level?: string; category?: string; everyone?: boolean },
+  ) {
+    const actorId = client.data.userId;
+    if (!actorId || !data?.roomId) return;
+    try {
+      if (!(await this.voiceService.isRoomManager(data.roomId, actorId))) {
+        client.emit('voice:error', { message: 'Only the host or a moderator can spotlight someone' });
+        return;
+      }
+      const { target, card } = await this.coach.spotlight(data.roomId, {
+        targetUserId: data.targetUserId,
+        cardId: data.cardId,
+        level: data.level,
+        category: data.category as any,
+      });
+      this.server.to(`voice:${data.roomId}`).emit('voice:spotlight', {
+        id: `spot-${Date.now()}`,
+        // "everyone" pushes the card to the whole room instead of one person
+        target: data.everyone ? null : target,
+        card,
+        by: actorId,
+        at: Date.now(),
+      });
+    } catch (error) {
+      client.emit('voice:error', { message: error?.message || 'Could not spotlight' });
+    }
   }
 
   @SubscribeMessage('voice:correction')

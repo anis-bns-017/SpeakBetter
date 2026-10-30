@@ -63,6 +63,7 @@ import {
   Filter,
   X,
   Lock,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -104,6 +105,9 @@ import { CorrectionsInbox } from "./shared/CorrectionsInbox";
 import { useVoiceCorrections } from "../../hooks/useVoiceCorrections";
 import { PracticeJournal } from "./shared/PracticeJournal";
 import { usePracticeJournal } from "../../hooks/usePracticeJournal";
+import { RoomCoachPanel } from "./shared/RoomCoachPanel";
+import { SpotlightBanner } from "./shared/SpotlightBanner";
+import { useRoomCoach } from "../../hooks/useRoomCoach";
 import {
   AttachmentPreviewModal,
   type PendingAttachment,
@@ -1624,6 +1628,7 @@ type PanelKey =
   | "quality"
   | "insights"
   | "cohost"
+  | "coach"
   | "stats";
 
 const PANEL_CLOSE_ORDER: PanelKey[] = [
@@ -1637,6 +1642,7 @@ const PANEL_CLOSE_ORDER: PanelKey[] = [
   "quality",
   "insights",
   "cohost",
+  "coach",
 ];
 
 const INITIAL_PANELS: Record<PanelKey, boolean> = {
@@ -1650,6 +1656,7 @@ const INITIAL_PANELS: Record<PanelKey, boolean> = {
   quality: false,
   insights: false,
   cohost: false,
+  coach: false,
   stats: false,
 };
 
@@ -2194,6 +2201,14 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       });
       toast.success(`✨ Saved to journal: ${c.corrected}`);
     },
+  });
+
+  // Private fluency coach, secret-word missions, airtime balance and topic spotlights
+  const coach = useRoomCoach({
+    roomId,
+    userId: user?.id || "",
+    socket,
+    isConnected,
   });
 
   const openCorrectionSheet = useCallback(
@@ -3347,6 +3362,17 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         ]}
         right={[
           {
+            id: "coach",
+            label: panels.coach ? "Hide room coach" : "Room coach & missions",
+            icon: Target,
+            active: panels.coach,
+            tone: "warning",
+            dot: Boolean(
+              coach.mission && coach.myMission && !coach.myMission.completed,
+            ),
+            onClick: () => togglePanel("coach"),
+          },
+          {
             id: "corrections",
             label: panels.corrections
               ? "Hide corrections inbox"
@@ -3718,10 +3744,36 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         )}
       </AnimatePresence>
 
+      <RoomCoachPanel
+        isOpen={panels.coach}
+        onClose={() => setPanel("coach", false)}
+        userId={user?.id || ""}
+        canManage={isModerator}
+        roomId={roomId}
+        live={coach.live}
+        tip={coach.tip}
+        mission={coach.mission}
+        myMission={coach.myMission}
+        lastResult={coach.lastResult}
+        airtime={coach.airtime}
+        onStartMission={coach.startMission}
+        onStopMission={coach.stopMission}
+        onSwapWord={coach.swapWord}
+        onSpotlight={coach.sendSpotlight}
+      />
+
+      <SpotlightBanner
+        spotlight={coach.spotlight}
+        userId={user?.id || ""}
+        onDismiss={coach.dismissSpotlight}
+      />
+
       <LeaveConfirmationModal
         isOpen={showLeaveConfirm}
         onClose={() => setShowLeaveConfirm(false)}
         onConfirm={handleConfirmLeave}
+        summary={coach.live}
+        missionsCompleted={coach.missionsDone}
       />
 
       <ShortcutPanel
