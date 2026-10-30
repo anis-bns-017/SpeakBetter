@@ -5,10 +5,10 @@
 // State lives in memory for the life of a room (like the gateway's other room state);
 // each learner's results are saved to VoiceSessionReport whenever they leave.
 
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
-import { ActivityService } from '../../learning/activity.service';
+import { ActivityService, XP_REWARDS } from '../../learning/activity.service';
 import {
   MISSION_POINTS,
   MISSION_SPEED_BONUS,
@@ -19,11 +19,16 @@ import {
 } from './coach.data';
 import {
   FluencyTracker,
+  MAX_SAVED_WORDS,
   buildAirtime,
+  cleanNote,
   coachTip,
+  dueAfter,
   matchesMissionWord,
   missionPoints,
+  nextBox,
   normalizeLevel,
+  normalizeSavedWord,
   pickMissionWord,
   pickQuietest,
   pickTopicCard,
@@ -557,5 +562,75 @@ export class CoachService {
     return this.prisma.voiceSessionReport.findUnique({
       where: { roomId_userId: { roomId, userId } },
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Word bank: words tapped in live captions, reviewed with spaced repetition
+  // ------------------------------------------------------------------
+
+  async saveWord(
+    userId: string,
+    input: { word?: unknown; sentence?: unknown; meaning?: unknown; speakerName?: unknown; roomId?: unknown },
+  ) {
+    const word = normalizeSavedWord(input.word);
+    if (!word) throw new BadRequestException('That is not a word we can save');
+
+    const existing = await this.prisma.voiceSavedWord.findUnique({
+      where: { userId_word: { userId, word } },
+    });
+    if (!existing && (await this.prisma.voiceSavedWord.count({ where: { userId } })) >= MAX_SAVED_WORDS) {
+      throw new BadRequestException(`Your word bank is full (${MAX_SAVED_WORDS} words) — review or remove some first`);
+    }
+
+    let roomName: string | null = null;
+    if (typeof input.roomId === 'string' && input.roomId) {
+      roomName =
+        (await this.prisma.voiceRoom.findUnique({ where: { id: input.roomId }, select: { name: true } }))?.name ?? null;
+    }
+
+    const sentence = cleanNote(input.sentence, 300);
+    const meaning = cleanNote(input.meaning, 120);
+    const speakerName = cleanNote(input.speakerName, 60);
+
+    // Saving again keeps your progress and only fills in what you add
+    const saved = await this.prisma.voiceSavedWord.upsert({
+      where: { userId_word: { userId, word } },
+      create: { userId, word, sentence, meaning, speakerName, roomName },
+      update: {
+        ...(sentence && { sentence }),
+        ...(meaning && { meaning }),
+        ...(speakerName && { speakerName }),
+        ...(roomName && { roomName }),
+      },
+    });
+    return { ...saved, created: !existing };
+  }
+
+  listWords(userId: string, opts: { dueOnly?: boolean; limit?: number } = {}) {
+    return this.prisma.voiceSavedWord.findMany({
+      where: { userId, ...(opts.dueOnly && { dueAt: { lte: new Date() } }) },
+      orderBy: opts.dueOnly ? { dueAt: 'asc' } : { createdAt: 'desc' },
+      take: Math.min(Math.max(Math.floor(opts.limit ?? 100) || 100, 1), MAX_SAVED_WORDS),
+    });
+  }
+
+  async reviewWord(userId: string, id: string, knew: boolean) {
+    const word = await this.prisma.voiceSavedWord.findFirst({ where: { id, userId } });
+    if (!word) throw new NotFoundException('Word not found');
+
+    const box = nextBox(word.box, knew);
+    const updated = await this.prisma.voiceSavedWord.update({
+      where: { id },
+      data: { box, dueAt: dueAfter(box), reviewCount: { increment: 1 } },
+    });
+    // Remembering earns a little XP; capped so reviewing stays about learning
+    if (knew) await this.activity.recordCappedActivity(userId, XP_REWARDS.flashcardReview, 'FLASHCARD_REVIEW', 20);
+    return updated;
+  }
+
+  async deleteWord(userId: string, id: string) {
+    const { count } = await this.prisma.voiceSavedWord.deleteMany({ where: { id, userId } });
+    if (!count) throw new NotFoundException('Word not found');
+    return { success: true };
   }
 }

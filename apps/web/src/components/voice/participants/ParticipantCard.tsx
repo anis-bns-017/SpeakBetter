@@ -40,6 +40,12 @@ export interface RoomParticipant {
   audioLevel?: number;
   isVerified?: boolean;
   isPremium?: boolean;
+  /** Room coach: has spoken far less than their share (shown to hosts only) */
+  isQuiet?: boolean;
+  /** Room coach: finished their secret-word mission this round */
+  missionDone?: boolean;
+  /** Room coach: the host spotlighted them with a topic card */
+  spotlighted?: boolean;
 }
 
 
@@ -93,6 +99,10 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
   const isMuted = participant.isMuted;
   const isSpeaking = Boolean(participant.isSpeaking) && !isMuted;
   const raisedHand = participant.raisedHand;
+  // 0–1 voice level; if we only know they are speaking (no level), show a gentle middle value
+  const voiceLevel = isSpeaking
+    ? Math.min(1, Math.max(0.25, Number(participant.audioLevel) || 0.35))
+    : 0;
 
   return (
     <motion.div
@@ -106,27 +116,17 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
     >
       <div className="cursor-pointer" onClick={onViewProfile}>
         <div className="relative">
-          {/* Speaking pulse effect */}
-          {isSpeaking && (
-            <>
-              <motion.div
-                className="absolute inset-[-8px] rounded-full pointer-events-none"
-                animate={{
-                  scale: [0.95, 1.1, 0.95],
-                  opacity: [0.5, 0.8, 0.5],
-                }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                style={{
-                  background: `radial-gradient(circle, rgba(99,102,241,0.15), transparent 70%)`,
-                }}
-              />
-              <motion.div
-                className="absolute inset-[-4px] rounded-full pointer-events-none border-2 border-purple-500/50"
-                animate={{ scale: [1, 1.15, 1], opacity: [0.6, 0, 0.6] }}
-                transition={{ duration: 1, repeat: Infinity }}
-              />
-            </>
-          )}
+          {/* Speaking ring: a steady glow that fades in and out and follows the voice level (no looping pulse) */}
+          <div
+            aria-hidden
+            className="absolute inset-[-4px] rounded-full pointer-events-none"
+            style={{
+              border: '2px solid rgba(129,140,248,0.9)',
+              boxShadow: `0 0 ${6 + voiceLevel * 16}px rgba(129,140,248,${0.25 + voiceLevel * 0.35})`,
+              opacity: isSpeaking ? 1 : 0,
+              transition: 'opacity 250ms ease, box-shadow 120ms ease-out',
+            }}
+          />
 
           {/* Avatar */}
           <div
@@ -153,7 +153,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
           </div>
 
           {/* Online status dot */}
-          {isOnline && !isMuted && (
+          {isOnline && !isMuted && !isSpeaking && (
             <div
               className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
               style={{
@@ -162,6 +162,30 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
               }}
             />
           )}
+
+          {/* Sound bars: small badge whose bars rise and fall with the voice while someone speaks */}
+          <div
+            aria-hidden
+            className="absolute -bottom-1 -right-1 w-[18px] h-[18px] rounded-full border-2 flex items-end justify-center gap-[1.5px] pb-[3px]"
+            style={{
+              background: THEME.colors.accent.primary,
+              borderColor: THEME.colors.background.primary,
+              opacity: isSpeaking ? 1 : 0,
+              transform: isSpeaking ? 'scale(1)' : 'scale(0.6)',
+              transition: 'opacity 200ms ease, transform 200ms ease',
+            }}
+          >
+            {[0.7, 1, 0.8].map((weight, i) => (
+              <span
+                key={i}
+                className="w-[2px] rounded-full bg-white"
+                style={{
+                  height: 3 + Math.round(voiceLevel * weight * 7),
+                  transition: 'height 110ms ease-out',
+                }}
+              />
+            ))}
+          </div>
 
           {isMuted && isOnline && (
             <div
@@ -204,40 +228,6 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
             <div className="absolute -top-1 -left-1">
               <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400 drop-shadow-lg" />
             </div>
-          )}
-
-          {/* Speaking badge */}
-          {isSpeaking && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: 4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[7px] font-bold tracking-wider whitespace-nowrap border"
-              style={{
-                background: 'rgba(99,102,241,0.95)',
-                borderColor: 'rgba(196,181,253,0.5)',
-                color: '#fff',
-                boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                <span className="flex items-end gap-[2px] h-2">
-                  {[0, 1, 2, 3].map((i) => (
-                    <motion.span
-                      key={i}
-                      className="w-[2px] rounded-full bg-white"
-                      animate={{ height: ['3px', '7px', '4px', '6px', '3px'] }}
-                      transition={{
-                        duration: 0.5,
-                        delay: i * 0.07,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                      }}
-                    />
-                  ))}
-                </span>
-                SPEAKING
-              </span>
-            </motion.div>
           )}
 
           {isCurrentUser && !isSpeaking && (
@@ -306,6 +296,36 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
                   : '🎧 Listening'
                 : '💤 Away'}
           </span>
+
+          {(participant.spotlighted || participant.missionDone || participant.isQuiet) && (
+            <div className="flex flex-wrap justify-center gap-1 mt-1">
+              {participant.spotlighted && (
+                <span
+                  className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold animate-pulse"
+                  style={{ background: 'rgba(251,191,36,0.18)', color: THEME.colors.accent.warning }}
+                >
+                  🔦 Spotlight
+                </span>
+              )}
+              {participant.missionDone && (
+                <span
+                  className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold"
+                  style={{ background: 'rgba(52,211,153,0.15)', color: THEME.colors.accent.success }}
+                >
+                  🎯 Mission done
+                </span>
+              )}
+              {participant.isQuiet && (
+                <span
+                  className="text-[8px] px-1.5 py-0.5 rounded-full"
+                  title="Has spoken much less than the others — try a spotlight"
+                  style={{ background: 'rgba(251,191,36,0.1)', color: THEME.colors.accent.warning }}
+                >
+                  🤫 Quiet
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

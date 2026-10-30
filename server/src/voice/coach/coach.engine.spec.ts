@@ -3,10 +3,14 @@ import {
   analyzeUtterance,
   buildAirtime,
   buildForms,
+  cleanNote,
   coachTip,
+  dueAfter,
   matchesMissionWord,
   missionPoints,
+  nextBox,
   normalizeLevel,
+  normalizeSavedWord,
   pickMissionWord,
   pickQuietest,
   pickTopicCard,
@@ -250,5 +254,66 @@ describe('topic cards', () => {
 
   it('has unique ids', () => {
     expect(new Set(TOPIC_CARDS.map((c) => c.id)).size).toBe(TOPIC_CARDS.length);
+  });
+});
+
+describe('saved words', () => {
+  it('moves up a box when known and back to the start when forgotten', () => {
+    expect(nextBox(0, true)).toBe(1);
+    expect(nextBox(3, true)).toBe(4);
+    expect(nextBox(5, true)).toBe(5); // top box stays
+    expect(nextBox(4, false)).toBe(0);
+  });
+
+  it('schedules later reviews for higher boxes', () => {
+    const from = new Date('2026-01-01T00:00:00Z');
+    expect(dueAfter(0, from).toISOString()).toBe('2026-01-02T00:00:00.000Z');
+    expect(dueAfter(3, from).toISOString()).toBe('2026-01-09T00:00:00.000Z');
+    expect(dueAfter(99, from).toISOString()).toBe('2026-02-02T00:00:00.000Z');
+  });
+
+  it('cleans tapped words', () => {
+    expect(normalizeSavedWord('  Perspective, ')).toBe('perspective');
+    expect(normalizeSavedWord('“don’t”')).toBe("don't");
+    expect(normalizeSavedWord('well-known.')).toBe('well-known');
+    expect(normalizeSavedWord('naïve')).toBe('naïve');
+    for (const bad of ['', 'a', '123', 'x'.repeat(41), 'two words', 'he<llo>x', null, undefined]) {
+      expect(normalizeSavedWord(bad as any)).toBeNull();
+    }
+  });
+
+  it('trims and caps notes', () => {
+    expect(cleanNote('  a   b \n c ', 50)).toBe('a b c');
+    expect(cleanNote('x'.repeat(500), 10)).toHaveLength(10);
+    expect(cleanNote('   ', 10)).toBeNull();
+  });
+});
+
+describe('variety score', () => {
+  it('does not punish short talks that use different words', () => {
+    const t = new FluencyTracker();
+    t.add('yesterday I walked along the river with my brother and we talked about our plans for the summer holiday together');
+    t.add('today the weather looks lovely so maybe someone could join us outside after lunch');
+    const s = t.snapshot(0);
+    expect(s.words).toBeGreaterThanOrEqual(25);
+    expect(s.scores.variety).toBeGreaterThanOrEqual(80);
+    expect(coachTip(s)?.kind).not.toBe('variety');
+  });
+
+  it('scores heavy repetition low and tips about it', () => {
+    const t = new FluencyTracker();
+    for (let i = 0; i < 3; i++) t.add('the food is good and the place is good and the people are good');
+    const s = t.snapshot(0);
+    expect(s.scores.variety).toBeLessThan(40);
+    expect(coachTip(s)?.kind).toBe('variety');
+  });
+
+  it('only looks at the most recent words', () => {
+    const t = new FluencyTracker();
+    for (let i = 0; i < 6; i++) t.add('good good good good good good good good good good');
+    expect(t.snapshot(0).scores.variety).toBeLessThan(20);
+    // Fifty fresh words push all of the repetition out of the window
+    t.add(Array.from({ length: 50 }, (_, i) => `fresh${i}`).join(' '));
+    expect(t.snapshot(0).scores.variety).toBe(100);
   });
 });

@@ -140,6 +140,7 @@ export const PACE_BAND = { min: 100, max: 150 } as const;
 const MIN_WORDS_FOR_SCORES = 25;
 const MIN_SECONDS_FOR_WPM = 15;
 const MAX_TRACKED_VOCAB = 2000;
+const VARIETY_WINDOW = 50;
 
 export class FluencyTracker {
   private utterances = 0;
@@ -149,6 +150,8 @@ export class FluencyTracker {
   private fillers: Record<string, number> = {};
   private vocab = new Set<string>();
   private rich: string[] = [];
+  /** The most recent words, for the variety score */
+  private recent: string[] = [];
 
   add(text: string): UtteranceAnalysis {
     const a = analyzeUtterance(text);
@@ -159,6 +162,9 @@ export class FluencyTracker {
     this.fillerCount += a.fillerCount;
     this.repeats += a.repeats;
     for (const [k, v] of Object.entries(a.fillers)) this.fillers[k] = (this.fillers[k] ?? 0) + v;
+
+    this.recent.push(...a.tokens);
+    if (this.recent.length > VARIETY_WINDOW) this.recent.splice(0, this.recent.length - VARIETY_WINDOW);
 
     for (const t of a.tokens) {
       if (this.vocab.size < MAX_TRACKED_VOCAB) this.vocab.add(t);
@@ -205,10 +211,12 @@ export class FluencyTracker {
       ? Math.round(clamp(100 - ((this.fillerCount + this.repeats) / words) * 100 * 8, 10, 100))
       : null;
 
-    // Guiraud's index (unique / √words) so longer talks aren't punished for repeating common words
-    const variety = enoughSpeech
-      ? Math.round(clamp(((this.vocab.size / Math.sqrt(words) - 3) / 5) * 100, 10, 100))
-      : null;
+    // Share of distinct words in the last 50 (a moving window, so the score doesn't depend on
+    // how long someone has talked): ~0.5 means lots of repeats, 0.85+ is very varied
+    const variety =
+      enoughSpeech && this.recent.length >= 20
+        ? Math.round(clamp(((new Set(this.recent).size / this.recent.length - 0.5) / 0.35) * 100, 5, 100))
+        : null;
 
     const available = [paceScore, smoothness, variety].filter((s): s is number => s !== null);
     const fluency = enoughSpeech && available.length
@@ -425,4 +433,37 @@ export function pickTopicCard(
         ? TOPIC_CARDS.filter((c) => !level || c.level === level)
         : TOPIC_CARDS;
   return pool[Math.floor(rng() * pool.length)];
+}
+
+// ------------------------------------------------------------------
+// Saved words (spaced repetition)
+// ------------------------------------------------------------------
+
+/** Days until a word comes back, by Leitner box */
+export const REVIEW_INTERVAL_DAYS = [1, 2, 4, 8, 16, 32] as const;
+export const MAX_SAVED_WORDS = 500;
+
+/** Knowing a word moves it up a box; forgetting sends it back to the start */
+export function nextBox(box: number, knew: boolean): number {
+  return knew ? Math.min(Math.max(box, 0) + 1, REVIEW_INTERVAL_DAYS.length - 1) : 0;
+}
+
+export function dueAfter(box: number, from: Date = new Date()): Date {
+  const days = REVIEW_INTERVAL_DAYS[Math.min(Math.max(box, 0), REVIEW_INTERVAL_DAYS.length - 1)];
+  return new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+/** A tapped caption word as stored: lowercase letters, apostrophes and hyphens, 2–40 characters; null if it isn't a word */
+export function normalizeSavedWord(raw: unknown): string | null {
+  const w = String(raw ?? '')
+    .toLowerCase()
+    .replace(/[‘’ʼ]/g, "'")
+    .trim()
+    .replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
+  return w.length >= 2 && w.length <= 40 && /^\p{L}[\p{L}'-]*$/u.test(w) ? w : null;
+}
+
+export function cleanNote(raw: unknown, max: number): string | null {
+  const s = String(raw ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+  return s || null;
 }

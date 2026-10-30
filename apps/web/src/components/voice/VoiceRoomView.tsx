@@ -4,13 +4,15 @@
  *
  * Sections (top to bottom):
  *   1. Hooks         keyboard shortcuts, remote audio output, tab title
- *   2. Chrome        ambient backdrop, drag-drop zone, tool rail, connection banner
+ *   2. Chrome        backdrop, drag-drop zone, connection banner
  *   3. VoiceRoomList room browser (exported)
  *   4. VoiceRoomView the live room (exported, default)
  *
- * Stage-bottom overlays (reaction bar + clap dock) share one wrapper whose
- * bounds match the stage — left edge to the chat panel's left border — so
- * they slide with the stage when chat opens and never sit under the chat.
+ * Layout ("studio"): the room renders into RoomLayout (VoiceRoomView.layout.tsx):
+ * one stage card (live badge, stat chips, grouped tools, coach dock,
+ * participants, reactions + clap footer), a chat card beside it (a sheet on
+ * phones), and a control dock (your status · audio controls · shortcuts) with
+ * a thumb-sized phone dock on small screens.
  *
  * Improvements in this revision:
  *   - FIX (two-places bubbling): handleSendStageReaction now takes a
@@ -27,7 +29,6 @@
  *     optimistic push can't double-render the same reaction.
  *   - RoomHotkey handlers are read through refs so the global keydown
  *     listener never goes stale and never needs re-binding.
- *   - ToolRail: now a single centered pill at the top of the stage.
  */
 
 import React, {
@@ -64,9 +65,17 @@ import {
   X,
   Lock,
   Target,
-  type LucideIcon,
+  Clock,
+  MessageCircle,
+  Smile,
+  MicOff,
+  UserPlus,
+  Hand,
+  Headphones,
+  HeadphoneOff,
+  PhoneOff,
 } from "lucide-react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 
@@ -107,6 +116,11 @@ import { PracticeJournal } from "./shared/PracticeJournal";
 import { usePracticeJournal } from "../../hooks/usePracticeJournal";
 import { RoomCoachPanel } from "./shared/RoomCoachPanel";
 import { SpotlightBanner } from "./shared/SpotlightBanner";
+import { LiveCaptions } from "./shared/LiveCaptions";
+import { CoachHud } from "./shared/CoachHud";
+import { CoachDock, type CoachTab } from "./shared/CoachDock";
+import { MissionBar, MissionCelebration } from "./shared/MissionBar";
+import { useWordBank } from "../../hooks/useWordBank";
 import { useRoomCoach } from "../../hooks/useRoomCoach";
 import {
   AttachmentPreviewModal,
@@ -118,10 +132,22 @@ import { useVoiceTranscription } from "../../hooks/useVoiceTranscription";
 import { ChatPanel } from "./chat/ChatPanel";
 import { ReactionOverlay, type StageReaction } from "./shared/ReactionOverlay";
 import { SpeakerQueue } from "./SpeakerQueue";
-import { ActiveSpeakerStrip } from "./shared/ActiveSpeakerStrip";
 import { StageReactionBar } from "./shared/StageReactionBar";
 
 import { THEME } from "./VoiceRoomView.theme";
+import {
+  RoomBackdrop,
+  RoomLayout,
+  RoomStatusScreen,
+  RoomStatusCard,
+  RoomButton,
+  RoomJoiningIndicator,
+  RoomPhoneDock,
+  LiveBadge,
+  DockKey,
+  type RoomToolGroup,
+  type StageStat,
+} from "./VoiceRoomView.layout";
 import type { VoiceRoomViewProps } from "./VoiceRoomView.types";
 import type { RoomParticipant } from "./participants/ParticipantCard";
 import {
@@ -277,118 +303,14 @@ export function useRoomDocumentTitle(
   }, [roomName, unread]);
 }
 
-function useMouseParallax(enabled: boolean) {
-  const pos = useRef({ x: 0, y: 0 });
-  useEffect(() => {
-    if (!enabled || typeof window === "undefined") return;
-    let raf = 0;
-    const onMove = (e: MouseEvent) => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        const nx = (e.clientX / window.innerWidth - 0.5) * 2;
-        const ny = (e.clientY / window.innerHeight - 0.5) * 2;
-        pos.current = { x: nx, y: ny };
-        raf = 0;
-      });
-    };
-    window.addEventListener("mousemove", onMove, { passive: true });
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [enabled]);
-  return pos;
-}
-
 // ============================================================
 // 2. CHROME
 // ============================================================
 
-export const AmbientBackdrop: React.FC<{ subtle?: boolean }> = ({ subtle }) => {
-  const reduced = useReducedMotion();
-  const mouse = useMouseParallax(!reduced);
-
-  const orbs = [
-    {
-      cls: "-top-40 -left-40 w-[520px] h-[520px] blur-[120px]",
-      bg: "radial-gradient(circle at 30% 30%, rgba(129,140,248,0.55), transparent 65%)",
-      o: subtle ? 0.35 : 0.55,
-      d: 0,
-      parallax: 32,
-    },
-    {
-      cls: "-bottom-52 -right-32 w-[620px] h-[620px] blur-[140px]",
-      bg: "radial-gradient(circle at 60% 40%, rgba(236,72,153,0.4), transparent 65%)",
-      o: subtle ? 0.3 : 0.45,
-      d: 0.15,
-      parallax: -28,
-    },
-    {
-      cls: "top-1/3 left-1/2 -translate-x-1/2 w-[520px] h-[520px] blur-[160px]",
-      bg: "radial-gradient(circle at 50% 50%, rgba(56,189,248,0.35), transparent 70%)",
-      o: subtle ? 0.25 : 0.4,
-      d: 0.3,
-      parallax: 20,
-    },
-  ];
-
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  useEffect(() => {
-    if (reduced) return;
-    let raf = 0;
-    const tick = () => {
-      setOffset({ x: mouse.current.x, y: mouse.current.y });
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [mouse, reduced]);
-
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      {orbs.map((orb, i) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0 }}
-          animate={
-            reduced
-              ? { opacity: orb.o }
-              : { opacity: orb.o, scale: [1, 1.06, 1] }
-          }
-          transition={
-            reduced
-              ? { duration: 0.6 }
-              : {
-                  opacity: { duration: 1.2, delay: orb.d },
-                  scale: {
-                    duration: 14 + i * 3,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  },
-                }
-          }
-          className={`absolute rounded-full ${orb.cls}`}
-          style={{
-            background: orb.bg,
-            transform: reduced
-              ? undefined
-              : `translate(${offset.x * orb.parallax}px, ${offset.y * orb.parallax}px)`,
-          }}
-        />
-      ))}
-      <div
-        className="absolute inset-0 opacity-[0.045] mix-blend-overlay"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.6'/></svg>\")",
-        }}
-      />
-    </div>
-  );
-};
+/** Static room wallpaper (the old one re-rendered every animation frame) */
+export const AmbientBackdrop: React.FC<{ subtle?: boolean }> = ({ subtle }) => (
+  <RoomBackdrop intensity={subtle ? "calm" : "bright"} />
+);
 
 export const RoomDropZone: React.FC<{
   onFile: (file: File) => void;
@@ -502,108 +424,6 @@ export const RoomDropZone: React.FC<{
         </motion.div>
       )}
     </AnimatePresence>
-  );
-};
-
-// ------------------------------------------------------------
-// Tool rail — centered pill, single row (left group · divider · right group)
-// ------------------------------------------------------------
-export interface ToolRailItem {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  onClick: () => void;
-  active?: boolean;
-  badge?: number;
-  dot?: boolean;
-  hidden?: boolean;
-  tone?: "primary" | "success" | "warning";
-}
-
-const RailButton: React.FC<{ item: ToolRailItem }> = ({ item }) => {
-  const Icon = item.icon;
-  const tone = item.tone ?? "primary";
-  const activeBg =
-    tone === "success"
-      ? THEME.colors.accent.success
-      : tone === "warning"
-        ? THEME.colors.accent.warning
-        : THEME.colors.accent.primary;
-  const badgeBg =
-    tone === "success"
-      ? THEME.colors.accent.success
-      : THEME.colors.accent.warning;
-
-  return (
-    <button
-      type="button"
-      onClick={item.onClick}
-      aria-label={item.label}
-      aria-pressed={item.active ?? false}
-      title={item.label}
-      className="relative grid h-10 w-10 place-items-center rounded-full border shadow-lg transition-all hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-      style={{
-        background: item.active ? activeBg : "rgba(18,18,32,0.85)",
-        borderColor: THEME.colors.border.primary,
-        color: item.active ? "#fff" : THEME.colors.text.muted,
-        backdropFilter: "blur(12px)",
-      }}
-    >
-      <Icon className="w-4 h-4" />
-      {!!item.badge && item.badge > 0 && !item.active && (
-        <span
-          className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[9px] font-bold animate-pulse"
-          style={{ background: badgeBg, color: "#0a0a12" }}
-        >
-          {item.badge > 99 ? "99+" : item.badge}
-        </span>
-      )}
-      {item.dot && !item.active && (
-        <span
-          className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full animate-pulse"
-          style={{ background: THEME.colors.accent.warning }}
-        />
-      )}
-    </button>
-  );
-};
-
-export const RoomToolRail: React.FC<{
-  left: ToolRailItem[];
-  right: ToolRailItem[];
-}> = ({ left, right }) => {
-  const visibleLeft = left.filter((i) => !i.hidden);
-  const visibleRight = right.filter((i) => !i.hidden);
-  const nothing = visibleLeft.length === 0 && visibleRight.length === 0;
-  if (nothing) return null;
-
-  return (
-    <div
-      className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3 py-2 rounded-full border shadow-2xl"
-      role="toolbar"
-      aria-label="Room tools"
-      style={{
-        background: "rgba(14,14,26,0.82)",
-        borderColor: THEME.colors.border.primary,
-        backdropFilter: "blur(16px)",
-        boxShadow:
-          "0 20px 48px -18px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
-      }}
-    >
-      {visibleLeft.map((item) => (
-        <RailButton key={item.id} item={item} />
-      ))}
-      {visibleLeft.length > 0 && visibleRight.length > 0 && (
-        <span
-          aria-hidden
-          className="w-px h-6 mx-0.5"
-          style={{ background: THEME.colors.border.primary }}
-        />
-      )}
-      {visibleRight.map((item) => (
-        <RailButton key={item.id} item={item} />
-      ))}
-    </div>
   );
 };
 
@@ -1789,46 +1609,21 @@ const toggleReactionIn = (
   return { ...m, reactions, reactionTally: undefined };
 };
 
-const StatusScreen: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => (
-  <div
-    className="relative h-screen flex items-center justify-center px-6 overflow-hidden"
-    style={{ background: THEME.colors.background.primary }}
-  >
-    <AmbientBackdrop />
-    {children}
-  </div>
-);
-
 const ClapDock: React.FC<{
   size: "sm" | "md";
   onClap: () => void;
-  showRemaining?: boolean;
   audioLevel?: number;
-}> = ({ size, onClap, showRemaining = true, audioLevel = 0 }) => {
+}> = ({ size, onClap, audioLevel = 0 }) => {
   const [streak, setStreak] = useState(0);
 
   return (
     <div
-      className="pointer-events-auto relative rounded-full p-1.5"
+      className="pointer-events-auto relative rounded-full p-1"
       style={{
-        background:
-          "linear-gradient(180deg, rgba(24,24,42,0.9), rgba(14,14,26,0.9))",
-        border: `1px solid rgba(129,140,248,0.28)`,
-        backdropFilter: "blur(14px)",
-        boxShadow:
-          "0 20px 48px -18px rgba(129,140,248,0.55), 0 0 0 1px rgba(129,140,248,0.08), inset 0 1px 0 rgba(255,255,255,0.05)",
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.08)",
       }}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-full"
-        style={{
-          background:
-            "radial-gradient(circle at 50% 50%, rgba(129,140,248,0.18), transparent 70%)",
-        }}
-      />
       {audioLevel > 0.05 && (
         <motion.span
           aria-hidden
@@ -1869,16 +1664,8 @@ const ClapDock: React.FC<{
             </motion.span>
           )}
         </AnimatePresence>
-        <span
-          className="hidden sm:inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-md text-[9px] font-mono font-bold border"
-          style={{
-            borderColor: THEME.colors.border.primary,
-            color: THEME.colors.text.muted,
-            background: "rgba(255,255,255,0.03)",
-          }}
-          title="Press A to clap"
-        >
-          A
+        <span className="hidden sm:inline-flex pr-1.5" title="Press A to clap">
+          <DockKey>A</DockKey>
         </span>
       </div>
     </div>
@@ -2066,7 +1853,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         ? "good"
         : "poor";
 
-  const { transcriptions } = useVoiceTranscription({
+  const { transcriptions, isSupported: captionsSupported } = useVoiceTranscription({
     roomId,
     userId: user?.id || "",
     userName,
@@ -2241,6 +2028,33 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     socket,
     isConnected,
   });
+
+  // Words tapped in the live captions, reviewed with spaced repetition
+  const wordBank = useWordBank();
+
+  // The dock's tiles open the coach panel on a given tab
+  const [coachTabRequest, setCoachTabRequest] = useState<{
+    tab: CoachTab;
+    n: number;
+  }>({ tab: "me", n: 0 });
+  const openCoach = useCallback((tab: CoachTab) => {
+    setCoachTabRequest((r) => ({ tab, n: r.n + 1 }));
+    setPanels((p) => ({ ...p, coach: true }));
+  }, []);
+
+  // Coach badges on participant cards: quiet voices (hosts only), mission done, spotlight
+  const participantsWithCoach = useMemo(
+    () =>
+      allParticipants.map((p) => ({
+        ...p,
+        isQuiet: isModerator && Boolean(coach.airtime?.quiet.includes(p.userId)),
+        missionDone: Boolean(
+          coach.mission?.completed.some((c) => c.userId === p.userId),
+        ),
+        spotlighted: coach.spotlight?.target?.userId === p.userId,
+      })),
+    [allParticipants, isModerator, coach.airtime, coach.mission, coach.spotlight],
+  );
 
   const openCorrectionSheet = useCallback(
     (targetUserId: string, targetUserName: string) => {
@@ -3220,73 +3034,25 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   // ============================================================
   if (joinError && !token && !isJoining) {
     return (
-      <StatusScreen>
-        <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ type: "spring", stiffness: 220, damping: 22 }}
+      <RoomStatusScreen>
+        <RoomStatusCard
           role="alert"
-          className="relative w-full max-w-sm rounded-3xl p-7 text-center"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(24,24,42,0.92), rgba(14,14,26,0.92))",
-            border: `1px solid ${THEME.colors.border.primary}`,
-            boxShadow:
-              "0 40px 100px -40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.04)",
-            backdropFilter: "blur(16px)",
-          }}
-        >
-          <div
-            className="mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{
-              background: "rgba(251,191,36,0.12)",
-              border: "1px solid rgba(251,191,36,0.28)",
-              boxShadow: "0 12px 32px -12px rgba(251,191,36,0.5)",
-            }}
-          >
-            <WifiOff
-              className="w-8 h-8"
-              style={{ color: THEME.colors.accent.warning }}
-            />
-          </div>
-          <h2
-            className="text-xl font-bold tracking-tight"
-            style={{ color: THEME.colors.text.primary }}
-          >
-            Couldn't connect to voice
-          </h2>
-          <p
-            className="mt-2 text-sm leading-relaxed"
-            style={{ color: THEME.colors.text.muted }}
-          >
-            {joinError}
-          </p>
-          <div className="mt-6 flex gap-3">
-            <button
-              type="button"
-              onClick={onLeave}
-              className="flex-1 rounded-full border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
-              style={{
-                borderColor: THEME.colors.border.primary,
-                color: THEME.colors.text.secondary,
-              }}
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={() => setJoinAttempt((n) => n + 1)}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white transition-transform hover:scale-[1.02] active:scale-95"
-              style={{
-                background: THEME.colors.gradient.primary,
-                boxShadow: "0 14px 32px -12px rgba(129,140,248,0.8)",
-              }}
-            >
-              <RotateCcw className="w-4 h-4" /> Retry
-            </button>
-          </div>
-        </motion.div>
-      </StatusScreen>
+          icon={WifiOff}
+          tone="warning"
+          title="Couldn't connect to voice"
+          body={joinError}
+          actions={
+            <>
+              <RoomButton variant="ghost" onClick={onLeave}>
+                Back
+              </RoomButton>
+              <RoomButton onClick={() => setJoinAttempt((n) => n + 1)}>
+                <RotateCcw className="w-4 h-4" /> Retry
+              </RoomButton>
+            </>
+          }
+        />
+      </RoomStatusScreen>
     );
   }
 
@@ -3305,333 +3071,347 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       // fall through to not-found below
     } else {
       return (
-        <StatusScreen>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="relative text-center"
-            role="status"
-            aria-live="polite"
-          >
-            <div className="relative w-24 h-24 mx-auto mb-6">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background: `conic-gradient(from 0deg, transparent 0%, ${THEME.colors.accent.primary} 40%, ${THEME.colors.accent.secondary} 60%, transparent 100%)`,
-                  maskImage:
-                    "radial-gradient(circle, transparent 62%, black 63%)",
-                  WebkitMaskImage:
-                    "radial-gradient(circle, transparent 62%, black 63%)",
-                }}
-              />
-              <motion.div
-                animate={{ rotate: -360 }}
-                transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-2 rounded-full"
-                style={{
-                  background: `conic-gradient(from 0deg, transparent 0%, ${THEME.colors.accent.tertiary} 60%, transparent 100%)`,
-                  maskImage:
-                    "radial-gradient(circle, transparent 65%, black 66%)",
-                  WebkitMaskImage:
-                    "radial-gradient(circle, transparent 65%, black 66%)",
-                  opacity: 0.7,
-                }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <motion.div
-                  animate={{ scale: [1, 1.15, 1] }}
-                  transition={{ duration: 1.8, repeat: Infinity }}
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center"
-                  style={{
-                    background: THEME.colors.gradient.primary,
-                    boxShadow: "0 12px 32px -8px rgba(129,140,248,0.9)",
-                  }}
-                >
-                  <Mic className="w-5 h-5 text-white" />
-                </motion.div>
-              </div>
-            </div>
-            <p
-              className="text-sm font-medium tracking-wide"
-              style={{ color: THEME.colors.text.secondary }}
-            >
-              {label}…
-            </p>
-            <button
-              type="button"
-              onClick={onLeave}
-              className="mt-5 text-xs underline-offset-4 hover:underline"
-              style={{ color: THEME.colors.text.muted }}
-            >
-              Cancel
-            </button>
-          </motion.div>
-        </StatusScreen>
+        <RoomStatusScreen>
+          <RoomJoiningIndicator label={label} icon={Mic} onCancel={onLeave} />
+        </RoomStatusScreen>
       );
     }
   }
 
   if (!room) {
     return (
-      <StatusScreen>
-        <div className="relative text-center max-w-sm">
-          <div
-            className="mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: `1px solid ${THEME.colors.border.primary}`,
-            }}
-          >
-            <AlertCircle
-              className="w-8 h-8"
-              style={{ color: THEME.colors.text.muted }}
-            />
-          </div>
-          <h2
-            className="text-2xl font-bold mb-2 tracking-tight"
-            style={{ color: THEME.colors.text.primary }}
-          >
-            Room Not Found
-          </h2>
-          <p
-            className="text-sm mb-6 leading-relaxed"
-            style={{ color: THEME.colors.text.muted }}
-          >
-            This room may have ended or the link is incorrect.
-          </p>
-          <button
-            type="button"
-            onClick={onLeave}
-            className="px-6 py-3 rounded-full font-semibold text-sm text-white transition-transform hover:scale-[1.03] active:scale-95"
-            style={{
-              background: THEME.colors.gradient.primary,
-              boxShadow: "0 14px 32px -12px rgba(129,140,248,0.8)",
-            }}
-          >
-            Back to Rooms
-          </button>
-        </div>
-      </StatusScreen>
+      <RoomStatusScreen>
+        <RoomStatusCard
+          icon={AlertCircle}
+          title="Room not found"
+          body="This room may have ended or the link is incorrect."
+          actions={<RoomButton onClick={onLeave}>Back to rooms</RoomButton>}
+        />
+      </RoomStatusScreen>
     );
   }
 
   // ============================================================
   // RENDER — MAIN
   // ============================================================
-  return (
-    <div
-      className="h-screen flex flex-col overflow-hidden relative"
-      style={{ background: THEME.colors.background.primary }}
-    >
-      <AmbientBackdrop subtle />
 
-      <VoiceRoomHeader
-        room={room}
-        isHost={isHost}
-        isLiveKitConnected={isLiveKitConnected}
-        isMockMode={isMockMode}
-        totalParticipants={totalParticipants}
-        speakingCount={speakingCount}
-        onlineCount={onlineCount}
-        showChat={showChat}
-        unreadCount={unreadCount}
-        isConnected={isConnected}
-        onToggleChat={() => setShowChat((v) => !v)}
-        onToggleCommandCenter={() => togglePanel("command")}
-        onShowDetails={() => setPanel("details", true)}
-        onShowShortcuts={() => setPanel("shortcuts", true)}
-        onMinimize={onMinimize}
-        onShare={() => setPanel("invite", true)}
-        onLeave={handleLeave}
-        onEndRoom={handleEndRoom}
-      />
+  const speakingNames = allParticipants
+    .filter((p) => p.isSpeaking)
+    .map((p) => (p.userId === user?.id ? "You" : p.name || "Someone"));
+  const speakingLine =
+    speakingNames.length === 0
+      ? "Quiet right now — say hi!"
+      : speakingNames.length === 1
+        ? `${speakingNames[0]} ${speakingNames[0] === "You" ? "are" : "is"} speaking`
+        : speakingNames.length === 2
+          ? `${speakingNames[0]} and ${speakingNames[1]} are speaking`
+          : `${speakingNames[0]} and ${speakingNames.length - 1} others are speaking`;
 
-      <ConnectionBanner
-        socketConnected={isConnected}
-        voiceConnected={isLiveKitConnected}
-        voiceConnecting={Boolean(isConnecting)}
-        mockMode={isMockMode}
-      />
-
-      <RoomToolRail
-        left={[
+  const stageStats: StageStat[] = [
+    {
+      id: "people",
+      icon: Users,
+      label: "In room",
+      value: totalParticipants,
+      color: THEME.colors.accent.primaryLight,
+    },
+    {
+      id: "speaking",
+      icon: Mic,
+      label: "Speaking",
+      value: speakingCount,
+      live: speakingCount > 0,
+    },
+    {
+      id: "duration",
+      icon: Clock,
+      label: "Duration",
+      value: formatRoomDuration(roomDuration),
+    },
+    {
+      id: "messages",
+      icon: MessageCircle,
+      label: "Messages",
+      value: messages.length,
+    },
+    ...(panels.stats
+      ? [
           {
-            id: "insights",
-            label: panels.insights
-              ? "Hide session insights"
-              : "Show session insights",
-            icon: BarChart3,
-            active: panels.insights,
-            hidden: !isModerator,
-            onClick: () => togglePanel("insights"),
-          },
-          {
-            id: "cohost",
-            label: panels.cohost ? "Hide AI co-host" : "Open AI co-host",
-            icon: Sparkles,
-            active: panels.cohost,
-            dot: Boolean(aiCoHost.suggestion),
-            hidden: !isModerator,
-            onClick: () => togglePanel("cohost"),
-          },
-        ]}
-        right={[
-          {
-            id: "coach",
-            label: panels.coach ? "Hide room coach" : "Room coach & missions",
-            icon: Target,
-            active: panels.coach,
-            tone: "warning",
-            dot: Boolean(
-              coach.mission && coach.myMission && !coach.myMission.completed,
-            ),
-            onClick: () => togglePanel("coach"),
-          },
-          {
-            id: "corrections",
-            label: panels.corrections
-              ? "Hide corrections inbox"
-              : "Corrections inbox",
-            icon: SpellCheck,
-            active: panels.corrections,
-            tone: "success",
-            badge: corrections.received.length,
-            onClick: () => togglePanel("corrections"),
-          },
-          {
-            id: "journal",
-            label: "Practice journal",
-            icon: BookOpen,
-            active: panels.journal,
-            badge: journal.stats.dueForReview.length,
-            onClick: () => togglePanel("journal"),
-          },
-          {
-            id: "effects",
-            label: panels.effects ? "Hide voice effects" : "Voice effects",
-            icon: Mic2,
-            active: panels.effects,
-            onClick: () => togglePanel("effects"),
-          },
-          {
-            id: "quality",
-            label: panels.quality
-              ? "Hide connection info"
-              : "Show connection info",
+            id: "online",
             icon: Wifi,
-            active: panels.quality,
-            onClick: () => togglePanel("quality"),
+            label: "Online",
+            value: onlineCount,
           },
-        ]}
-      />
+          {
+            id: "reactions",
+            icon: Smile,
+            label: "Reactions",
+            value: stageReactions.length,
+            live: stageReactions.length > 0,
+            color: THEME.colors.accent.pink,
+          },
+        ]
+      : []),
+    ...(isRecording
+      ? [
+          {
+            id: "recording",
+            icon: Radio,
+            label: "Recording",
+            value: "REC",
+            live: true,
+            color: THEME.colors.status.recording,
+          },
+        ]
+      : []),
+  ];
 
-      <AnimatePresence initial={false}>
-        {panels.stats && (
-          <motion.div
-            key="live-stats"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="px-4 py-2 border-b overflow-hidden relative z-20"
-            style={{
-              borderColor: THEME.colors.border.primary,
-              background: "rgba(14,14,26,0.7)",
-              backdropFilter: "blur(12px)",
-            }}
-          >
-            <div className="flex items-center gap-4 flex-wrap text-xs pl-0 sm:pl-0">
-              {[
-                { label: "Participants", value: totalParticipants },
-                { label: "Speaking", value: speakingCount },
-                {
-                  label: "Duration",
-                  value: `${Math.floor(roomDuration / 60)}m ${String(roomDuration % 60).padStart(2, "0")}s`,
-                },
-                { label: "Messages", value: messages.length },
-                { label: "Reactions", value: stageReactions.length },
-              ].map((stat) => (
-                <div key={stat.label} className="flex items-center gap-1.5">
-                  <span style={{ color: THEME.colors.text.muted }}>
-                    {stat.label}:
-                  </span>
-                  <span
-                    className="font-semibold"
-                    style={{ color: THEME.colors.text.primary }}
-                  >
-                    {stat.value}
-                  </span>
-                </div>
-              ))}
+  const toolGroups: RoomToolGroup[] = [
+    {
+      id: "practice",
+      label: "Practice",
+      tools: [
+        {
+          id: "coach",
+          label: panels.coach ? "Hide room coach" : "Room coach & missions",
+          icon: Target,
+          active: panels.coach,
+          tone: "warning",
+          badge: wordBank.due.length,
+          dot: Boolean(
+            coach.mission && coach.myMission && !coach.myMission.completed,
+          ),
+          onClick: () => togglePanel("coach"),
+        },
+        {
+          id: "corrections",
+          label: panels.corrections
+            ? "Hide corrections inbox"
+            : "Corrections inbox",
+          icon: SpellCheck,
+          active: panels.corrections,
+          tone: "success",
+          badge: corrections.received.length,
+          onClick: () => togglePanel("corrections"),
+        },
+        {
+          id: "journal",
+          label: "Practice journal",
+          icon: BookOpen,
+          active: panels.journal,
+          badge: journal.stats.dueForReview.length,
+          onClick: () => togglePanel("journal"),
+        },
+      ],
+    },
+    {
+      id: "audio",
+      label: "Audio",
+      tools: [
+        {
+          id: "effects",
+          label: panels.effects ? "Hide voice effects" : "Voice effects",
+          icon: Mic2,
+          active: panels.effects,
+          onClick: () => togglePanel("effects"),
+        },
+        {
+          id: "quality",
+          label: panels.quality ? "Hide connection info" : "Connection info",
+          icon: Wifi,
+          active: panels.quality,
+          onClick: () => togglePanel("quality"),
+        },
+      ],
+    },
+    {
+      id: "host",
+      label: "Host tools",
+      tools: [
+        {
+          id: "insights",
+          label: panels.insights ? "Hide session insights" : "Session insights",
+          icon: BarChart3,
+          active: panels.insights,
+          hidden: !isModerator,
+          onClick: () => togglePanel("insights"),
+        },
+        {
+          id: "cohost",
+          label: panels.cohost ? "Hide AI co-host" : "AI co-host",
+          icon: Sparkles,
+          active: panels.cohost,
+          dot: Boolean(aiCoHost.suggestion),
+          hidden: !isModerator,
+          onClick: () => togglePanel("cohost"),
+        },
+      ],
+    },
+    {
+      id: "room",
+      label: "Room",
+      tools: [
+        {
+          id: "invite",
+          label: "Invite people",
+          icon: UserPlus,
+          active: panels.invite,
+          onClick: () => setPanel("invite", true),
+        },
+        {
+          id: "chat",
+          label: showChat ? "Hide chat (C)" : "Open chat (C)",
+          icon: MessageCircle,
+          active: showChat,
+          badge: unreadCount,
+          onClick: () => setShowChat((v) => !v),
+        },
+      ],
+    },
+  ];
+
+  const myRole = isHost
+    ? "Host"
+    : isModerator
+      ? "Moderator"
+      : isAudience
+        ? "Audience"
+        : "Speaker";
+
+  return (
+    <RoomLayout
+      header={
+        <VoiceRoomHeader
+          room={room}
+          isHost={isHost}
+          isLiveKitConnected={isLiveKitConnected}
+          isMockMode={isMockMode}
+          totalParticipants={totalParticipants}
+          speakingCount={speakingCount}
+          onlineCount={onlineCount}
+          showChat={showChat}
+          unreadCount={unreadCount}
+          isConnected={isConnected}
+          onToggleChat={() => setShowChat((v) => !v)}
+          onToggleCommandCenter={() => togglePanel("command")}
+          onShowDetails={() => setPanel("details", true)}
+          onShowShortcuts={() => setPanel("shortcuts", true)}
+          onMinimize={onMinimize}
+          onShare={() => setPanel("invite", true)}
+          onLeave={handleLeave}
+          onEndRoom={handleEndRoom}
+        />
+      }
+      banner={
+        <ConnectionBanner
+          socketConnected={isConnected}
+          voiceConnected={isLiveKitConnected}
+          voiceConnecting={Boolean(isConnecting)}
+          mockMode={isMockMode}
+        />
+      }
+      stageTitle={
+        <>
+          <LiveBadge
+            label={isMockMode ? "Demo" : isLiveKitConnected ? "Live" : "Offline"}
+            tone={isLiveKitConnected && !isMockMode ? "live" : "idle"}
+          />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold leading-tight tracking-tight">
+              {isStageRoom ? "On stage" : "Conversation"}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <main className="flex flex-1 min-h-0 relative z-10">
-        <ReactionOverlay reactions={stageReactions} />
-
-        <div className="flex-1 min-w-0 flex flex-col min-h-0 relative">
-          <ActiveSpeakerStrip
-            participants={allParticipants}
-            currentUserId={user?.id}
-            onSelect={(id) => {
-              const p = allParticipants.find(
-                (x) => x.id === id || x.userId === id,
-              );
-              if (p) toast.info(`🎤 ${p.name} is speaking`);
-            }}
+            <div
+              className="truncate text-xs leading-tight"
+              style={{
+                color:
+                  speakingNames.length > 0
+                    ? THEME.colors.accent.success
+                    : THEME.colors.text.muted,
+              }}
+              aria-live="polite"
+            >
+              {speakingLine}
+            </div>
+          </div>
+        </>
+      }
+      stats={stageStats}
+      toolGroups={toolGroups}
+      stageTop={
+        <CoachDock
+          canManage={isModerator}
+          captions={
+            !captionsSupported ? "unsupported" : isMuted ? "muted" : "listening"
+          }
+          live={coach.live}
+          mission={coach.mission}
+          myMission={coach.myMission}
+          airtime={coach.airtime}
+          savedCount={wordBank.words.length}
+          dueCount={wordBank.due.length}
+          onOpen={openCoach}
+          onStartMission={() => coach.startMission("B1", 5 * 60)}
+          onSpotlight={() => coach.sendSpotlight({})}
+        />
+      }
+      stage={
+        <ParticipantGrid
+          participants={participantsWithCoach}
+          isHost={isHost}
+          isModerator={isModerator}
+          currentUserId={user?.id}
+          hostId={hostId}
+          searchQuery={participantSearch}
+          onSearchChange={setParticipantSearch}
+          filter={participantFilter}
+          onFilterChange={setParticipantFilter}
+          showSearch={showParticipantSearch}
+          onToggleSearch={() => setShowParticipantSearch((v) => !v)}
+          favoriteParticipants={favoriteParticipants}
+          onToggleFavorite={(userId) =>
+            setFavoriteParticipants((prev) => {
+              const next = new Set(prev);
+              if (next.has(userId)) next.delete(userId);
+              else next.add(userId);
+              return next;
+            })
+          }
+          onMuteUser={muteUser}
+          onUnmuteUser={unmuteUser}
+          onKickUser={kickUser}
+          onPromoteHost={promoteHost}
+          isStageRoom={isStageRoom}
+          onInviteToStage={inviteToStage}
+          onMoveToAudience={moveToAudience}
+          onSendMessage={(userId) => {
+            const participant = allParticipants.find((p) => p.id === userId);
+            if (!participant) return;
+            setShowChat(true);
+            setNewMessage(`@${participant.name} `);
+            window.setTimeout(() => textareaRef.current?.focus(), 100);
+          }}
+          onViewProfile={() => toast.info("👤 Viewing profile")}
+          showChat={showChat}
+          className="w-full"
+          onInvite={() => setPanel("invite", true)}
+          onPickTopic={(topic) => {
+            setShowChat(true);
+            setNewMessage(topic);
+            window.setTimeout(() => textareaRef.current?.focus(), 100);
+          }}
+          onCorrect={openCorrectionSheet}
+        />
+      }
+      stageOverlay={
+        <>
+          <ReactionOverlay reactions={stageReactions} />
+          <LiveCaptions
+            transcriptions={transcriptions}
+            userId={user?.id || ""}
+            savedWords={wordBank.savedSet}
+            onSave={(input) => wordBank.save({ ...input, roomId })}
           />
-
-          <ParticipantGrid
-            participants={allParticipants}
-            isHost={isHost}
-            isModerator={isModerator}
-            currentUserId={user?.id}
-            hostId={hostId}
-            searchQuery={participantSearch}
-            onSearchChange={setParticipantSearch}
-            filter={participantFilter}
-            onFilterChange={setParticipantFilter}
-            showSearch={showParticipantSearch}
-            onToggleSearch={() => setShowParticipantSearch((v) => !v)}
-            favoriteParticipants={favoriteParticipants}
-            onToggleFavorite={(userId) =>
-              setFavoriteParticipants((prev) => {
-                const next = new Set(prev);
-                if (next.has(userId)) next.delete(userId);
-                else next.add(userId);
-                return next;
-              })
-            }
-            onMuteUser={muteUser}
-            onUnmuteUser={unmuteUser}
-            onKickUser={kickUser}
-            onPromoteHost={promoteHost}
-            isStageRoom={isStageRoom}
-            onInviteToStage={inviteToStage}
-            onMoveToAudience={moveToAudience}
-            onSendMessage={(userId) => {
-              const participant = allParticipants.find((p) => p.id === userId);
-              if (!participant) return;
-              setShowChat(true);
-              setNewMessage(`@${participant.name} `);
-              window.setTimeout(() => textareaRef.current?.focus(), 100);
-            }}
-            onViewProfile={() => toast.info("👤 Viewing profile")}
-            showChat={showChat}
-            className="w-full"
-            onInvite={() => setPanel("invite", true)}
-            onPickTopic={(topic) => {
-              setShowChat(true);
-              setNewMessage(topic);
-              window.setTimeout(() => textareaRef.current?.focus(), 100);
-            }}
-            onCorrect={openCorrectionSheet}
-          />
-
-          <div className="pointer-events-none absolute right-3 top-24 z-30 w-[min(88vw,300px)] hidden md:block">
+          <div className="pointer-events-none absolute right-3 top-3 z-30 hidden w-[min(88vw,300px)] md:block">
             <div className="pointer-events-auto">
               <SpeakerQueue
                 participants={queueParticipants}
@@ -3645,100 +3425,227 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
               />
             </div>
           </div>
-
-          <div className="relative z-20 shrink-0 hidden sm:flex items-center justify-center gap-3 px-4 py-2">
-            <div className="pointer-events-auto">
-              <StageReactionBar
-                onSend={(emoji) => handleSendStageReaction(emoji)}
-              />
-            </div>
-            <div className="pointer-events-auto shrink-0">
-              <ClapDock
-                onClap={handleClap}
-                size="sm"
-                audioLevel={clamp01(audioLevel)}
-              />
-            </div>
-          </div>
-        </div>
-
-        <AnimatePresence>
-          {showChat && (
-            <ChatPanel
-              messages={chatPanelMessages}
-              newMessage={newMessage}
-              replyTo={
-                replyTo
-                  ? (normalizeChatMessage(replyTo, user?.id) as any)
-                  : null
-              }
-              typingUsers={typingUsers}
-              currentUserId={user?.id || ""}
-              isHost={isHost}
-              isModerator={isModerator}
-              showEmojiPicker={showEmojiPicker}
-              onEmojiPickerToggle={() => setShowEmojiPicker((v) => !v)}
-              onMessageChange={handleComposerChange}
-              onSendMessage={handleSendMessage}
-              onReply={(msg) => setReplyTo(msg as any)}
-              onPinMessage={handlePinMessage}
-              onDeleteMessage={handleDeleteMessage}
-              onEditMessage={handleEditMessage}
-              onReactToMessage={handleMessageReaction}
-              onKickUser={kickUser}
-              onMuteUser={muteUser}
-              onRetryMessage={handleRetryMessage}
-              chatSearch={chatSearch}
-              onChatSearchChange={setChatSearch}
-              showChatSearch={showChatSearch}
-              onToggleChatSearch={() => setShowChatSearch((v) => !v)}
-              totalParticipants={totalParticipants}
-              scrollRef={chatScrollRef}
-              endRef={chatEndRef}
-              textareaRef={textareaRef}
-              isNearBottom={isNearBottom}
-              onScroll={handleChatScroll}
-              hasNewMessages={hasNewMessages}
-              newMessageCount={newMessageCount}
-              onScrollToBottom={() => {
-                setHasNewMessages(false);
-                setNewMessageCount(0);
-                scrollToBottom();
-              }}
-              onAttachFile={handleAttachClick}
-              onDropFile={openAttachmentPreview}
-              onTranslateMessage={handleTranslateMessage}
-              onReportMessage={handleReportMessage}
-              onSuggestCorrection={handleSuggestChatCorrection}
-              onLoadOlder={handleLoadOlderMessages}
-              hasMoreHistory={hasMoreHistory && messages.length >= 50}
-              roomId={roomId}
-              currentUserName={userName}
-              participantNames={allParticipants
-                .map((p) => p.name)
-                .filter(Boolean)}
-              participantNamesById={participantNamesById}
-              className="w-full md:w-[400px] border-l"
-            />
-          )}
-        </AnimatePresence>
-      </main>
-
-      {!showChat && (
-        <div
-          className="pointer-events-none absolute left-4 z-[68] sm:hidden"
-          style={{ bottom: "7rem" }}
-        >
+        </>
+      }
+      stageFooter={
+        <>
+          {/* The bar floats by default; in the footer it sits in line with the clap */}
+          <StageReactionBar
+            className="static! shrink-0"
+            onSend={(emoji) => handleSendStageReaction(emoji)}
+          />
+          <span
+            aria-hidden
+            className="h-6 w-px shrink-0"
+            style={{ background: "rgba(255,255,255,0.08)" }}
+          />
           <ClapDock
             onClap={handleClap}
             size="sm"
-            showRemaining={false}
             audioLevel={clamp01(audioLevel)}
           />
+        </>
+      }
+      chatOpen={showChat}
+      chat={
+        <ChatPanel
+          messages={chatPanelMessages}
+          newMessage={newMessage}
+          replyTo={
+            replyTo ? (normalizeChatMessage(replyTo, user?.id) as any) : null
+          }
+          typingUsers={typingUsers}
+          currentUserId={user?.id || ""}
+          isHost={isHost}
+          isModerator={isModerator}
+          showEmojiPicker={showEmojiPicker}
+          onEmojiPickerToggle={() => setShowEmojiPicker((v) => !v)}
+          onMessageChange={handleComposerChange}
+          onSendMessage={handleSendMessage}
+          onReply={(msg) => setReplyTo(msg as any)}
+          onPinMessage={handlePinMessage}
+          onDeleteMessage={handleDeleteMessage}
+          onEditMessage={handleEditMessage}
+          onReactToMessage={handleMessageReaction}
+          onKickUser={kickUser}
+          onMuteUser={muteUser}
+          onRetryMessage={handleRetryMessage}
+          chatSearch={chatSearch}
+          onChatSearchChange={setChatSearch}
+          showChatSearch={showChatSearch}
+          onToggleChatSearch={() => setShowChatSearch((v) => !v)}
+          totalParticipants={totalParticipants}
+          scrollRef={chatScrollRef}
+          endRef={chatEndRef}
+          textareaRef={textareaRef}
+          isNearBottom={isNearBottom}
+          onScroll={handleChatScroll}
+          hasNewMessages={hasNewMessages}
+          newMessageCount={newMessageCount}
+          onScrollToBottom={() => {
+            setHasNewMessages(false);
+            setNewMessageCount(0);
+            scrollToBottom();
+          }}
+          onAttachFile={handleAttachClick}
+          onDropFile={openAttachmentPreview}
+          onTranslateMessage={handleTranslateMessage}
+          onReportMessage={handleReportMessage}
+          onSuggestCorrection={handleSuggestChatCorrection}
+          onLoadOlder={handleLoadOlderMessages}
+          hasMoreHistory={hasMoreHistory && messages.length >= 50}
+          roomId={roomId}
+          currentUserName={userName}
+          participantNames={allParticipants.map((p) => p.name).filter(Boolean)}
+          participantNamesById={participantNamesById}
+          className="h-full w-full border-l-0"
+        />
+      }
+      dockInfo={
+        <div
+          className="flex min-w-0 items-center gap-2.5 rounded-2xl py-1.5 pl-1.5 pr-3"
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          <span
+            className="relative grid h-8 w-8 shrink-0 place-items-center rounded-xl"
+            style={{
+              background: isMuted
+                ? "rgba(248,113,113,0.12)"
+                : "rgba(52,211,153,0.12)",
+              color: isMuted
+                ? THEME.colors.accent.error
+                : THEME.colors.accent.success,
+            }}
+          >
+            {isMuted ? (
+              <MicOff className="h-4 w-4" />
+            ) : (
+              <Mic className="h-4 w-4" />
+            )}
+            {!isMuted && audioLevel > 0.05 && (
+              <span
+                className="absolute inset-0 rounded-xl"
+                style={{
+                  boxShadow: `0 0 0 ${1 + clamp01(audioLevel) * 4}px rgba(52,211,153,0.35)`,
+                }}
+              />
+            )}
+          </span>
+          <div className="min-w-0 leading-tight">
+            <div className="truncate text-xs font-semibold">
+              {userName}
+              <span
+                className="ml-1.5 font-normal"
+                style={{ color: THEME.colors.text.muted }}
+              >
+                · {myRole}
+              </span>
+            </div>
+            <div
+              className="text-[11px]"
+              style={{
+                color: isDeafened
+                  ? THEME.colors.accent.warning
+                  : THEME.colors.text.muted,
+              }}
+            >
+              {isDeafened
+                ? "Sound off"
+                : isAudience
+                  ? handRaised
+                    ? "Hand raised"
+                    : "Listening"
+                  : isMuted
+                    ? "Muted"
+                    : "Mic on"}
+            </div>
+          </div>
         </div>
-      )}
-
-      {/* Connection banner: reconnecting automatically, or lost with a retry button */}
+      }
+      dock={
+        <AudioControls
+          isMuted={isMuted}
+          isDeafened={isDeafened}
+          volume={volume}
+          audioLevel={audioLevel}
+          isHost={isHost}
+          isReconnecting={isReconnecting}
+          onToggleMute={handleToggleMute}
+          onToggleDeafen={handleToggleDeafen}
+          onVolumeChange={setVolume}
+          onEndCall={handleLeave}
+          onShareRoom={handleCopyLink}
+          participantCount={totalParticipants}
+          onShowParticipants={() => setShowParticipantSearch(true)}
+          connectionQuality={connectionQuality}
+          isCallActive={isLiveKitConnected}
+          isAudience={isAudience}
+          isHandRaised={handRaised}
+          onToggleHand={() => handleToggleRaiseHand()}
+          onLeaveStage={
+            isStageRoom && !isAudience && !isHost ? handleLeaveStage : undefined
+          }
+        />
+      }
+      phoneDock={
+        <RoomPhoneDock
+          actions={[
+            isAudience
+              ? {
+                  id: "hand",
+                  label: handRaised ? "Lower" : "Raise",
+                  icon: Hand,
+                  state: handRaised ? "on" : "off",
+                  tone: "warning",
+                  onClick: () => handleToggleRaiseHand(),
+                }
+              : {
+                  id: "mic",
+                  label: isMuted ? "Unmute" : "Mute",
+                  icon: isMuted ? MicOff : Mic,
+                  state: isMuted ? "off" : "on",
+                  tone: "success",
+                  onClick: handleToggleMute,
+                },
+            {
+              id: "sound",
+              label: isDeafened ? "Sound off" : "Sound",
+              icon: isDeafened ? HeadphoneOff : Headphones,
+              state: isDeafened ? "on" : "off",
+              tone: "warning",
+              onClick: handleToggleDeafen,
+            },
+            {
+              id: "chat",
+              label: "Chat",
+              icon: MessageCircle,
+              state: showChat ? "on" : "off",
+              badge: unreadCount,
+              onClick: () => setShowChat((v) => !v),
+            },
+            {
+              id: "leave",
+              label: "Leave",
+              icon: PhoneOff,
+              state: "danger",
+              onClick: handleLeave,
+            },
+          ]}
+        />
+      }
+      onShowShortcuts={() => setPanel("shortcuts", true)}
+      shortcutHint={
+        <>
+          <DockKey>M</DockKey> mute
+          <DockKey>C</DockKey> chat
+          <DockKey>A</DockKey> clap
+        </>
+      }
+    >
+      {/* Connection lost / reconnecting */}
       <AnimatePresence>
         {(isReconnecting || connectionLost) && (
           <motion.div
@@ -3748,8 +3655,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             exit={{ opacity: 0, y: -12 }}
             className="fixed top-3 left-1/2 -translate-x-1/2 z-[120] flex items-center gap-3 pl-3 pr-2 py-2 rounded-full border shadow-2xl backdrop-blur-xl"
             style={{
-              background: connectionLost ? "rgba(60, 16, 20, 0.92)" : "rgba(40, 32, 10, 0.92)",
-              borderColor: connectionLost ? "rgba(248,113,113,0.45)" : "rgba(251,191,36,0.45)",
+              background: connectionLost
+                ? "rgba(60, 16, 20, 0.92)"
+                : "rgba(40, 32, 10, 0.92)",
+              borderColor: connectionLost
+                ? "rgba(248,113,113,0.45)"
+                : "rgba(251,191,36,0.45)",
             }}
             role="status"
             aria-live="polite"
@@ -3759,7 +3670,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
                 {liveKitError}
               </span>
             ) : (
-              <span className="flex items-center gap-2 text-sm" style={{ color: "#fde68a" }}>
+              <span
+                className="flex items-center gap-2 text-sm"
+                style={{ color: "#fde68a" }}
+              >
                 <motion.span
                   className="w-2 h-2 rounded-full"
                   style={{ background: "#fbbf24" }}
@@ -3778,39 +3692,21 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
               }
               className="px-3 py-1 rounded-full text-xs font-semibold transition-colors hover:brightness-110"
               style={{
-                background: connectionLost ? "#ef4444" : "rgba(251,191,36,0.2)",
+                background: connectionLost
+                  ? "#ef4444"
+                  : "rgba(251,191,36,0.2)",
                 color: connectionLost ? "#fff" : "#fde68a",
               }}
             >
-              {liveKitError?.includes("another tab") ? "Use this tab" : connectionLost ? "Retry" : "Retry now"}
+              {liveKitError?.includes("another tab")
+                ? "Use this tab"
+                : connectionLost
+                  ? "Retry"
+                  : "Retry now"}
             </button>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <AudioControls
-        isMuted={isMuted}
-        isDeafened={isDeafened}
-        volume={volume}
-        audioLevel={audioLevel}
-        isHost={isHost}
-        isReconnecting={isReconnecting}
-        onToggleMute={handleToggleMute}
-        onToggleDeafen={handleToggleDeafen}
-        onVolumeChange={setVolume}
-        onEndCall={handleLeave}
-        onShareRoom={handleCopyLink}
-        participantCount={totalParticipants}
-        onShowParticipants={() => setShowParticipantSearch(true)}
-        connectionQuality={connectionQuality}
-        isCallActive={isLiveKitConnected}
-        isAudience={isAudience}
-        isHandRaised={handRaised}
-        onToggleHand={() => handleToggleRaiseHand()}
-        onLeaveStage={
-          isStageRoom && !isAudience && !isHost ? handleLeaveStage : undefined
-        }
-      />
 
       <AnimatePresence>
         {panels.command && (
@@ -3884,6 +3780,29 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         onStopMission={coach.stopMission}
         onSwapWord={coach.swapWord}
         onSpotlight={coach.sendSpotlight}
+        openTab={coachTabRequest}
+        words={wordBank.words}
+        dueWords={wordBank.due}
+        onReviewWord={wordBank.review}
+        onRemoveWord={wordBank.remove}
+      />
+
+      <CoachHud
+        live={coach.live}
+        tip={coach.tip}
+        onOpen={() => setPanel("coach", true)}
+      />
+
+      <MissionBar
+        mission={coach.mission}
+        myMission={coach.myMission}
+        onOpen={() => setPanel("coach", true)}
+      />
+
+      <MissionCelebration
+        celebration={coach.celebration}
+        userId={user?.id || ""}
+        onDone={coach.clearCelebration}
       />
 
       <SpotlightBanner
@@ -4028,23 +3947,17 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         className="hidden"
         onChange={handleAttachFileChange}
       />
-
-      <div className="fixed bottom-24 left-4 z-20 hidden md:block pointer-events-none">
-        <div
-          className="text-[9px] px-3 py-1.5 rounded-full border"
-          style={{
-            color: THEME.colors.text.muted,
-            background: "rgba(10,10,15,0.75)",
-            borderColor: THEME.colors.border.primary,
-            backdropFilter: "blur(10px)",
-          }}
-        >
-          {modKeyLabel()}+⇧+M mute · M mute · C chat · 1–6 reactions · A clap · ?
-          shortcuts · Esc close
-        </div>
-      </div>
-    </div>
+    </RoomLayout>
   );
 };
+
+/** 75 → "1:15", 3725 → "1:02:05" */
+function formatRoomDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+}
 
 export default VoiceRoomView;

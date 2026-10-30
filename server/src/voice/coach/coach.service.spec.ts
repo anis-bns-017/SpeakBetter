@@ -18,6 +18,15 @@ const makeService = () => {
       ),
     },
     voiceCorrection: { count: jest.fn().mockResolvedValue(2) },
+    voiceSavedWord: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      count: jest.fn().mockResolvedValue(0),
+      upsert: jest.fn().mockImplementation(({ create }) => Promise.resolve({ id: 'w1', ...create })),
+      findFirst: jest.fn().mockResolvedValue({ id: 'w1', userId: 'u1', box: 2 }),
+      update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'w1', ...data })),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     voiceSessionReport: { upsert: jest.fn().mockImplementation(({ create }) => Promise.resolve(create)) },
   };
   const activity: any = { recordCappedActivity: jest.fn().mockResolvedValue(undefined) };
@@ -239,5 +248,57 @@ describe('CoachService coaching, airtime and reports', () => {
     await service.closeRoom('r1');
     expect(prisma.voiceSessionReport.upsert).toHaveBeenCalledTimes(1);
     expect(service.hasUser('r1', 'u2')).toBe(false);
+  });
+});
+
+describe('CoachService word bank', () => {
+  it('saves a cleaned word with its sentence and room', async () => {
+    const { service, prisma } = makeService();
+    const saved: any = await service.saveWord('u1', {
+      word: ' Perspective. ',
+      sentence: 'Travel gave me a new perspective.',
+      speakerName: 'Ben',
+      roomId: 'r1',
+    });
+    expect(saved).toMatchObject({ word: 'perspective', roomName: 'English Club', speakerName: 'Ben', created: true });
+    expect(prisma.voiceSavedWord.upsert.mock.calls[0][0].where).toEqual({ userId_word: { userId: 'u1', word: 'perspective' } });
+  });
+
+  it('rejects things that are not words and a full bank', async () => {
+    const { service, prisma } = makeService();
+    await expect(service.saveWord('u1', { word: '12' })).rejects.toThrow(/not a word/);
+    prisma.voiceSavedWord.count.mockResolvedValueOnce(500);
+    await expect(service.saveWord('u1', { word: 'hello' })).rejects.toThrow(/full/);
+  });
+
+  it('saving an existing word does not hit the size limit and keeps it', async () => {
+    const { service, prisma } = makeService();
+    prisma.voiceSavedWord.findUnique.mockResolvedValueOnce({ id: 'w1', word: 'hello' });
+    prisma.voiceSavedWord.count.mockResolvedValue(500);
+    const saved: any = await service.saveWord('u1', { word: 'hello', meaning: 'a greeting' });
+    expect(saved.created).toBe(false);
+    expect(prisma.voiceSavedWord.upsert.mock.calls[0][0].update).toEqual({ meaning: 'a greeting' });
+  });
+
+  it('review moves the box, schedules the next review and pays capped XP', async () => {
+    const { service, prisma, activity } = makeService();
+    const up: any = await service.reviewWord('u1', 'w1', true);
+    expect(up.box).toBe(3);
+    expect(up.dueAt.getTime()).toBeGreaterThan(Date.now() + 7 * 86400000);
+    expect(activity.recordCappedActivity).toHaveBeenCalledWith('u1', 2, 'FLASHCARD_REVIEW', 20);
+
+    activity.recordCappedActivity.mockClear();
+    const down: any = await service.reviewWord('u1', 'w1', false);
+    expect(down.box).toBe(0);
+    expect(activity.recordCappedActivity).not.toHaveBeenCalled();
+    expect(prisma.voiceSavedWord.findFirst).toHaveBeenCalledWith({ where: { id: 'w1', userId: 'u1' } });
+  });
+
+  it('only touches your own words', async () => {
+    const { service, prisma } = makeService();
+    prisma.voiceSavedWord.findFirst.mockResolvedValueOnce(null);
+    await expect(service.reviewWord('u2', 'w1', true)).rejects.toThrow(/not found/);
+    prisma.voiceSavedWord.deleteMany.mockResolvedValueOnce({ count: 0 });
+    await expect(service.deleteWord('u2', 'w1')).rejects.toThrow(/not found/);
   });
 });

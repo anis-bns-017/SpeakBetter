@@ -21,9 +21,12 @@ import {
   Trophy,
   Focus as SpotlightIcon,
   Megaphone,
+  BookMarked,
+  Trash2,
 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
 import { apiClient } from "../../../lib/api/client";
+import type { SavedWord } from "../../../hooks/useWordBank";
 import {
   CEFR_LEVELS,
   type AirtimeSnapshot,
@@ -35,7 +38,7 @@ import {
   type MissionResult,
 } from "../../../hooks/useRoomCoach";
 
-type Tab = "me" | "mission" | "room";
+type Tab = "me" | "mission" | "room" | "words";
 
 interface SessionReport {
   id: string;
@@ -61,6 +64,12 @@ interface RoomCoachPanelProps {
   lastResult: MissionResult | null;
   airtime: AirtimeSnapshot | null;
   initialTab?: Tab;
+  /** Ask the panel to switch tabs (change `n` to request the same tab again) */
+  openTab?: { tab: Tab; n: number };
+  words: SavedWord[];
+  dueWords: SavedWord[];
+  onReviewWord: (id: string, knew: boolean) => void;
+  onRemoveWord: (id: string) => void;
   onStartMission: (level: CefrLevel, durationSec: number) => void;
   onStopMission: () => void;
   onSwapWord: () => void;
@@ -141,6 +150,11 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
   lastResult,
   airtime,
   initialTab = "me",
+  openTab,
+  words,
+  dueWords,
+  onReviewWord,
+  onRemoveWord,
   onStartMission,
   onStopMission,
   onSwapWord,
@@ -151,6 +165,11 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
   const [minutes, setMinutes] = useState(5);
   const [reports, setReports] = useState<SessionReport[]>([]);
   const now = useNow(isOpen && Boolean(mission));
+
+  // The dock's tiles open the panel straight on the tab they belong to
+  useEffect(() => {
+    if (openTab) setTab(openTab.tab);
+  }, [openTab]);
 
   // Recent sessions (for the trend), loaded when the panel opens
   useEffect(() => {
@@ -241,6 +260,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 ["me", "Me", Gauge],
                 ["mission", "Mission", Target],
                 ["room", "Room", Users],
+                ["words", "Words", BookMarked],
               ] as const
             ).map(([id, label, Icon]) => (
               <button
@@ -256,6 +276,14 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
               >
                 <Icon className="w-3.5 h-3.5" />
                 {label}
+                {id === "words" && dueWords.length > 0 && (
+                  <span
+                    className="min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center"
+                    style={{ background: THEME.colors.accent.warning, color: "#0a0a12" }}
+                  >
+                    {dueWords.length}
+                  </span>
+                )}
                 {id === "mission" && mission && !myTurnDone && myMission && (
                   <span
                     className="w-1.5 h-1.5 rounded-full animate-pulse"
@@ -679,10 +707,151 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 )}
               </>
             )}
+            {/* ---------------- WORDS ---------------- */}
+            {tab === "words" && (
+              <WordsTab
+                words={words}
+                dueWords={dueWords}
+                onReview={onReviewWord}
+                onRemove={onRemoveWord}
+              />
+            )}
           </div>
         </motion.div>
       )}
     </AnimatePresence>
+  );
+};
+
+/** Flip-card review of due words, then the full list */
+const WordsTab: React.FC<{
+  words: SavedWord[];
+  dueWords: SavedWord[];
+  onReview: (id: string, knew: boolean) => void;
+  onRemove: (id: string) => void;
+}> = ({ words, dueWords, onReview, onRemove }) => {
+  const [flipped, setFlipped] = useState(false);
+  const current = dueWords[0];
+
+  // A new card starts face down
+  useEffect(() => setFlipped(false), [current?.id]);
+
+  if (words.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <BookMarked className="w-8 h-8 mx-auto mb-2" style={{ color: THEME.colors.accent.primaryLight }} />
+        <h4 className="text-sm font-bold mb-1" style={{ color: THEME.colors.text.primary }}>
+          Your word bank is empty
+        </h4>
+        <p className="text-xs" style={{ color: THEME.colors.text.muted }}>
+          Tap any word in the live captions to save it with the sentence you heard it in. It comes back
+          here for review at the right time.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {current ? (
+        <div className="rounded-2xl border p-4" style={{ background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.3)" }}>
+          <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: THEME.colors.text.muted }}>
+            Review · {dueWords.length} due
+          </div>
+          <div className="text-2xl font-bold mb-2" style={{ color: THEME.colors.text.primary }}>
+            {current.word}
+          </div>
+          {flipped ? (
+            <div className="space-y-1 mb-3">
+              {current.meaning && (
+                <p className="text-xs" style={{ color: THEME.colors.text.secondary }}>
+                  {current.meaning}
+                </p>
+              )}
+              {current.sentence && (
+                <p className="text-xs italic" style={{ color: THEME.colors.text.muted }}>
+                  “{current.sentence}”
+                </p>
+              )}
+              <p className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+                {[current.speakerName && `heard from ${current.speakerName}`, current.roomName && `in ${current.roomName}`]
+                  .filter(Boolean)
+                  .join(" ")}
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs mb-3" style={{ color: THEME.colors.text.muted }}>
+              Do you remember what it means and how to use it?
+            </p>
+          )}
+          {flipped ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => onReview(current.id, false)}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold"
+                style={{ background: "rgba(248,113,113,0.14)", color: THEME.colors.accent.error }}
+              >
+                Again
+              </button>
+              <button
+                onClick={() => onReview(current.id, true)}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold"
+                style={{ background: "rgba(52,211,153,0.16)", color: THEME.colors.accent.success }}
+              >
+                Got it
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setFlipped(true)}
+              className="w-full py-2 rounded-xl text-xs font-semibold"
+              style={{ background: THEME.colors.accent.primary, color: "#fff" }}
+            >
+              Show answer
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="text-center text-xs py-3" style={{ color: THEME.colors.accent.success }}>
+          🎉 All caught up — nothing to review right now
+        </div>
+      )}
+
+      <div>
+        <div className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
+          Saved words · {words.length}
+        </div>
+        <ul className="space-y-1">
+          {words.slice(0, 30).map((w) => (
+            <li
+              key={w.id}
+              className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs"
+              style={{ background: "rgba(255,255,255,0.03)", color: THEME.colors.text.secondary }}
+            >
+              <span className="min-w-0 truncate">
+                <span className="font-semibold" style={{ color: THEME.colors.text.primary }}>
+                  {w.word}
+                </span>
+                {w.meaning ? ` — ${w.meaning}` : ""}
+              </span>
+              <span className="shrink-0 flex items-center gap-2">
+                <span className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+                  box {w.box + 1}
+                </span>
+                <button
+                  onClick={() => onRemove(w.id)}
+                  aria-label={`Remove ${w.word}`}
+                  className="p-1 rounded hover:bg-white/5"
+                  style={{ color: THEME.colors.text.muted }}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
   );
 };
 

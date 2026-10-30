@@ -137,6 +137,10 @@ export const useRoomCoach = ({
   const [spotlight, setSpotlight] = useState<Spotlight | null>(null);
   /** Missions you completed since opening this room */
   const [missionsDone, setMissionsDone] = useState(0);
+  /** The latest completed mission in the room, for the celebration overlay */
+  const [celebration, setCelebration] = useState<
+    (MissionCompletion & { key: string }) | null
+  >(null);
 
   const userIdRef = useRef(userId);
   useEffect(() => {
@@ -173,14 +177,9 @@ export const useRoomCoach = ({
     const onProgress = (m: MissionPublic | null) => setMission(m);
 
     const onComplete = (c: MissionCompletion) => {
-      if (c.userId === userIdRef.current) {
-        setMissionsDone((n) => n + 1);
-        toast.success(
-          `🎯 You used "${c.word}"! +${c.points} XP (finished #${c.place})`,
-        );
-      } else {
-        toast(`🎯 ${c.userName} slipped in "${c.word}" (+${c.points})`);
-      }
+      // Everyone in the room gets the celebration overlay, not just the winner
+      setCelebration({ ...c, key: `${c.userId}-${Date.now()}` });
+      if (c.userId === userIdRef.current) setMissionsDone((n) => n + 1);
     };
 
     const onEnded = (r: MissionResult) => {
@@ -269,6 +268,8 @@ export const useRoomCoach = ({
     airtime,
     spotlight,
     missionsDone,
+    celebration,
+    clearCelebration: () => setCelebration(null),
     startMission,
     stopMission,
     swapWord,

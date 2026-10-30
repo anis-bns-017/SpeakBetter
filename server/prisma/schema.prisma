@@ -587,6 +587,7 @@ model User {
   voiceCorrectionsGiven    VoiceCorrection[]          @relation("CorrectionAuthor")
   voiceCorrectionsReceived VoiceCorrection[]          @relation("CorrectionTarget")
   voiceSessionReports      VoiceSessionReport[]       @relation("SessionReportUser")
+  voiceSavedWords          VoiceSavedWord[]           @relation("SavedWordUser")
 }
 
 model Session {
@@ -2201,4 +2202,27 @@ model VoiceSessionReport {
 
   @@unique([roomId, userId])
   @@index([userId, createdAt])
+}
+
+/// A word a learner tapped in a room's live captions, with a simple spaced-repetition schedule (Leitner boxes)
+model VoiceSavedWord {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation("SavedWordUser", fields: [userId], references: [id], onDelete: Cascade)
+  /// Lowercase
+  word        String
+  /// The sentence it was heard in
+  sentence    String?
+  meaning     String?
+  speakerName String?
+  roomName    String?
+  /// 0 = new/forgotten; higher boxes come back less often
+  box         Int       @default(0)
+  dueAt       DateTime  @default(now())
+  reviewCount Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, word])
+  @@index([userId, dueAt])
 }
