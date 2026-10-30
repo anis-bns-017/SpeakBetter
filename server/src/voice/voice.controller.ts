@@ -20,6 +20,8 @@ import {
 
 import { VoiceService } from './voice.service';
 import { LiveKitService } from './livekit.service';
+import { VoiceGateway } from './voice.gateway';
+import { TranslationService } from './services/translation.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DiscoverRoomsDto } from './dto/discovery.dto';
 import {
@@ -35,9 +37,14 @@ import {
 export class VoiceController {
   private readonly logger = new Logger(VoiceController.name);
 
+  /** `messageId:version:language` → translated text, so repeat taps cost nothing */
+  private readonly translationCache = new Map<string, string>();
+
   constructor(
     private voiceService: VoiceService,
     private liveKitService: LiveKitService,
+    private voiceGateway: VoiceGateway,
+    private translationService: TranslationService,
   ) {}
 
   // ============ ROOMS ============
@@ -559,6 +566,19 @@ export class VoiceController {
   }
 
   // ============ CHAT MESSAGES ============
+  //
+  // Every change is broadcast to the room from here, so a client whose socket is down
+  // still reaches everyone else through REST.
+
+  /** Keeps Nest's status codes (403, 404, 400) instead of turning every failure into a 500 */
+  private rethrow(error: any, fallback: string): never {
+    if (error instanceof HttpException) throw error;
+    this.logger.error(`❌ ${fallback}: ${error?.message}`);
+    throw new HttpException(
+      { success: false, message: error?.message || fallback },
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
 
   @Get('rooms/:roomId/messages')
   async getRoomMessages(
@@ -575,14 +595,7 @@ export class VoiceController {
         before,
       );
     } catch (error) {
-      this.logger.error(`❌ Get messages error: ${error.message}`);
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to get messages',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.rethrow(error, 'Failed to get messages');
     }
   }
 
@@ -593,7 +606,7 @@ export class VoiceController {
     @Body() dto: SendVoiceMessageDto,
   ) {
     try {
-      return await this.voiceService.sendVoiceRoomMessage(
+      const message = await this.voiceService.sendVoiceRoomMessage(
         req.user.id,
         roomId,
         dto.content,
@@ -602,15 +615,10 @@ export class VoiceController {
         dto.fileUrl,
         dto.replyToId,
       );
+      this.voiceGateway.broadcastChatMessage(roomId, message);
+      return message;
     } catch (error) {
-      this.logger.error(`❌ Send message error: ${error.message}`);
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to send message',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.rethrow(error, 'Failed to send message');
     }
   }
 
@@ -622,24 +630,18 @@ export class VoiceController {
     @Param('messageId') messageId: string,
   ) {
     try {
-      return await this.voiceService.deleteVoiceRoomMessage(
+      const result = await this.voiceService.deleteVoiceRoomMessage(
         req.user.id,
         roomId,
         messageId,
       );
+      this.voiceGateway.emitToRoom(roomId, 'voice:message-deleted', result);
+      return { success: true, data: result };
     } catch (error) {
-      this.logger.error(`❌ Delete message error: ${error.message}`);
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to delete message',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.rethrow(error, 'Failed to delete message');
     }
   }
 
-    // ---- NEW: edit message ----
   @Patch('rooms/:roomId/messages/:messageId')
   @HttpCode(HttpStatus.OK)
   async editRoomMessage(
@@ -655,24 +657,18 @@ export class VoiceController {
         messageId,
         content,
       );
-      return {
-        success: true,
-        data: message,
-      };
+      this.voiceGateway.emitToRoom(roomId, 'voice:message-edited', {
+        messageId: message.id,
+        content: message.content,
+        isEdited: true,
+        updatedAt: message.updatedAt,
+      });
+      return { success: true, data: message };
     } catch (error) {
-      this.logger.error(`❌ Edit message error: ${error.message}`);
-      if (error instanceof HttpException) throw error;
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to edit message',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.rethrow(error, 'Failed to edit message');
     }
   }
 
-  // ---- NEW: react to message ----
   @Post('rooms/:roomId/messages/:messageId/reactions')
   @HttpCode(HttpStatus.OK)
   async reactToRoomMessage(
@@ -688,24 +684,13 @@ export class VoiceController {
         messageId,
         emoji,
       );
-      return {
-        success: true,
-        data: result,
-      };
+      this.voiceGateway.emitToRoom(roomId, 'voice:message-reaction', result);
+      return { success: true, data: result };
     } catch (error) {
-      this.logger.error(`❌ React to message error: ${error.message}`);
-      if (error instanceof HttpException) throw error;
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to react to message',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.rethrow(error, 'Failed to react to message');
     }
   }
 
-  // ---- NEW: pin message ----
   @Post('rooms/:roomId/messages/:messageId/pin')
   @HttpCode(HttpStatus.OK)
   async pinRoomMessage(
@@ -721,20 +706,92 @@ export class VoiceController {
         messageId,
         !!pinned,
       );
+      this.voiceGateway.emitToRoom(roomId, 'voice:message-pinned', {
+        messageId,
+        pinned: !!pinned,
+        pinnedBy: req.user.id,
+      });
+      return { success: true, data: message };
+    } catch (error) {
+      this.rethrow(error, 'Failed to pin message');
+    }
+  }
+
+  /** Translates a chat message into the reader's native language (or `target`) */
+  @Post('rooms/:roomId/messages/:messageId/translate')
+  @HttpCode(HttpStatus.OK)
+  async translateRoomMessage(
+    @Request() req,
+    @Param('roomId') roomId: string,
+    @Param('messageId') messageId: string,
+    @Body('target') target?: string,
+  ) {
+    try {
+      const source = await this.voiceService.getVoiceRoomMessageForTranslation(
+        req.user.id,
+        roomId,
+        messageId,
+        typeof target === 'string' ? target.slice(0, 40) : undefined,
+      );
+      const cacheKey = `${messageId}:${source.version}:${source.language.toLowerCase()}`;
+      let translated = this.translationCache.get(cacheKey);
+      if (translated === undefined) {
+        if (!this.translationService.isConfigured()) {
+          throw new HttpException(
+            {
+              success: false,
+              message:
+                'Translation is not set up yet (add OPENAI_API_KEY to server/.env).',
+            },
+            HttpStatus.SERVICE_UNAVAILABLE,
+          );
+        }
+        const result: string =
+          (await this.translationService.translateText(
+            source.text,
+            source.language,
+          )) || source.text;
+        translated = result;
+        this.translationCache.set(cacheKey, result);
+        if (this.translationCache.size > 500) {
+          const oldest = this.translationCache.keys().next().value;
+          if (oldest) this.translationCache.delete(oldest);
+        }
+      }
       return {
         success: true,
-        data: message,
+        data: {
+          messageId,
+          language: source.language,
+          text: translated,
+          unchanged: translated.trim() === source.text.trim(),
+        },
       };
     } catch (error) {
-      this.logger.error(`❌ Pin message error: ${error.message}`);
-      if (error instanceof HttpException) throw error;
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to pin message',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+      this.rethrow(error, 'Failed to translate message');
+    }
+  }
+
+  @Post('rooms/:roomId/messages/:messageId/report')
+  @HttpCode(HttpStatus.OK)
+  async reportRoomMessage(
+    @Request() req,
+    @Param('roomId') roomId: string,
+    @Param('messageId') messageId: string,
+    @Body('reason') reason: string,
+    @Body('description') description?: string,
+  ) {
+    try {
+      const result = await this.voiceService.reportVoiceRoomMessage(
+        req.user.id,
+        roomId,
+        messageId,
+        typeof reason === 'string' ? reason : '',
+        typeof description === 'string' ? description : undefined,
       );
+      return { success: true, data: result };
+    } catch (error) {
+      this.rethrow(error, 'Failed to report message');
     }
   }
 

@@ -642,81 +642,59 @@ export class VoiceGateway
     data: {
       roomId: string;
       content: string;
+      type?: string;
+      mediaUrl?: string;
+      fileUrl?: string;
       replyToId?: string;
+      /** Sender's optimistic id, echoed back so it can swap in the saved message */
+      clientId?: string;
     },
   ) {
     const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
+    const clientId =
+      typeof data?.clientId === 'string' ? data.clientId.slice(0, 80) : undefined;
+    const fail = (message: string) =>
+      client.emit('voice:chat-error', { clientId, message });
+
+    if (!userId) return fail('Unauthenticated');
+
+    const participants = this.roomParticipants.get(data.roomId);
+    if (!participants || !participants.has(userId)) {
+      return fail('You are not in this room');
     }
 
     try {
-      // ✅ Check if user is in the room
-      const participants = this.roomParticipants.get(data.roomId);
-      if (!participants || !participants.has(userId)) {
-        client.emit('voice:error', { message: 'You are not in this room' });
-        return;
-      }
-
-      // ✅ Save to database
-      const messageData: any = {
-        roomId: data.roomId,
-        senderId: userId,
-        content: data.content,
-      };
-
-      if (data.replyToId) {
-        messageData.replyToId = data.replyToId;
-      }
-
-      const message = await this.prisma.voiceRoomMessage.create({
-        data: messageData,
-        include: {
-          sender: {
-            select: {
-              id: true,
-              name: true,
-              avatarUrl: true,
-            },
-          },
-          replyTo: {
-            include: {
-              sender: {
-                select: {
-                  id: true,
-                  name: true,
-                  avatarUrl: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      const hostId = this.roomHosts.get(data.roomId);
-      const isHost = hostId === userId;
-
-      const messageWithHost = {
-        ...message,
-        isHost,
-        isPinned: false,
-        isDeleted: false,
-        type: 'TEXT',
-      };
-
-      // ✅ Broadcast to ALL clients in the room (including sender)
-      const roomName = `voice:${data.roomId}`;
-
-      // ✅ FIX: Use room name consistently
-      this.server.to(roomName).emit('voice:chat', messageWithHost);
-
+      const message = await this.voiceService.sendVoiceRoomMessage(
+        userId,
+        data.roomId,
+        data.content,
+        data.type || 'TEXT',
+        data.mediaUrl,
+        data.fileUrl,
+        data.replyToId,
+      );
+      this.broadcastChatMessage(data.roomId, message, clientId);
       this.logger.log(`💬 Message from ${userId} in ${data.roomId}`);
     } catch (error) {
-      this.logger.error('Error sending voice room chat:', error);
-      client.emit('voice:error', { message: 'Failed to send message' });
+      this.logger.warn(`Voice chat send failed: ${error?.message}`);
+      fail(error?.message || 'Failed to send message');
     }
   }
+
+  /** Sends a saved chat message to everyone in the room (also used by the REST fallback) */
+  broadcastChatMessage(roomId: string, message: any, clientId?: string) {
+    this.server?.to(`voice:${roomId}`).emit('voice:chat', {
+      ...message,
+      isHost: this.roomHosts.get(roomId) === message.senderId,
+      ...(clientId ? { clientId } : {}),
+    });
+  }
+
+  /** Emits a chat event (edit, delete, reaction, pin) to everyone in the room */
+  emitToRoom(roomId: string, event: string, payload: unknown) {
+    this.server?.to(`voice:${roomId}`).emit(event, payload);
+  }
+
   // ============ TYPING INDICATOR ============
 
   @SubscribeMessage('voice:typing-start')
@@ -1098,40 +1076,54 @@ export class VoiceGateway
     }
 
     try {
-      const message = await this.prisma.voiceRoomMessage.findUnique({
-        where: { id: data.messageId },
-        select: { senderId: true, roomId: true },
-      });
-
-      if (!message) {
-        client.emit('voice:error', { message: 'Message not found' });
-        return;
-      }
-
-      if (message.senderId !== userId) {
-        client.emit('voice:error', {
-          message: 'You can only edit your own messages',
-        });
-        return;
-      }
-
-      const updatedMessage = await this.prisma.voiceRoomMessage.update({
-        where: { id: data.messageId },
-        data: {
-          content: data.content,
-          isEdited: true,
-        },
-      });
-
-      this.server.to(`voice:${data.roomId}`).emit('voice:message-edited', {
-        messageId: updatedMessage.id,
-        content: updatedMessage.content,
+      const updated = await this.voiceService.editVoiceRoomMessage(
+        userId,
+        data.roomId,
+        data.messageId,
+        data.content,
+      );
+      this.emitToRoom(data.roomId, 'voice:message-edited', {
+        messageId: updated.id,
+        content: updated.content,
         isEdited: true,
-        updatedAt: updatedMessage.updatedAt,
+        updatedAt: updated.updatedAt,
       });
     } catch (error) {
-      this.logger.error('Error editing message:', error);
-      client.emit('voice:error', { message: 'Failed to edit message' });
+      this.logger.warn(`Voice chat edit failed: ${error?.message}`);
+      client.emit('voice:error', {
+        message: error?.message || 'Failed to edit message',
+      });
+    }
+  }
+
+  @SubscribeMessage('voice:pin-message')
+  async handlePinMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; messageId: string; pin: boolean },
+  ) {
+    const userId = client.data.userId;
+    if (!userId) {
+      client.emit('voice:error', { message: 'Unauthenticated' });
+      return;
+    }
+
+    try {
+      await this.voiceService.pinVoiceRoomMessage(
+        userId,
+        data.roomId,
+        data.messageId,
+        !!data.pin,
+      );
+      this.emitToRoom(data.roomId, 'voice:message-pinned', {
+        messageId: data.messageId,
+        pinned: !!data.pin,
+        pinnedBy: userId,
+      });
+    } catch (error) {
+      this.logger.warn(`Voice chat pin failed: ${error?.message}`);
+      client.emit('voice:error', {
+        message: error?.message || 'Failed to pin message',
+      });
     }
   }
 
@@ -1558,10 +1550,7 @@ export class VoiceGateway
         data.emoji,
       );
 
-      this.server.to(`voice:${data.roomId}`).emit('voice:message-reaction', {
-        messageId: data.messageId,
-        reactions: result.reactions,
-      });
+      this.emitToRoom(data.roomId, 'voice:message-reaction', result);
     } catch (error) {
       this.logger.error('Error reacting to message:', error);
       client.emit('voice:error', {
@@ -1584,50 +1573,18 @@ export class VoiceGateway
     }
 
     try {
-      const message = await this.prisma.voiceRoomMessage.findUnique({
-        where: { id: data.messageId },
-        select: { senderId: true },
-      });
-
-      if (!message) {
-        client.emit('voice:error', { message: 'Message not found' });
-        return;
-      }
-
-      const room = await this.prisma.voiceRoom.findUnique({
-        where: { id: data.roomId },
-        select: { creatorId: true },
-      });
-
-      if (!room) {
-        client.emit('voice:error', { message: 'Room not found' });
-        return;
-      }
-
-      const isHost = room.creatorId === userId;
-      const isOwner = message.senderId === userId;
-
-      if (!isHost && !isOwner) {
-        client.emit('voice:error', {
-          message: 'You do not have permission to delete this message',
-        });
-        return;
-      }
-
-      await this.prisma.voiceRoomMessage.delete({
-        where: { id: data.messageId },
-      });
-
-      const roomName = `voice:${data.roomId}`;
-      this.server.to(roomName).emit('voice:message-deleted', {
-        messageId: data.messageId,
-        deletedBy: userId,
-      });
-
+      const result = await this.voiceService.deleteVoiceRoomMessage(
+        userId,
+        data.roomId,
+        data.messageId,
+      );
+      this.emitToRoom(data.roomId, 'voice:message-deleted', result);
       this.logger.log(`Message ${data.messageId} deleted in ${data.roomId}`);
     } catch (error) {
-      this.logger.error('Error deleting message:', error);
-      client.emit('voice:error', { message: 'Failed to delete message' });
+      this.logger.warn(`Voice chat delete failed: ${error?.message}`);
+      client.emit('voice:error', {
+        message: error?.message || 'Failed to delete message',
+      });
     }
   }
 
@@ -1681,56 +1638,13 @@ export class VoiceGateway
     }
 
     try {
-      const room = await this.prisma.voiceRoom.findUnique({
-        where: { id: data.roomId },
-      });
-
-      if (!room) {
-        client.emit('voice:error', { message: 'Room not found' });
-        return;
-      }
-
-      const where: any = {
-        roomId: data.roomId,
-      };
-
-      if (data.before) {
-        const beforeMessage = await this.prisma.voiceRoomMessage.findUnique({
-          where: { id: data.before },
-          select: { createdAt: true },
-        });
-        if (beforeMessage) {
-          where.createdAt = { lt: beforeMessage.createdAt };
-        }
-      }
-
-      const messages = await this.prisma.voiceRoomMessage.findMany({
-        where,
-        take: data.limit || 50,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          sender: {
-            select: {
-              id: true,
-              name: true,
-              avatarUrl: true,
-            },
-          },
-          replyTo: {
-            include: {
-              sender: {
-                select: {
-                  id: true,
-                  name: true,
-                  avatarUrl: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      client.emit('voice:messages', messages.reverse());
+      const messages = await this.voiceService.getVoiceRoomMessages(
+        userId,
+        data.roomId,
+        data.limit || 50,
+        data.before,
+      );
+      client.emit('voice:messages', messages);
     } catch (error) {
       this.logger.error('Error fetching messages:', error);
       client.emit('voice:error', { message: 'Failed to fetch messages' });

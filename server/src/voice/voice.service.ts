@@ -21,6 +21,20 @@ import { PrismaService } from '../prisma.service';
 import { LiveKitService } from './livekit.service';
 import { ActivityService, XP_REWARDS } from '../learning/activity.service';
 
+/** Soft-deleted chat messages keep their row (so replies still resolve) with this type */
+export const DELETED_MESSAGE_TYPE = 'DELETED';
+export const MAX_CHAT_MESSAGE_LENGTH = 2000;
+const SENDABLE_MESSAGE_TYPES = new Set([
+  'TEXT',
+  'IMAGE',
+  'VIDEO',
+  'AUDIO',
+  'FILE',
+  'VOICE_NOTE',
+  'GIF',
+  'STICKER',
+]);
+
 @Injectable()
 export class VoiceService {
   private readonly logger = new Logger(VoiceService.name);
@@ -1212,8 +1226,80 @@ export class VoiceService {
   }
 
   // ============ CHAT MESSAGES ============
+  //
+  // REST and the socket gateway both go through these methods, so permissions and the
+  // message shape are the same whichever path a client uses. Deleted messages stay as
+  // tombstones (type DELETED) so replies to them still resolve.
 
-  // ---- UPDATED: now includes reactions and replyTo ----
+  private readonly chatMessageInclude = {
+    sender: { select: { id: true, name: true, avatarUrl: true } },
+    replyTo: {
+      include: {
+        sender: { select: { id: true, name: true, avatarUrl: true } },
+      },
+    },
+    reactions: { select: { emoji: true, userId: true } },
+  } as const;
+
+  /** Room creator or a MODERATOR participant */
+  async canModerateVoiceRoom(userId: string, roomId: string): Promise<boolean> {
+    const room = await this.prisma.voiceRoom.findUnique({
+      where: { id: roomId },
+      select: { creatorId: true },
+    });
+    if (!room) throw new NotFoundException('Room not found');
+    if (room.creatorId === userId) return true;
+    const participant = await this.prisma.voiceParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+      select: { role: true },
+    });
+    return participant?.role === 'MODERATOR';
+  }
+
+  /** Shape sent to clients: deleted messages lose their content and attachments */
+  presentVoiceRoomMessage<
+    T extends {
+      type: string;
+      content: string;
+      mediaUrl?: string | null;
+      fileUrl?: string | null;
+      replyTo?: any;
+    },
+  >(message: T) {
+    const isDeleted = message.type === DELETED_MESSAGE_TYPE;
+    const replyTo = message.replyTo
+      ? {
+          ...message.replyTo,
+          isDeleted: message.replyTo.type === DELETED_MESSAGE_TYPE,
+          content:
+            message.replyTo.type === DELETED_MESSAGE_TYPE
+              ? ''
+              : message.replyTo.content,
+        }
+      : message.replyTo;
+    return {
+      ...message,
+      isDeleted,
+      content: isDeleted ? '' : message.content,
+      mediaUrl: isDeleted ? null : message.mediaUrl,
+      fileUrl: isDeleted ? null : message.fileUrl,
+      replyTo,
+    };
+  }
+
+  private async findRoomMessage(roomId: string, messageId: string) {
+    const message = await this.prisma.voiceRoomMessage.findUnique({
+      where: { id: messageId },
+    });
+    if (!message || message.roomId !== roomId) {
+      throw new NotFoundException('Message not found');
+    }
+    if (message.type === DELETED_MESSAGE_TYPE) {
+      throw new BadRequestException('This message was deleted');
+    }
+    return message;
+  }
+
   async getVoiceRoomMessages(
     userId: string,
     roomId: string,
@@ -1222,6 +1308,7 @@ export class VoiceService {
   ) {
     const room = await this.prisma.voiceRoom.findUnique({
       where: { id: roomId },
+      select: { id: true },
     });
 
     if (!room) {
@@ -1230,42 +1317,21 @@ export class VoiceService {
 
     const where: any = { roomId };
     if (before) {
-      where.id = { lt: before };
+      const cursor = await this.prisma.voiceRoomMessage.findUnique({
+        where: { id: before },
+        select: { createdAt: true },
+      });
+      if (cursor) where.createdAt = { lt: cursor.createdAt };
     }
 
     const messages = await this.prisma.voiceRoomMessage.findMany({
       where,
-      include: {
-        sender: {
-          select: {
-            id: true,
-            name: true,
-            avatarUrl: true,
-          },
-        },
-        replyTo: {
-          include: {
-            sender: {
-              select: {
-                id: true,
-                name: true,
-                avatarUrl: true,
-              },
-            },
-          },
-        },
-        reactions: {
-          select: {
-            emoji: true,
-            userId: true,
-          },
-        },
-      },
+      include: this.chatMessageInclude,
       orderBy: { createdAt: 'desc' },
-      take: limit,
+      take: Math.min(Math.max(limit || 50, 1), 100),
     });
 
-    return messages.reverse();
+    return messages.reverse().map((m) => this.presentVoiceRoomMessage(m));
   }
 
   async sendVoiceRoomMessage(
@@ -1277,21 +1343,21 @@ export class VoiceService {
     fileUrl?: string,
     replyToId?: string,
   ) {
-    const room = await this.prisma.voiceRoom.findUnique({
-      where: { id: roomId },
-    });
+    const text = (content ?? '').trim();
+    const messageType = SENDABLE_MESSAGE_TYPES.has(type) ? type : 'TEXT';
 
-    if (!room) {
-      throw new NotFoundException('Room not found');
+    if (!text && !mediaUrl && !fileUrl) {
+      throw new BadRequestException('Message cannot be empty');
+    }
+    if (text.length > MAX_CHAT_MESSAGE_LENGTH) {
+      throw new BadRequestException(
+        `Messages can be at most ${MAX_CHAT_MESSAGE_LENGTH} characters`,
+      );
     }
 
     const participant = await this.prisma.voiceParticipant.findUnique({
-      where: {
-        roomId_userId: {
-          roomId,
-          userId,
-        },
-      },
+      where: { roomId_userId: { roomId, userId } },
+      select: { leftAt: true },
     });
 
     if (!participant || participant.leftAt !== null) {
@@ -1299,30 +1365,16 @@ export class VoiceService {
     }
 
     let validReplyToId: string | undefined = undefined;
-
     if (replyToId) {
       const replyMessage = await this.prisma.voiceRoomMessage.findUnique({
-        where: {
-          id: replyToId,
-        },
-        select: {
-          id: true,
-          roomId: true,
-        },
+        where: { id: replyToId },
+        select: { id: true, roomId: true },
       });
-
-      if (!replyMessage) {
+      if (!replyMessage || replyMessage.roomId !== roomId) {
         throw new BadRequestException(
-          'The message you are trying to reply to does not exist',
+          'The message you are replying to is not in this room',
         );
       }
-
-      if (replyMessage.roomId !== roomId) {
-        throw new BadRequestException(
-          'You cannot reply to a message from another room',
-        );
-      }
-
       validReplyToId = replyMessage.id;
     }
 
@@ -1330,181 +1382,98 @@ export class VoiceService {
       data: {
         roomId,
         senderId: userId,
-        content: content.trim(),
-        type,
+        content: text,
+        type: messageType,
         mediaUrl: mediaUrl || undefined,
         fileUrl: fileUrl || undefined,
         replyToId: validReplyToId,
       },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            name: true,
-            avatarUrl: true,
-          },
-        },
-        replyTo: {
-          include: {
-            sender: {
-              select: {
-                id: true,
-                name: true,
-                avatarUrl: true,
-              },
-            },
-          },
-        },
-        reactions: {
-          select: {
-            emoji: true,
-            userId: true,
-          },
-        },
-      },
+      include: this.chatMessageInclude,
     });
 
-    return message;
+    return this.presentVoiceRoomMessage(message);
   }
 
+  /** Sender or a moderator; leaves a tombstone and clears pins and reactions */
   async deleteVoiceRoomMessage(
     userId: string,
     roomId: string,
     messageId: string,
   ) {
-    const message = await this.prisma.voiceRoomMessage.findUnique({
-      where: { id: messageId },
-    });
+    const message = await this.findRoomMessage(roomId, messageId);
 
-    if (!message) {
-      throw new NotFoundException('Message not found');
-    }
-
-    const isAuthorized =
-      message.senderId === userId ||
-      (
-        await this.prisma.voiceParticipant.findUnique({
-          where: {
-            roomId_userId: {
-              roomId,
-              userId,
-            },
-          },
-        })
-      )?.role === 'MODERATOR';
-
-    if (!isAuthorized) {
+    if (
+      message.senderId !== userId &&
+      !(await this.canModerateVoiceRoom(userId, roomId))
+    ) {
       throw new ForbiddenException(
         'Only the sender or a moderator can delete this message',
       );
     }
 
-    return this.prisma.voiceRoomMessage.update({
-      where: { id: messageId },
-      data: {
-        content: 'This message was deleted',
-      },
-    });
+    await this.prisma.$transaction([
+      this.prisma.voiceRoomMessageReaction.deleteMany({ where: { messageId } }),
+      this.prisma.voiceRoomMessage.update({
+        where: { id: messageId },
+        data: {
+          type: DELETED_MESSAGE_TYPE,
+          content: '',
+          mediaUrl: null,
+          fileUrl: null,
+          isPinned: false,
+        },
+      }),
+    ]);
+
+    return { messageId, deletedBy: userId };
   }
 
-  // ---- NEW: edit ----
+  /** Only the sender can change what they wrote */
   async editVoiceRoomMessage(
     userId: string,
     roomId: string,
     messageId: string,
     content: string,
   ) {
-    if (!content || !content.trim()) {
+    const text = (content ?? '').trim();
+    if (!text) {
       throw new BadRequestException('Message content cannot be empty');
     }
-
-    const message = await this.prisma.voiceRoomMessage.findUnique({
-      where: { id: messageId },
-    });
-
-    if (!message) {
-      throw new NotFoundException('Message not found');
-    }
-
-    if (message.roomId !== roomId) {
-      throw new BadRequestException('Message does not belong to this room');
-    }
-
-    const isAuthorized =
-      message.senderId === userId ||
-      (
-        await this.prisma.voiceParticipant.findUnique({
-          where: {
-            roomId_userId: {
-              roomId,
-              userId,
-            },
-          },
-        })
-      )?.role === 'MODERATOR';
-
-    if (!isAuthorized) {
-      throw new ForbiddenException(
-        'Only the sender or a moderator can edit this message',
+    if (text.length > MAX_CHAT_MESSAGE_LENGTH) {
+      throw new BadRequestException(
+        `Messages can be at most ${MAX_CHAT_MESSAGE_LENGTH} characters`,
       );
     }
 
-    return this.prisma.voiceRoomMessage.update({
+    const message = await this.findRoomMessage(roomId, messageId);
+    if (message.senderId !== userId) {
+      throw new ForbiddenException('You can only edit your own messages');
+    }
+
+    const updated = await this.prisma.voiceRoomMessage.update({
       where: { id: messageId },
-      data: {
-        content: content.trim(),
-        isEdited: true,
-        editedAt: new Date(),
-      },
-      include: {
-        sender: {
-          select: { id: true, name: true, avatarUrl: true },
-        },
-        replyTo: {
-          include: {
-            sender: {
-              select: { id: true, name: true, avatarUrl: true },
-            },
-          },
-        },
-        reactions: {
-          select: { emoji: true, userId: true },
-        },
-      },
+      data: { content: text, isEdited: true, editedAt: new Date() },
+      include: this.chatMessageInclude,
     });
+    return this.presentVoiceRoomMessage(updated);
   }
 
-  // ---- NEW: toggle reaction (per-emoji) ----
+  /** Toggles one emoji for the user and returns the full emoji → userIds map */
   async toggleVoiceRoomMessageReaction(
     userId: string,
     roomId: string,
     messageId: string,
     emoji: string,
   ) {
-    if (!emoji) {
-      throw new BadRequestException('Emoji is required');
+    const value = (emoji ?? '').trim();
+    if (!value || value.length > 16) {
+      throw new BadRequestException('A single emoji is required');
     }
 
-    const message = await this.prisma.voiceRoomMessage.findUnique({
-      where: { id: messageId },
-    });
-
-    if (!message) {
-      throw new NotFoundException('Message not found');
-    }
-
-    if (message.roomId !== roomId) {
-      throw new BadRequestException('Message does not belong to this room');
-    }
+    await this.findRoomMessage(roomId, messageId);
 
     const existing = await this.prisma.voiceRoomMessageReaction.findUnique({
-      where: {
-        messageId_userId_emoji: {
-          messageId,
-          userId,
-          emoji,
-        },
-      },
+      where: { messageId_userId_emoji: { messageId, userId, emoji: value } },
     });
 
     if (existing) {
@@ -1513,86 +1482,113 @@ export class VoiceService {
       });
     } else {
       await this.prisma.voiceRoomMessageReaction.create({
-        data: {
-          messageId,
-          userId,
-          emoji,
-        },
+        data: { messageId, userId, emoji: value },
       });
     }
 
     const allReactions = await this.prisma.voiceRoomMessageReaction.findMany({
       where: { messageId },
       select: { emoji: true, userId: true },
+      orderBy: { createdAt: 'asc' },
     });
 
     const reactions: Record<string, string[]> = {};
     for (const reaction of allReactions) {
-      if (!reactions[reaction.emoji]) reactions[reaction.emoji] = [];
-      reactions[reaction.emoji].push(reaction.userId);
+      (reactions[reaction.emoji] ??= []).push(reaction.userId);
     }
 
-    return {
-      messageId,
-      reactions,
-    };
+    return { messageId, reactions };
   }
 
-  // ---- NEW: pin / unpin ----
   async pinVoiceRoomMessage(
     userId: string,
     roomId: string,
     messageId: string,
     pinned: boolean,
   ) {
-    const message = await this.prisma.voiceRoomMessage.findUnique({
-      where: { id: messageId },
-    });
+    await this.findRoomMessage(roomId, messageId);
 
-    if (!message) {
-      throw new NotFoundException('Message not found');
-    }
-
-    if (message.roomId !== roomId) {
-      throw new BadRequestException('Message does not belong to this room');
-    }
-
-    const room = await this.prisma.voiceRoom.findUnique({
-      where: { id: roomId },
-    });
-
-    if (!room) {
-      throw new NotFoundException('Room not found');
-    }
-
-    const isCreator = room.creatorId === userId;
-    const isModerator = await this.prisma.voiceParticipant.findUnique({
-      where: {
-        roomId_userId: {
-          roomId,
-          userId,
-        },
-      },
-    });
-
-    if (!isCreator && (!isModerator || isModerator.role !== 'MODERATOR')) {
+    if (!(await this.canModerateVoiceRoom(userId, roomId))) {
       throw new ForbiddenException(
         'Only the host or a moderator can pin messages',
       );
     }
 
-    return this.prisma.voiceRoomMessage.update({
+    const updated = await this.prisma.voiceRoomMessage.update({
       where: { id: messageId },
       data: { isPinned: pinned },
-      include: {
-        sender: {
-          select: { id: true, name: true, avatarUrl: true },
-        },
-        reactions: {
-          select: { emoji: true, userId: true },
-        },
+      include: this.chatMessageInclude,
+    });
+    return this.presentVoiceRoomMessage(updated);
+  }
+
+  /** Files a moderation report for a room message; one open report per user and message */
+  async reportVoiceRoomMessage(
+    userId: string,
+    roomId: string,
+    messageId: string,
+    reason: string,
+    description?: string,
+  ) {
+    const message = await this.findRoomMessage(roomId, messageId);
+    if (message.senderId === userId) {
+      throw new BadRequestException("You can't report your own message");
+    }
+
+    const trimmedReason = (reason ?? '').trim().slice(0, 100);
+    if (!trimmedReason) throw new BadRequestException('Pick a reason');
+
+    const already = await this.prisma.report.findFirst({
+      where: {
+        reportedById: userId,
+        targetId: messageId,
+        targetType: 'MESSAGE',
+        status: 'PENDING',
+      },
+      select: { id: true },
+    });
+    if (already) return { ok: true, alreadyReported: true };
+
+    await this.prisma.report.create({
+      data: {
+        reportedById: userId,
+        targetId: messageId,
+        targetType: 'MESSAGE',
+        reason: trimmedReason,
+        description:
+          [`Voice room ${roomId}`, description?.trim().slice(0, 1000)]
+            .filter(Boolean)
+            .join(' — ') || null,
       },
     });
+    return { ok: true, alreadyReported: false };
+  }
+
+  /** Text of a message plus the language the reader wants it in (their native language) */
+  async getVoiceRoomMessageForTranslation(
+    userId: string,
+    roomId: string,
+    messageId: string,
+    targetLanguage?: string,
+  ) {
+    const message = await this.findRoomMessage(roomId, messageId);
+    if (!message.content.trim()) {
+      throw new BadRequestException('Nothing to translate');
+    }
+    let language = targetLanguage?.trim();
+    if (!language) {
+      const profile = await this.prisma.profile.findUnique({
+        where: { userId },
+        select: { nativeLanguage: true },
+      });
+      language = profile?.nativeLanguage || 'English';
+    }
+    return {
+      messageId,
+      text: message.content,
+      language,
+      version: (message.editedAt ?? message.createdAt).getTime(),
+    };
   }
 
   // ============ RAISE HAND ============

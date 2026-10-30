@@ -19,6 +19,11 @@ export class TranslationService {
     }
   }
 
+  /** True when at least one translation provider has an API key */
+  isConfigured(): boolean {
+    return Boolean(this.openai || this.configService.get('GOOGLE_TRANSLATE_API_KEY'));
+  }
+
   async translateText(text: string, targetLanguage: string, sourceLanguage?: string) {
     try {
       const response = await this.openai.chat.completions.create({

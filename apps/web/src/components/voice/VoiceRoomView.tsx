@@ -1606,7 +1606,15 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
 // 4. VOICE ROOM VIEW
 // ============================================================
 
+interface ChatAttachment {
+  id: string;
+  type: "image" | "video" | "audio" | "file" | "gif" | "sticker";
+  url: string;
+  name?: string;
+}
+
 type LocalVoiceMessage = VoiceMessage & {
+  attachments?: ChatAttachment[];
   status?: "sending" | "sent" | "delivered" | "read" | "failed";
   isEdited?: boolean;
   isHighlighted?: boolean;
@@ -1721,11 +1729,38 @@ function normalizeChatMessage(
     senderName,
     senderAvatar,
     reactions,
+    attachments: msg.attachments ?? attachmentsFor(msg),
     replyTo: msg.replyTo
       ? normalizeChatMessage(msg.replyTo, currentUserId)
       : undefined,
     status: msg.status || "sent",
   };
+}
+
+const ATTACHMENT_KIND_BY_TYPE: Record<string, ChatAttachment["type"]> = {
+  IMAGE: "image",
+  GIF: "gif",
+  STICKER: "sticker",
+  VIDEO: "video",
+  AUDIO: "audio",
+  VOICE_NOTE: "audio",
+  FILE: "file",
+};
+
+/** The server stores one upload per message as mediaUrl / fileUrl plus a type */
+function attachmentsFor(msg: any): ChatAttachment[] | undefined {
+  if (msg.isDeleted) return undefined;
+  const url = msg.mediaUrl || msg.fileUrl;
+  if (!url) return undefined;
+  const type = ATTACHMENT_KIND_BY_TYPE[String(msg.type || "").toUpperCase()] ?? "file";
+  const lastSegment = String(url).split("?")[0].split("/").pop() || "";
+  let fileName = lastSegment;
+  try {
+    fileName = decodeURIComponent(lastSegment);
+  } catch {
+    /* keep the raw segment */
+  }
+  return [{ id: `${msg.id}-attachment`, type, url, name: msg.content || fileName }];
 }
 
 const toggleReactionIn = (
@@ -1963,13 +1998,9 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     kickUser,
     muteUser,
     unmuteUser,
-    pinMessage,
-    deleteMessage: deleteSocketMessage,
     promoteHost,
     inviteToStage,
     moveToAudience,
-    editMessage,
-    reactMessage,
     broadcastSpeaking,
     sendStageReaction,
   } = useVoiceSocket(roomId, user?.id || "");
@@ -2372,7 +2403,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     const messageData: { content: string; type: string; replyToId?: string } = {
       content,
       type: "TEXT",
-      ...(reply?.id ? { replyToId: reply.id } : {}),
+      // A reply to a message that is still sending has no server id yet
+      ...(reply?.id && !reply.id.startsWith("temp-")
+        ? { replyToId: reply.id }
+        : {}),
     };
 
     setMessages((prev) => [
@@ -2402,7 +2436,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     ]);
 
     if (socket && isConnected) {
-      sendChatMessage(messageData);
+      // The server echoes clientId so the saved message replaces this exact bubble
+      sendChatMessage({ ...messageData, clientId: tempId });
       window.setTimeout(() => {
         setMessages((prev) =>
           prev.map((m) =>
@@ -2517,15 +2552,11 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             : m,
         ),
       );
+      // REST saves it and the server broadcasts voice:message-edited to the room
       editMessageMutation.mutate(
         { roomId, messageId, content: newContent },
         {
-          onSuccess: () => {
-            if (socket && isConnected) editMessage(messageId, newContent);
-            toast.success("Message edited");
-          },
           onError: () => {
-            toast.error("Couldn't save your edit");
             queryClient.invalidateQueries({
               queryKey: ["voice-messages", roomId],
             });
@@ -2533,14 +2564,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         },
       );
     },
-    [
-      roomId,
-      editMessageMutation,
-      socket,
-      isConnected,
-      editMessage,
-      queryClient,
-    ],
+    [roomId, editMessageMutation, queryClient],
   );
 
   const handleMessageReaction = useCallback(
@@ -2553,20 +2577,14 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         );
 
       setMessages(flip);
+      // One toggle per tap: REST saves it and the server broadcasts the full reaction map.
+      // (Also emitting over the socket used to toggle it a second time, undoing the reaction.)
       reactMessageMutation.mutate(
         { roomId, messageId, emoji, userId: uid },
-        {
-          onSuccess: () => {
-            if (socket && isConnected) reactMessage(messageId, emoji);
-          },
-          onError: () => {
-            setMessages(flip);
-            toast.error("Failed to react");
-          },
-        },
+        { onError: () => setMessages(flip) },
       );
     },
-    [user?.id, roomId, reactMessageMutation, socket, isConnected, reactMessage],
+    [user?.id, roomId, reactMessageMutation],
   );
 
   const handlePinMessage = useCallback(
@@ -2578,48 +2596,114 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       pinMessageMutation.mutate(
         { roomId, messageId, pinned },
         {
-          onSuccess: () => {
-            if (socket && isConnected) pinMessage?.(messageId, pinned);
-          },
+          onSuccess: () => toast.success(pinned ? "Pinned for everyone" : "Unpinned"),
           onError: () => {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === messageId ? { ...m, isPinned: !pinned } : m,
               ),
             );
-            toast.error("Couldn't update pin");
           },
         },
       );
     },
-    [roomId, pinMessageMutation, socket, isConnected, pinMessage],
+    [roomId, pinMessageMutation],
   );
 
   const handleDeleteMessage = useCallback(
     (messageId: string) => {
       if (!roomId) return;
+      // A failed send never reached the server, so it is just dropped locally
+      if (messageId.startsWith("temp-")) {
+        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+        return;
+      }
+      const before = messagesRef.current.find((m) => m.id === messageId);
       setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, isDeleted: true } : m)),
+        prev.map((m) =>
+          m.id === messageId ? { ...m, isDeleted: true, isPinned: false } : m,
+        ),
       );
       deleteMessageMutation.mutate(
         { roomId, messageId },
         {
-          onSuccess: () => {
-            if (socket && isConnected) deleteSocketMessage(messageId);
-          },
           onError: () => {
+            if (!before) return;
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === messageId ? { ...m, isDeleted: false } : m,
-              ),
+              prev.map((m) => (m.id === messageId ? before : m)),
             );
-            toast.error("Couldn't delete message");
           },
         },
       );
     },
-    [roomId, deleteMessageMutation, socket, isConnected, deleteSocketMessage],
+    [roomId, deleteMessageMutation],
   );
+
+  const handleTranslateMessage = useCallback(
+    async (messageId: string) => {
+      const res = await voiceApi.translateRoomMessage(roomId, messageId);
+      return res.data.data;
+    },
+    [roomId],
+  );
+
+  const handleReportMessage = useCallback(
+    async (messageId: string, reason: string, details?: string) => {
+      const res = await voiceApi.reportRoomMessage(
+        roomId,
+        messageId,
+        reason,
+        details,
+      );
+      return { alreadyReported: Boolean(res.data?.data?.alreadyReported) };
+    },
+    [roomId],
+  );
+
+  /** Opens the correction sheet prefilled with a chat message instead of speech */
+  const handleSuggestChatCorrection = useCallback(
+    (message: { senderId: string; senderName?: string; content: string }) => {
+      setCorrectionTarget({
+        userId: message.senderId,
+        userName: message.senderName || "Someone",
+        original: message.content,
+      });
+    },
+    [],
+  );
+
+  // ---- Older history: loaded a page at a time when the reader scrolls to the top ----
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  const loadingHistoryRef = useRef(false);
+  const handleLoadOlderMessages = useCallback(async () => {
+    if (!roomId || loadingHistoryRef.current) return false;
+    const oldest = messagesRef.current.find((m) => !m.id.startsWith("temp-"));
+    if (!oldest) {
+      setHasMoreHistory(false);
+      return false;
+    }
+    loadingHistoryRef.current = true;
+    try {
+      const res = await voiceApi.getRoomMessages(roomId, 50, oldest.id);
+      const page = Array.isArray(res.data) ? res.data : [];
+      if (page.length < 50) setHasMoreHistory(false);
+      if (page.length) {
+        setMessages((prev) => {
+          const known = new Set(prev.map((m) => m.id));
+          const older = page
+            .filter((m) => !known.has(m.id))
+            .map((m) => normalizeChatMessage({ ...m, status: "sent" }, user?.id));
+          return older.length ? [...older, ...prev] : prev;
+        });
+      }
+      return page.length > 0;
+    } catch {
+      toast.error("Couldn't load older messages");
+      return false;
+    } finally {
+      loadingHistoryRef.current = false;
+    }
+  }, [roomId, user?.id]);
 
   const openAttachmentPreview = useCallback((file: File) => {
     if (file.size > MAX_ATTACHMENT_BYTES) {
@@ -2920,7 +3004,18 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       const pending = prev.filter(
         (m) => m.id.startsWith("temp-") && !sourceIds.has(m.id),
       );
-      return pending.length ? [...merged, ...pending] : merged;
+      // Pages loaded with "older messages" sit before the cached window; keep them
+      const oldestCached = merged.length
+        ? new Date(merged[0].createdAt).getTime()
+        : Infinity;
+      const history = prev.filter(
+        (m) =>
+          !m.id.startsWith("temp-") &&
+          !sourceIds.has(m.id) &&
+          new Date(m.createdAt).getTime() < oldestCached,
+      );
+      const withHistory = history.length ? [...history, ...merged] : merged;
+      return pending.length ? [...withHistory, ...pending] : withHistory;
     });
   }, [cachedMessages, initialMessages, user?.id]);
 
@@ -2939,12 +3034,20 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       setMessages((prev) => {
         if (prev.some((m) => m.id === message.id)) return prev;
         if (isOwn) {
-          const i = prev.findIndex(
-            (m) =>
-              m.id.startsWith("temp-") &&
-              m.senderId === message.senderId &&
-              m.content === message.content,
-          );
+          // Match the optimistic bubble by the echoed clientId; content is the fallback
+          const byClientId = raw?.clientId
+            ? prev.findIndex((m) => m.id === raw.clientId)
+            : -1;
+          const i =
+            byClientId !== -1
+              ? byClientId
+              : prev.findIndex(
+                  (m) =>
+                    m.id.startsWith("temp-") &&
+                    m.status !== "failed" &&
+                    m.senderId === message.senderId &&
+                    m.content === message.content,
+                );
           if (i !== -1) {
             const next = [...prev];
             next[i] = message;
@@ -2984,11 +3087,25 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       });
     };
 
+    // The server rejected one of our sends (not in room, too long…): fail that bubble now
+    const onChatError = (data: { clientId?: string; message?: string }) => {
+      if (data?.clientId) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === data.clientId ? { ...m, status: "failed" as const } : m,
+          ),
+        );
+      }
+      toast.error(data?.message || "Message not sent");
+    };
+
     socket.on("voice:chat", onNewMessage);
+    socket.on("voice:chat-error", onChatError);
     socket.on("voice:typing-start", onTypingStart);
     socket.on("voice:typing-stop", onTypingStop);
     return () => {
       socket.off("voice:chat", onNewMessage);
+      socket.off("voice:chat-error", onChatError);
       socket.off("voice:typing-start", onTypingStart);
       socket.off("voice:typing-stop", onTypingStop);
     };
@@ -3589,7 +3706,14 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
                 scrollToBottom();
               }}
               onAttachFile={handleAttachClick}
+              onDropFile={openAttachmentPreview}
+              onTranslateMessage={handleTranslateMessage}
+              onReportMessage={handleReportMessage}
+              onSuggestCorrection={handleSuggestChatCorrection}
+              onLoadOlder={handleLoadOlderMessages}
+              hasMoreHistory={hasMoreHistory && messages.length >= 50}
               roomId={roomId}
+              currentUserName={userName}
               participantNames={allParticipants
                 .map((p) => p.name)
                 .filter(Boolean)}

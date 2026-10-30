@@ -232,8 +232,23 @@ export interface VoiceMessage {
   reactions?: Record<string, string[]>;
   replyToId?: string;
   replyTo?: VoiceMessage;
+  /** Uploaded image / video / audio (IMAGE, VIDEO, VOICE_NOTE…) */
+  mediaUrl?: string | null;
+  /** Uploaded document (FILE) */
+  fileUrl?: string | null;
+  editedAt?: string | null;
+  /** Sender's optimistic id, echoed back on the socket broadcast of their own message */
+  clientId?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface VoiceMessageTranslation {
+  messageId: string;
+  language: string;
+  text: string;
+  /** Already in the reader's language */
+  unchanged: boolean;
 }
 
 // ---------- API ----------
@@ -332,6 +347,21 @@ export const voiceApi = {
     apiClient.post<VoiceMessage>(
       `/voice/rooms/${roomId}/messages/${messageId}/pin`,
       { pinned },
+    ),
+  translateRoomMessage: (roomId: string, messageId: string, target?: string) =>
+    apiClient.post<{ success: boolean; data: VoiceMessageTranslation }>(
+      `/voice/rooms/${roomId}/messages/${messageId}/translate`,
+      target ? { target } : {},
+    ),
+  reportRoomMessage: (
+    roomId: string,
+    messageId: string,
+    reason: string,
+    description?: string,
+  ) =>
+    apiClient.post<{ success: boolean; data: { alreadyReported: boolean } }>(
+      `/voice/rooms/${roomId}/messages/${messageId}/report`,
+      { reason, description },
     ),
 
   checkRoomStatus: (roomId: string) =>
@@ -734,7 +764,7 @@ export const useDeleteVoiceMessage = () => {
         (old) =>
           old?.map((m) =>
             m.id === messageId
-              ? { ...m, isDeleted: true, content: "This message was deleted" }
+              ? { ...m, isDeleted: true, isPinned: false, content: "" }
               : m,
           ),
       );
@@ -849,17 +879,17 @@ export const useReactToVoiceMessage = () => {
       }
       toast.error("Failed to react");
     },
-    onSuccess: (data, { roomId, messageId }) => {
-      if (data?.reactions) {
+    onSuccess: (data: any, { roomId, messageId }) => {
+      // The server answers { success, data: { messageId, reactions } } — the same map it broadcasts
+      const reactions: Record<string, string[]> | undefined =
+        data?.data?.reactions ?? data?.reactions;
+      if (reactions) {
         queryClient.setQueryData<VoiceMessage[]>(
           ["voice-messages", roomId],
           (old) =>
-            old?.map((m) =>
-              m.id === messageId ? { ...m, reactions: data.reactions } : m,
-            ),
+            old?.map((m) => (m.id === messageId ? { ...m, reactions } : m)),
         );
       }
-      queryClient.invalidateQueries({ queryKey: ["voice-messages", roomId] });
     },
   });
 };
@@ -1138,7 +1168,15 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
           if (!old) return old;
           return old.map((m) =>
             m.id === data.messageId
-              ? { ...m, isDeleted: true, content: "This message was deleted" }
+              ? {
+                  ...m,
+                  isDeleted: true,
+                  isPinned: false,
+                  content: "",
+                  mediaUrl: null,
+                  fileUrl: null,
+                  reactions: {},
+                }
               : m,
           );
         },
@@ -1264,6 +1302,7 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
       mediaUrl?: string;
       fileUrl?: string;
       replyToId?: string;
+      clientId?: string;
     }) => {
       if (!socket || !isConnected) {
         toast.error("Not connected to voice server");
