@@ -21,12 +21,18 @@ import {
   Trophy,
   Focus as SpotlightIcon,
   Megaphone,
+<<<<<<< HEAD
   BookMarked,
   Trash2,
 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
 import { apiClient } from "../../../lib/api/client";
 import type { SavedWord } from "../../../hooks/useWordBank";
+=======
+} from "lucide-react";
+import { THEME } from "../VoiceRoomView.theme";
+import { apiClient } from "../../../lib/api/client";
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 import {
   CEFR_LEVELS,
   type AirtimeSnapshot,
@@ -38,7 +44,11 @@ import {
   type MissionResult,
 } from "../../../hooks/useRoomCoach";
 
+<<<<<<< HEAD
 type Tab = "me" | "mission" | "room" | "words";
+=======
+type Tab = "me" | "mission" | "room";
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 
 interface SessionReport {
   id: string;
@@ -64,12 +74,15 @@ interface RoomCoachPanelProps {
   lastResult: MissionResult | null;
   airtime: AirtimeSnapshot | null;
   initialTab?: Tab;
+<<<<<<< HEAD
   /** Ask the panel to switch tabs (change `n` to request the same tab again) */
   openTab?: { tab: Tab; n: number };
   words: SavedWord[];
   dueWords: SavedWord[];
   onReviewWord: (id: string, knew: boolean) => void;
   onRemoveWord: (id: string) => void;
+=======
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
   onStartMission: (level: CefrLevel, durationSec: number) => void;
   onStopMission: () => void;
   onSwapWord: () => void;
@@ -150,11 +163,14 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
   lastResult,
   airtime,
   initialTab = "me",
+<<<<<<< HEAD
   openTab,
   words,
   dueWords,
   onReviewWord,
   onRemoveWord,
+=======
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
   onStartMission,
   onStopMission,
   onSwapWord,
@@ -166,11 +182,14 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
   const [reports, setReports] = useState<SessionReport[]>([]);
   const now = useNow(isOpen && Boolean(mission));
 
+<<<<<<< HEAD
   // The dock's tiles open the panel straight on the tab they belong to
   useEffect(() => {
     if (openTab) setTab(openTab.tab);
   }, [openTab]);
 
+=======
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
   // Recent sessions (for the trend), loaded when the panel opens
   useEffect(() => {
     if (!isOpen) return;
@@ -260,7 +279,10 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 ["me", "Me", Gauge],
                 ["mission", "Mission", Target],
                 ["room", "Room", Users],
+<<<<<<< HEAD
                 ["words", "Words", BookMarked],
+=======
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
               ] as const
             ).map(([id, label, Icon]) => (
               <button
@@ -276,6 +298,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
               >
                 <Icon className="w-3.5 h-3.5" />
                 {label}
+<<<<<<< HEAD
                 {id === "words" && dueWords.length > 0 && (
                   <span
                     className="min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center"
@@ -284,6 +307,8 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                     {dueWords.length}
                   </span>
                 )}
+=======
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
                 {id === "mission" && mission && !myTurnDone && myMission && (
                   <span
                     className="w-1.5 h-1.5 rounded-full animate-pulse"
@@ -707,6 +732,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 )}
               </>
             )}
+<<<<<<< HEAD
             {/* ---------------- WORDS ---------------- */}
             {tab === "words" && (
               <WordsTab
@@ -716,6 +742,8 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 onRemove={onRemoveWord}
               />
             )}
+=======
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
           </div>
         </motion.div>
       )}
@@ -723,6 +751,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
   );
 };
 
+<<<<<<< HEAD
 /** Flip-card review of due words, then the full list */
 const WordsTab: React.FC<{
   words: SavedWord[];
@@ -855,4 +884,6 @@ const WordsTab: React.FC<{
   );
 };
 
+=======
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
 export default RoomCoachPanel;

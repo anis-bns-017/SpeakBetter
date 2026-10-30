@@ -3,6 +3,7 @@ import {
   analyzeUtterance,
   buildAirtime,
   buildForms,
+<<<<<<< HEAD
   cleanNote,
   coachTip,
   dueAfter,
@@ -11,6 +12,12 @@ import {
   nextBox,
   normalizeLevel,
   normalizeSavedWord,
+=======
+  coachTip,
+  matchesMissionWord,
+  missionPoints,
+  normalizeLevel,
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
   pickMissionWord,
   pickQuietest,
   pickTopicCard,
@@ -256,6 +263,7 @@ describe('topic cards', () => {
     expect(new Set(TOPIC_CARDS.map((c) => c.id)).size).toBe(TOPIC_CARDS.length);
   });
 });
+<<<<<<< HEAD
 
 describe('saved words', () => {
   it('moves up a box when known and back to the start when forgotten', () => {
@@ -317,3 +325,5 @@ describe('variety score', () => {
     expect(t.snapshot(0).scores.variety).toBe(100);
   });
 });
+=======
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf

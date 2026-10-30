@@ -1,4 +1,5 @@
 import {
+<<<<<<< HEAD
   Body,
   Controller,
   Delete,
@@ -6,6 +7,12 @@ import {
   NotFoundException,
   Param,
   Post,
+=======
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
   Query,
   Req,
   UseGuards,
@@ -35,6 +42,7 @@ export class CoachController {
     return report;
   }
 
+<<<<<<< HEAD
   @Post('words')
   @ApiOperation({ summary: 'Save a word tapped in the live captions to my word bank' })
   saveWord(
@@ -65,6 +73,8 @@ export class CoachController {
     return this.coach.deleteWord(req.user.id, id);
   }
 
+=======
+>>>>>>> 2112bb78e7a1183ce9019860e0879b2b233dd4cf
   @Get('cards')
   @ApiOperation({ summary: 'Topic cards a host can push to the room' })
   getCards() {
