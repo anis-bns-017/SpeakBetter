@@ -10,6 +10,10 @@ import {
   RespondFriendRequestDto,
   BlockUserDto,
 } from './dto/friend-request.dto';
+import { rankSuggestions } from './friend-suggestions';
+
+/** How many recently active people are scored before the best few are returned */
+const SUGGESTION_CANDIDATE_POOL = 200;
 
 @Injectable()
 export class FriendsService {
@@ -442,6 +446,83 @@ export class FriendsService {
     );
 
     return results;
+  }
+
+  // ============ SUGGESTIONS ============
+
+  /**
+   * People to practice with, best language-exchange match first. Leaves out friends,
+   * anyone with a pending request either way, blocks either way, and people who turned
+   * off friend requests or their public profile.
+   */
+  async getSuggestions(userId: string, limit = 20) {
+    const take = Math.min(Math.max(Math.floor(limit) || 20, 1), 50);
+
+    const [me, friends, requests, blocks] = await Promise.all([
+      this.prisma.profile.findUnique({
+        where: { userId },
+        select: {
+          nativeLanguage: true,
+          learningLanguages: true,
+          interests: true,
+        },
+      }),
+      this.prisma.friend.findMany({
+        where: { OR: [{ fromUserId: userId }, { toUserId: userId }] },
+        select: { fromUserId: true, toUserId: true },
+      }),
+      this.prisma.friendRequest.findMany({
+        where: {
+          OR: [{ fromUserId: userId }, { toUserId: userId }],
+          status: 'PENDING',
+        },
+        select: { fromUserId: true, toUserId: true },
+      }),
+      this.prisma.block.findMany({
+        where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+        select: { blockerId: true, blockedId: true },
+      }),
+    ]);
+
+    const excluded = new Set<string>([userId]);
+    for (const f of friends) excluded.add(f.fromUserId).add(f.toUserId);
+    for (const r of requests) excluded.add(r.fromUserId).add(r.toUserId);
+    for (const b of blocks) excluded.add(b.blockerId).add(b.blockedId);
+
+    // Rank among the most recently active people rather than the whole user table
+    const candidates = await this.prisma.user.findMany({
+      where: {
+        id: { notIn: [...excluded] },
+        profile: { isNot: null },
+        OR: [
+          { settings: { is: null } },
+          {
+            settings: {
+              is: { allowFriendRequests: true, showProfilePublic: true },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        avatarUrl: true,
+        profile: {
+          select: {
+            nativeLanguage: true,
+            learningLanguages: true,
+            interests: true,
+            country: true,
+            level: true,
+            lastActive: true,
+          },
+        },
+      },
+      orderBy: { profile: { lastActive: 'desc' } },
+      take: SUGGESTION_CANDIDATE_POOL,
+    });
+
+    return rankSuggestions(me, candidates, take);
   }
 
   // ============ ONLINE STATUS (Basic) ============

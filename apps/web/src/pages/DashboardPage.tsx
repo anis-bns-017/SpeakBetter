@@ -6,7 +6,7 @@
  * those also keeps the daily streak alive.
  */
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import {
@@ -30,6 +30,7 @@ import {
   ArrowRight,
   Search,
   UserPlus,
+  Check,
   Users,
   Clock,
   Wand2,
@@ -294,6 +295,8 @@ const DashboardPage: React.FC = () => {
   const { data: trending } = useTrendingRooms(6);
   const { data: suggestionsData } = useSuggestions();
   const sendRequest = useSendFriendRequest();
+  // People you just sent a request to (suggestions don't refetch until you come back)
+  const [requestedIds, setRequestedIds] = useState<Set<string>>(() => new Set());
 
   const liveRooms = useMemo(
     () => (Array.isArray(trending) ? trending : []).filter((r) => r && r.isLive !== false && (r.participantCount ?? 0) > 0).slice(0, 4),
@@ -615,19 +618,23 @@ const DashboardPage: React.FC = () => {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{person.name || "Learner"}</span>
-                  <span className="block text-xs text-slate-500 truncate">
-                    {person.profile?.nativeLanguage ? `Speaks ${person.profile.nativeLanguage}` : "Language learner"}
+                  <span className="block text-xs text-slate-500 truncate" title={person.reason}>
+                    {person.reason || (person.profile?.nativeLanguage ? `Speaks ${person.profile.nativeLanguage}` : "Language learner")}
                   </span>
                 </span>
                 <button
                   type="button"
-                  disabled={person.isRequested || sendRequest.isPending}
-                  onClick={() => sendRequest.mutate(person.id)}
+                  disabled={person.isRequested || requestedIds.has(person.id) || sendRequest.isPending}
+                  onClick={() =>
+                    sendRequest.mutate(person.id, {
+                      onSuccess: () => setRequestedIds((prev) => new Set(prev).add(person.id)),
+                    })
+                  }
                   className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-40 transition-colors"
                   aria-label={`Add ${person.name || "this person"} as a friend`}
-                  title="Add friend"
+                  title={requestedIds.has(person.id) ? "Request sent" : "Add friend"}
                 >
-                  <UserPlus className="w-4 h-4" />
+                  {requestedIds.has(person.id) ? <Check className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                 </button>
               </div>
             ))}

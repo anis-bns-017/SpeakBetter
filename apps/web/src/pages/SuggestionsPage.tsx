@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useSuggestions, useSendFriendRequest } from '../hooks/useFriends';
-import { toast } from 'sonner';
 import { UserPlus, Users, Languages, Check, Sparkles } from 'lucide-react';
 
 export const SuggestionsPage = () => {
@@ -8,13 +7,13 @@ export const SuggestionsPage = () => {
   const sendRequestMutation = useSendFriendRequest();
   const [sentRequests, setSentRequests] = useState<Record<string, boolean>>({});
 
+  // The mutation shows its own success / error toast
   const handleSendRequest = async (userId: string) => {
     try {
       await sendRequestMutation.mutateAsync(userId);
       setSentRequests((prev) => ({ ...prev, [userId]: true }));
-      toast.success('Friend request sent!');
     } catch {
-      toast.error('Failed to send request');
+      /* already reported */
     }
   };
 
@@ -97,6 +96,13 @@ export const SuggestionsPage = () => {
                     <h3 className="font-bold text-slate-800 text-base">
                       {user.name}
                     </h3>
+
+                    {user.reason && (
+                      <p className="flex items-center gap-1 text-xs font-medium text-violet-600">
+                        <Sparkles className="w-3 h-3 shrink-0" />
+                        {user.reason}
+                      </p>
+                    )}
 
                     {user.profile && (
                       <div className="flex flex-wrap items-center gap-2 text-xs">

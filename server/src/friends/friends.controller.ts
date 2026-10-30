@@ -89,6 +89,16 @@ export class FriendsController {
     return this.friendsService.getBlockedUsers(req.user.id);
   }
 
+  // ============ SUGGESTIONS ============
+
+  @Get('suggestions')
+  async getSuggestions(@Request() req, @Query('limit') limit?: string) {
+    return this.friendsService.getSuggestions(
+      req.user.id,
+      limit ? Number(limit) : undefined,
+    );
+  }
+
   // ============ SEARCH ============
 
   @Get('search')

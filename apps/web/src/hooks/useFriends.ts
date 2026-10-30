@@ -249,14 +249,23 @@ export const useCheckFriendship = (userId: string) => {
 };
 
 
+/** GET /friends/suggestions — best language-exchange matches first */
 export interface FriendSuggestion {
   id: string;
   name: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   profile?: {
-    nativeLanguage?: string;
+    nativeLanguage?: string | null;
     learningLanguages?: string[];
-  };
+    interests?: string[];
+    country?: string | null;
+    level?: string | null;
+    lastActive?: string;
+  } | null;
+  /** Why this person was suggested, e.g. "Native English speaker — you're learning it" */
+  reason?: string;
+  sharedInterests?: string[];
+  matchScore?: number;
   isRequested?: boolean;
 }
 
