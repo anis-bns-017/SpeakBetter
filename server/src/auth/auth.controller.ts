@@ -15,7 +15,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import type { Request as ExpressRequest, Response } from 'express';
 
-import { AuthService } from './auth.service';
+import { AuthService, SessionMeta } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -29,9 +29,10 @@ export class AuthController {
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
+    @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.register(dto);
+    const result = await this.authService.register(dto, this.sessionMeta(req));
 
     this.setAuthCookies(res, result);
 
@@ -45,9 +46,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginDto,
+    @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.login(dto);
+    const result = await this.authService.login(dto, this.sessionMeta(req));
 
     this.setAuthCookies(res, result);
 
@@ -69,7 +71,23 @@ export class AuthController {
       throw new UnauthorizedException('Refresh token not found');
     }
 
-    const result = await this.authService.refreshToken(refreshToken);
+    let result: Awaited<ReturnType<AuthService['refreshToken']>>;
+    try {
+      result = await this.authService.refreshToken(
+        refreshToken,
+        this.sessionMeta(req),
+      );
+    } catch (error) {
+      // A dead token is useless; stop sending it. NOT on a tab race: the
+      // winning request is setting fresh cookies and must not be wiped.
+      if (
+        error instanceof UnauthorizedException &&
+        (error.getResponse() as { code?: string })?.code !== 'REFRESH_RACE'
+      ) {
+        this.clearAuthCookies(res);
+      }
+      throw error;
+    }
 
     this.setAuthCookies(res, result);
 
@@ -93,7 +111,10 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleCallback(@Req() req: ExpressRequest, @Res() res: Response) {
-    const result = await this.authService.googleLogin(req.user as any);
+    const result = await this.authService.googleLogin(
+      req.user as any,
+      this.sessionMeta(req),
+    );
 
     this.setAuthCookies(res, result);
 
@@ -105,30 +126,54 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async getMe(@Request() req: ExpressRequest) {
-    return req.user;
+    // Re-read through the service so the password hash never leaves the server
+    return this.authService.getMe((req.user as { id: string }).id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  /**
+   * Public on purpose: it must work when the access cookie has already
+   * expired. It ends the login the cookies belong to (the whole session
+   * family) and always clears the cookies, even if revoking failed.
+   */
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(
-    @Request() req: ExpressRequest,
+    @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = req.user as any;
+    try {
+      const refreshToken = req.cookies?.refreshToken;
+      const accessToken = req.cookies?.accessToken;
 
-    if (!user || !user.id) {
-      throw new UnauthorizedException('User not authenticated');
+      if (refreshToken) {
+        await this.authService.logoutByRefreshToken(refreshToken);
+      }
+      if (accessToken) {
+        await this.authService.logoutByAccessToken(accessToken);
+      }
+    } finally {
+      this.clearAuthCookies(res);
     }
-
-    await this.authService.logout(user.id);
-
-    res.clearCookie('accessToken');
-
-    res.clearCookie('refreshToken');
 
     return {
       success: true,
+    };
+  }
+
+  private sessionMeta(req: ExpressRequest): SessionMeta {
+    return {
+      userAgent: req.headers['user-agent'],
+      ip: req.ip,
+    };
+  }
+
+  private cookieOptions() {
+    return {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
     };
   }
 
@@ -140,17 +185,19 @@ export class AuthController {
     },
   ) {
     res.cookie('accessToken', result.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...this.cookieOptions(),
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...this.cookieOptions(),
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
+  }
+
+  /** Same attributes as when the cookies were set, so the browser matches them */
+  private clearAuthCookies(res: Response) {
+    res.clearCookie('accessToken', this.cookieOptions());
+    res.clearCookie('refreshToken', this.cookieOptions());
   }
 }

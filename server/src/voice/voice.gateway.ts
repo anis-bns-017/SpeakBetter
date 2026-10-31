@@ -10,9 +10,9 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { JwtService } from '@nestjs/jwt';
 import { parse } from 'cookie';
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { AuthService } from '../auth/auth.service';
 import { VoiceService } from './voice.service';
 import { PrismaService } from '../prisma.service';
 import { CoachService } from './coach/coach.service';
@@ -25,12 +25,17 @@ import { CoachService } from './coach/coach.service';
   namespace: 'voice',
 })
 export class VoiceGateway
-  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
+  implements
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleInit,
+    OnModuleDestroy
 {
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(VoiceGateway.name);
+  private unsubscribeRevoked?: () => void;
   private roomParticipants: Map<string, Set<string>> = new Map();
   private roomHosts: Map<string, string> = new Map();
   private userSockets: Map<string, string[]> = new Map();
@@ -45,13 +50,45 @@ export class VoiceGateway
   private airtimeTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
-    private jwtService: JwtService,
+    private authService: AuthService,
     private voiceService: VoiceService,
     private prisma: PrismaService,
     private coach: CoachService,
   ) {}
 
+  onModuleDestroy() {
+    this.unsubscribeRevoked?.();
+  }
+
+  /** Closes the sockets opened by a login that was just revoked (logout, reuse, ...) */
+  private async closeRevokedSockets(event: {
+    userId: string;
+    familyId: string | null;
+  }) {
+    try {
+      // fetchSockets() works on a namespace and, with an adapter, across instances
+      for (const socket of (await this.server?.fetchSockets()) ?? []) {
+        if (socket.data.userId !== event.userId) continue;
+        // A socket without a family came from a pre-session token: close it too
+        if (
+          event.familyId &&
+          socket.data.familyId &&
+          socket.data.familyId !== event.familyId
+        ) {
+          continue;
+        }
+        socket.disconnect(true);
+      }
+    } catch (error) {
+      this.logger.warn(`Could not close revoked sockets: ${error?.message}`);
+    }
+  }
+
   onModuleInit() {
+    this.unsubscribeRevoked = this.authService.onSessionRevoked((event) => {
+      void this.closeRevokedSockets(event);
+    });
+
     // A mission round that runs out of time is announced to the room from here
     this.coach.onMissionEnd((roomId, result) => {
       this.server?.to(`voice:${roomId}`).emit('voice:mission-ended', result);
@@ -112,21 +149,21 @@ export class VoiceGateway
         return;
       }
 
-      const payload = this.jwtService.verify(token, {
-        secret: process.env.JWT_SECRET,
-      });
-      const userId = payload.sub;
-      client.data.userId = userId;
-
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true },
-      });
-
-      if (user) {
-        client.data.userName = user.name;
-        this.userNames.set(userId, user.name);
+      // Signature, expiry, live session and existing user: same rules as HTTP
+      const authed = await this.authService.authenticateAccessToken(token);
+      if (!authed) {
+        this.logger.warn('Invalid token, revoked session or unknown user, disconnecting');
+        client.disconnect();
+        return;
       }
+
+      const userId = authed.user.id;
+      client.data.userId = userId;
+      client.data.sessionId = authed.sessionId;
+      client.data.familyId = authed.familyId;
+
+      client.data.userName = authed.user.name;
+      this.userNames.set(userId, authed.user.name);
 
       const sockets = this.userSockets.get(userId) || [];
       sockets.push(client.id);

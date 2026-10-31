@@ -40,6 +40,7 @@ import React, {
   useDeferredValue,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle,
   WifiOff,
@@ -3404,7 +3405,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       }
       stageOverlay={
         <>
-          <ReactionOverlay reactions={stageReactions} />
           <LiveCaptions
             transcriptions={transcriptions}
             userId={user?.id || ""}
@@ -3939,6 +3939,25 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         onFile={openAttachmentPreview}
         disabled={showAttachmentPreview}
       />
+
+      {/* Stage reactions — rendered into document.body via portal so no
+          parent's overflow-hidden / transform / backdrop-filter can clip them. */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="pointer-events-none"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              overflow: "visible",
+            }}
+            aria-hidden
+          >
+            <ReactionOverlay reactions={stageReactions} />
+          </div>,
+          document.body,
+        )}
 
       <input
         ref={attachInputRef}

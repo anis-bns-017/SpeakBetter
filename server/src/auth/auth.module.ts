@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { SessionCleanupService } from './session-cleanup.service';
 
 import { PrismaService } from '../prisma.service';
 import { UsersModule } from '../users/users.module';
@@ -35,8 +36,14 @@ import { UsersModule } from '../users/users.module';
 
   controllers: [AuthController],
 
-  providers: [AuthService, PrismaService, JwtStrategy, GoogleStrategy],
+  providers: [
+    AuthService,
+    PrismaService,
+    JwtStrategy,
+    GoogleStrategy,
+    SessionCleanupService,
+  ],
 
-  exports: [JwtModule, PassportModule, JwtStrategy],
+  exports: [JwtModule, PassportModule, JwtStrategy, AuthService],
 })
 export class AuthModule {}

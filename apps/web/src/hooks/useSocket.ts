@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "../contexts/AuthContext";
+import { ensureFreshSession } from "../lib/api/client";
 
 export const useSocket = () => {
   const { user } = useAuth();
@@ -20,6 +21,11 @@ export const useSocket = () => {
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
+        // Re-evaluated before every (re)connect: an expired access cookie is
+        // refreshed first instead of the server turning the socket away.
+        auth: (cb) => {
+          void ensureFreshSession().finally(() => cb({}));
+        },
       },
     );
 
@@ -28,9 +34,19 @@ export const useSocket = () => {
       console.log("🔌 WebSocket connected");
     });
 
-    socketInstance.on("disconnect", () => {
+    socketInstance.on("disconnect", (reason) => {
       setIsConnected(false);
       console.log("🔌 WebSocket disconnected");
+      // Server-initiated close (expired token, logout): retry only while signed in
+      if (reason === "io server disconnect") {
+        setTimeout(() => {
+          void ensureFreshSession().then((signedIn) => {
+            if (signedIn && socketInstance.disconnected && !socketInstance.active) {
+              socketInstance.connect();
+            }
+          });
+        }, 1000);
+      }
     });
 
     socketInstance.on("connect_error", (error) => {

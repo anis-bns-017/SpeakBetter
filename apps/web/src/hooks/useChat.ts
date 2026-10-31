@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "../lib/api/client";
+import { apiClient, ensureFreshSession } from "../lib/api/client";
 import { toast } from "sonner";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
@@ -974,7 +974,11 @@ export const useChatSocket = (
       transports: ["polling", "websocket"],
       upgrade: true,
 
-      auth,
+      // Re-evaluated before every (re)connect: an expired access cookie is
+      // refreshed first instead of the server turning the socket away.
+      auth: (cb) => {
+        void ensureFreshSession().finally(() => cb(auth));
+      },
       query,
 
       reconnection: true,
@@ -1015,9 +1019,13 @@ export const useChatSocket = (
       if (reason === "io server disconnect") {
         console.log("🔄 Server requested disconnect; reconnecting...");
         reconnectTimerRef.current = setTimeout(() => {
-          if (s.disconnected && !s.active) {
-            s.connect();
-          }
+          // Only come back if the session is still valid: after a logout or a
+          // revoked login the server closes the socket and it must stay closed.
+          void ensureFreshSession().then((signedIn) => {
+            if (signedIn && s.disconnected && !s.active) {
+              s.connect();
+            }
+          });
         }, 1000);
       }
     };

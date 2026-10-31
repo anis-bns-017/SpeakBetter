@@ -1,7 +1,7 @@
 // apps/web/src/hooks/useVoice.ts
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "../lib/api/client";
+import { apiClient, ensureFreshSession } from "../lib/api/client";
 import { toast } from "sonner";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
@@ -1040,6 +1040,11 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
       reconnectionAttempts: Infinity,
       reconnectionDelayMax: 5000,
       reconnectionDelay: 1000,
+      // Re-evaluated before every (re)connect: an expired access cookie is
+      // refreshed first instead of the server turning the socket away.
+      auth: (cb) => {
+        void ensureFreshSession().finally(() => cb({}));
+      },
     });
 
     s.on("connect", () => {
@@ -1048,8 +1053,18 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
       s.emit("voice:join", { roomId });
     });
 
-    s.on("disconnect", () => {
+    s.on("disconnect", (reason) => {
       setIsConnected(false);
+      // The server closed the socket (expired access token, or a logout /
+      // revoked login). Socket.IO does not retry that by itself: come back
+      // only if the session is still valid.
+      if (reason === "io server disconnect") {
+        setTimeout(() => {
+          void ensureFreshSession().then((signedIn) => {
+            if (signedIn && s.disconnected && !s.active) s.connect();
+          });
+        }, 1000);
+      }
     });
 
     s.on("connect_error", (err) => {

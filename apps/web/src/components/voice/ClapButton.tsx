@@ -9,6 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { THEME } from "./VoiceRoomView.theme";
@@ -37,6 +38,9 @@ interface BubbleParticle {
   scale: number;
   duration: number;
   delay: number;
+  /** Screen position the bubble starts from (the button's centre when clapped) */
+  originX: number;
+  originY: number;
 }
 
 export const ClapButton: React.FC<ClapButtonProps> = ({
@@ -109,6 +113,10 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
     // Bias toward 👏 since that's the clap gesture, but keep some variety
     const emojis = ["👏", "👏", "👏", "🎉", "✨", "💫", "⭐", "🌟"];
     const batch: BubbleParticle[] = [];
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const originX = rect.left + rect.width / 2;
+    const originY = rect.top + rect.height / 2;
 
     for (let i = 0; i < count; i++) {
       batch.push({
@@ -126,6 +134,8 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
         duration: 1.9 + Math.random() * 0.7,
         // Tiny stagger so they don't all leave at the exact same frame
         delay: Math.random() * 0.08,
+        originX,
+        originY,
       });
     }
 
@@ -230,7 +240,14 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
   // ----------------------------------------------------------
   return (
     <div className={"relative inline-block " + (className ?? "")}>
-      {/* Bubble particles — float upward, sway, grow, fade */}
+      {/* Bubble particles — float upward, sway, grow, fade. Rendered in a page-level layer so
+          the scrolling, rounded containers around the button can't clip them. */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-0 z-[80] overflow-hidden"
+          >
       <AnimatePresence>
         {localParticles.map((p) => {
           // Sway keyframes: bubble wanders side to side as it rises.
@@ -240,7 +257,8 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
           return (
             <motion.div
               key={p.id}
-              className="pointer-events-none absolute left-1/2 top-1/2 z-50 select-none"
+              className="pointer-events-none absolute select-none"
+              style={{ left: p.originX, top: p.originY }}
               initial={{
                 opacity: 0,
                 x: 0,
@@ -266,7 +284,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
               <span
                 className={
                   config.bubbleSize +
-                  " drop-shadow-[0_4px_12px_rgba(249,115,22,0.35)]"
+                  " block -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_4px_12px_rgba(249,115,22,0.35)]"
                 }
               >
                 {p.emoji}
@@ -275,6 +293,9 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
           );
         })}
       </AnimatePresence>
+          </div>,
+          document.body,
+        )}
 
       {/* On-fire badge with pulsing ring */}
       <AnimatePresence>

@@ -8,9 +8,9 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { JwtService } from '@nestjs/jwt';
 import { parse as parseCookie } from 'cookie';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { AuthService } from '../auth/auth.service';
 import { ChatService } from './chat.service';
 import { PrismaService } from '../prisma.service';
 import { ChatPrivacyService } from './chat-privacy.service';
@@ -36,11 +36,18 @@ const MEMBERS_CACHE_MS = 30_000;
   pingInterval: 25000,
   allowEIO3: true,
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway
+  implements
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleInit,
+    OnModuleDestroy
+{
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
+  private unsubscribeRevoked?: () => void;
   private userSockets: Map<string, string[]> = new Map();
   private typingUsers: Map<string, Set<string>> = new Map();
   private readonly CONNECTION_TIMEOUT = 30000;
@@ -48,12 +55,46 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private chatMembers = new Map<string, { ids: string[]; at: number }>();
 
   constructor(
-    private readonly jwtService: JwtService,
+    private readonly authService: AuthService,
     private readonly chatService: ChatService,
     private readonly prisma: PrismaService,
     private readonly privacy: ChatPrivacyService,
     private readonly features: ChatFeaturesService,
   ) {}
+
+  onModuleInit() {
+    // A logout / revoked login closes the sockets it opened
+    this.unsubscribeRevoked = this.authService.onSessionRevoked((event) => {
+      void this.closeRevokedSockets(event);
+    });
+  }
+
+  private async closeRevokedSockets(event: {
+    userId: string;
+    familyId: string | null;
+  }) {
+    try {
+      // fetchSockets() works on a namespace and, with an adapter, across instances
+      for (const socket of (await this.server?.fetchSockets()) ?? []) {
+        if (socket.data.userId !== event.userId) continue;
+        // A socket without a family came from a pre-session token: close it too
+        if (
+          event.familyId &&
+          socket.data.familyId &&
+          socket.data.familyId !== event.familyId
+        ) {
+          continue;
+        }
+        socket.disconnect(true);
+      }
+    } catch (error) {
+      this.logger.warn(`Could not close revoked sockets: ${error?.message}`);
+    }
+  }
+
+  onModuleDestroy() {
+    this.unsubscribeRevoked?.();
+  }
 
   // ==========================
   // EMIT HELPERS (also used by the REST controller and the scheduler)
@@ -224,18 +265,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.log(`🔑 Token present`);
 
       try {
-        const payload = this.jwtService.verify(token, {
-          secret: process.env.JWT_SECRET,
-        });
+        // Signature, expiry, live session and existing user: same rules as HTTP
+        const authed = await this.authService.authenticateAccessToken(token);
 
-        const userId = payload.sub || payload.userId;
-
-        if (!userId) {
-          throw new Error('No user ID in token');
+        if (!authed) {
+          throw new Error('Invalid token, revoked session or unknown user');
         }
+
+        const userId = authed.user.id;
 
         client.data.userId = userId;
         client.data.token = token;
+        client.data.sessionId = authed.sessionId;
+        client.data.familyId = authed.familyId;
 
         clearTimeout(timeout);
 

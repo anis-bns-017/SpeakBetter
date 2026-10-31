@@ -590,15 +590,37 @@ model User {
   voiceSavedWords          VoiceSavedWord[]           @relation("SavedWordUser")
 }
 
+// One row per refresh token. A login starts a "family"; every refresh rotation
+// adds a child row to the same family, so a whole login can be revoked at once.
 model Session {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
+  // Legacy: raw refresh token. New rows leave it null (only tokenHash is kept).
+  // Kept nullable + unique until every instance runs the hashed-token code.
+  token     String?  @unique
+  // SHA-256 (hex) of the refresh token
+  tokenHash String?  @unique
+  // DB default keeps inserts from not-yet-upgraded instances valid during rollout
+  familyId  String   @default(dbgenerated("gen_random_uuid()"))
   expiresAt DateTime
   createdAt DateTime @default(now())
 
+  lastUsedAt    DateTime?
+  // Set when this token was exchanged for a child; the row stays for reuse detection
+  rotatedAt     DateTime?
+  replacedById  String?   @unique
+  // Set when the session was ended (logout, reuse detected, user gone)
+  revokedAt     DateTime?
+  revokedReason String?
+  // Times a rotated token was replayed inside the grace window (benign tab races)
+  reuseHits     Int       @default(0)
+  userAgent     String?
+  ip            String?
+
   @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
 }
 
 model Account {

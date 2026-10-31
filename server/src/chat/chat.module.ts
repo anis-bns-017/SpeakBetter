@@ -6,6 +6,7 @@ import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { PrismaService } from '../prisma.service';
 import { LearningModule } from '../learning/learning.module';
+import { AuthModule } from '../auth/auth.module';
 import { ChatFeaturesController } from './chat-features.controller';
 import { ChatPrivacyService } from './chat-privacy.service';
 import { ChatFeaturesService } from './chat-features.service';
@@ -23,6 +24,8 @@ import { ChatSchedulerService } from './chat-scheduler.service';
     }),
     // ActivityService: XP for giving and accepting corrections
     LearningModule,
+    // AuthService: session-aware socket authentication
+    AuthModule,
   ],
   controllers: [ChatController, ChatFeaturesController],
   providers: [

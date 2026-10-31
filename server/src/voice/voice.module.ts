@@ -9,6 +9,7 @@ import { VoiceGateway } from './voice.gateway';
 import { LiveKitService } from './livekit.service';
 import { PrismaService } from '../prisma.service';
 import { LearningModule } from '../learning/learning.module';
+import { AuthModule } from '../auth/auth.module';
 
 // Import new services
 import { TranscriptionService } from './services/transcription.service';
@@ -38,6 +39,8 @@ import { AnalyticsController } from './controllers/analytics.controller';
     }),
     // ActivityService: XP + streaks for speaking and corrections
     LearningModule,
+    // AuthService: session-aware socket authentication
+    AuthModule,
   ],
   controllers: [
     VoiceController,
