@@ -75,6 +75,7 @@ import {
   Headphones,
   HeadphoneOff,
   PhoneOff,
+  UserX,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -104,6 +105,7 @@ import { RoomDetailsPanel } from "./shared/RoomDetailsPanel";
 import { ShortcutPanel } from "./shared/ShortcutPanel";
 import { CommandCenter } from "./shared/CommandCenter";
 import { RoomInvite } from "./shared/RoomInvite";
+import { BanListPanel } from "./shared/BanListPanel";
 import { SessionInsights } from "./shared/SessionInsights";
 import { RoomQualityPanel } from "./shared/RoomQualityPanel";
 import { AICoHost } from "./shared/AICoHost";
@@ -1450,6 +1452,7 @@ type PanelKey =
   | "shortcuts"
   | "command"
   | "invite"
+  | "bans"
   | "details"
   | "journal"
   | "corrections"
@@ -1464,6 +1467,7 @@ const PANEL_CLOSE_ORDER: PanelKey[] = [
   "shortcuts",
   "command",
   "invite",
+  "bans",
   "details",
   "journal",
   "corrections",
@@ -1478,6 +1482,7 @@ const INITIAL_PANELS: Record<PanelKey, boolean> = {
   shortcuts: false,
   command: false,
   invite: false,
+  bans: false,
   details: false,
   journal: false,
   corrections: false,
@@ -1780,6 +1785,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     isConnected,
     participants: wsParticipants,
     hostId,
+    wasRemoved,
     sendChatMessage,
     sendTyping,
     raiseHand,
@@ -2125,6 +2131,11 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       toast.error("Failed to leave room");
     }
   }, [leaveRoomMutation, roomId, socket, user?.id, onLeave]);
+
+  // The host removed me: leave the room view (the toast already said why)
+  useEffect(() => {
+    if (wasRemoved) onLeave();
+  }, [wasRemoved, onLeave]);
 
   const handleEndRoom = useCallback(async () => {
     if (!roomId) return;
@@ -3260,6 +3271,14 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           onClick: () => setPanel("invite", true),
         },
         {
+          id: "bans",
+          label: "Removed people",
+          icon: UserX,
+          active: panels.bans,
+          hidden: !isModerator,
+          onClick: () => setPanel("bans", true),
+        },
+        {
           id: "chat",
           label: showChat ? "Hide chat (C)" : "Open chat (C)",
           icon: MessageCircle,
@@ -3839,6 +3858,15 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         roomId={roomId}
         participantCount={totalParticipants}
       />
+
+      {isModerator && (
+        <BanListPanel
+          isOpen={panels.bans}
+          onClose={() => setPanel("bans", false)}
+          roomId={roomId}
+          roomName={room.name}
+        />
+      )}
 
       <CorrectionSheet
         isOpen={!!correctionTarget}

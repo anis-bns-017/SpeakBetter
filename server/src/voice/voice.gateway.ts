@@ -6,6 +6,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
@@ -16,16 +17,21 @@ import { AuthService } from '../auth/auth.service';
 import { VoiceService } from './voice.service';
 import { PrismaService } from '../prisma.service';
 import { CoachService } from './coach/coach.service';
+import { VOICE_GATEWAY_OPTIONS } from './realtime/gateway-options';
+import { VoiceRoomState } from './realtime/voice-room-state';
+import { userRoom } from './realtime/room-access';
+import { VoiceBroadcaster } from './realtime/voice-broadcaster';
+import { VoiceCoachSession } from './realtime/voice-coach-session';
 
-@WebSocketGateway({
-  cors: {
-    origin: /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/,
-    credentials: true,
-  },
-  namespace: 'voice',
-})
+/**
+ * The voice namespace's front door: authentication, connect / disconnect (with
+ * the reconnect grace period), join and leave. The rest of the voice events
+ * live in realtime/ (chat, moderation, coach) on the same namespace.
+ */
+@WebSocketGateway(VOICE_GATEWAY_OPTIONS)
 export class VoiceGateway
   implements
+    OnGatewayInit,
     OnGatewayConnection,
     OnGatewayDisconnect,
     OnModuleInit,
@@ -36,138 +42,83 @@ export class VoiceGateway
 
   private readonly logger = new Logger(VoiceGateway.name);
   private unsubscribeRevoked?: () => void;
-  private roomParticipants: Map<string, Set<string>> = new Map();
-  private roomHosts: Map<string, string> = new Map();
-  private userSockets: Map<string, string[]> = new Map();
-  private userNames: Map<string, string> = new Map();
-  /** `${roomId}:${userId}` → timer that removes someone whose connection dropped */
-  private pendingLeaves: Map<string, NodeJS.Timeout> = new Map();
   /** How long a dropped connection may come back before it counts as leaving */
   private static readonly RECONNECT_GRACE_MS = 15_000;
-  /** `${roomId}:${userId}` → when their current speaking turn started (ms) */
-  private speakingSince: Map<string, number> = new Map();
-  /** roomId → timer for the next airtime update (batches bursts of speaking turns) */
-  private airtimeTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
     private authService: AuthService,
     private voiceService: VoiceService,
     private prisma: PrismaService,
     private coach: CoachService,
+    private state: VoiceRoomState,
+    private broadcaster: VoiceBroadcaster,
+    private coachSession: VoiceCoachSession,
   ) {}
-
-  onModuleDestroy() {
-    this.unsubscribeRevoked?.();
-  }
-
-  /** Closes the sockets opened by a login that was just revoked (logout, reuse, ...) */
-  private async closeRevokedSockets(event: {
-    userId: string;
-    familyId: string | null;
-  }) {
-    try {
-      // fetchSockets() works on a namespace and, with an adapter, across instances
-      for (const socket of (await this.server?.fetchSockets()) ?? []) {
-        if (socket.data.userId !== event.userId) continue;
-        // A socket without a family came from a pre-session token: close it too
-        if (
-          event.familyId &&
-          socket.data.familyId &&
-          socket.data.familyId !== event.familyId
-        ) {
-          continue;
-        }
-        socket.disconnect(true);
-      }
-    } catch (error) {
-      this.logger.warn(`Could not close revoked sockets: ${error?.message}`);
-    }
-  }
 
   onModuleInit() {
     this.unsubscribeRevoked = this.authService.onSessionRevoked((event) => {
       void this.closeRevokedSockets(event);
     });
+  }
 
-    // A mission round that runs out of time is announced to the room from here
-    this.coach.onMissionEnd((roomId, result) => {
-      this.server?.to(`voice:${roomId}`).emit('voice:mission-ended', result);
+  /**
+   * socket.io runs this before it accepts a connection, so by the time the
+   * client can emit anything (it usually sends voice:join the instant it is
+   * connected) its identity is already on `client.data`. A socket that fails
+   * here never connects; the client sees a connect_error.
+   */
+  afterInit(server: Server) {
+    this.broadcaster.attach(server);
+    server.use((socket, next) => {
+      this.authenticateSocket(socket).then(
+        (ok) => next(ok ? undefined : new Error('Unauthorized')),
+        (error) => {
+          this.logger.error('VoiceGateway auth error:', error);
+          next(new Error('Unauthorized'));
+        },
+      );
     });
   }
 
-  /** Sends an event to every open tab/device of one user */
-  private emitToUser(userId: string, event: string, payload: unknown) {
-    for (const socketId of this.userSockets.get(userId) ?? []) {
-      this.server.to(socketId).emit(event, payload);
+  private async authenticateSocket(client: Socket): Promise<boolean> {
+    const cookieHeader = client.handshake.headers.cookie;
+    if (!cookieHeader) {
+      this.logger.warn('No cookie header, refusing connection');
+      return false;
     }
-  }
 
-  /** Pushes the room's airtime bars, at most once every couple of seconds */
-  private scheduleAirtime(roomId: string) {
-    if (this.airtimeTimers.has(roomId)) return;
-    this.airtimeTimers.set(
-      roomId,
-      setTimeout(() => {
-        this.airtimeTimers.delete(roomId);
-        void this.coach
-          .airtime(roomId)
-          .then((airtime) => this.server.to(`voice:${roomId}`).emit('voice:airtime', airtime))
-          .catch((error) => this.logger.warn(`Could not build airtime: ${error?.message}`));
-      }, 2000),
-    );
-  }
-
-  /** Saves the person's coach report; frees the room's coach state once nobody is left */
-  private async finishCoachSession(roomId: string, userId: string) {
-    try {
-      await this.coach.leave(roomId, userId);
-      if (!this.roomParticipants.has(roomId)) {
-        await this.coach.closeRoom(roomId);
-        const timer = this.airtimeTimers.get(roomId);
-        if (timer) clearTimeout(timer);
-        this.airtimeTimers.delete(roomId);
-      }
-    } catch (error) {
-      this.logger.warn(`Coach session end failed for ${userId} in ${roomId}: ${error?.message}`);
+    const token = parse(cookieHeader)['accessToken'];
+    if (!token) {
+      this.logger.warn('No access token, refusing connection');
+      return false;
     }
+
+    // Signature, expiry, live session and existing user: same rules as HTTP
+    const authed = await this.authService.authenticateAccessToken(token);
+    if (!authed) {
+      this.logger.warn(
+        'Invalid token, revoked session or unknown user, refusing connection',
+      );
+      return false;
+    }
+
+    client.data.userId = authed.user.id;
+    client.data.userName = authed.user.name;
+    client.data.sessionId = authed.sessionId;
+    client.data.familyId = authed.familyId;
+    return true;
   }
 
-  async handleConnection(client: Socket) {
+  handleConnection(client: Socket) {
     try {
-      const cookieHeader = client.handshake.headers.cookie;
-      if (!cookieHeader) {
-        this.logger.warn('No cookie header, disconnecting');
+      const userId = client.data.userId as string | undefined;
+      if (!userId) {
+        // The auth middleware only lets authenticated sockets through
         client.disconnect();
         return;
       }
 
-      const cookies = parse(cookieHeader);
-      const token = cookies['accessToken'];
-      if (!token) {
-        this.logger.warn('No access token, disconnecting');
-        client.disconnect();
-        return;
-      }
-
-      // Signature, expiry, live session and existing user: same rules as HTTP
-      const authed = await this.authService.authenticateAccessToken(token);
-      if (!authed) {
-        this.logger.warn('Invalid token, revoked session or unknown user, disconnecting');
-        client.disconnect();
-        return;
-      }
-
-      const userId = authed.user.id;
-      client.data.userId = userId;
-      client.data.sessionId = authed.sessionId;
-      client.data.familyId = authed.familyId;
-
-      client.data.userName = authed.user.name;
-      this.userNames.set(userId, authed.user.name);
-
-      const sockets = this.userSockets.get(userId) || [];
-      sockets.push(client.id);
-      this.userSockets.set(userId, sockets);
+      void client.join(userRoom(userId));
 
       this.logger.log(`✅ User ${userId} connected to voice socket`);
     } catch (error) {
@@ -180,20 +131,11 @@ export class VoiceGateway
     const userId = client.data.userId;
     if (!userId) return;
 
-    const sockets = this.userSockets.get(userId) || [];
-    const index = sockets.indexOf(client.id);
-    if (index > -1) {
-      sockets.splice(index, 1);
-      if (sockets.length === 0) {
-        this.userSockets.delete(userId);
-        this.userNames.delete(userId);
-      } else {
-        this.userSockets.set(userId, sockets);
-      }
-    }
-
-    for (const [roomId, participants] of this.roomParticipants) {
-      if (!participants.has(userId)) continue;
+    // The rooms this socket joined on this instance (the room list itself may
+    // live in Redis and be shared)
+    const joined = (client.data.voiceRoomIds as Set<string> | undefined) ?? [];
+    for (const roomId of joined) {
+      if (!(await this.state.isInRoom(roomId, userId))) continue;
 
       // Still connected to this room from another tab or device: nothing changes
       const remaining = await this.server.in(`voice:${roomId}`).fetchSockets();
@@ -201,14 +143,14 @@ export class VoiceGateway
 
       // Probably a network blip: show "reconnecting" and wait before treating it as leaving
       const key = `${roomId}:${userId}`;
-      if (this.pendingLeaves.has(key)) continue;
+      if (this.state.pendingLeaves.has(key)) continue;
       this.server
         .to(`voice:${roomId}`)
         .emit('voice:presence', { userId, status: 'reconnecting' });
-      this.pendingLeaves.set(
+      this.state.pendingLeaves.set(
         key,
         setTimeout(() => {
-          this.pendingLeaves.delete(key);
+          this.state.pendingLeaves.delete(key);
           void this.removeFromRoom(roomId, userId);
         }, VoiceGateway.RECONNECT_GRACE_MS),
       );
@@ -219,24 +161,23 @@ export class VoiceGateway
 
   /** Called when the grace period ends without the user coming back */
   private async removeFromRoom(roomId: string, userId: string) {
-    this.flushSpeaking(roomId, userId);
-    const participants = this.roomParticipants.get(roomId);
-    if (!participants?.has(userId)) return;
+    this.coachSession.flushSpeaking(roomId, userId);
+    const { wasPresent, remaining } = await this.state.removeParticipant(
+      roomId,
+      userId,
+    );
+    if (!wasPresent) return;
 
-    participants.delete(userId);
-    if (participants.size === 0) {
-      this.roomParticipants.delete(roomId);
-      this.roomHosts.delete(roomId);
-    } else if (this.roomHosts.get(roomId) === userId) {
+    if (remaining.length > 0 && (await this.state.getHost(roomId)) === userId) {
       const room = await this.prisma.voiceRoom.findUnique({
         where: { id: roomId },
         select: { creatorId: true },
       });
 
       if (room && room.creatorId === userId) {
-        const newHost = Array.from(participants)[0];
+        const newHost = remaining[0];
         if (newHost) {
-          this.roomHosts.set(roomId, newHost);
+          await this.state.setHost(roomId, newHost);
           this.server.to(`voice:${roomId}`).emit('voice:host-changed', {
             newHostId: newHost,
           });
@@ -244,21 +185,19 @@ export class VoiceGateway
       }
     }
     this.server.to(`voice:${roomId}`).emit('participant:left', { userId });
-    void this.finishCoachSession(roomId, userId);
+    void this.coachSession.finishCoachSession(roomId, userId);
     this.logger.log(`User ${userId} left room ${roomId} (did not reconnect)`);
   }
 
   /** A returning user cancels their pending removal; returns true if they were reconnecting */
   private cancelPendingLeave(roomId: string, userId: string): boolean {
     const key = `${roomId}:${userId}`;
-    const timer = this.pendingLeaves.get(key);
+    const timer = this.state.pendingLeaves.get(key);
     if (!timer) return false;
     clearTimeout(timer);
-    this.pendingLeaves.delete(key);
+    this.state.pendingLeaves.delete(key);
     return true;
   }
-
-  // ============ JOIN / LEAVE ============
 
   @SubscribeMessage('voice:join')
   async handleJoin(
@@ -314,6 +253,13 @@ export class VoiceGateway
         return;
       }
 
+      if (await this.voiceService.isBanned(data.roomId, userId)) {
+        client.emit('voice:error', {
+          message: 'You were removed from this room by the host.',
+        });
+        return;
+      }
+
       // ✅ Use consistent room name format
       const roomName = `voice:${data.roomId}`;
 
@@ -330,6 +276,13 @@ export class VoiceGateway
       );
 
       if (!existingParticipant) {
+        // A private room only admits people who were invited (they have a row)
+        if (room.type === 'PRIVATE' && room.creatorId !== userId) {
+          client.emit('voice:error', {
+            message: 'This room is private. Ask the host for an invite.',
+          });
+          return;
+        }
         await this.prisma.voiceParticipant.create({
           data: {
             roomId: data.roomId,
@@ -356,10 +309,9 @@ export class VoiceGateway
       await client.join(roomName);
 
       // Track participant in memory
-      if (!this.roomParticipants.has(data.roomId)) {
-        this.roomParticipants.set(data.roomId, new Set());
-      }
-      this.roomParticipants.get(data.roomId)!.add(userId);
+      await this.state.addParticipant(data.roomId, userId);
+      const joined = (client.data.voiceRoomIds ??= new Set<string>()) as Set<string>;
+      joined.add(data.roomId);
 
       // Back within the grace period: keep their place (and host role) and clear "reconnecting"
       if (this.cancelPendingLeave(data.roomId, userId)) {
@@ -369,14 +321,10 @@ export class VoiceGateway
         this.logger.log(`User ${userId} reconnected to room ${data.roomId}`);
       }
 
-      if (!this.roomHosts.has(data.roomId)) {
-        this.roomHosts.set(data.roomId, room.creatorId);
-      }
+      await this.state.setHostIfAbsent(data.roomId, room.creatorId);
 
       // Send current participants
-      const participants = Array.from(
-        this.roomParticipants.get(data.roomId) || [],
-      );
+      const participants = await this.state.participantIds(data.roomId);
 
       const participantDetails = await this.prisma.voiceParticipant.findMany({
         where: {
@@ -399,10 +347,10 @@ export class VoiceGateway
         participantIds: participants,
       });
 
-      const hostId = this.roomHosts.get(data.roomId) || room.creatorId;
+      const hostId = (await this.state.getHost(data.roomId)) || room.creatorId;
       client.emit('voice:host', { hostId });
 
-      const userName = this.userNames.get(userId) || 'User';
+      const userName = (client.data.userName as string) || 'User';
       const me = participantDetails.find((p) => p.userId === userId);
 
       client.to(roomName).emit('participant:joined', {
@@ -421,18 +369,26 @@ export class VoiceGateway
           await this.voiceService.getRoomCorrections(data.roomId),
         );
       } catch (error) {
-        this.logger.warn(`Could not load corrections history: ${error?.message}`);
+        this.logger.warn(
+          `Could not load corrections history: ${error?.message}`,
+        );
       }
 
       // Coach: start tracking this person and catch them up on the mission / airtime
       try {
         this.coach.join(data.roomId, userId, userName);
         const mission = this.coach.assignLate(data.roomId, userId, userName);
-        if (mission) this.emitToUser(userId, 'voice:mission-word', mission);
-        client.emit('voice:coach-state', await this.buildCoachState(data.roomId, userId));
-        this.scheduleAirtime(data.roomId);
+        if (mission)
+          this.broadcaster.emitToUser(userId, 'voice:mission-word', mission);
+        client.emit(
+          'voice:coach-state',
+          await this.coachSession.buildCoachState(data.roomId, userId),
+        );
+        this.coachSession.scheduleAirtime(data.roomId);
       } catch (error) {
-        this.logger.warn(`Could not start coach for ${userId}: ${error?.message}`);
+        this.logger.warn(
+          `Could not start coach for ${userId}: ${error?.message}`,
+        );
       }
 
       // Send message history
@@ -473,101 +429,6 @@ export class VoiceGateway
     }
   }
 
-  broadcastTranscription(roomId: string, data: any) {
-    this.server.to(`voice:${roomId}`).emit('transcription', {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastClap(roomId: string, data: any) {
-    this.server.to(`voice:${roomId}`).emit('clap-received', {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastQueueUpdate(roomId: string, queue: any[]) {
-    this.server.to(`voice:${roomId}`).emit('queue-updated', {
-      queue,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantUpdate(roomId: string, data: any) {
-    this.server.to(`voice:${roomId}`).emit('participant-updated', {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantJoined(roomId: string, participant: any) {
-    this.server.to(`voice:${roomId}`).emit('participant-joined', {
-      participant,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantLeft(roomId: string, data: any) {
-    this.server.to(`voice:${roomId}`).emit('participant-left', {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantMuted(roomId: string, userId: string) {
-    this.server.to(`voice:${roomId}`).emit('participant-muted', {
-      userId,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantUnmuted(roomId: string, userId: string) {
-    this.server.to(`voice:${roomId}`).emit('participant-unmuted', {
-      userId,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastHandRaised(roomId: string, userId: string) {
-    this.server.to(`voice:${roomId}`).emit('hand-raised', {
-      userId,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastHandLowered(roomId: string, userId: string) {
-    this.server.to(`voice:${roomId}`).emit('hand-lowered', {
-      userId,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastRecordingStarted(roomId: string) {
-    this.server.to(`voice:${roomId}`).emit('recording-started', {
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastRecordingStopped(roomId: string) {
-    this.server.to(`voice:${roomId}`).emit('recording-stopped', {
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastParticipantKicked(roomId: string, userId: string) {
-    this.server.to(`voice:${roomId}`).emit('participant-kicked', {
-      userId,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  broadcastMuteAll(roomId: string) {
-    this.server.to(`voice:${roomId}`).emit('mute-all', {
-      timestamp: new Date().toISOString(),
-    });
-  }
-
   @SubscribeMessage('voice:leave')
   async handleLeave(
     @ConnectedSocket() client: Socket,
@@ -579,7 +440,7 @@ export class VoiceGateway
       return;
     }
 
-    this.flushSpeaking(data.roomId, userId);
+    this.coachSession.flushSpeaking(data.roomId, userId);
 
     try {
       await this.prisma.voiceParticipant.update({
@@ -592,34 +453,34 @@ export class VoiceGateway
       const roomName = `voice:${data.roomId}`;
       await client.leave(roomName);
 
-      const participants = this.roomParticipants.get(data.roomId);
-      if (participants) {
-        participants.delete(userId);
-        if (participants.size === 0) {
-          this.roomParticipants.delete(data.roomId);
-          this.roomHosts.delete(data.roomId);
-        } else {
-          if (this.roomHosts.get(data.roomId) === userId) {
-            const room = await this.prisma.voiceRoom.findUnique({
-              where: { id: data.roomId },
-              select: { creatorId: true },
-            });
+      (client.data.voiceRoomIds as Set<string> | undefined)?.delete(data.roomId);
+      const { wasPresent, remaining } = await this.state.removeParticipant(
+        data.roomId,
+        userId,
+      );
+      if (
+        wasPresent &&
+        remaining.length > 0 &&
+        (await this.state.getHost(data.roomId)) === userId
+      ) {
+        const room = await this.prisma.voiceRoom.findUnique({
+          where: { id: data.roomId },
+          select: { creatorId: true },
+        });
 
-            if (room && room.creatorId === userId) {
-              const newHost = Array.from(participants)[0];
-              if (newHost) {
-                this.roomHosts.set(data.roomId, newHost);
-                this.server.to(roomName).emit('voice:host-changed', {
-                  newHostId: newHost,
-                });
-              }
-            }
+        if (room && room.creatorId === userId) {
+          const newHost = remaining[0];
+          if (newHost) {
+            await this.state.setHost(data.roomId, newHost);
+            this.server.to(roomName).emit('voice:host-changed', {
+              newHostId: newHost,
+            });
           }
         }
       }
 
       client.to(roomName).emit('participant:left', { userId });
-      void this.finishCoachSession(data.roomId, userId);
+      void this.coachSession.finishCoachSession(data.roomId, userId);
 
       this.logger.log(`User ${userId} left voice room ${data.roomId}`);
     } catch (error) {
@@ -628,1063 +489,31 @@ export class VoiceGateway
     }
   }
 
-  // ============ SPEAKING STATUS ============
-
-  @SubscribeMessage('voice:speaking')
-  async handleSpeaking(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; isSpeaking: boolean },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) return;
-
-    const roomName = `voice:${data.roomId}`;
-    this.server.to(roomName).emit('voice:speaking-status', {
-      userId,
-      isSpeaking: data.isSpeaking,
-    });
-
-    // Measure each speaking turn; it feeds speaker stats, XP and the streak
-    const key = `${data.roomId}:${userId}`;
-    if (data.isSpeaking) {
-      if (!this.speakingSince.has(key)) this.speakingSince.set(key, Date.now());
-    } else {
-      this.flushSpeaking(data.roomId, userId);
-    }
-  }
-
-  /** Ends an open speaking turn and records its length */
-  private flushSpeaking(roomId: string, userId: string) {
-    const key = `${roomId}:${userId}`;
-    const since = this.speakingSince.get(key);
-    if (since === undefined) return;
-    this.speakingSince.delete(key);
-    // The client reports "stopped" after ~1.5s of silence; don't count that tail
-    const seconds = Math.min(600, (Date.now() - since) / 1000 - 1.5);
-    if (seconds >= 1) {
-      this.coach.noteSpeaking(roomId, userId, seconds);
-      this.scheduleAirtime(roomId);
-      void this.voiceService
-        .recordSpeakingTime(roomId, userId, Math.round(seconds))
-        .catch((error) => this.logger.warn(`Could not record speaking time: ${error?.message}`));
-    }
-  }
-
-  // ============ CHAT MESSAGES ============
-
-  @SubscribeMessage('voice:chat')
-  async handleChat(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      roomId: string;
-      content: string;
-      type?: string;
-      mediaUrl?: string;
-      fileUrl?: string;
-      replyToId?: string;
-      /** Sender's optimistic id, echoed back so it can swap in the saved message */
-      clientId?: string;
-    },
-  ) {
-    const userId = client.data.userId;
-    const clientId =
-      typeof data?.clientId === 'string' ? data.clientId.slice(0, 80) : undefined;
-    const fail = (message: string) =>
-      client.emit('voice:chat-error', { clientId, message });
-
-    if (!userId) return fail('Unauthenticated');
-
-    const participants = this.roomParticipants.get(data.roomId);
-    if (!participants || !participants.has(userId)) {
-      return fail('You are not in this room');
-    }
-
+  /** Closes the sockets opened by a login that was just revoked (logout, reuse, ...) */
+  private async closeRevokedSockets(event: {
+    userId: string;
+    familyId: string | null;
+  }) {
     try {
-      const message = await this.voiceService.sendVoiceRoomMessage(
-        userId,
-        data.roomId,
-        data.content,
-        data.type || 'TEXT',
-        data.mediaUrl,
-        data.fileUrl,
-        data.replyToId,
-      );
-      this.broadcastChatMessage(data.roomId, message, clientId);
-      this.logger.log(`💬 Message from ${userId} in ${data.roomId}`);
-    } catch (error) {
-      this.logger.warn(`Voice chat send failed: ${error?.message}`);
-      fail(error?.message || 'Failed to send message');
-    }
-  }
-
-  /** Sends a saved chat message to everyone in the room (also used by the REST fallback) */
-  broadcastChatMessage(roomId: string, message: any, clientId?: string) {
-    this.server?.to(`voice:${roomId}`).emit('voice:chat', {
-      ...message,
-      isHost: this.roomHosts.get(roomId) === message.senderId,
-      ...(clientId ? { clientId } : {}),
-    });
-  }
-
-  /** Emits a chat event (edit, delete, reaction, pin) to everyone in the room */
-  emitToRoom(roomId: string, event: string, payload: unknown) {
-    this.server?.to(`voice:${roomId}`).emit(event, payload);
-  }
-
-  // ============ TYPING INDICATOR ============
-
-  @SubscribeMessage('voice:typing-start')
-  handleTypingStart(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) return;
-
-    const userName = this.userNames.get(userId) || 'User';
-    const roomName = `voice:${data.roomId}`;
-
-    client.to(roomName).emit('voice:typing-start', {
-      userId,
-      userName,
-    });
-  }
-
-  @SubscribeMessage('voice:typing-stop')
-  handleTypingStop(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) return;
-
-    const roomName = `voice:${data.roomId}`;
-    client.to(roomName).emit('voice:typing-stop', {
-      userId,
-    });
-  }
-
-  // ============ HOST CONTROLS ============
-
-  @SubscribeMessage('voice:kick')
-  async handleKick(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      const room = await this.prisma.voiceRoom.findUnique({
-        where: { id: data.roomId },
-      });
-
-      if (!room) {
-        client.emit('voice:error', { message: 'Room not found' });
-        return;
-      }
-
-      if (room.creatorId !== userId) {
-        client.emit('voice:error', {
-          message: 'Only the host can kick members',
-        });
-        return;
-      }
-
-      if (room.creatorId === data.userId) {
-        client.emit('voice:error', { message: 'Cannot kick the host' });
-        return;
-      }
-
-      await this.prisma.voiceParticipant.delete({
-        where: {
-          roomId_userId: { roomId: data.roomId, userId: data.userId },
-        },
-      });
-
-      const participants = this.roomParticipants.get(data.roomId);
-      if (participants) {
-        participants.delete(data.userId);
-      }
-
-      const roomName = `voice:${data.roomId}`;
-      this.server.to(roomName).emit('voice:kicked', {
-        userId: data.userId,
-        kickedBy: userId,
-      });
-
-      const kickedUserSockets = this.userSockets.get(data.userId);
-      if (kickedUserSockets) {
-        for (const socketId of kickedUserSockets) {
-          const socket = this.server.sockets.sockets.get(socketId);
-          if (socket) {
-            socket.emit('voice:kicked', {
-              roomId: data.roomId,
-              reason: 'You were kicked by the host',
-            });
-            socket.leave(roomName);
-          }
+      // fetchSockets() works on a namespace and, with an adapter, across instances
+      for (const socket of (await this.server?.fetchSockets()) ?? []) {
+        if (socket.data.userId !== event.userId) continue;
+        // A socket without a family came from a pre-session token: close it too
+        if (
+          event.familyId &&
+          socket.data.familyId &&
+          socket.data.familyId !== event.familyId
+        ) {
+          continue;
         }
-      }
-
-      this.logger.log(`User ${data.userId} kicked from room ${data.roomId}`);
-    } catch (error) {
-      this.logger.error('Error kicking user:', error);
-      client.emit('voice:error', { message: 'Failed to kick user' });
-    }
-  }
-
-  @SubscribeMessage('voice:promote-host')
-  async handlePromoteHost(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      const room = await this.prisma.voiceRoom.findUnique({
-        where: { id: data.roomId },
-      });
-
-      if (!room) {
-        client.emit('voice:error', { message: 'Room not found' });
-        return;
-      }
-
-      if (room.creatorId !== userId) {
-        client.emit('voice:error', {
-          message: 'Only the host can promote another host',
-        });
-        return;
-      }
-
-      if (room.creatorId === data.userId) {
-        client.emit('voice:error', { message: 'User is already the host' });
-        return;
-      }
-
-      await this.prisma.voiceRoom.update({
-        where: { id: data.roomId },
-        data: { creatorId: data.userId },
-      });
-
-      // New host gets full control; the previous host stays on stage as a speaker
-      const newHost = await this.voiceService.applyParticipantRole(
-        data.roomId,
-        data.userId,
-        'MODERATOR',
-      );
-      const oldHost = await this.voiceService.applyParticipantRole(
-        data.roomId,
-        userId,
-        'SPEAKER',
-      );
-      this.broadcastRoleChange(data.roomId, data.userId, 'MODERATOR', newHost.canSpeak, userId);
-      this.broadcastRoleChange(data.roomId, userId, 'SPEAKER', oldHost.canSpeak, userId);
-
-      this.roomHosts.set(data.roomId, data.userId);
-
-      const roomName = `voice:${data.roomId}`;
-      this.server.to(roomName).emit('voice:host-changed', {
-        newHostId: data.userId,
-        oldHostId: userId,
-      });
-
-      this.logger.log(
-        `Host changed from ${userId} to ${data.userId} in room ${data.roomId}`,
-      );
-    } catch (error) {
-      this.logger.error('Error promoting host:', error);
-      client.emit('voice:error', { message: 'Failed to promote host' });
-    }
-  }
-
-  @SubscribeMessage('voice:mute-user')
-  async handleMuteUser(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      // Checks host/moderator rights, saves the flag and mutes the LiveKit track
-      await this.voiceService.muteParticipant(userId, data.roomId, data.userId);
-
-      const roomName = `voice:${data.roomId}`;
-      this.server.to(roomName).emit('voice:muted', {
-        userId: data.userId,
-        mutedBy: userId,
-      });
-
-      this.logger.log(`User ${data.userId} muted in room ${data.roomId}`);
-    } catch (error) {
-      this.logger.error('Error muting user:', error);
-      client.emit('voice:error', {
-        message: error?.message || 'Failed to mute user',
-      });
-    }
-  }
-
-  @SubscribeMessage('voice:unmute-user')
-  async handleUnmuteUser(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      await this.voiceService.unmuteParticipant(userId, data.roomId, data.userId);
-
-      const roomName = `voice:${data.roomId}`;
-      this.server.to(roomName).emit('voice:unmuted', {
-        userId: data.userId,
-        unmutedBy: userId,
-      });
-
-      this.logger.log(`User ${data.userId} unmuted in room ${data.roomId}`);
-    } catch (error) {
-      this.logger.error('Error unmuting user:', error);
-      client.emit('voice:error', { message: 'Failed to unmute user' });
-    }
-  }
-
-  @SubscribeMessage('voice:promote')
-  async handlePromote(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      const room = await this.prisma.voiceRoom.findUnique({
-        where: { id: data.roomId },
-      });
-
-      if (!room) {
-        client.emit('voice:error', { message: 'Room not found' });
-        return;
-      }
-
-      if (room.creatorId !== userId) {
-        client.emit('voice:error', {
-          message: 'Only the host can promote members to moderator',
-        });
-        return;
-      }
-
-      const { canSpeak } = await this.voiceService.applyParticipantRole(
-        data.roomId,
-        data.userId,
-        'MODERATOR',
-      );
-      this.broadcastRoleChange(data.roomId, data.userId, 'MODERATOR', canSpeak, userId);
-
-      const roomName = `voice:${data.roomId}`;
-      this.server.to(roomName).emit('voice:promoted', {
-        userId: data.userId,
-        promotedBy: userId,
-      });
-
-      this.logger.log(
-        `User ${data.userId} promoted to moderator in room ${data.roomId}`,
-      );
-    } catch (error) {
-      this.logger.error('Error promoting user:', error);
-      client.emit('voice:error', { message: 'Failed to promote user' });
-    }
-  }
-
-  @SubscribeMessage('voice:demote')
-  async handleDemote(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      const room = await this.prisma.voiceRoom.findUnique({
-        where: { id: data.roomId },
-      });
-
-      if (!room) {
-        client.emit('voice:error', { message: 'Room not found' });
-        return;
-      }
-
-      if (room.creatorId !== userId) {
-        client.emit('voice:error', {
-          message: 'Only the host can demote members',
-        });
-        return;
-      }
-
-      const { canSpeak } = await this.voiceService.applyParticipantRole(
-        data.roomId,
-        data.userId,
-        'LISTENER',
-      );
-      this.broadcastRoleChange(data.roomId, data.userId, 'LISTENER', canSpeak, userId);
-
-      const roomName = `voice:${data.roomId}`;
-      this.server.to(roomName).emit('voice:demoted', {
-        userId: data.userId,
-        demotedBy: userId,
-      });
-
-      this.logger.log(`User ${data.userId} demoted in room ${data.roomId}`);
-    } catch (error) {
-      this.logger.error('Error demoting user:', error);
-      client.emit('voice:error', { message: 'Failed to demote user' });
-    }
-  }
-
-  // ============ RAISE HAND ============
-
-  @SubscribeMessage('voice:raise-hand')
-  async handleRaiseHand(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; raise: boolean },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      await this.prisma.voiceParticipant.update({
-        where: {
-          roomId_userId: { roomId: data.roomId, userId },
-        },
-        data: { raisedHand: data.raise },
-      });
-
-      const roomName = `voice:${data.roomId}`;
-      this.server.to(roomName).emit('voice:hand-raised', {
-        userId,
-        raised: data.raise,
-      });
-
-      this.logger.log(
-        `User ${userId} ${data.raise ? 'raised' : 'lowered'} hand in ${data.roomId}`,
-      );
-    } catch (error) {
-      this.logger.error('Error raising hand:', error);
-      client.emit('voice:error', { message: 'Failed to raise hand' });
-    }
-  }
-
-  // ============ EDIT MESSAGE ============
-
-  @SubscribeMessage('voice:edit-message')
-  async handleEditMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: { roomId: string; messageId: string; content: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      const updated = await this.voiceService.editVoiceRoomMessage(
-        userId,
-        data.roomId,
-        data.messageId,
-        data.content,
-      );
-      this.emitToRoom(data.roomId, 'voice:message-edited', {
-        messageId: updated.id,
-        content: updated.content,
-        isEdited: true,
-        updatedAt: updated.updatedAt,
-      });
-    } catch (error) {
-      this.logger.warn(`Voice chat edit failed: ${error?.message}`);
-      client.emit('voice:error', {
-        message: error?.message || 'Failed to edit message',
-      });
-    }
-  }
-
-  @SubscribeMessage('voice:pin-message')
-  async handlePinMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; messageId: string; pin: boolean },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      await this.voiceService.pinVoiceRoomMessage(
-        userId,
-        data.roomId,
-        data.messageId,
-        !!data.pin,
-      );
-      this.emitToRoom(data.roomId, 'voice:message-pinned', {
-        messageId: data.messageId,
-        pinned: !!data.pin,
-        pinnedBy: userId,
-      });
-    } catch (error) {
-      this.logger.warn(`Voice chat pin failed: ${error?.message}`);
-      client.emit('voice:error', {
-        message: error?.message || 'Failed to pin message',
-      });
-    }
-  }
-
-  @SubscribeMessage('voice:stage-reaction')
-  handleStageReaction(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; emoji: string },
-  ) {
-    const userId = (client.data as any)?.userId;
-    const userName = (client.data as any)?.userName;
-    if (!userId || !data?.roomId || !data?.emoji) return;
-
-    // Sanitize — cap emoji length so people can't spam giant strings
-    const emoji = String(data.emoji).slice(0, 8);
-    if (!emoji) return;
-
-    this.server.to(`voice:${data.roomId}`).emit('voice:stage-reaction', {
-      id: `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      userId,
-      userName,
-      emoji,
-      createdAt: Date.now(),
-    });
-  }
-
-  // ============ STAGE ============
-
-  /** Tells everyone in the room about a role change, including whether that person may now speak */
-  private broadcastRoleChange(
-    roomId: string,
-    userId: string,
-    role: string,
-    canSpeak: boolean,
-    by: string,
-  ) {
-    this.server.to(`voice:${roomId}`).emit('voice:role-changed', {
-      userId,
-      role,
-      canSpeak,
-      by,
-    });
-  }
-
-  /** Host/moderator invites someone (usually with a raised hand) onto the stage */
-  @SubscribeMessage('voice:promote-speaker')
-  async handlePromoteSpeaker(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
-  ) {
-    const actorId = client.data.userId;
-    if (!actorId || !data?.roomId || !data?.userId) return;
-
-    try {
-      if (!(await this.voiceService.isRoomManager(data.roomId, actorId))) {
-        client.emit('voice:error', {
-          message: 'Only the host or a moderator can invite speakers',
-        });
-        return;
-      }
-
-      const { participant, canSpeak } =
-        await this.voiceService.applyParticipantRole(
-          data.roomId,
-          data.userId,
-          'SPEAKER',
-        );
-
-      const roomName = `voice:${data.roomId}`;
-      this.broadcastRoleChange(
-        data.roomId,
-        data.userId,
-        participant.role,
-        canSpeak,
-        actorId,
-      );
-      this.server.to(roomName).emit('voice:promoted-to-speaker', {
-        userId: data.userId,
-        by: actorId,
-      });
-      this.server.to(roomName).emit('voice:hand-raised', {
-        userId: data.userId,
-        raised: false,
-      });
-    } catch (error) {
-      this.logger.error('Error promoting speaker:', error);
-      client.emit('voice:error', { message: 'Failed to invite speaker' });
-    }
-  }
-
-  /** Back to the audience: a speaker stepping down, or a host moving someone off the stage */
-  @SubscribeMessage('voice:move-to-audience')
-  async handleMoveToAudience(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
-  ) {
-    const actorId = client.data.userId;
-    if (!actorId || !data?.roomId || !data?.userId) return;
-
-    try {
-      const isSelf = actorId === data.userId;
-      if (!isSelf && !(await this.voiceService.isRoomManager(data.roomId, actorId))) {
-        client.emit('voice:error', {
-          message: 'Only the host or a moderator can move speakers',
-        });
-        return;
-      }
-
-      const room = await this.prisma.voiceRoom.findUnique({
-        where: { id: data.roomId },
-        select: { creatorId: true },
-      });
-      if (room?.creatorId === data.userId) {
-        client.emit('voice:error', {
-          message: 'The host always stays on stage',
-        });
-        return;
-      }
-
-      const { participant, canSpeak } =
-        await this.voiceService.applyParticipantRole(
-          data.roomId,
-          data.userId,
-          'LISTENER',
-        );
-
-      this.broadcastRoleChange(
-        data.roomId,
-        data.userId,
-        participant.role,
-        canSpeak,
-        actorId,
-      );
-    } catch (error) {
-      this.logger.error('Error moving participant to audience:', error);
-      client.emit('voice:error', { message: 'Failed to move to audience' });
-    }
-  }
-
-  @SubscribeMessage('voice:lower-hand')
-  async handleLowerHand(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
-  ) {
-    const actorId = client.data.userId;
-    if (!actorId || !data?.roomId || !data?.userId) return;
-
-    const isSelf = actorId === data.userId;
-    if (!isSelf && !(await this.voiceService.isRoomManager(data.roomId, actorId))) {
-      client.emit('voice:error', {
-        message: "Only the host or a moderator can lower someone's hand",
-      });
-      return;
-    }
-
-    try {
-      await this.prisma.voiceParticipant.update({
-        where: {
-          roomId_userId: { roomId: data.roomId, userId: data.userId },
-        },
-        data: { raisedHand: false },
-      });
-    } catch (error) {
-      this.logger.warn(`Could not save lowered hand: ${error}`);
-    }
-
-    this.server.to(`voice:${data.roomId}`).emit('voice:hand-raised', {
-      userId: data.userId,
-      raised: false,
-    });
-  }
-
-  @SubscribeMessage('voice:transcription')
-  async handleTranscription(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      roomId: string;
-      id?: string;
-      text: string;
-      isFinal: boolean;
-      confidence?: number;
-      language?: string;
-    },
-  ) {
-    if (!data?.roomId || !data?.text) return;
-
-    const userId = (client.data as any)?.userId;
-    const userName = (client.data as any)?.userName;
-    if (!userId) return;
-
-    // Sanity cap — prevent huge strings
-    const text = String(data.text).slice(0, 500);
-
-    // Broadcast to everyone in the room (including the sender is fine,
-    // the client ignores its own echo)
-    const id = data.id || `${userId}-${Date.now()}`;
-    this.server.to(`voice:${data.roomId}`).emit('voice:transcription', {
-      id,
-      userId,
-      userName,
-      text,
-      isFinal: Boolean(data.isFinal),
-      confidence: Number(data.confidence ?? 0),
-      language: data.language,
-      createdAt: Date.now(),
-    });
-
-    // Coach: only finished lines from people who are really in the room count
-    if (!data.isFinal || !this.roomParticipants.get(data.roomId)?.has(userId)) return;
-    try {
-      const { live, completion } = await this.coach.onFinalUtterance(data.roomId, userId, text, id);
-      if (live) this.emitToUser(userId, 'voice:coach', live);
-      if (completion) {
-        const roomName = `voice:${data.roomId}`;
-        this.server.to(roomName).emit('voice:mission-complete', completion);
-        this.server.to(roomName).emit('voice:mission-progress', this.coach.missionPublic(data.roomId));
-        this.emitToUser(userId, 'voice:mission-word', this.coach.missionPrivate(data.roomId, userId));
+        socket.disconnect(true);
       }
     } catch (error) {
-      this.logger.warn(`Coach could not process a caption: ${error?.message}`);
+      this.logger.warn(`Could not close revoked sockets: ${error?.message}`);
     }
   }
 
-  // ============ ROOM COACH ============
-
-  /** Everything one person needs to draw the coach panel */
-  private async buildCoachState(roomId: string, userId: string) {
-    return {
-      coach: this.coach.getLive(roomId, userId),
-      mission: this.coach.missionPublic(roomId),
-      myMission: this.coach.missionPrivate(roomId, userId),
-      airtime: await this.coach.airtime(roomId),
-    };
-  }
-
-  @SubscribeMessage('voice:coach-get')
-  async handleCoachGet(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId || !data?.roomId || !this.roomParticipants.get(data.roomId)?.has(userId)) return;
-    try {
-      client.emit('voice:coach-state', await this.buildCoachState(data.roomId, userId));
-    } catch (error) {
-      this.logger.warn(`Could not send coach state: ${error?.message}`);
-    }
-  }
-
-  /** Host/moderator starts a round: everyone in the room gets a private secret word */
-  @SubscribeMessage('voice:mission-start')
-  async handleMissionStart(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; level?: string; durationSec?: number },
-  ) {
-    const actorId = client.data.userId;
-    if (!actorId || !data?.roomId) return;
-    try {
-      if (!(await this.voiceService.isRoomManager(data.roomId, actorId))) {
-        client.emit('voice:error', { message: 'Only the host or a moderator can start a mission round' });
-        return;
-      }
-      const people = (await this.coach.airtimePeople(data.roomId)).filter((p) =>
-        this.roomParticipants.get(data.roomId)?.has(p.userId),
-      );
-      const mission = this.coach.startMission(
-        data.roomId,
-        { level: data.level, durationSec: data.durationSec, startedBy: actorId },
-        people,
-      );
-      this.server.to(`voice:${data.roomId}`).emit('voice:mission-started', mission);
-      for (const p of people) {
-        this.emitToUser(p.userId, 'voice:mission-word', this.coach.missionPrivate(data.roomId, p.userId));
-      }
-    } catch (error) {
-      client.emit('voice:error', { message: error?.message || 'Could not start the mission round' });
-    }
-  }
-
-  @SubscribeMessage('voice:mission-stop')
-  async handleMissionStop(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string },
-  ) {
-    const actorId = client.data.userId;
-    if (!actorId || !data?.roomId) return;
-    try {
-      if (!(await this.voiceService.isRoomManager(data.roomId, actorId))) {
-        client.emit('voice:error', { message: 'Only the host or a moderator can end a mission round' });
-        return;
-      }
-      const result = this.coach.stopMission(data.roomId, 'stopped');
-      if (result) this.server.to(`voice:${data.roomId}`).emit('voice:mission-ended', result);
-    } catch (error) {
-      client.emit('voice:error', { message: error?.message || 'Could not end the mission round' });
-    }
-  }
-
-  @SubscribeMessage('voice:mission-swap')
-  handleMissionSwap(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId || !data?.roomId || !this.roomParticipants.get(data.roomId)?.has(userId)) return;
-    try {
-      this.emitToUser(userId, 'voice:mission-word', this.coach.swapWord(data.roomId, userId));
-    } catch (error) {
-      client.emit('voice:error', { message: error?.message || 'Could not swap your word' });
-    }
-  }
-
-  /** Host/moderator puts a topic card in front of the room, aimed at one person (default: whoever has spoken least) */
-  @SubscribeMessage('voice:spotlight')
-  async handleSpotlight(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: { roomId: string; targetUserId?: string; cardId?: string; level?: string; category?: string; everyone?: boolean },
-  ) {
-    const actorId = client.data.userId;
-    if (!actorId || !data?.roomId) return;
-    try {
-      if (!(await this.voiceService.isRoomManager(data.roomId, actorId))) {
-        client.emit('voice:error', { message: 'Only the host or a moderator can spotlight someone' });
-        return;
-      }
-      const { target, card } = await this.coach.spotlight(data.roomId, {
-        targetUserId: data.targetUserId,
-        cardId: data.cardId,
-        level: data.level,
-        category: data.category as any,
-      });
-      this.server.to(`voice:${data.roomId}`).emit('voice:spotlight', {
-        id: `spot-${Date.now()}`,
-        // "everyone" pushes the card to the whole room instead of one person
-        target: data.everyone ? null : target,
-        card,
-        by: actorId,
-        at: Date.now(),
-      });
-    } catch (error) {
-      client.emit('voice:error', { message: error?.message || 'Could not spotlight' });
-    }
-  }
-
-  @SubscribeMessage('voice:correction')
-  async handleCorrection(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      roomId: string;
-      id: string;
-      targetUserId: string;
-      targetUserName: string;
-      original: string;
-      corrected: string;
-      note?: string;
-      category: string;
-    },
-  ) {
-    const authorId = (client.data as any)?.userId;
-    if (!authorId || !data?.roomId || !data?.targetUserId) return;
-
-    try {
-      // Saved first, so it survives refreshes and late joiners see it
-      const payload = await this.voiceService.createCorrection(authorId, data);
-      this.server.to(`voice:${data.roomId}`).emit('voice:correction', payload);
-    } catch (error) {
-      this.logger.warn(`Correction rejected: ${error?.message}`);
-      client.emit('voice:correction-failed', {
-        id: data.id,
-        message: error?.message || 'Could not send correction',
-      });
-    }
-  }
-
-  @SubscribeMessage('voice:correction-resolve')
-  async handleCorrectionResolve(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: { roomId: string; id: string; status: 'accepted' | 'dismissed' },
-  ) {
-    const userId = (client.data as any)?.userId;
-    if (!userId || !data?.roomId || !data?.id) return;
-
-    try {
-      const updated = await this.voiceService.resolveCorrection(
-        userId,
-        data.roomId,
-        data.id,
-        data.status,
-      );
-      this.server.to(`voice:${data.roomId}`).emit('voice:correction-status', {
-        id: updated.id,
-        status: updated.status,
-        resolvedAt: updated.resolvedAt,
-      });
-    } catch (error) {
-      client.emit('voice:error', {
-        message: error?.message || 'Could not update correction',
-      });
-    }
-  }
-
-  // ============ REACTION MESSAGE ============
-
-  @SubscribeMessage('voice:react-message')
-  async handleReactMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: { roomId: string; messageId: string; emoji: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      const result = await this.voiceService.toggleVoiceRoomMessageReaction(
-        userId,
-        data.roomId,
-        data.messageId,
-        data.emoji,
-      );
-
-      this.emitToRoom(data.roomId, 'voice:message-reaction', result);
-    } catch (error) {
-      this.logger.error('Error reacting to message:', error);
-      client.emit('voice:error', {
-        message: error?.message || 'Failed to react to message',
-      });
-    }
-  }
-
-  // ============ DELETE MESSAGE ============
-
-  @SubscribeMessage('voice:delete-message')
-  async handleDeleteMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; messageId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      const result = await this.voiceService.deleteVoiceRoomMessage(
-        userId,
-        data.roomId,
-        data.messageId,
-      );
-      this.emitToRoom(data.roomId, 'voice:message-deleted', result);
-      this.logger.log(`Message ${data.messageId} deleted in ${data.roomId}`);
-    } catch (error) {
-      this.logger.warn(`Voice chat delete failed: ${error?.message}`);
-      client.emit('voice:error', {
-        message: error?.message || 'Failed to delete message',
-      });
-    }
-  }
-
-  // ============ MUTE SELF ============
-
-  @SubscribeMessage('voice:mute-self')
-  async handleMuteSelf(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; muted: boolean },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      await this.prisma.voiceParticipant.update({
-        where: {
-          roomId_userId: { roomId: data.roomId, userId },
-        },
-        data: { isMuted: data.muted },
-      });
-
-      const roomName = `voice:${data.roomId}`;
-      this.server.to(roomName).emit('voice:self-muted', {
-        userId,
-        muted: data.muted,
-      });
-
-      this.logger.log(
-        `User ${userId} ${data.muted ? 'muted' : 'unmuted'} self in ${data.roomId}`,
-      );
-    } catch (error) {
-      this.logger.error('Error muting self:', error);
-      client.emit('voice:error', { message: 'Failed to mute self' });
-    }
-  }
-
-  // ============ FETCH MESSAGE HISTORY ============
-
-  @SubscribeMessage('voice:fetch-messages')
-  async handleFetchMessages(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; limit?: number; before?: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId) {
-      client.emit('voice:error', { message: 'Unauthenticated' });
-      return;
-    }
-
-    try {
-      const messages = await this.voiceService.getVoiceRoomMessages(
-        userId,
-        data.roomId,
-        data.limit || 50,
-        data.before,
-      );
-      client.emit('voice:messages', messages);
-    } catch (error) {
-      this.logger.error('Error fetching messages:', error);
-      client.emit('voice:error', { message: 'Failed to fetch messages' });
-    }
+  onModuleDestroy() {
+    this.unsubscribeRevoked?.();
   }
 }

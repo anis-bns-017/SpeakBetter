@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
@@ -11,33 +12,23 @@ import { Server, Socket } from 'socket.io';
 import { parse as parseCookie } from 'cookie';
 import { Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
-import { ChatService } from './chat.service';
+import { socketCorsOrigin } from '../common/socket-origin';
 import { PrismaService } from '../prisma.service';
-import { ChatPrivacyService } from './chat-privacy.service';
 import { ChatFeaturesService } from './chat-features.service';
+import { ChatRealtimeState } from './realtime/chat-realtime-state';
+import { ChatBroadcaster } from './realtime/chat-broadcaster';
+import { userRoom } from './realtime/room-access';
+import { CHAT_GATEWAY_OPTIONS } from './realtime/chat-gateway-options';
 
-const MEMBERS_CACHE_MS = 30_000;
-
-@WebSocketGateway({
-  cors: {
-    origin: /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/,
-    credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'Cookie',
-      'X-Requested-With',
-    ],
-  },
-  namespace: 'chat',
-  transports: ['websocket', 'polling'],
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  allowEIO3: true,
-})
+/**
+ * The chat namespace's front door: authentication, connect / disconnect with
+ * presence, and joining or leaving chat and community rooms. Messages and
+ * signals live in the gateways under ./realtime, on the same namespace.
+ */
+@WebSocketGateway(CHAT_GATEWAY_OPTIONS)
 export class ChatGateway
   implements
+    OnGatewayInit,
     OnGatewayConnection,
     OnGatewayDisconnect,
     OnModuleInit,
@@ -48,18 +39,13 @@ export class ChatGateway
 
   private readonly logger = new Logger(ChatGateway.name);
   private unsubscribeRevoked?: () => void;
-  private userSockets: Map<string, string[]> = new Map();
-  private typingUsers: Map<string, Set<string>> = new Map();
-  private readonly CONNECTION_TIMEOUT = 30000;
-
-  private chatMembers = new Map<string, { ids: string[]; at: number }>();
 
   constructor(
     private readonly authService: AuthService,
-    private readonly chatService: ChatService,
     private readonly prisma: PrismaService,
-    private readonly privacy: ChatPrivacyService,
     private readonly features: ChatFeaturesService,
+    private readonly state: ChatRealtimeState,
+    private readonly broadcaster: ChatBroadcaster,
   ) {}
 
   onModuleInit() {
@@ -96,201 +82,102 @@ export class ChatGateway
     this.unsubscribeRevoked?.();
   }
 
-  // ==========================
-  // EMIT HELPERS (also used by the REST controller and the scheduler)
-  // ==========================
-
-  emitToUser(userId: string, event: string, payload: unknown) {
-    for (const socketId of this.userSockets.get(userId) ?? []) {
-      this.server.to(socketId).emit(event, payload);
-    }
-  }
-
-  emitToChat(chatId: string, event: string, payload: unknown) {
-    this.server.to(`chat:${chatId}`).emit(event, payload);
-  }
-
-  isOnline(userId: string) {
-    return this.userSockets.has(userId);
-  }
-
-  /** Participant ids of a chat (cached briefly — typing events are frequent) */
-  private async chatMemberIds(chatId: string): Promise<string[]> {
-    const hit = this.chatMembers.get(chatId);
-    if (hit && Date.now() - hit.at < MEMBERS_CACHE_MS) return hit.ids;
-    const rows = await this.prisma.chatParticipant.findMany({ where: { chatId }, select: { userId: true } });
-    const ids = rows.map((r) => r.userId);
-    this.chatMembers.set(chatId, { ids, at: Date.now() });
-    return ids;
-  }
-
-  /**
-   * Sends to the other members of a chat who allow `setting` themselves —
-   * typing and read receipts are mutual, like WhatsApp.
-   */
-  private async emitToMembersWho(
-    chatId: string,
-    senderId: string,
-    setting: 'showTypingIndicator' | 'sendReadReceipts',
-    event: string,
-    payload: unknown,
-  ) {
-    const others = (await this.chatMemberIds(chatId)).filter((id) => id !== senderId && this.isOnline(id));
-    const privacy = await this.privacy.getMany(others);
-    for (const id of others) {
-      if (privacy.get(id)?.[setting] !== false) this.emitToUser(id, event, payload);
-    }
-  }
-
-  /** Online/offline is shared only when both people show their online status */
-  private async broadcastPresence(userId: string, online: boolean, chatIds: string[], communityIds: string[]) {
-    if (!(await this.privacy.get(userId)).showOnlineStatus) return;
-    const event = online ? 'user:online' : 'user:offline';
-
-    const partners = await this.prisma.chatParticipant.findMany({
-      where: { chatId: { in: chatIds }, userId: { not: userId } },
-      select: { userId: true },
-      distinct: ['userId'],
-    });
-    const onlinePartners = partners.map((p) => p.userId).filter((id) => this.isOnline(id));
-    const privacy = await this.privacy.getMany(onlinePartners);
-    for (const id of onlinePartners) {
-      if (privacy.get(id)?.showOnlineStatus !== false) this.emitToUser(id, event, { userId });
-    }
-    for (const communityId of communityIds) {
-      this.server.to(`community:${communityId}`).emit(event, { userId });
-    }
-  }
-
-  /** Who a user may see online: nobody if they hide their own status */
-  private async visibleOnlineUsers(viewerId: string) {
-    if (!(await this.privacy.get(viewerId)).showOnlineStatus) return [];
-    const ids = [...this.userSockets.keys()].filter((id) => id !== viewerId);
-    const privacy = await this.privacy.getMany(ids);
-    return ids.filter((id) => privacy.get(id)?.showOnlineStatus !== false);
-  }
-
-  /** A message is "delivered" as soon as another member of the chat is connected */
-  private async deliverIfOnline<T extends { id: string; chatId?: string | null; senderId: string }>(message: T) {
-    if (!message.chatId) return message;
-    const members = await this.chatMemberIds(message.chatId);
-    if (!members.some((id) => id !== message.senderId && this.isOnline(id))) return message;
-    const deliveredAt = await this.features.markDelivered(message.id);
-    return { ...message, delivered: true, deliveredAt };
-  }
-
-  /** Link preview cards are fetched after sending, then pushed as an update */
-  private emitLinkPreview(message: { id: string; chatId?: string | null; type?: string; content?: string | null }) {
-    if (!message.chatId || message.type !== 'TEXT' || !/https?:\/\//i.test(message.content || '')) return;
-    this.features
-      .attachLinkPreview(message.id)
-      .then((updated) => {
-        if (updated) this.emitToChat(message.chatId!, 'message:updated', updated);
-      })
-      .catch((error) => this.logger.debug(`Link preview failed: ${error?.message || error}`));
-  }
 
   // ==========================
   // CONNECTION / DISCONNECTION
   // ==========================
 
+  /**
+   * socket.io runs this before it accepts a connection, so by the time the
+   * client can emit anything (it usually sends chat:join the instant it is
+   * connected) its identity is already on `client.data`. A socket that fails
+   * here never connects; the client sees a connect_error.
+   */
+  afterInit(server: Server) {
+    this.broadcaster.attach(server);
+    server.use((socket, next) => {
+      this.authenticateSocket(socket).then(
+        (ok) => next(ok ? undefined : new Error('Unauthorized')),
+        (error) => {
+          this.logger.error('❌ Chat auth error:', error);
+          next(new Error('Unauthorized'));
+        },
+      );
+    });
+  }
+
+  private async authenticateSocket(client: Socket): Promise<boolean> {
+    // Try multiple places for token
+    let token: string | null = null;
+
+    // 1. Try cookies
+    const cookieHeader = client.handshake.headers.cookie;
+
+    if (cookieHeader) {
+      const cookies = parseCookie(String(cookieHeader)) as Record<
+        string,
+        string
+      >;
+
+      token = cookies['accessToken'] || null;
+    }
+
+    // 2. Try auth object
+    if (!token && client.handshake.auth?.token) {
+      token = client.handshake.auth.token as string;
+    }
+
+    // 3. Try query params
+    if (!token && client.handshake.query?.token) {
+      token = client.handshake.query.token as string;
+    }
+
+    // 4. Try headers
+    if (!token && client.handshake.headers?.authorization) {
+      const authHeader = client.handshake.headers.authorization as string;
+
+      if (authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
+    if (!token || typeof token !== 'string') {
+      this.logger.warn('❌ No token found anywhere, refusing connection');
+      return false;
+    }
+
+    // Signature, expiry, live session and existing user: same rules as HTTP
+    const authed = await this.authService.authenticateAccessToken(token);
+    if (!authed) {
+      this.logger.warn('❌ Invalid token, revoked session or unknown user, refusing connection');
+      return false;
+    }
+
+    client.data.userId = authed.user.id;
+    client.data.token = token;
+    client.data.sessionId = authed.sessionId;
+    client.data.familyId = authed.familyId;
+    return true;
+  }
+
   async handleConnection(client: Socket) {
     try {
-      this.logger.log(`🟡 New connection attempt: ${client.id}`);
-
-      // Set connection timeout
-      const timeout = setTimeout(() => {
-        if (!client.data.userId) {
-          this.logger.warn(`⏱️ Connection timeout for ${client.id}`);
-          client.disconnect();
-        }
-      }, this.CONNECTION_TIMEOUT);
-
-      // Try multiple places for token
-      let token: string | null = null;
-
-      // 1. Try cookies
-      const cookieHeader = client.handshake.headers.cookie;
-
-      if (cookieHeader) {
-        const cookies = parseCookie(String(cookieHeader)) as Record<
-          string,
-          string
-        >;
-
-        token = cookies['accessToken'] || null;
-
-        this.logger.log(`📡 Token from cookies: ${!!token}`);
-      }
-
-      // 2. Try auth object
-      if (!token && client.handshake.auth?.token) {
-        token = client.handshake.auth.token as string;
-
-        this.logger.log(`📡 Token from auth: ${!!token}`);
-      }
-
-      // 3. Try query params
-      if (!token && client.handshake.query?.token) {
-        token = client.handshake.query.token as string;
-
-        this.logger.log(`📡 Token from query: ${!!token}`);
-      }
-
-      // 4. Try headers
-      if (!token && client.handshake.headers?.authorization) {
-        const authHeader = client.handshake.headers.authorization as string;
-
-        if (authHeader.startsWith('Bearer ')) {
-          token = authHeader.substring(7);
-
-          this.logger.log(`📡 Token from authorization header: ${!!token}`);
-        }
-      }
-
-      if (!token) {
-        this.logger.warn('❌ No token found anywhere, disconnecting');
-
-        clearTimeout(timeout);
-
-        client.emit('error', {
-          message: 'Authentication required',
-        });
-
-        client.disconnect();
-
-        return;
-      }
-
-      this.logger.log(`🔑 Token present`);
+      this.logger.log(`🟡 New connection: ${client.id}`);
 
       try {
-        // Signature, expiry, live session and existing user: same rules as HTTP
-        const authed = await this.authService.authenticateAccessToken(token);
+        const userId = client.data.userId as string | undefined;
 
-        if (!authed) {
-          throw new Error('Invalid token, revoked session or unknown user');
+        if (!userId) {
+          // The auth middleware only lets authenticated sockets through
+          throw new Error('Socket reached the connection handler unauthenticated');
         }
-
-        const userId = authed.user.id;
-
-        client.data.userId = userId;
-        client.data.token = token;
-        client.data.sessionId = authed.sessionId;
-        client.data.familyId = authed.familyId;
-
-        clearTimeout(timeout);
 
         this.logger.log(
           `✅ User ${userId} authenticated via socket ${client.id}`,
         );
 
-        // Store socket
-        const sockets = this.userSockets.get(userId) || [];
-
-        sockets.push(client.id);
-
-        this.userSockets.set(userId, sockets);
+        // Every tab / device of a user shares one personal room, on any instance
+        await client.join(userRoom(userId));
 
         // Send connection confirmation
         client.emit('connection:established', {
@@ -333,8 +220,8 @@ export class ChatGateway
           }
 
           // Only the first device announces "online"
-          if (sockets.length === 1) {
-            await this.broadcastPresence(
+          if ((await this.broadcaster.socketCount(userId)) === 1) {
+            await this.broadcaster.broadcastPresence(
               userId,
               true,
               chats.map((c) => c.id),
@@ -348,13 +235,13 @@ export class ChatGateway
 
           // Send initial online users list (respecting everyone's privacy)
           client.emit('users:online', {
-            users: await this.visibleOnlineUsers(userId),
+            users: await this.broadcaster.visibleOnlineUsers(userId),
           });
 
           // This device can now receive: messages waiting for it are "delivered"
           const delivered = await this.features.markDeliveredFor(userId);
           for (const chatId of delivered.chatIds) {
-            this.emitToChat(chatId, 'messages:delivered', { chatId, at: delivered.at });
+            this.broadcaster.emitToChat(chatId, 'messages:delivered', { chatId, at: delivered.at });
           }
         } catch (dbError) {
           this.logger.error('Database error during connection:', dbError);
@@ -364,9 +251,7 @@ export class ChatGateway
           });
         }
       } catch (jwtError) {
-        this.logger.error('❌ JWT verification failed:', jwtError);
-
-        clearTimeout(timeout);
+        this.logger.error('❌ Chat connection setup failed:', jwtError);
 
         client.emit('error', {
           message: 'Invalid token',
@@ -401,12 +286,12 @@ export class ChatGateway
         .catch(() => undefined);
 
       // Remove from typing users
-      for (const [roomId, users] of this.typingUsers.entries()) {
+      for (const [roomId, users] of this.state.typingUsers.entries()) {
         if (users.has(userId)) {
           users.delete(userId);
 
           if (users.size === 0) {
-            this.typingUsers.delete(roomId);
+            this.state.typingUsers.delete(roomId);
           }
 
           this.server.to(roomId).emit('typing:stop', {
@@ -421,17 +306,10 @@ export class ChatGateway
         }
       }
 
-      // Remove socket
-      const sockets = this.userSockets.get(userId) || [];
-
-      const index = sockets.indexOf(client.id);
-
-      if (index > -1) {
-        sockets.splice(index, 1);
-
-        if (sockets.length === 0) {
-          this.userSockets.delete(userId);
-
+      // This socket has already left its rooms; offline once no other tab /
+      // device (on any instance) is left
+      {
+        if ((await this.broadcaster.socketCount(userId)) === 0) {
           this.logger.log(`👤 User ${userId} is now offline`);
 
           // Notify chat partners (respecting everyone's privacy)
@@ -450,7 +328,7 @@ export class ChatGateway
               select: { communityId: true },
             });
 
-            await this.broadcastPresence(
+            await this.broadcaster.broadcastPresence(
               userId,
               false,
               chats.map((c) => c.id),
@@ -459,12 +337,11 @@ export class ChatGateway
           } catch (error) {
             this.logger.error('Error notifying offline status:', error);
           }
-        } else {
-          this.userSockets.set(userId, sockets);
         }
       }
     }
   }
+
 
   // ==========================
   // ROOM MEMBERSHIP
@@ -617,704 +494,6 @@ export class ChatGateway
   }
 
   // ==========================
-  // MESSAGE - SEND
-  // ==========================
-
-  @SubscribeMessage('message:send')
-  async handleSendMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      chatId?: string;
-      communityId?: string;
-      content?: string;
-      type?: string;
-      mediaUrl?: string;
-      fileUrl?: string;
-      replyToId?: string;
-      metadata?: Record<string, unknown>;
-      isViewOnce?: boolean;
-      attachments?: Array<{ url: string; type: 'IMAGE' | 'VIDEO'; filename: string; mimeType?: string; size: number }>;
-    },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) {
-      client.emit('message:error', {
-        message: 'Unauthenticated',
-      });
-
-      return;
-    }
-
-    if (!data.content && !data.mediaUrl && !data.fileUrl) {
-      client.emit('message:error', {
-        message: 'Message content is required',
-      });
-
-      return;
-    }
-
-    if (!data.chatId && !data.communityId) {
-      client.emit('message:error', {
-        message: 'chatId or communityId is required',
-      });
-
-      return;
-    }
-
-    try {
-      const message = await this.chatService.sendMessage(userId, {
-        chatId: data.chatId,
-        communityId: data.communityId,
-        content: data.content || '',
-        type: data.type || 'TEXT',
-        mediaUrl: data.mediaUrl,
-        fileUrl: data.fileUrl,
-        replyToId: data.replyToId,
-        metadata: data.metadata,
-        isViewOnce: data.isViewOnce,
-        attachments: Array.isArray(data.attachments)
-          ? data.attachments.filter((a) => typeof a?.url === 'string' && a.url.startsWith('https://'))
-          : undefined,
-      }).then((sent) => this.deliverIfOnline(sent));
-
-      this.emitLinkPreview(message);
-
-      let roomId: string | null = null;
-
-      if (data.chatId) {
-        roomId = `chat:${data.chatId}`;
-      } else if (data.communityId) {
-        roomId = `community:${data.communityId}`;
-      }
-
-      if (roomId) {
-        this.server.to(roomId).emit('message:new', message);
-
-        client.emit('message:sent', message);
-
-        this.logger.log(`📤 Message sent to ${roomId} by user ${userId}`);
-      }
-    } catch (error: any) {
-      this.logger.error('Error sending message:', error);
-
-      client.emit('message:error', {
-        error: error.message || 'Failed to send message',
-      });
-    }
-  }
-
-  // ==========================
-  // VOICE MESSAGE
-  // ==========================
-
-  @SubscribeMessage('voice:message:send')
-  async handleVoiceMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      chatId?: string;
-      communityId?: string;
-      audioUrl: string;
-      duration: number;
-    },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) {
-      client.emit('message:error', {
-        message: 'Unauthenticated',
-      });
-
-      return;
-    }
-
-    if (!data.chatId && !data.communityId) {
-      client.emit('message:error', {
-        message: 'chatId or communityId is required',
-      });
-
-      return;
-    }
-
-    try {
-      const message = await this.chatService.sendMessage(userId, {
-        chatId: data.chatId,
-        communityId: data.communityId,
-        content: '🎤 Voice message',
-        type: 'VOICE_NOTE',
-        mediaUrl: data.audioUrl,
-      });
-
-      let roomId: string | null = null;
-
-      if (data.chatId) {
-        roomId = `chat:${data.chatId}`;
-      } else if (data.communityId) {
-        roomId = `community:${data.communityId}`;
-      }
-
-      if (roomId) {
-        this.server.to(roomId).emit('voice:message:new', message);
-
-        client.emit('voice:message:sent', message);
-
-        this.logger.log(`🎤 Voice message sent to ${roomId} by user ${userId}`);
-      }
-    } catch (error: any) {
-      this.logger.error('Error sending voice message:', error);
-
-      client.emit('message:error', {
-        error: error.message || 'Failed to send voice message',
-      });
-    }
-  }
-
-  // ==========================
-  // MESSAGE - DELETE
-  // ==========================
-
-  @SubscribeMessage('message:delete')
-  async handleDeleteMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { messageId: string },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) {
-      client.emit('message:error', {
-        message: 'Unauthenticated',
-      });
-
-      return;
-    }
-
-    try {
-      const message = await this.chatService.deleteMessage(
-        userId,
-        data.messageId,
-      );
-
-      if (message) {
-        let roomId: string | null = null;
-
-        if (message.chatId) {
-          roomId = `chat:${message.chatId}`;
-        } else if (message.communityId) {
-          roomId = `community:${message.communityId}`;
-        }
-
-        if (roomId) {
-          this.server.to(roomId).emit('message:deleted', message);
-
-          client.emit('message:deleted', {
-            ...message,
-            success: true,
-          });
-        }
-      }
-    } catch (error: any) {
-      this.logger.error('Error deleting message:', error);
-
-      client.emit('message:error', {
-        error: error.message || 'Failed to delete message',
-      });
-    }
-  }
-
-  // ==========================
-  // MESSAGE - EDIT
-  // ==========================
-
-  @SubscribeMessage('message:edit')
-  async handleEditMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      messageId: string;
-      content: string;
-    },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) {
-      client.emit('message:error', {
-        message: 'Unauthenticated',
-      });
-
-      return;
-    }
-
-    const content = data.content?.trim();
-
-    if (!content) {
-      client.emit('message:error', {
-        message: 'Content is required',
-      });
-
-      return;
-    }
-
-    try {
-      const message = await this.chatService.editMessage(
-        userId,
-        data.messageId,
-        content,
-      );
-
-      if (message) {
-        let roomId: string | null = null;
-
-        if (message.chatId) {
-          roomId = `chat:${message.chatId}`;
-        } else if (message.communityId) {
-          roomId = `community:${message.communityId}`;
-        }
-
-        if (roomId) {
-          this.server.to(roomId).emit('message:edited', message);
-
-          client.emit('message:edited', message);
-        }
-      }
-    } catch (error: any) {
-      this.logger.error('Error editing message:', error);
-
-      client.emit('message:error', {
-        error: error.message || 'Failed to edit message',
-      });
-    }
-  }
-
-  // ==========================
-  // TYPING INDICATORS
-  // ==========================
-
-  @SubscribeMessage('typing:start')
-  handleTypingStart(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      chatId?: string;
-      communityId?: string;
-    },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) return;
-
-    const roomId = data.chatId
-      ? `chat:${data.chatId}`
-      : data.communityId
-        ? `community:${data.communityId}`
-        : null;
-
-    if (!roomId) return;
-
-    if (!this.typingUsers.has(roomId)) {
-      this.typingUsers.set(roomId, new Set());
-    }
-
-    this.typingUsers.get(roomId)!.add(userId);
-
-    const payload = { userId, chatId: data.chatId, communityId: data.communityId };
-    void this.privacy.get(userId).then(async (mine) => {
-      // Typing indicator off: nobody sees you typing (and you don't see others)
-      if (!mine.showTypingIndicator) return;
-      if (data.chatId) {
-        await this.emitToMembersWho(data.chatId, userId, 'showTypingIndicator', 'typing:start', payload);
-      } else {
-        client.to(roomId).emit('typing:start', payload);
-      }
-    });
-  }
-
-  @SubscribeMessage('typing:stop')
-  handleTypingStop(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      chatId?: string;
-      communityId?: string;
-    },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) return;
-
-    const roomId = data.chatId
-      ? `chat:${data.chatId}`
-      : data.communityId
-        ? `community:${data.communityId}`
-        : null;
-
-    if (!roomId) return;
-
-    const users = this.typingUsers.get(roomId);
-
-    if (users) {
-      users.delete(userId);
-
-      if (users.size === 0) {
-        this.typingUsers.delete(roomId);
-      }
-    }
-
-    client.to(roomId).emit('typing:stop', {
-      userId,
-      chatId: data.chatId,
-      communityId: data.communityId,
-    });
-  }
-
-  // ==========================
-  // READ RECEIPTS
-  // ==========================
-
-  /** The corrected person taps "Got it" on a correction; both sides see it accepted */
-  @SubscribeMessage('correction:accept')
-  async handleAcceptCorrection(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { messageId: string },
-  ) {
-    const userId = client.data.userId;
-    if (!userId || !data?.messageId) return;
-
-    try {
-      const result = await this.chatService.acceptCorrection(userId, data.messageId);
-      this.server.to(`chat:${result.chatId}`).emit('correction:accepted', result);
-    } catch (error: any) {
-      client.emit('message:error', {
-        error: error?.message || 'Could not accept correction',
-      });
-    }
-  }
-
-  @SubscribeMessage('message:read')
-  async handleMarkRead(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      chatId: string;
-      messageId: string;
-    },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) {
-      client.emit('error', {
-        message: 'Unauthenticated',
-      });
-
-      return;
-    }
-
-    try {
-      const receipt = await this.chatService.markMessageRead(
-        userId,
-        data.chatId,
-        data.messageId,
-      );
-
-      // null = this user turned read receipts off
-      if (receipt) {
-        await this.emitToMembersWho(data.chatId, userId, 'sendReadReceipts', 'message:read', {
-          userId,
-          messageId: data.messageId,
-          chatId: data.chatId,
-        });
-      }
-    } catch (error) {
-      this.logger.error('Error marking message as read:', error);
-
-      client.emit('error', {
-        message: 'Failed to mark message as read',
-      });
-    }
-  }
-
-  // ==========================
-  // REACTIONS
-  // ==========================
-
-  @SubscribeMessage('reaction:add')
-  async handleReaction(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      messageId: string;
-      emoji: string;
-    },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) {
-      client.emit('reaction:error', {
-        message: 'Unauthenticated',
-      });
-
-      return;
-    }
-
-    try {
-      const reaction = await this.chatService.addReaction(
-        userId,
-        data.messageId,
-        data.emoji,
-      );
-
-      const message = await this.prisma.message.findUnique({
-        where: {
-          id: data.messageId,
-        },
-        select: {
-          chatId: true,
-          communityId: true,
-        },
-      });
-
-      if (message) {
-        let roomId: string | null = null;
-
-        if (message.chatId) {
-          roomId = `chat:${message.chatId}`;
-        } else if (message.communityId) {
-          roomId = `community:${message.communityId}`;
-        }
-
-        if (roomId) {
-          this.server.to(roomId).emit('reaction:new', reaction);
-
-          client.emit('reaction:new', reaction);
-        }
-      }
-    } catch (error: any) {
-      this.logger.error('Error adding reaction:', error);
-
-      client.emit('reaction:error', {
-        error: error.message || 'Failed to add reaction',
-      });
-    }
-  }
-
-  @SubscribeMessage('reaction:remove')
-  async handleRemoveReaction(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      messageId: string;
-      emoji: string;
-    },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) {
-      client.emit('reaction:error', {
-        message: 'Unauthenticated',
-      });
-
-      return;
-    }
-
-    try {
-      const updatedMessage = await this.chatService.removeReaction(
-        userId,
-        data.messageId,
-        data.emoji,
-      );
-
-      const message = await this.prisma.message.findUnique({
-        where: {
-          id: data.messageId,
-        },
-        select: {
-          chatId: true,
-          communityId: true,
-        },
-      });
-
-      if (message) {
-        let roomId: string | null = null;
-
-        if (message.chatId) {
-          roomId = `chat:${message.chatId}`;
-        } else if (message.communityId) {
-          roomId = `community:${message.communityId}`;
-        }
-
-        if (roomId) {
-          const payload = {
-            messageId: data.messageId,
-            userId,
-            emoji: data.emoji,
-            message: updatedMessage?.message || updatedMessage,
-          };
-
-          this.server.to(roomId).emit('reaction:removed', payload);
-          client.emit('reaction:removed', payload);
-        }
-      }
-    } catch (error) {
-      this.logger.error('Error removing reaction:', error);
-
-      client.emit('reaction:error', {
-        error: 'Failed to remove reaction',
-      });
-    }
-  }
-
-  // ==========================
-  // CHAT HISTORY / MESSAGES FETCH
-  // ==========================
-
-  @SubscribeMessage('messages:fetch')
-  async handleFetchMessages(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      chatId?: string;
-      communityId?: string;
-      limit?: number;
-      before?: string;
-    },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) {
-      client.emit('message:error', {
-        message: 'Unauthenticated',
-      });
-
-      return;
-    }
-
-    try {
-      let messages;
-
-      if (data.chatId) {
-        const participant = await this.prisma.chatParticipant.findUnique({
-          where: {
-            chatId_userId: {
-              chatId: data.chatId,
-              userId,
-            },
-          },
-        });
-
-        if (!participant) {
-          client.emit('message:error', {
-            message: 'You are not a participant in this chat',
-          });
-
-          return;
-        }
-
-        messages = await this.chatService.getMessages(userId, {
-          chatId: data.chatId,
-          limit: data.limit ? String(data.limit) : '50',
-          before: data.before,
-        });
-      } else if (data.communityId) {
-        const member = await this.prisma.communityMember.findUnique({
-          where: {
-            communityId_userId: {
-              communityId: data.communityId,
-              userId,
-            },
-          },
-        });
-
-        if (!member) {
-          client.emit('message:error', {
-            message: 'You are not a member of this community',
-          });
-
-          return;
-        }
-
-        messages = await this.chatService.getCommunityMessages(
-          userId,
-          data.communityId,
-          data.limit || 50,
-          data.before,
-        );
-      } else {
-        client.emit('message:error', {
-          message: 'chatId or communityId is required',
-        });
-
-        return;
-      }
-
-      client.emit('messages:list', messages);
-    } catch (error: any) {
-      this.logger.error('Error fetching messages:', error);
-
-      client.emit('message:error', {
-        error: error.message || 'Failed to fetch messages',
-      });
-    }
-  }
-
-  // ==========================
-  // PIN MESSAGES
-  // ==========================
-
-  @SubscribeMessage('message:pin')
-  async handlePinMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      messageId: string;
-      pinned: boolean;
-    },
-  ) {
-    const userId = client.data.userId;
-
-    if (!userId) {
-      client.emit('error', {
-        message: 'Unauthenticated',
-      });
-
-      return;
-    }
-
-    try {
-      const message = await this.chatService.pinMessage(
-        userId,
-        data.messageId,
-        data.pinned,
-      );
-
-      if (message) {
-        let roomId: string | null = null;
-
-        if (message.chatId) {
-          roomId = `chat:${message.chatId}`;
-        } else if (message.communityId) {
-          roomId = `community:${message.communityId}`;
-        }
-
-        if (roomId) {
-          this.server.to(roomId).emit('message:pinned', message);
-
-          client.emit('message:pinned', {
-            ...message,
-            success: true,
-          });
-        }
-      }
-    } catch (error: any) {
-      this.logger.error('Error pinning message:', error);
-
-      client.emit('error', {
-        error: error.message || 'Failed to pin message',
-      });
-    }
-  }
-
-  // ==========================
   // ONLINE USERS
   // ==========================
 
@@ -1324,7 +503,7 @@ export class ChatGateway
     if (!userId) return;
 
     client.emit('users:online', {
-      users: await this.visibleOnlineUsers(userId),
+      users: await this.broadcaster.visibleOnlineUsers(userId),
     });
   }
 }

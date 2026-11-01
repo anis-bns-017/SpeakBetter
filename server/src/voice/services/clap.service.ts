@@ -1,7 +1,7 @@
 
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { VoiceGateway } from '../voice.gateway';
+import { VoiceBroadcaster } from '../realtime/voice-broadcaster';
 
 @Injectable()
 export class ClapService {
@@ -10,7 +10,7 @@ export class ClapService {
 
   constructor(
     private prisma: PrismaService,
-    private voiceGateway: VoiceGateway,
+    private voiceBroadcaster: VoiceBroadcaster,
   ) {}
 
   async addClap(roomId: string, userId: string, targetUserId?: string) {
@@ -57,7 +57,7 @@ export class ClapService {
     });
 
     // Broadcast to room
-    this.voiceGateway.broadcastClap(roomId, {
+    this.voiceBroadcaster.broadcastClap(roomId, {
       userId,
       targetUserId: targetUserId || userId,
       clapCount: clap.clapCount,

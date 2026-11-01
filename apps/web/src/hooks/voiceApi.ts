@@ -14,6 +14,11 @@ export const voiceApi = {
     apiClient.get(`/voice/rooms/language/${language}`, { params: { limit } }),
   getPopularCategories: () => apiClient.get('/voice/rooms/popular-categories'),
 
+  // Bans (host / moderator)
+  getBans: (roomId: string) => apiClient.get(`/voice/rooms/${roomId}/bans`),
+  unban: (roomId: string, userId: string) =>
+    apiClient.delete(`/voice/rooms/${roomId}/bans/${userId}`),
+
   // Transcription
   startTranscription: (roomId: string) => apiClient.post(`/voice/transcription/start/${roomId}`),
   stopTranscription: (roomId: string) => apiClient.post(`/voice/transcription/stop/${roomId}`),

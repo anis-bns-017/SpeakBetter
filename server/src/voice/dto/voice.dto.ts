@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsEnum,
   IsArray,
+  ArrayMaxSize,
   IsUUID,
   IsBoolean,
   IsDateString,
@@ -42,7 +43,10 @@ export class CreateVoiceRoomDto {
 
   @IsOptional()
   @IsArray()
-  @IsUUID(4, { each: true })
+  @ArrayMaxSize(100)
+  // User ids are cuids, not UUIDs: a UUID check rejected every real invitation
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
   invitedUserIds?: string[];
 
   @IsOptional()

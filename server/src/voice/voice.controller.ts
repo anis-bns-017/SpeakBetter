@@ -20,7 +20,7 @@ import {
 
 import { VoiceService } from './voice.service';
 import { LiveKitService } from './livekit.service';
-import { VoiceGateway } from './voice.gateway';
+import { VoiceBroadcaster } from './realtime/voice-broadcaster';
 import { TranslationService } from './services/translation.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DiscoverRoomsDto } from './dto/discovery.dto';
@@ -43,7 +43,7 @@ export class VoiceController {
   constructor(
     private voiceService: VoiceService,
     private liveKitService: LiveKitService,
-    private voiceGateway: VoiceGateway,
+    private voiceBroadcaster: VoiceBroadcaster,
     private translationService: TranslationService,
   ) {}
 
@@ -103,6 +103,10 @@ export class VoiceController {
           HttpStatus.NOT_FOUND,
         );
       }
+
+      // Before anything else, including the no-LiveKit fallback below, which
+      // returns early without going through voiceService.joinRoom
+      await this.voiceService.assertNotBanned(roomId, userId);
 
       // Check LiveKit availability
       if (!this.liveKitService.isAvailable()) {
@@ -170,9 +174,19 @@ export class VoiceController {
         },
       };
     } catch (error) {
+      // "Not allowed" and "not found" are answers, not outages: a private room,
+      // a ban or a missing room must not be papered over with a fake success
+      if (
+        error instanceof HttpException &&
+        [HttpStatus.FORBIDDEN, HttpStatus.NOT_FOUND].includes(error.getStatus())
+      ) {
+        this.logger.warn(`Join refused: ${error.message}`);
+        throw error;
+      }
+
       this.logger.error(`❌ Join room error: ${error?.message || error}`);
 
-      // ✅ Return mock token on ANY error
+      // ✅ Return mock token on ANY other error
       return {
         success: true,
         data: {
@@ -272,6 +286,7 @@ export class VoiceController {
       };
     } catch (error) {
       this.logger.error(`❌ Mute error: ${error.message}`);
+      if (error instanceof HttpException) throw error;
       throw new HttpException(
         {
           success: false,
@@ -303,6 +318,7 @@ export class VoiceController {
       };
     } catch (error) {
       this.logger.error(`❌ Unmute error: ${error.message}`);
+      if (error instanceof HttpException) throw error;
       throw new HttpException(
         {
           success: false,
@@ -546,6 +562,23 @@ export class VoiceController {
   // ============ CORRECTIONS ============
 
   /** Corrections the signed-in user received, e.g. ?status=accepted for the practice journal */
+  // ============ KICK BANS ============
+
+  @Get('rooms/:roomId/bans')
+  async listBans(@Request() req, @Param('roomId') roomId: string) {
+    return this.voiceService.listBans(req.user.id, roomId);
+  }
+
+  @Delete('rooms/:roomId/bans/:userId')
+  @HttpCode(HttpStatus.OK)
+  async unban(
+    @Request() req,
+    @Param('roomId') roomId: string,
+    @Param('userId') targetUserId: string,
+  ) {
+    return this.voiceService.unbanParticipant(req.user.id, roomId, targetUserId);
+  }
+
   @Get('corrections/me')
   async getMyCorrections(
     @Request() req,
@@ -561,8 +594,8 @@ export class VoiceController {
   }
 
   @Get('rooms/:roomId/corrections')
-  async getRoomCorrections(@Param('roomId') roomId: string) {
-    return this.voiceService.getRoomCorrections(roomId);
+  async getRoomCorrections(@Request() req, @Param('roomId') roomId: string) {
+    return this.voiceService.getRoomCorrections(roomId, 100, req.user.id);
   }
 
   // ============ CHAT MESSAGES ============
@@ -615,7 +648,7 @@ export class VoiceController {
         dto.fileUrl,
         dto.replyToId,
       );
-      this.voiceGateway.broadcastChatMessage(roomId, message);
+      await this.voiceBroadcaster.broadcastChatMessage(roomId, message);
       return message;
     } catch (error) {
       this.rethrow(error, 'Failed to send message');
@@ -635,7 +668,7 @@ export class VoiceController {
         roomId,
         messageId,
       );
-      this.voiceGateway.emitToRoom(roomId, 'voice:message-deleted', result);
+      this.voiceBroadcaster.emitToRoom(roomId, 'voice:message-deleted', result);
       return { success: true, data: result };
     } catch (error) {
       this.rethrow(error, 'Failed to delete message');
@@ -657,7 +690,7 @@ export class VoiceController {
         messageId,
         content,
       );
-      this.voiceGateway.emitToRoom(roomId, 'voice:message-edited', {
+      this.voiceBroadcaster.emitToRoom(roomId, 'voice:message-edited', {
         messageId: message.id,
         content: message.content,
         isEdited: true,
@@ -684,7 +717,7 @@ export class VoiceController {
         messageId,
         emoji,
       );
-      this.voiceGateway.emitToRoom(roomId, 'voice:message-reaction', result);
+      this.voiceBroadcaster.emitToRoom(roomId, 'voice:message-reaction', result);
       return { success: true, data: result };
     } catch (error) {
       this.rethrow(error, 'Failed to react to message');
@@ -706,7 +739,7 @@ export class VoiceController {
         messageId,
         !!pinned,
       );
-      this.voiceGateway.emitToRoom(roomId, 'voice:message-pinned', {
+      this.voiceBroadcaster.emitToRoom(roomId, 'voice:message-pinned', {
         messageId,
         pinned: !!pinned,
         pinnedBy: req.user.id,
@@ -872,7 +905,7 @@ export class VoiceController {
   @Get('rooms/:roomId/active-participants')
   async getActiveParticipants(@Request() req, @Param('roomId') roomId: string) {
     try {
-      return await this.voiceService.getActiveParticipants(roomId);
+      return await this.voiceService.getActiveParticipants(roomId, req.user.id);
     } catch (error) {
       this.logger.error(`❌ Get active participants error: ${error.message}`);
       throw new HttpException(

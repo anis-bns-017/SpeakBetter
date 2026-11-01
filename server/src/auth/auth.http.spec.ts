@@ -9,6 +9,7 @@ import request from 'supertest';
 import { PrismaService } from '../prisma.service';
 import { AuthModule } from './auth.module';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RateLimitGuard } from '../common/rate-limit.guard';
 
 /**
  * HTTP-level checks of the auth endpoints against a real PostgreSQL. Same
@@ -95,7 +96,12 @@ describeDb('Auth endpoints (HTTP, PostgreSQL)', () => {
       ],
       // Same global guard app.module.ts installs
       providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
-    }).compile();
+    })
+      // These tests sign up dozens of users from one address; the limiter has
+      // its own tests at the end of this file and in common/rate-limit.guard.spec.ts
+      .overrideGuard(RateLimitGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.use(cookieParser());
@@ -219,5 +225,60 @@ describeDb('Auth endpoints (HTTP, PostgreSQL)', () => {
 
   it('protected routes still reject anonymous callers', async () => {
     await call('get', '/auth/me', {}).expect(401);
+  });
+
+  describe('rate limits (real limiter)', () => {
+    let limited: INestApplication;
+
+    beforeAll(async () => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [
+          ConfigModule.forRoot({
+            isGlobal: true,
+            ignoreEnvFile: true,
+            load: [() => CONFIG],
+          }),
+          AuthModule,
+        ],
+        providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
+      }).compile();
+      limited = moduleRef.createNestApplication();
+      limited.use(cookieParser());
+      await limited.init();
+    });
+
+    afterAll(async () => {
+      await limited?.close();
+    });
+
+    it('slows password guessing on one account: 429 with Retry-After after 10 tries', async () => {
+      const email = `ratelimit-${Date.now()}@example.test`;
+      const attempt = () =>
+        request(limited.getHttpServer())
+          .post('/auth/login')
+          .send({ email, password: 'wrong-pass-1' });
+
+      for (let i = 0; i < 10; i++) await attempt().expect(401);
+
+      const blocked = await attempt().expect(429);
+      expect(blocked.body.code).toBe('RATE_LIMITED');
+      expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
+    });
+
+    it('a different account is not affected', async () => {
+      await request(limited.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: `someone-else-${Date.now()}@example.test`,
+          password: 'wrong-pass-1',
+        })
+        .expect(401);
+    });
+
+    it('logout is not throttled by normal use', async () => {
+      for (let i = 0; i < 5; i++) {
+        await request(limited.getHttpServer()).post('/auth/logout').expect(200);
+      }
+    });
   });
 });

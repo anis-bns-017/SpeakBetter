@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ChatFeaturesService } from './chat-features.service';
-import { ChatGateway } from './chat.gateway';
+import { ChatBroadcaster } from './realtime/chat-broadcaster';
 
 const TICK_MS = 15_000;
 
@@ -16,7 +16,7 @@ export class ChatSchedulerService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private features: ChatFeaturesService,
-    private gateway: ChatGateway,
+    private broadcaster: ChatBroadcaster,
   ) {}
 
   onModuleInit() {
@@ -33,13 +33,13 @@ export class ChatSchedulerService implements OnModuleInit, OnModuleDestroy {
     try {
       for (const result of await this.features.sendDueScheduled()) {
         if (result.message) {
-          this.gateway.emitToChat(result.chatId, 'message:new', result.message);
-          this.gateway.emitToUser(result.senderId, 'scheduled:sent', {
+          this.broadcaster.emitToChat(result.chatId, 'message:new', result.message);
+          this.broadcaster.emitToUser(result.senderId, 'scheduled:sent', {
             id: result.scheduledId,
             chatId: result.chatId,
           });
         } else {
-          this.gateway.emitToUser(result.senderId, 'scheduled:failed', {
+          this.broadcaster.emitToUser(result.senderId, 'scheduled:failed', {
             id: result.scheduledId,
             chatId: result.chatId,
             error: result.error,
@@ -48,7 +48,7 @@ export class ChatSchedulerService implements OnModuleInit, OnModuleDestroy {
       }
 
       for (const [chatId, messageIds] of await this.features.sweepExpired()) {
-        this.gateway.emitToChat(chatId, 'messages:expired', { chatId, messageIds });
+        this.broadcaster.emitToChat(chatId, 'messages:expired', { chatId, messageIds });
       }
     } catch (error: any) {
       this.logger.error(`Chat scheduler tick failed: ${error?.message || error}`);

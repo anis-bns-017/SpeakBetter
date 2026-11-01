@@ -13,7 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TranscriptionService } from '../services/transcription.service';
 import { TranslationService } from '../services/translation.service';
-import { VoiceGateway } from '../voice.gateway';
+import { VoiceBroadcaster } from '../realtime/voice-broadcaster';
 
 @ApiTags('voice-transcription')
 @Controller('voice/transcription')
@@ -22,7 +22,7 @@ export class TranscriptionController {
   constructor(
     private transcriptionService: TranscriptionService,
     private translationService: TranslationService,
-    private voiceGateway: VoiceGateway,
+    private voiceBroadcaster: VoiceBroadcaster,
   ) {}
 
   @Post('start/:roomId')

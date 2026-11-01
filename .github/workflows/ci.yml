@@ -4,7 +4,8 @@ name: CI
 #
 # Gate status as measured on the dev machine (2026-10-30):
 #   server typecheck  PASS   (tsc --noEmit, clean)
-#   server tests      PASS   (1 test)
+#   server tests      PASS   (unit tests, plus the session/privacy/socket suites
+#                            that need PostgreSQL: see the postgres service below)
 #   web typecheck     FAIL   (~364 errors: 306 unused-local, ~58 real type errors)
 #
 # The web steps are therefore non-blocking so this pipeline is green on
@@ -22,15 +23,33 @@ concurrency:
 
 env:
   # prisma.config.ts calls env('DATABASE_URL') while the config loads, so
-  # `prisma generate` throws if this is unset. No database is contacted:
-  # a placeholder is enough. Tests are unit-level and need no DB service.
+  # `prisma generate` throws if this is unset. A placeholder is enough for
+  # generate/typecheck/build; the DB-backed tests use TEST_DATABASE_URL below.
   DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+  # Throwaway database for the suites that need real PostgreSQL (row locks,
+  # advisory locks, atomic updates). The name must contain "test": the suites
+  # refuse to run against anything else.
+  TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/speakbetter_test?schema=public
 
 jobs:
   server:
     name: Server
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: speakbetter_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d speakbetter_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -59,8 +78,17 @@ jobs:
       - name: Typecheck
         run: pnpm --filter server exec tsc --noEmit -p tsconfig.build.json
 
+      # Applies every migration to the throwaway database, which also proves
+      # the migration chain (including the session-rotation backfill) runs.
+      - name: Prepare test database
+        run: pnpm --filter server exec prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+
       - name: Test
-        run: pnpm --filter server exec jest --ci --passWithNoTests
+        run: pnpm --filter server exec jest --ci --passWithNoTests --runInBand
+        env:
+          AUTH_TEST_DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
 
       - name: Build
         run: pnpm --filter server run build

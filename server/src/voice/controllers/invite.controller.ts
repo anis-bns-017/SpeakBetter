@@ -8,6 +8,7 @@ import {
   Body,
   UseGuards,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -157,6 +158,15 @@ export class InviteController {
 
     if (invite.uses >= invite.maxUses) {
       throw new Error('Invite has reached maximum uses');
+    }
+
+    // Someone the host removed cannot come back through an invite either
+    const banned = await this.prisma.voiceRoomBan.findUnique({
+      where: { roomId_userId: { roomId: invite.roomId, userId } },
+      select: { id: true },
+    });
+    if (banned) {
+      throw new ForbiddenException('You were removed from this room by the host.');
     }
 
     // Check if user is already in room

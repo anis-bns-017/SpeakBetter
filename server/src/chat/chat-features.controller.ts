@@ -15,7 +15,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ChatFeaturesService } from './chat-features.service';
 import { ChatPrivacyService } from './chat-privacy.service';
-import { ChatGateway } from './chat.gateway';
+import { ChatBroadcaster } from './realtime/chat-broadcaster';
 import {
   ChatMediaQueryDto,
   ForwardMessagesDto,
@@ -40,7 +40,7 @@ export class ChatFeaturesController {
   constructor(
     private features: ChatFeaturesService,
     private privacy: ChatPrivacyService,
-    private gateway: ChatGateway,
+    private broadcaster: ChatBroadcaster,
   ) {}
 
   // ============ PRIVACY & CHAT LOCK ============
@@ -107,8 +107,8 @@ export class ChatFeaturesController {
   async setDisappearing(@Request() req, @Param('chatId') chatId: string, @Body() dto: SetDisappearingDto) {
     const result = await this.features.setDisappearing(req.user.id, chatId, dto.seconds);
     if (result.message) {
-      this.gateway.emitToChat(chatId, 'chat:updated', { chatId, disappearingSeconds: result.seconds || null });
-      this.gateway.emitToChat(chatId, 'message:new', result.message);
+      this.broadcaster.emitToChat(chatId, 'chat:updated', { chatId, disappearingSeconds: result.seconds || null });
+      this.broadcaster.emitToChat(chatId, 'message:new', result.message);
     }
     return result;
   }
@@ -155,7 +155,7 @@ export class ChatFeaturesController {
   async forward(@Request() req, @Body() dto: ForwardMessagesDto) {
     const { sent, failed } = await this.features.forward(req.user.id, dto.messageIds, dto.chatIds);
     for (const { chatId, message } of sent) {
-      this.gateway.emitToChat(chatId, 'message:new', message);
+      this.broadcaster.emitToChat(chatId, 'message:new', message);
     }
     return { sent: sent.length, failed, chatIds: [...new Set(sent.map((s) => s.chatId))] };
   }
@@ -175,7 +175,7 @@ export class ChatFeaturesController {
   async openViewOnce(@Request() req, @Param('messageId') messageId: string) {
     const result = await this.features.openViewOnce(req.user.id, messageId);
     if (result.message.chatId) {
-      this.gateway.emitToChat(result.message.chatId, 'message:updated', result.message);
+      this.broadcaster.emitToChat(result.message.chatId, 'message:updated', result.message);
     }
     return { url: result.url, type: result.type };
   }

@@ -8,6 +8,9 @@ import { AppModule } from './app.module';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import * as express from 'express';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from './common/redis.module';
+import { RedisIoAdapter } from './common/redis-io.adapter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -18,6 +21,29 @@ async function bootstrap() {
     const config = app.get(ConfigService);
 
     app.use(cookieParser());
+
+    // With REALTIME_REDIS_URL, socket.io fans events out through Redis so several server
+    // instances act as one (room membership lives in Redis too). Without it,
+    // everything runs in this process exactly as before.
+    const redis = app.get<Redis | null>(REDIS_CLIENT);
+    if (redis) {
+      app.useWebSocketAdapter(new RedisIoAdapter(app, redis));
+      logger.log('Socket.IO is using the Redis adapter');
+    }
+
+    // Behind a reverse proxy / load balancer, trust its X-Forwarded-For so
+    // req.ip is the visitor's address (rate limits and session records use it).
+    // Set TRUST_PROXY to a hop count ("1"), "true", or a subnet; unset = off.
+    const trustProxy = config.get<string>('TRUST_PROXY');
+    if (trustProxy) {
+      const value =
+        trustProxy === 'true'
+          ? true
+          : /^\d+$/.test(trustProxy)
+            ? Number(trustProxy)
+            : trustProxy;
+      app.getHttpAdapter().getInstance().set('trust proxy', value);
+    }
 
     // ✅ Ensure uploads directory exists
     const uploadsDir = join(process.cwd(), 'uploads', 'audio');

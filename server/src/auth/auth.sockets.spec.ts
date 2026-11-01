@@ -5,6 +5,11 @@ import { PrismaService } from '../prisma.service';
 import { AuthService } from './auth.service';
 import { VoiceGateway } from '../voice/voice.gateway';
 import { ChatGateway } from '../chat/chat.gateway';
+import { ChatRealtimeState } from '../chat/realtime/chat-realtime-state';
+import { ChatBroadcaster } from '../chat/realtime/chat-broadcaster';
+import { VoiceRoomState } from '../voice/realtime/voice-room-state';
+import { VoiceBroadcaster } from '../voice/realtime/voice-broadcaster';
+import { VoiceCoachSession } from '../voice/realtime/voice-coach-session';
 
 /**
  * Socket authentication goes through the same session checks as HTTP, and a
@@ -50,6 +55,25 @@ describeDb('Socket authentication (PostgreSQL)', () => {
   let voice: VoiceGateway;
   let chat: ChatGateway;
   let sockets: FakeSocket[] = [];
+  let voiceMiddleware: (socket: any, next: (e?: Error) => void) => void;
+  let chatMiddleware: (socket: any, next: (e?: Error) => void) => void;
+
+  /** true = accepted; false = refused before connecting (client sees connect_error) */
+  const open = async (
+    gateway: VoiceGateway | ChatGateway,
+    middleware: (socket: any, next: (e?: Error) => void) => void,
+    socket: FakeSocket,
+  ) => {
+    const error = await new Promise<Error | undefined>((resolve) =>
+      middleware(socket, resolve),
+    );
+    if (error) return false;
+    await gateway.handleConnection(socket as any);
+    return true;
+  };
+  const openVoice = (socket: FakeSocket) =>
+    open(voice, voiceMiddleware, socket);
+  const openChat = (socket: FakeSocket) => open(chat, chatMiddleware, socket);
   const emails: string[] = [];
   let counter = 0;
 
@@ -88,20 +112,32 @@ describeDb('Socket authentication (PostgreSQL)', () => {
     } as unknown as ConfigService;
     auth = new AuthService(prisma, jwt, config);
 
-    voice = new VoiceGateway(auth, {} as any, prisma, {
-      onMissionEnd: jest.fn(),
-    } as any);
-    chat = new ChatGateway(
+    const coachStub: any = { onMissionEnd: jest.fn() };
+    const voiceState = new VoiceRoomState();
+    const broadcaster = new VoiceBroadcaster(voiceState);
+    voice = new VoiceGateway(
       auth,
       {} as any,
       prisma,
-      {
-        get: async () => ({ showOnlineStatus: false }),
-        getMany: async () => new Map(),
-      } as any,
-      {
-        markDeliveredFor: async () => ({ chatIds: [], at: new Date() }),
-      } as any,
+      coachStub,
+      voiceState,
+      broadcaster,
+      new VoiceCoachSession(coachStub, {} as any, voiceState, broadcaster),
+    );
+    const chatPrivacy: any = {
+      get: async () => ({ showOnlineStatus: false }),
+      getMany: async () => new Map(),
+    };
+    const chatFeatures: any = {
+      markDeliveredFor: async () => ({ chatIds: [], at: new Date() }),
+    };
+    const chatState = new ChatRealtimeState();
+    chat = new ChatGateway(
+      auth,
+      prisma,
+      chatFeatures,
+      chatState,
+      new ChatBroadcaster(chatState, prisma, chatPrivacy, chatFeatures),
     );
     // Gateways are wired to a fake namespace that serves the fake sockets
     const server = {
@@ -113,6 +149,10 @@ describeDb('Socket authentication (PostgreSQL)', () => {
     (chat as any).server = server;
     voice.onModuleInit();
     chat.onModuleInit();
+    // What socket.io does on a new connection: run the auth middleware first,
+    // and only an accepted socket reaches handleConnection
+    voice.afterInit({ use: (fn: any) => (voiceMiddleware = fn) } as any);
+    chat.afterInit({ use: (fn: any) => (chatMiddleware = fn) } as any);
   });
 
   afterAll(async () => {
@@ -165,30 +205,41 @@ describeDb('Socket authentication (PostgreSQL)', () => {
     it('lets a live session in and remembers its family', async () => {
       const { accessToken, user } = await login();
       const socket = fakeSocket('v1', accessToken);
-      await voice.handleConnection(socket as any);
+      await openVoice(socket);
 
       expect(socket.disconnect).not.toHaveBeenCalled();
       expect(socket.data.userId).toBe(user.id);
       expect(socket.data.familyId).toBeTruthy();
     });
 
+    it('knows who the socket is before the first event can arrive', async () => {
+      // The web client emits voice:join the instant it connects. Identity must
+      // already be set when the middleware lets the socket in, not after a
+      // later database round trip.
+      const { accessToken, user } = await login();
+      const socket = fakeSocket('v0', accessToken);
+      const error = await new Promise<Error | undefined>((resolve) =>
+        voiceMiddleware(socket, resolve),
+      );
+      expect(error).toBeUndefined();
+      expect(socket.data.userId).toBe(user.id);
+      expect(socket.data.userName).toBe('Sock Test');
+    });
+
     it('turns away missing, revoked and deleted-user tokens', async () => {
       const none = fakeSocket('v2');
-      await voice.handleConnection(none as any);
-      expect(none.disconnect).toHaveBeenCalled();
+      expect(await openVoice(none)).toBe(false);
 
       const revoked = await login();
       await auth.logoutByRefreshToken(revoked.refreshToken);
       const revokedSocket = fakeSocket('v3', revoked.accessToken);
-      await voice.handleConnection(revokedSocket as any);
-      expect(revokedSocket.disconnect).toHaveBeenCalled();
+      expect(await openVoice(revokedSocket)).toBe(false);
       expect(revokedSocket.data.userId).toBeUndefined();
 
       const gone = await login();
       await prisma.user.delete({ where: { id: gone.user.id } });
       const goneSocket = fakeSocket('v4', gone.accessToken);
-      await voice.handleConnection(goneSocket as any);
-      expect(goneSocket.disconnect).toHaveBeenCalled();
+      expect(await openVoice(goneSocket)).toBe(false);
     });
 
     it("logout closes that login's sockets and leaves the same user's other login alone", async () => {
@@ -197,8 +248,8 @@ describeDb('Socket authentication (PostgreSQL)', () => {
 
       const a = fakeSocket('va', first.accessToken);
       const b = fakeSocket('vb', second.accessToken);
-      await voice.handleConnection(a as any);
-      await voice.handleConnection(b as any);
+      await openVoice(a);
+      await openVoice(b);
       sockets = [a, b];
 
       await auth.logoutByRefreshToken(first.refreshToken);
@@ -218,7 +269,7 @@ describeDb('Socket authentication (PostgreSQL)', () => {
         fakeSocket('vd', second.accessToken),
         fakeSocket('ve', stranger.accessToken),
       ];
-      for (const s of sockets3) await voice.handleConnection(s as any);
+      for (const s of sockets3) await openVoice(s);
       sockets = sockets3;
 
       await auth.logoutAll(first.user.id);
@@ -232,7 +283,7 @@ describeDb('Socket authentication (PostgreSQL)', () => {
     it('reuse detection also closes the sockets', async () => {
       const first = await login();
       const socket = fakeSocket('vf', first.accessToken);
-      await voice.handleConnection(socket as any);
+      await openVoice(socket);
       sockets = [socket];
 
       await auth.refreshToken(first.refreshToken, { userAgent: 'ua' });
@@ -247,7 +298,7 @@ describeDb('Socket authentication (PostgreSQL)', () => {
     it('a token refresh does NOT close a connected socket', async () => {
       const first = await login();
       const socket = fakeSocket('vg', first.accessToken);
-      await voice.handleConnection(socket as any);
+      await openVoice(socket);
       sockets = [socket];
 
       await auth.refreshToken(first.refreshToken, { userAgent: 'ua' });
@@ -260,7 +311,7 @@ describeDb('Socket authentication (PostgreSQL)', () => {
     it('lets a live session in', async () => {
       const { accessToken, user } = await login();
       const socket = fakeSocket('c1', accessToken);
-      await chat.handleConnection(socket as any);
+      await openChat(socket);
 
       expect(socket.disconnect).not.toHaveBeenCalled();
       expect(socket.data.userId).toBe(user.id);
@@ -271,15 +322,14 @@ describeDb('Socket authentication (PostgreSQL)', () => {
       const revoked = await login();
       await auth.logoutByRefreshToken(revoked.refreshToken);
       const socket = fakeSocket('c2', revoked.accessToken);
-      await chat.handleConnection(socket as any);
-      expect(socket.disconnect).toHaveBeenCalled();
+      expect(await openChat(socket)).toBe(false);
       expect(socket.data.userId).toBeUndefined();
     });
 
     it('logout closes the chat sockets of that login', async () => {
       const first = await login();
       const socket = fakeSocket('c3', first.accessToken);
-      await chat.handleConnection(socket as any);
+      await openChat(socket);
       sockets = [socket];
 
       await auth.logout(first.user.id, first.refreshToken);

@@ -1,7 +1,7 @@
 
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { VoiceGateway } from '../voice.gateway';
+import { VoiceBroadcaster } from '../realtime/voice-broadcaster';
 
 @Injectable()
 export class SpeakerQueueService {
@@ -10,7 +10,7 @@ export class SpeakerQueueService {
 
   constructor(
     private prisma: PrismaService,
-    private voiceGateway: VoiceGateway,
+    private voiceBroadcaster: VoiceBroadcaster,
   ) {}
 
   async addToQueue(roomId: string, userId: string, invitedBy?: string) {
@@ -151,7 +151,7 @@ export class SpeakerQueueService {
 
     // Broadcast updates
     this.broadcastQueue(roomId);
-    this.voiceGateway.broadcastParticipantUpdate(roomId, {
+    this.voiceBroadcaster.broadcastParticipantUpdate(roomId, {
       userId,
       role: 'SPEAKER',
     });
@@ -248,6 +248,6 @@ export class SpeakerQueueService {
 
   private async broadcastQueue(roomId: string) {
     const queue = await this.getQueue(roomId);
-    this.voiceGateway.broadcastQueueUpdate(roomId, queue);
+    this.voiceBroadcaster.broadcastQueueUpdate(roomId, queue);
   }
 }

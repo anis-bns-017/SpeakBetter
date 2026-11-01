@@ -13,10 +13,12 @@ import { LearningModule } from './learning/learning.module';
 import { CommunitiesModule } from './communities/communities.module';
 import { FriendsModule } from './friends/friends.module';
 import { UploadModule } from './upload/upload.module';
+import { RedisModule } from './common/redis.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    RedisModule,
     AuthModule,
     UsersModule,
     ProfileModule,

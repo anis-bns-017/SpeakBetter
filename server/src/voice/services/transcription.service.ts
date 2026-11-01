@@ -3,7 +3,7 @@ import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DeepgramClient } from '@deepgram/sdk';
 import { PrismaService } from '../../prisma.service';
-import { VoiceGateway } from '../voice.gateway';
+import { VoiceBroadcaster } from '../realtime/voice-broadcaster';
 
 @Injectable()
 export class TranscriptionService implements OnModuleInit {
@@ -14,7 +14,7 @@ export class TranscriptionService implements OnModuleInit {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
-    private voiceGateway: VoiceGateway,
+    private voiceBroadcaster: VoiceBroadcaster,
   ) {}
 
   async onModuleInit() {
@@ -85,7 +85,7 @@ export class TranscriptionService implements OnModuleInit {
             confidence,
           );
 
-          this.voiceGateway.broadcastTranscription(roomId, {
+          this.voiceBroadcaster.broadcastTranscription(roomId, {
             text: transcript,
             isFinal,
             speaker,
@@ -203,7 +203,7 @@ export class TranscriptionService implements OnModuleInit {
         },
       });
 
-      this.voiceGateway.broadcastTranscription(roomId, {
+      this.voiceBroadcaster.broadcastTranscription(roomId, {
         text: `🗣️ [${speaker}] ${text}`,
         speaker,
         userId,

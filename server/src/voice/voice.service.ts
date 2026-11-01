@@ -45,6 +45,148 @@ export class VoiceService {
     private activity: ActivityService,
   ) {}
 
+  // ============ PRIVATE ROOM ACCESS ============
+  //
+  // A PRIVATE room belongs to its creator and the people invited to it. Being
+  // invited (by id when the room was created, or by invite code) is what puts a
+  // participant row in the table, so "has a row" is the access rule. Everything
+  // below that exposes a room's details, people or chat goes through it.
+
+  /** Prisma filter: rooms this person may see in a list */
+  private visibleRoomsWhere(userId: string) {
+    return {
+      OR: [
+        { type: { not: 'PRIVATE' as const } },
+        { creatorId: userId },
+        { participants: { some: { userId } } },
+      ],
+    };
+  }
+
+  /** Throws "not found" (so a private room's existence is not leaked) unless the person may see the room */
+  async assertRoomAccess(
+    room: { id: string; type?: string | null; creatorId: string },
+    userId: string,
+  ) {
+    if (room.type !== 'PRIVATE' || room.creatorId === userId) return;
+    const row = await this.prisma.voiceParticipant.findUnique({
+      where: { roomId_userId: { roomId: room.id, userId } },
+      select: { id: true },
+    });
+    if (!row) throw new NotFoundException('Room not found');
+  }
+
+  /** Same rule, looked up by id */
+  async assertRoomAccessById(roomId: string, userId: string) {
+    const room = await this.prisma.voiceRoom.findUnique({
+      where: { id: roomId },
+      select: { id: true, type: true, creatorId: true },
+    });
+    if (!room) throw new NotFoundException('Room not found');
+    await this.assertRoomAccess(room, userId);
+  }
+
+  /** Drops someone out of the LiveKit (audio) room. Best effort: a failure is logged, never thrown. */
+  async removeFromAudio(liveKitRoomId: string | null, userId: string) {
+    if (!liveKitRoomId) return;
+    try {
+      await this.liveKitService.removeParticipant(liveKitRoomId, userId);
+    } catch (error) {
+      this.logger.warn(
+        `Could not remove ${userId} from audio room ${liveKitRoomId}: ${error?.message}`,
+      );
+    }
+  }
+
+  // ============ KICK BANS ============
+  //
+  // Kicking someone bans them from the room: they cannot join again by room id,
+  // over the socket, or with an invite code, until the host lifts the ban.
+
+  async isBanned(roomId: string, userId: string) {
+    const ban = await this.prisma.voiceRoomBan.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+      select: { id: true },
+    });
+    return !!ban;
+  }
+
+  async assertNotBanned(roomId: string, userId: string) {
+    if (await this.isBanned(roomId, userId)) {
+      throw new ForbiddenException('You were removed from this room by the host.');
+    }
+  }
+
+  /**
+   * Host-only. Removes the person from the room and bans them in one step, so
+   * there is no moment in which they could slip back in. Works even if they
+   * already left (the ban is what matters).
+   */
+  async kickParticipant(
+    actorId: string,
+    roomId: string,
+    targetUserId: string,
+    reason?: string,
+  ) {
+    const room = await this.prisma.voiceRoom.findUnique({ where: { id: roomId } });
+    if (!room) throw new NotFoundException('Room not found');
+    if (room.creatorId !== actorId) {
+      throw new ForbiddenException('Only the host can kick members');
+    }
+    if (room.creatorId === targetUserId) {
+      throw new ForbiddenException('Cannot kick the host');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.voiceRoomBan.upsert({
+        where: { roomId_userId: { roomId, userId: targetUserId } },
+        create: {
+          roomId,
+          userId: targetUserId,
+          bannedById: actorId,
+          reason: reason?.slice(0, 200) || null,
+        },
+        update: {},
+      }),
+      this.prisma.voiceParticipant.deleteMany({
+        where: { roomId, userId: targetUserId },
+      }),
+    ]);
+
+    return room;
+  }
+
+  /** Host or moderator: who is banned from this room */
+  async listBans(actorId: string, roomId: string) {
+    if (!(await this.isRoomManager(roomId, actorId))) {
+      throw new ForbiddenException('Only the host or a moderator can see the ban list');
+    }
+    const bans = await this.prisma.voiceRoomBan.findMany({
+      where: { roomId },
+      orderBy: { createdAt: 'desc' },
+      include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+    });
+    return bans.map((ban) => ({
+      id: ban.id,
+      userId: ban.userId,
+      user: ban.user,
+      bannedById: ban.bannedById,
+      reason: ban.reason,
+      createdAt: ban.createdAt,
+    }));
+  }
+
+  /** Host or moderator: lets someone back in (they still have to join again) */
+  async unbanParticipant(actorId: string, roomId: string, targetUserId: string) {
+    if (!(await this.isRoomManager(roomId, actorId))) {
+      throw new ForbiddenException('Only the host or a moderator can lift a ban');
+    }
+    await this.prisma.voiceRoomBan.deleteMany({
+      where: { roomId, userId: targetUserId },
+    });
+    return { success: true };
+  }
+
   // ============ SPEAKING TIME ============
 
   /**
@@ -78,7 +220,7 @@ export class VoiceService {
   // ============ ROOM CRUD ============
 
   async getRooms(userId: string, query: { type?: string; status?: string }) {
-    const where: any = {};
+    const where: any = { AND: [this.visibleRoomsWhere(userId)] };
     if (query.type) where.type = query.type;
     if (query.status) where.status = query.status;
 
@@ -124,6 +266,8 @@ export class VoiceService {
     if (!room) {
       throw new NotFoundException('Room not found');
     }
+
+    await this.assertRoomAccess(room, userId);
 
     return room;
   }
@@ -183,16 +327,21 @@ export class VoiceService {
     });
 
     if (invitedUserIds && invitedUserIds.length > 0) {
-      for (const invitedUserId of invitedUserIds) {
-        if (invitedUserId !== userId) {
-          await this.prisma.voiceParticipant.create({
-            data: {
-              roomId: room.id,
-              userId: invitedUserId,
-              role: 'LISTENER',
-            },
-          });
-        }
+      // Only people who exist (an unknown id would fail the whole request), once each
+      const wanted = [...new Set(invitedUserIds)].filter((id) => id !== userId);
+      const people = await this.prisma.user.findMany({
+        where: { id: { in: wanted } },
+        select: { id: true },
+      });
+      if (people.length > 0) {
+        await this.prisma.voiceParticipant.createMany({
+          data: people.map((person) => ({
+            roomId: room.id,
+            userId: person.id,
+            role: 'LISTENER' as const,
+          })),
+          skipDuplicates: true,
+        });
       }
     }
 
@@ -318,6 +467,20 @@ export class VoiceService {
       throw new BadRequestException('This room has ended');
     }
 
+    await this.assertNotBanned(roomId, userId);
+
+    if (room.type === 'PRIVATE' && room.creatorId !== userId) {
+      const invited = await this.prisma.voiceParticipant.findUnique({
+        where: { roomId_userId: { roomId, userId } },
+        select: { id: true },
+      });
+      if (!invited) {
+        throw new ForbiddenException(
+          'This room is private. Ask the host for an invite.',
+        );
+      }
+    }
+
     let liveKitRoomId = room.liveKitRoomId;
 
     if (!liveKitRoomId) {
@@ -366,7 +529,11 @@ export class VoiceService {
         liveKitRoomId,
         userId,
         userId,
-        { canPublish: this.canSpeakInRoom(room, userId, existingParticipant.role) },
+        {
+          canPublish:
+            this.canSpeakInRoom(room, userId, existingParticipant.role) &&
+            !existingParticipant.mutedByHost,
+        },
       );
 
       return {
@@ -397,7 +564,11 @@ export class VoiceService {
         liveKitRoomId,
         userId,
         userId,
-        { canPublish: this.canSpeakInRoom(room, userId, participant.role) },
+        {
+          canPublish:
+            this.canSpeakInRoom(room, userId, participant.role) &&
+            !participant.mutedByHost,
+        },
       );
 
       return {
@@ -487,6 +658,8 @@ export class VoiceService {
       throw new NotFoundException('Room not found');
     }
 
+    await this.assertRoomAccess(room, userId);
+
     return this.prisma.voiceParticipant.findMany({
       where: { roomId, leftAt: null },
       include: {
@@ -541,6 +714,7 @@ export class VoiceService {
       },
       data: {
         isMuted: true,
+        mutedByHost: true,
       },
       include: {
         user: {
@@ -554,6 +728,13 @@ export class VoiceService {
     });
 
     if (room.liveKitRoomId) {
+      // Muting the track is not enough: the person could switch it back on.
+      // Taking away the permission to publish is what actually holds.
+      await this.liveKitService.setCanPublish(
+        room.liveKitRoomId,
+        targetUserId,
+        false,
+      );
       try {
         await this.liveKitService.muteParticipant(
           room.liveKitRoomId,
@@ -606,6 +787,7 @@ export class VoiceService {
       },
       data: {
         isMuted: false,
+        mutedByHost: false,
       },
       include: {
         user: {
@@ -619,6 +801,12 @@ export class VoiceService {
     });
 
     if (room.liveKitRoomId) {
+      // Give back what the room type allows (listeners on a stage stay listeners)
+      await this.liveKitService.setCanPublish(
+        room.liveKitRoomId,
+        targetUserId,
+        this.canSpeakInRoom(room, targetUserId, updated.role),
+      );
       try {
         await this.liveKitService.unmuteParticipant(
           room.liveKitRoomId,
@@ -726,7 +914,8 @@ export class VoiceService {
       await this.liveKitService.setCanPublish(
         room.liveKitRoomId,
         targetUserId,
-        canSpeak,
+        // a person the host muted stays unable to publish whatever their role
+        canSpeak && !participant.mutedByHost,
       );
     }
 
@@ -750,6 +939,7 @@ export class VoiceService {
 
     const where: any = {
       status: 'ACTIVE',
+      AND: [this.visibleRoomsWhere(userId)],
     };
 
     if (query) {
@@ -865,7 +1055,7 @@ export class VoiceService {
 
   async getTrendingRooms(userId: string, limit: number = 10) {
     return this.prisma.voiceRoom.findMany({
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', AND: [this.visibleRoomsWhere(userId)] },
       include: {
         creator: {
           select: {
@@ -915,7 +1105,7 @@ export class VoiceService {
 
   async getRecommendedRooms(userId: string, limit: number = 10) {
     return this.prisma.voiceRoom.findMany({
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', AND: [this.visibleRoomsWhere(userId)] },
       include: {
         creator: {
           select: {
@@ -1106,6 +1296,7 @@ export class VoiceService {
   // ============ RECORDINGS ============
 
   async getRecordings(roomId: string, userId: string) {
+    await this.assertRoomAccessById(roomId, userId);
     return this.prisma.recording.findMany({
       where: { roomId },
       orderBy: { createdAt: 'desc' },
@@ -1308,12 +1499,14 @@ export class VoiceService {
   ) {
     const room = await this.prisma.voiceRoom.findUnique({
       where: { id: roomId },
-      select: { id: true },
+      select: { id: true, type: true, creatorId: true },
     });
 
     if (!room) {
       throw new NotFoundException('Room not found');
     }
+
+    await this.assertRoomAccess(room, userId);
 
     const where: any = { roomId };
     if (before) {
@@ -1630,7 +1823,8 @@ export class VoiceService {
     return !!participant && !participant.leftAt;
   }
 
-  async getActiveParticipants(roomId: string) {
+  async getActiveParticipants(roomId: string, viewerId?: string) {
+    if (viewerId) await this.assertRoomAccessById(roomId, viewerId);
     return this.prisma.voiceParticipant.findMany({
       where: {
         roomId,
@@ -1772,7 +1966,8 @@ export class VoiceService {
     return this.toCorrectionPayload(updated);
   }
 
-  async getRoomCorrections(roomId: string, limit = 100) {
+  async getRoomCorrections(roomId: string, limit = 100, viewerId?: string) {
+    if (viewerId) await this.assertRoomAccessById(roomId, viewerId);
     const rows = await this.prisma.voiceCorrection.findMany({
       where: { roomId },
       orderBy: { createdAt: 'desc' },

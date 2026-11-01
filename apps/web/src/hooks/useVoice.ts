@@ -1024,6 +1024,8 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
   const [isConnected, setIsConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [hostId, setHostId] = useState<string | null>(null);
+  // True once the host removed me (kicked and banned); the room view leaves
+  const [wasRemoved, setWasRemoved] = useState(false);
   const queryClient = useQueryClient();
   const reconnectAttemptsRef = useRef(0);
 
@@ -1147,10 +1149,30 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
       toast.info("👑 Host has changed");
     });
 
-    s.on("voice:kicked", (data: { roomId: string; reason: string }) => {
-      toast.error(`You were kicked from the room: ${data.reason}`);
-      s.disconnect();
-    });
+    // The server sends this twice: to the whole room as { userId, kickedBy } (so
+    // everyone can drop that person), and to the kicked person's own sockets as
+    // { roomId, reason }. Only the kicked person may leave; for everyone else
+    // it just removes one name from the list.
+    let removedHandled = false;
+    s.on(
+      "voice:kicked",
+      (data: { roomId?: string; reason?: string; userId?: string }) => {
+        if (data.userId && data.userId !== userId) {
+          setParticipants((prev) =>
+            prev.filter((p) => (p.userId ?? p.user?.id) !== data.userId),
+          );
+          return;
+        }
+        if (removedHandled) return;
+        removedHandled = true;
+        toast.error(
+          data.reason ||
+            "You were removed from this room by the host and can't rejoin.",
+        );
+        setWasRemoved(true);
+        s.disconnect();
+      },
+    );
 
     s.on("voice:chat", (message: any) => {
       const processedMessage = {
@@ -1265,12 +1287,38 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
       });
     });
 
-    s.on("voice:muted", () => {
-      toast.info(`🔇 User was muted`);
+    s.on("voice:muted", (data: { userId?: string }) => {
+      if (data?.userId && data.userId === userId) {
+        toast.warning("🔇 The host muted you. Only they can unmute you.");
+      } else {
+        toast.info("🔇 A participant was muted");
+      }
+      if (data?.userId) {
+        setParticipants((prev) =>
+          prev.map((p) =>
+            (p.userId ?? p.user?.id) === data.userId
+              ? { ...p, isMuted: true, mutedByHost: true }
+              : p,
+          ),
+        );
+      }
     });
 
-    s.on("voice:unmuted", () => {
-      toast.info(`🔊 User was unmuted`);
+    s.on("voice:unmuted", (data: { userId?: string }) => {
+      if (data?.userId && data.userId === userId) {
+        toast.success("🔊 The host unmuted you. You can speak again.");
+      } else {
+        toast.info("🔊 A participant was unmuted");
+      }
+      if (data?.userId) {
+        setParticipants((prev) =>
+          prev.map((p) =>
+            (p.userId ?? p.user?.id) === data.userId
+              ? { ...p, isMuted: false, mutedByHost: false }
+              : p,
+          ),
+        );
+      }
     });
 
     s.on("voice:hand-raised", (data: { userId: string; raised: boolean }) => {
@@ -1548,6 +1596,7 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
     participants,
     typingUsers,
     hostId,
+    wasRemoved,
     sendChatMessage,
     sendTyping,
     raiseHand,

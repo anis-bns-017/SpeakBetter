@@ -500,6 +500,7 @@ model User {
   profile                Profile?
   settings               Settings?
   sessions               Session[]
+  voiceRoomBans          VoiceRoomBan[]          @relation("VoiceRoomBanned")
   accounts               Account[]
   sentFriendRequests     FriendRequest[]         @relation("FriendRequestSender")
   receivedFriendRequests FriendRequest[]         @relation("FriendRequestReceiver")
@@ -1744,6 +1745,7 @@ model VoiceRoom {
   speakerStats   VoiceSpeakerStats[]
   corrections    VoiceCorrection[]
   sessionReports VoiceSessionReport[]
+  bans           VoiceRoomBan[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1757,12 +1759,31 @@ model VoiceParticipant {
   user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   role       ParticipantRole @default(LISTENER)
   isMuted    Boolean         @default(false)
+  // A host/moderator muted this person: they cannot unmute themselves, and the
+  // flag survives leaving and rejoining until the host lifts it
+  mutedByHost Boolean        @default(false)
   isDeafened Boolean         @default(false)
   raisedHand Boolean         @default(false)
   joinedAt   DateTime        @default(now())
   leftAt     DateTime?
 
   @@unique([roomId, userId])
+}
+
+// Someone the host removed from a room. They cannot join it again (by id,
+// socket or invite code) until the host lifts the ban.
+model VoiceRoomBan {
+  id         String    @id @default(cuid())
+  roomId     String
+  room       VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User      @relation("VoiceRoomBanned", fields: [userId], references: [id], onDelete: Cascade)
+  bannedById String
+  reason     String?
+  createdAt  DateTime  @default(now())
+
+  @@unique([roomId, userId])
+  @@index([roomId])
 }
 
 model Recording {

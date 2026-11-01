@@ -6,6 +6,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { VoiceController } from './voice.controller';
 import { VoiceService } from './voice.service';
 import { VoiceGateway } from './voice.gateway';
+import { VoiceChatGateway } from './realtime/voice-chat.gateway';
+import { VoiceModerationGateway } from './realtime/voice-moderation.gateway';
+import { VoiceCoachGateway } from './realtime/voice-coach.gateway';
+import { VoiceRoomState } from './realtime/voice-room-state';
+import { VoiceBroadcaster } from './realtime/voice-broadcaster';
+import { VoiceCoachSession } from './realtime/voice-coach-session';
 import { LiveKitService } from './livekit.service';
 import { PrismaService } from '../prisma.service';
 import { LearningModule } from '../learning/learning.module';
@@ -53,7 +59,15 @@ import { AnalyticsController } from './controllers/analytics.controller';
   ],
   providers: [
     VoiceService,
+    // The voice namespace: one front-door gateway plus feature gateways on
+    // the same namespace, sharing room state and one broadcaster
     VoiceGateway,
+    VoiceChatGateway,
+    VoiceModerationGateway,
+    VoiceCoachGateway,
+    VoiceRoomState,
+    VoiceBroadcaster,
+    VoiceCoachSession,
     LiveKitService,
     PrismaService,
     TranscriptionService,

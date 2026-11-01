@@ -20,12 +20,15 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
+import { RateLimit, RateLimitGuard } from '../common/rate-limit.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'register', limit: 10, windowMs: 60 * 60_000 })
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
@@ -42,6 +45,13 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    name: 'login',
+    limit: 30,
+    windowMs: 15 * 60_000,
+    byBodyField: { field: 'email', limit: 10 },
+  })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -59,6 +69,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'refresh', limit: 120, windowMs: 60_000 })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
