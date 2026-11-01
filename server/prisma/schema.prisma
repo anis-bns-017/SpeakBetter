@@ -501,6 +501,12 @@ model User {
   settings               Settings?
   sessions               Session[]
   voiceRoomBans          VoiceRoomBan[]          @relation("VoiceRoomBanned")
+  randomCallProfile      RandomCallProfile?
+  randomCallsAsA         RandomCall[]            @relation("RandomCallUserA")
+  randomCallsAsB         RandomCall[]            @relation("RandomCallUserB")
+  randomCallRatings      RandomCallRating[]      @relation("RandomCallRater")
+  randomCallReportsMade  RandomCallReport[]      @relation("RandomCallReporter")
+  randomCallReportsAbout RandomCallReport[]      @relation("RandomCallReported")
   accounts               Account[]
   sentFriendRequests     FriendRequest[]         @relation("FriendRequestSender")
   receivedFriendRequests FriendRequest[]         @relation("FriendRequestReceiver")
@@ -2268,4 +2274,90 @@ model VoiceSavedWord {
 
   @@unique([userId, word])
   @@index([userId, dueAt])
+}
+
+// ===== Random 1:1 calls =====
+
+/// Per-user state for random calls: age consent, restrictions and reputation.
+model RandomCallProfile {
+  userId            String    @id
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The user confirmed they are 18 or older (required before the first call)
+  ageConfirmedAt    DateTime?
+  /// Cannot queue until this moment (temporary restriction after reports)
+  restrictedUntil   DateTime?
+  permanentlyBanned Boolean   @default(false)
+  restrictionCount  Int       @default(0)
+  restrictionReason String?
+  callsCount        Int       @default(0)
+  ratingSum         Int       @default(0)
+  ratingCount       Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model RandomCall {
+  id            String             @id @default(cuid())
+  userAId       String
+  userA         User               @relation("RandomCallUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userBId       String
+  userB         User               @relation("RandomCallUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  language      String             @default("English")
+  levelA        String
+  levelB        String
+  goal          String
+  liveKitRoomId String
+  startedAt     DateTime           @default(now())
+  /// When the call ends on its own; a mutual "extend" moves it later
+  endsAt        DateTime
+  extensions    Int                @default(0)
+  extendA       Boolean            @default(false)
+  extendB       Boolean            @default(false)
+  endedAt       DateTime?
+  endedById     String?
+  /// COMPLETED | LEFT | REPORTED | DISCONNECTED
+  endReason     String?
+  talkSecondsA  Int?
+  talkSecondsB  Int?
+  ratings       RandomCallRating[]
+  reports       RandomCallReport[]
+
+  @@index([userAId, startedAt])
+  @@index([userBId, startedAt])
+  @@index([endedAt, endsAt])
+}
+
+model RandomCallRating {
+  id          String     @id @default(cuid())
+  callId      String
+  call        RandomCall @relation(fields: [callId], references: [id], onDelete: Cascade)
+  raterId     String
+  rater       User       @relation("RandomCallRater", fields: [raterId], references: [id], onDelete: Cascade)
+  rating      Int
+  /// "Keep in touch": they become friends only when both say yes
+  keepInTouch Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+
+  @@unique([callId, raterId])
+}
+
+model RandomCallReport {
+  id           String     @id @default(cuid())
+  callId       String
+  call         RandomCall @relation(fields: [callId], references: [id], onDelete: Cascade)
+  reporterId   String
+  reporter     User       @relation("RandomCallReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedId   String
+  reported     User       @relation("RandomCallReported", fields: [reportedId], references: [id], onDelete: Cascade)
+  /// HARASSMENT | SEXUAL | HATE | SPAM | UNDERAGE | OTHER
+  reason       String
+  details      String?
+  /// PENDING | UPHELD | DISMISSED
+  status       String     @default("PENDING")
+  reviewedById String?
+  createdAt    DateTime   @default(now())
+
+  @@index([reportedId, createdAt])
+  @@index([reporterId, createdAt])
+  @@index([status])
 }
