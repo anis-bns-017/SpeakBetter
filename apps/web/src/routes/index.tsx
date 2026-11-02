@@ -16,6 +16,8 @@ import { VoicePage } from "../pages/VoicePage";
 import { RandomCallPage } from "../pages/RandomCallPage";
 import { CommunitiesPage } from "../pages/CommunitiesPage";
 import { ProgressPage } from "../pages/ProgressPage";
+import { PlacementPage } from "../pages/PlacementPage";
+import { AiPartnerPage } from "../pages/AiPartnerPage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { ChatPage } from "../pages/ChatPage";
@@ -131,6 +133,8 @@ const AppRoutes = () => {
           <Route path="/grammar" element={<GrammarPage />} />
           <Route path="/exercises" element={<ExercisesPage />} />
           <Route path="/progress" element={<ProgressPage />} />
+          <Route path="/placement" element={<PlacementPage />} />
+          <Route path="/ai-partner" element={<AiPartnerPage />} />
 
           {/* Profile & Settings */}
           <Route path="/profile" element={<ProfilePage />} />

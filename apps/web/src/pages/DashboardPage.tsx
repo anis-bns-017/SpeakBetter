@@ -35,12 +35,15 @@ import {
   Clock,
   Wand2,
   Zap,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useSidebar } from "../contexts/SidebarContext";
 import { useDashboard, type DashboardData } from "../hooks/useLearning";
 import { useTrendingRooms } from "../hooks/useDiscovery";
+import { usePlacementStatus } from "../hooks/usePlacement";
+import { CEFR_INFO, isCefr, type CefrCode } from "../lib/cefr";
 import { useSuggestions, useSendFriendRequest } from "../hooks/useFriends";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
 
@@ -238,8 +241,11 @@ interface NextStep {
 }
 
 /** Suggestions picked from what the learner has (and hasn't) done */
-function buildNextSteps(d: DashboardData, liveRoom?: { id: string; name: string }): NextStep[] {
+function buildNextSteps(d: DashboardData, liveRoom?: { id: string; name: string }, needsLevel = false): NextStep[] {
   const steps: NextStep[] = [];
+  if (needsLevel) {
+    steps.push({ id: "level", title: "Find your English level", detail: "8 minutes · tunes rooms, calls and practice to you", icon: Target, tone: "bg-fuchsia-500/10 text-fuchsia-500", to: "/placement", cta: "Take the test" });
+  }
   if (!d.streak.practicedToday && d.streak.current > 0) {
     steps.push({ id: "streak", title: `Save your ${d.streak.current}-day streak`, detail: "Any practice today keeps it alive", icon: Flame, tone: "bg-orange-500/10 text-orange-500", to: liveRoom ? `/voice/${liveRoom.id}` : "/voice", cta: "Practice now" });
   }
@@ -266,12 +272,14 @@ function buildNextSteps(d: DashboardData, liveRoom?: { id: string; name: string 
   if (d.corrections.given === 0) {
     steps.push({ id: "help", title: "Help someone with a correction", detail: "Teaching is learning — and it earns 3 XP", icon: Sparkles, tone: "bg-amber-500/10 text-amber-500", to: "/voice", cta: "Find a room" });
   }
+  steps.push({ id: "ai", title: "Practise with your AI partner", detail: "No one online? Talk any time and get instant corrections", icon: Bot, tone: "bg-violet-500/10 text-violet-500", to: "/ai-partner", cta: "Start talking" });
   steps.push({ id: "exercise", title: "Do a short exercise", detail: "10 XP for each one you finish", icon: Dumbbell, tone: "bg-rose-500/10 text-rose-500", to: "/exercises", cta: "Start" });
   return steps.slice(0, 4);
 }
 
 const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon; tone: string }> = [
   { to: "/voice", title: "Voice Rooms", desc: "Live speaking practice", icon: AudioLines, tone: "text-indigo-500 bg-indigo-500/10" },
+  { to: "/ai-partner", title: "AI Partner", desc: "Talk any time", icon: Bot, tone: "text-violet-500 bg-violet-500/10" },
   { to: "/chat", title: "Chat", desc: "Message partners", icon: MessageCircle, tone: "text-rose-500 bg-rose-500/10" },
   { to: "/communities", title: "Communities", desc: "Groups by interest", icon: Hash, tone: "text-teal-500 bg-teal-500/10" },
   { to: "/discover", title: "Discover", desc: "Trending rooms", icon: Compass, tone: "text-amber-500 bg-amber-500/10" },
@@ -292,6 +300,7 @@ const DashboardPage: React.FC = () => {
   const { openPalette } = useSidebar();
 
   const { data, isLoading, isError, refetch } = useDashboard();
+  const { data: placement } = usePlacementStatus();
   const { data: trending } = useTrendingRooms(6);
   const { data: suggestionsData } = useSuggestions();
   const sendRequest = useSendFriendRequest();
@@ -346,7 +355,10 @@ const DashboardPage: React.FC = () => {
   const lastSeven = data.activity.slice(-7);
   const activeDays = data.activity.filter((d) => d.xp > 0).length;
   const goalDone = data.xp.today >= data.xp.dailyGoal;
-  const nextSteps = buildNextSteps(data, liveRooms[0]);
+  // `placement` is undefined while loading or if it failed: don't nag until we know there is no level
+  const needsLevel = placement !== undefined && !placement.level && !placement.inProgress;
+  const nextSteps = buildNextSteps(data, liveRooms[0], needsLevel);
+  const cefr = placement?.level && isCefr(placement.level) ? (placement.level.toUpperCase() as CefrCode) : null;
   const isNewLearner = data.xp.total === 0 && data.voice.roomsJoined === 0;
   const learning = data.profile.learningLanguages[0] ?? "English";
 
@@ -377,6 +389,15 @@ const DashboardPage: React.FC = () => {
             {greeting()}, {firstName} 👋
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{statusLine}</p>
+          {cefr && (
+            <Link
+              to="/placement"
+              title="See your level breakdown"
+              className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-xs font-semibold ${CEFR_INFO[cefr].chip}`}
+            >
+              <Target className="w-3.5 h-3.5" /> {cefr} · {CEFR_INFO[cefr].name}
+            </Link>
+          )}
         </div>
         <button
           type="button"

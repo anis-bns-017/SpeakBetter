@@ -76,6 +76,16 @@ export function useSpeechCaptions(options: {
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         wanted = false;
         setError("Captions need microphone access.");
+      } else if (event.error === "audio-capture") {
+        wanted = false;
+        setError("No microphone was found. Plug one in or pick another input in your system settings.");
+      } else if (event.error === "network") {
+        // Chrome sends the audio to Google for recognition; without internet (or in Brave) it fails
+        wanted = false;
+        setError("Speech recognition couldn't reach its service. Check your internet connection, or try Chrome or Edge.");
+      } else if (event.error === "language-not-supported") {
+        wanted = false;
+        setError("Your browser can't recognise this language.");
       }
       // "no-speech" and "aborted" are normal pauses
     };
@@ -94,6 +104,8 @@ export function useSpeechCaptions(options: {
 
     return () => {
       wanted = false;
+      // A fresh recording shouldn't start with the last one's error still showing
+      setError(null);
       window.clearTimeout(restartTimer);
       recognition.onresult = null;
       recognition.onend = null;

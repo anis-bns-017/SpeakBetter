@@ -44,6 +44,7 @@ import {
   ArrowDown,
   Radio,
   Sparkles,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -90,6 +91,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Chat", to: "/chat", icon: MessageCircle, keywords: "messages dm conversation" },
       { label: "Communities", to: "/communities", icon: Hash, keywords: "groups clubs channels" },
       { label: "Friends", to: "/friends", icon: Users, keywords: "partners people suggestions", matches: ["/suggestions", "/blocked"] },
+      { label: "AI Partner", to: "/ai-partner", icon: Bot, keywords: "ai tutor practice talk speaking conversation roleplay interview" },
     ],
   },
   {
@@ -100,6 +102,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Grammar", to: "/grammar", icon: FileText, keywords: "rules tenses" },
       { label: "Exercises", to: "/exercises", icon: Dumbbell, keywords: "practice quiz" },
       { label: "Progress", to: "/progress", icon: TrendingUp, keywords: "stats streak xp level" },
+      { label: "Level test", to: "/placement", icon: Sparkles, keywords: "placement cefr a1 b2 c1 assessment find my english level" },
     ],
   },
 ];

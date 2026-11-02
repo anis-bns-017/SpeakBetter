@@ -1,4 +1,5 @@
 import React from 'react';
+import { levelChipClass } from '../../lib/cefr';
 
 // ========== TYPES ==========
 interface Profile {
@@ -60,19 +61,6 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
       month: 'long',
       day: 'numeric',
     });
-  };
-
-  // Helper to get level badge color
-  const getLevelColor = (level?: string) => {
-    const colors: Record<string, string> = {
-      beginner: 'bg-green-100 text-green-700',
-      elementary: 'bg-blue-100 text-blue-700',
-      intermediate: 'bg-yellow-100 text-yellow-700',
-      'upper-intermediate': 'bg-orange-100 text-orange-700',
-      advanced: 'bg-red-100 text-red-700',
-      native: 'bg-purple-100 text-purple-700',
-    };
-    return colors[level?.toLowerCase() || ''] || 'bg-gray-100 text-gray-700';
   };
 
   return (
@@ -149,7 +137,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
             </span>
           )}
           {profile.level && (
-            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getLevelColor(profile.level)}`}>
+            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${levelChipClass(profile.level)}`}>
               {profile.level}
             </span>
           )}

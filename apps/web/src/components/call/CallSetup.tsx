@@ -1,5 +1,5 @@
 // apps/web/src/components/call/CallSetup.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Clock, History, Lock, Loader2, Phone, Star, Users } from "lucide-react";
 import { COLORS } from "../voice/lobby/lobbyTheme";
@@ -13,6 +13,8 @@ import {
 } from "./callApi";
 import { GOAL_OPTIONS, LEVEL_OPTIONS } from "./callOptions";
 import { MicCheck } from "./MicCheck";
+import { useProfile } from "../../hooks/useProfile";
+import { cefrToCallLevel } from "../../lib/cefr";
 
 const PREFS_KEY = "speakbetter:random-call:prefs";
 
@@ -25,6 +27,15 @@ function loadPrefs(): { level: CallLevel; goal: CallGoal } {
     };
   } catch {
     return { level: "intermediate", goal: "casual" };
+  }
+}
+
+function hasSavedLevel(): boolean {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
+    return LEVEL_OPTIONS.some((o) => o.value === raw.level);
+  } catch {
+    return false;
   }
 }
 
@@ -63,6 +74,14 @@ export const CallSetup: React.FC<{
   const [confirmed, setConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<CallHistoryItem[]>([]);
+
+  // Someone who has taken the placement test starts on the matching level, unless they chose one themselves
+  const { profile } = useProfile();
+  const chosenLevel = useRef(hasSavedLevel());
+  useEffect(() => {
+    const suggested = cefrToCallLevel(profile?.level);
+    if (suggested && !chosenLevel.current) setPrefs((p) => ({ ...p, level: suggested }));
+  }, [profile?.level]);
 
   useEffect(() => {
     callApi.history().then(setHistory).catch(() => undefined);
@@ -145,7 +164,10 @@ export const CallSetup: React.FC<{
                   <Chip
                     key={option.value}
                     selected={prefs.level === option.value}
-                    onClick={() => setPrefs((p) => ({ ...p, level: option.value }))}
+                    onClick={() => {
+                      chosenLevel.current = true;
+                      setPrefs((p) => ({ ...p, level: option.value }));
+                    }}
                     title={option.hint}
                   >
                     {option.label}

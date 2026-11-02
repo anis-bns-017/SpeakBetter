@@ -171,6 +171,7 @@ enum XpReason {
   CORRECTION_ACCEPTED
   CHAT_MESSAGE
   MISSION_COMPLETED
+  AI_PRACTICE
 }
 
 enum BadgeCategory {
@@ -595,6 +596,7 @@ model User {
   voiceCorrectionsReceived VoiceCorrection[]          @relation("CorrectionTarget")
   voiceSessionReports      VoiceSessionReport[]       @relation("SessionReportUser")
   voiceSavedWords          VoiceSavedWord[]           @relation("SavedWordUser")
+  placementAttempts        PlacementAttempt[]         @relation("PlacementAttemptUser")
 }
 
 // One row per refresh token. A login starts a "family"; every refresh rotation
@@ -664,7 +666,9 @@ model Profile {
   learningLanguages String[]
   interests         String[]
   goals             String[]
+  /// CEFR level (A1–C2) once the placement test has been taken
   level             String?
+  levelAssessedAt   DateTime?
   xp                Int       @default(0)
   streak            Int       @default(0)
   followersCount    Int       @default(0)
@@ -1413,11 +1417,20 @@ model AiChat {
   userId    String
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String?
+  /// Speaking-partner scenario id (free, interview, travel, ...); null for older chats
+  scenario  String?
+  /// CEFR level the partner spoke at
+  level     String?
+  /// Set when the learner finishes the conversation
+  endedAt   DateTime?
+  /// Recap shown at the end: { turns, words, fluency, corrections, newWords, ... }
+  summary   Json?
   messages  AiMessage[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
   @@index([userId])
+  @@index([userId, createdAt])
 }
 
 model AiMessage {
@@ -1426,6 +1439,8 @@ model AiMessage {
   chat      AiChat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
   role      AiRole
   content   String
+  /// Learner turns: { corrections, betterPhrasing, newWords }; partner turns: { suggestions }
+  metadata  Json?
   createdAt DateTime @default(now())
 
   @@index([chatId])
@@ -2360,4 +2375,32 @@ model RandomCallReport {
   @@index([reportedId, createdAt])
   @@index([reporterId, createdAt])
   @@index([status])
+}
+
+// ===== Placement test =====
+enum PlacementStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model PlacementAttempt {
+  id            String          @id @default(cuid())
+  userId        String
+  user          User            @relation("PlacementAttemptUser", fields: [userId], references: [id], onDelete: Cascade)
+  status        PlacementStatus @default(IN_PROGRESS)
+  /// [{ itemId, skill, level, correct, ms }] in the order answered
+  answers       Json            @default("[]")
+  /// The question waiting for an answer (null once completed)
+  currentItemId String?
+  /// CEFR code (A1–C2) once completed
+  level         String?
+  /// { theta, confidence, correct, total, skills: { GRAMMAR: { level, correct, total }, ... } }
+  result        Json?
+  /// Optional spoken sample: { words, wpm, fluency, fillersPer100, ... }
+  speaking      Json?
+  startedAt     DateTime        @default(now())
+  completedAt   DateTime?
+
+  @@index([userId, startedAt])
+  @@index([userId, status])
 }
