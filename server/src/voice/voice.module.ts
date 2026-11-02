@@ -16,6 +16,7 @@ import { LiveKitService } from './livekit.service';
 import { PrismaService } from '../prisma.service';
 import { LearningModule } from '../learning/learning.module';
 import { AuthModule } from '../auth/auth.module';
+import { TranslateModule } from '../translate/translate.module';
 
 // Import new services
 import { TranscriptionService } from './services/transcription.service';
@@ -47,6 +48,8 @@ import { AnalyticsController } from './controllers/analytics.controller';
     LearningModule,
     // AuthService: session-aware socket authentication
     AuthModule,
+    // Free translation for room messages when no paid key is set
+    TranslateModule,
   ],
   controllers: [
     VoiceController,

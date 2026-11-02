@@ -9,6 +9,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   ArrowRight,
@@ -41,6 +42,7 @@ import {
   type TutorSummary,
 } from "../hooks/useAiTutor";
 import useWordBank from "../hooks/useWordBank";
+import { WordLookup, readSelection, type WordSelection } from "../components/chat/WordLookup";
 import { CEFR_CODES, CEFR_INFO, isCefr, type CefrCode } from "../lib/cefr";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { speechCaptionsSupported, useSpeechCaptions } from "../components/call/useSpeechCaptions";
@@ -240,7 +242,7 @@ const Bubble: React.FC<{
           {emoji}
         </span>
         <div className="min-w-0">
-          <div className="rounded-2xl rounded-tl-md bg-white dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.07] px-4 py-2.5 text-[15px] leading-relaxed text-slate-800 dark:text-slate-100">
+          <div className="rounded-2xl rounded-tl-md bg-white dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.07] px-4 py-2.5 text-[15px] leading-relaxed text-slate-800 dark:text-slate-100" data-message-text={m.text}>
             {m.text}
             {canSpeak() && (
               <button
@@ -297,7 +299,7 @@ const Bubble: React.FC<{
   const clean = !m.pending && (m.corrections?.length ?? 0) === 0 && !m.betterPhrasing;
   return (
     <div className="flex flex-col items-end">
-      <div className={`max-w-[88%] rounded-2xl rounded-tr-md bg-indigo-600 text-white px-4 py-2.5 text-[15px] leading-relaxed ${m.pending ? "opacity-70" : ""}`}>
+      <div className={`max-w-[88%] rounded-2xl rounded-tr-md bg-indigo-600 text-white px-4 py-2.5 text-[15px] leading-relaxed ${m.pending ? "opacity-70" : ""}`} data-message-text={m.text}>
         {m.text}
       </div>
       <div className="max-w-[88%] w-full sm:w-auto">
@@ -357,6 +359,16 @@ const Conversation: React.FC<{
   const sendingRef = useRef(false);
   const prefsRef = useRef(prefs);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  // Select a word or phrase in any message to see what it means in your language
+  const [selected, setSelected] = useState<WordSelection | null>(null);
+  const onSelectionEnd = useCallback(() => {
+    // Let the browser finish updating the selection first
+    window.setTimeout(() => {
+      const next = readSelection(messagesRef.current);
+      if (next) setSelected(next);
+    }, 0);
+  }, []);
   const micSupported = speechCaptionsSupported();
 
   useEffect(() => {
@@ -503,7 +515,13 @@ const Conversation: React.FC<{
       </header>
 
       {/* ---------- messages ---------- */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-5 space-y-4" aria-live="polite">
+      <div
+        ref={messagesRef}
+        onMouseUp={onSelectionEnd}
+        onTouchEnd={onSelectionEnd}
+        className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-5 space-y-4"
+        aria-live="polite"
+      >
         {messages.map((m) => (
           <Bubble
             key={m.id}
@@ -538,6 +556,11 @@ const Conversation: React.FC<{
           </p>
         )}
         <div ref={bottomRef} />
+        <AnimatePresence>
+          {selected && (
+            <WordLookup key={`${selected.text}-${selected.rect.top}`} selection={selected} onClose={() => setSelected(null)} />
+          )}
+        </AnimatePresence>
       </div>
 
       {/* ---------- composer ---------- */}

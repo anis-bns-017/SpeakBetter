@@ -440,7 +440,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         formData.append("file", blob, `voice-${Date.now()}.webm`);
 
         const uploadRes = await fetch(
-          "http://localhost:3000/voice/upload-audio",
+          `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/voice/upload-audio`,
           {
             method: "POST",
             credentials: "include",

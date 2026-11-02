@@ -21,6 +21,7 @@ import {
   TipsInbox,
 } from "../components/call/CallExtras";
 import { useWordBank } from "../hooks/useWordBank";
+import { fetchMeaning } from "../hooks/useLookup";
 
 /** Random one-to-one calls: pick a level and goal, get matched, talk for five minutes */
 export const RandomCallPage = () => {
@@ -42,8 +43,8 @@ export const RandomCallPage = () => {
     [bank.savedSet, extras.savedWords],
   );
   const saveWord = (word: string, sentence: string) => {
-    void bank
-      .save({ word, sentence, speakerName: rc.call?.partner.name })
+    void fetchMeaning(word)
+      .then((meaning) => bank.save({ word, sentence, meaning, speakerName: rc.call?.partner.name }))
       .then((saved) => {
         if (saved) extras.noteSavedWord(word);
       });

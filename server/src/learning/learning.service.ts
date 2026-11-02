@@ -7,6 +7,7 @@ import {
 import { CreateVocabularyDto, ReviewVocabularyDto } from './dto/vocabulary.dto';
 import { CreateFlashcardDto, ReviewFlashcardDto } from './dto/flashcard.dto';
 import { SubmitExerciseDto } from './dto/exercise.dto';
+import { NEW_CARD, isRating, schedule, type Rating } from './srs';
 import { PrismaService } from '../prisma.service';
 import { ActivityService, DAILY_XP_GOAL, XP_REWARDS } from './activity.service';
 
@@ -166,66 +167,60 @@ export class LearningService {
       update: {},
     });
 
+    // A card needs its review row to appear in the deck; new cards are due straight away
     return this.prisma.flashcard.create({
       data: {
         front: data.front,
         back: data.back,
         language: data.language,
         userId,
+        reviews: {
+          create: { userId, easeFactor: NEW_CARD.easeFactor, interval: 0, reviewCount: 0, lastReviewedAt: null, dueAt: new Date() },
+        },
       },
     });
   }
 
   async reviewFlashcard(userId: string, data: ReviewFlashcardDto) {
-    const flashcard = await this.prisma.flashcard.findUnique({
-      where: { id: data.flashcardId },
+    const flashcard = await this.prisma.flashcard.findFirst({
+      where: { id: data.flashcardId, userId },
     });
 
     if (!flashcard) {
       throw new NotFoundException('Flashcard not found');
     }
 
-    const difficultyMap = { easy: 4, medium: 2, hard: 0 };
-    const easeFactor = difficultyMap[data.difficulty] || 2;
+    // Older clients send easy/medium/hard; newer ones send again/hard/good/easy
+    const legacy = { hard: 'hard', medium: 'good', easy: 'easy' } as const;
+    const rating: Rating | undefined = isRating(data.rating) ? data.rating : legacy[data.difficulty as keyof typeof legacy];
+    if (!rating) throw new BadRequestException('Say how well you knew the card');
 
     // Every review counts toward XP and today's streak
     await this.activity.recordActivity(userId, XP_REWARDS.flashcardReview, 'FLASHCARD_REVIEW');
 
     const existingReview = await this.prisma.flashcardReview.findFirst({
-      where: {
-        flashcardId: data.flashcardId,
-        userId,
-      },
+      where: { flashcardId: data.flashcardId, userId },
     });
+    const next = schedule(
+      existingReview
+        ? { easeFactor: existingReview.easeFactor, interval: existingReview.interval, reviewCount: existingReview.reviewCount, lapses: existingReview.lapses }
+        : NEW_CARD,
+      rating,
+    );
+    const fields = {
+      easeFactor: next.easeFactor,
+      interval: next.interval,
+      reviewCount: next.reviewCount,
+      lapses: next.lapses,
+      lastReviewedAt: new Date(),
+      dueAt: next.dueAt,
+    };
 
     if (existingReview) {
-      const newInterval = this.calculateInterval(
-        existingReview.interval,
-        easeFactor,
-        existingReview.easeFactor,
-      );
-
-      return this.prisma.flashcardReview.update({
-        where: { id: existingReview.id },
-        data: {
-          easeFactor: easeFactor,
-          interval: newInterval,
-          lastReviewedAt: new Date(),
-          dueAt: new Date(Date.now() + newInterval * 24 * 60 * 60 * 1000),
-          reviewCount: existingReview.reviewCount + 1,
-        },
-      });
+      return this.prisma.flashcardReview.update({ where: { id: existingReview.id }, data: fields });
     }
-
     return this.prisma.flashcardReview.create({
-      data: {
-        flashcardId: data.flashcardId,
-        userId,
-        easeFactor: 2.5,
-        interval: 1,
-        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        reviewCount: 1,
-      },
+      data: { ...fields, flashcardId: data.flashcardId, userId },
     });
   }
 

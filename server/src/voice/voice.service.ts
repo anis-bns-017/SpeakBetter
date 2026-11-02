@@ -9,6 +9,7 @@ import {
   Logger,
   HttpException,
   HttpStatus,
+  Optional,
 } from '@nestjs/common';
 import { CreateVoiceRoomDto, UpdateVoiceRoomDto } from './dto/voice.dto';
 import {
@@ -20,6 +21,7 @@ import { ParticipantRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { LiveKitService } from './livekit.service';
 import { ActivityService, XP_REWARDS } from '../learning/activity.service';
+import { ReviewService } from '../learning/review.service';
 
 /** Soft-deleted chat messages keep their row (so replies still resolve) with this type */
 export const DELETED_MESSAGE_TYPE = 'DELETED';
@@ -43,6 +45,8 @@ export class VoiceService {
     private prisma: PrismaService,
     private liveKitService: LiveKitService,
     private activity: ActivityService,
+    // Turns corrections into flashcards; optional so rooms keep working (and tests stay simple) without it
+    @Optional() private review?: ReviewService,
   ) {}
 
   // ============ PRIVATE ROOM ACCESS ============
@@ -1931,6 +1935,15 @@ export class VoiceService {
     });
     // Helping someone else learn is rewarded too
     await this.activity.recordActivity(authorId, XP_REWARDS.correctionGiven, 'CORRECTION_GIVEN');
+    // The person corrected gets it as a flashcard to review later (never throws, so it can't hold up the room)
+    void this.review?.addCorrectionCard(data.targetUserId, {
+      source: 'voice',
+      sourceId: saved.id,
+      original,
+      corrected,
+      note: saved.note,
+      category,
+    });
     return this.toCorrectionPayload(saved);
   }
 
@@ -1962,6 +1975,9 @@ export class VoiceService {
     });
     if (status === 'accepted') {
       await this.activity.recordActivity(userId, XP_REWARDS.correctionAccepted, 'CORRECTION_ACCEPTED');
+    } else {
+      // Not a mistake you want to practise
+      void this.review?.removeCorrectionCard(userId, 'voice', correctionId);
     }
     return this.toCorrectionPayload(updated);
   }

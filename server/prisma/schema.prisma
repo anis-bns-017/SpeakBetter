@@ -172,6 +172,7 @@ enum XpReason {
   CHAT_MESSAGE
   MISSION_COMPLETED
   AI_PRACTICE
+  PRONUNCIATION_PRACTICE
 }
 
 enum BadgeCategory {
@@ -597,6 +598,7 @@ model User {
   voiceSessionReports      VoiceSessionReport[]       @relation("SessionReportUser")
   voiceSavedWords          VoiceSavedWord[]           @relation("SavedWordUser")
   placementAttempts        PlacementAttempt[]         @relation("PlacementAttemptUser")
+  pronunciationAttempts    PronunciationAttempt[]
 }
 
 // One row per refresh token. A login starts a "family"; every refresh rotation
@@ -1319,11 +1321,23 @@ model Flashcard {
   userId      String
   user        User              @relation("FlashcardCreator", fields: [userId], references: [id], onDelete: Cascade)
   reviews     FlashcardReview[]
+  /// word | correction (a mistake you were corrected on)
+  kind        String            @default("word")
+  /// Where an automatic card came from: voice | chat | ai (null for cards you made yourself)
+  source      String?
+  /// The correction it came from, so the same one never makes two cards
+  sourceId    String?
+  /// Mistake pattern (ARTICLE, PREPOSITION, ...) behind the "mistakes you repeat" report
+  pattern     String?
+  /// The explanation that came with a correction
+  note        String?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
+  @@unique([userId, source, sourceId])
   @@index([userId])
   @@index([language])
+  @@index([userId, kind, createdAt])
 }
 
 model FlashcardReview {
@@ -1339,6 +1353,8 @@ model FlashcardReview {
   lastReviewedAt DateTime?   @default(now())
   dueAt          DateTime    @default(now())
   reviewCount    Int         @default(0)
+  /// Times it was forgotten after being learned
+  lapses         Int         @default(0)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -2403,4 +2419,28 @@ model PlacementAttempt {
 
   @@index([userId, startedAt])
   @@index([userId, status])
+}
+
+/// One go at saying a word or sentence aloud, scored from the browser's speech recognition
+model PronunciationAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// What you were asked to say
+  target      String
+  /// What the recogniser heard (the guess that matched best)
+  heard       String
+  /// 0-100
+  score       Int
+  /// The sound being practised, or the one most likely mixed up (TH, V_W, R_L...)
+  sound       String?
+  /// sound | sentence | word
+  source      String   @default("sentence")
+  /// Plain words that were not heard right, for "words you keep missing"
+  missedWords String[] @default([])
+  /// { words: [{ text, word, status, heard }], issues: [{ word, heard, sound, tip }] }
+  result      Json
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

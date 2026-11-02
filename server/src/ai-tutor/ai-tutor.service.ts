@@ -10,6 +10,7 @@ import {
 import { XpReason } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { ActivityService } from '../learning/activity.service';
+import { ReviewService } from '../learning/review.service';
 import { TUTOR_SCENARIOS, getScenario } from './ai-tutor.scenarios';
 import {
   MAX_REPLY_CHARS,
@@ -57,6 +58,7 @@ export class AiTutorService {
     private prisma: PrismaService,
     private activity: ActivityService,
     private llm: TutorLlm,
+    private review: ReviewService,
   ) {}
 
   async getStatus(userId: string) {
@@ -191,6 +193,17 @@ export class AiTutorService {
     ]);
 
     await this.activity.recordCappedActivity(userId, XP_PER_TURN, XpReason.AI_PRACTICE, XP_DAILY_CAP);
+
+    // Each mistake the partner pointed out becomes a flashcard to review later (never throws)
+    parsed.corrections.forEach((c, i) => {
+      void this.review.addCorrectionCard(userId, {
+        source: 'ai',
+        sourceId: `${userMessage.id}:${i}`,
+        original: c.original,
+        corrected: c.corrected,
+        note: c.explanation,
+      });
+    });
 
     return {
       userMessage: this.messageView(userMessage),

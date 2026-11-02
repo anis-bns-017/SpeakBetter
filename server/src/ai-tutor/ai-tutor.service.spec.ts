@@ -96,8 +96,9 @@ function setup() {
       xp.push(amount);
     }),
   };
+  const review: any = { addCorrectionCard: jest.fn(async () => ({ created: true })) };
   const llm = new FakeLlm();
-  return { service: new AiTutorService(prisma, activity, llm), prisma, activity, llm, chats, messages, profile };
+  return { service: new AiTutorService(prisma, activity, llm, review), prisma, activity, review, llm, chats, messages, profile };
 }
 
 describe('AiTutorService', () => {
@@ -170,6 +171,28 @@ describe('AiTutorService', () => {
       const s = await service.startSession('u1', 'free');
       await service.turn('u1', s.sessionId, 'hello');
       expect(activity.recordCappedActivity).toHaveBeenCalledWith('u1', XP_PER_TURN, 'AI_PRACTICE', XP_DAILY_CAP);
+    });
+
+    it('turns each correction into a flashcard for the learner', async () => {
+      const { service, review } = setup();
+      const s = await service.startSession('u1', 'free');
+      const r = await service.turn('u1', s.sessionId, 'I go yesterday');
+      expect(review.addCorrectionCard).toHaveBeenCalledTimes(1);
+      expect(review.addCorrectionCard).toHaveBeenCalledWith('u1', {
+        source: 'ai',
+        sourceId: `${r.userMessage.id}:0`,
+        original: 'I go yesterday',
+        corrected: 'I went yesterday',
+        note: 'Past tense.',
+      });
+    });
+
+    it('makes no cards when there was nothing to correct', async () => {
+      const { service, llm, review } = setup();
+      llm.next = async () => JSON.stringify({ reply: 'Great.', corrections: [], betterPhrasing: '', newWords: [], suggestions: [] });
+      const s = await service.startSession('u1', 'free');
+      await service.turn('u1', s.sessionId, 'I went home');
+      expect(review.addCorrectionCard).not.toHaveBeenCalled();
     });
 
     it('drops a "better phrasing" that repeats what the learner said', async () => {

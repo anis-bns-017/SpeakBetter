@@ -3,11 +3,13 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateChatDto, SendMessageDto, GetMessagesDto } from './dto/chat.dto';
 import { MessageType, Prisma } from '@prisma/client';
 import { ActivityService, XP_REWARDS, CHAT_XP_DAILY_CAP } from '../learning/activity.service';
+import { ReviewService } from '../learning/review.service';
 import { ChatPrivacyService } from './chat-privacy.service';
 import { MESSAGE_INCLUDE, metaOf, presentMessage, visibleMessagesWhere } from './chat.presenter';
 
@@ -34,6 +36,8 @@ export class ChatService {
     private prisma: PrismaService,
     private activity: ActivityService,
     private privacy: ChatPrivacyService,
+    // Turns corrections into flashcards; optional so chat keeps working (and tests stay simple) without it
+    @Optional() private review?: ReviewService,
   ) {}
 
   // ============ CHATS ============
@@ -580,6 +584,16 @@ export class ChatService {
 
     if (isCorrection) {
       await this.activity.recordActivity(userId, XP_REWARDS.correctionGiven, 'CORRECTION_GIVEN');
+      // The person whose message was corrected gets it as a flashcard (never throws)
+      if (replyMessage?.senderId) {
+        void this.review?.addCorrectionCard(replyMessage.senderId, {
+          source: 'chat',
+          sourceId: message.id,
+          original: replyMessage.content ?? '',
+          corrected: message.content ?? '',
+          note: (metadata as { note?: string } | undefined)?.note ?? null,
+        });
+      }
     } else if (!options?.forwardedFromId && (message.type === 'TEXT' || message.type === 'VOICE_NOTE')) {
       // Chatting is practice too: small XP per message, capped per day
       await this.activity.recordCappedActivity(userId, XP_REWARDS.chatMessage, 'CHAT_MESSAGE', CHAT_XP_DAILY_CAP);

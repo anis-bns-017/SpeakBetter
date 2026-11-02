@@ -17,6 +17,8 @@ import { RedisModule } from './common/redis.module';
 import { RandomCallModule } from './random-call/random-call.module';
 import { PlacementModule } from './placement/placement.module';
 import { AiTutorModule } from './ai-tutor/ai-tutor.module';
+import { TranslateModule } from './translate/translate.module';
+import { PronunciationModule } from './pronunciation/pronunciation.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { AiTutorModule } from './ai-tutor/ai-tutor.module';
     RandomCallModule,
     PlacementModule,
     AiTutorModule,
+    TranslateModule,
+    PronunciationModule,
     CommunitiesModule,
   ],
   providers: [PrismaService, { provide: APP_GUARD, useClass: JwtAuthGuard }],

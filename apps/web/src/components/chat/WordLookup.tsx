@@ -1,19 +1,22 @@
 // apps/web/src/components/chat/WordLookup.tsx
 /**
  * Select a word or short phrase in any chat message to get:
- *  - its definition, phonetics and an example (single words, via the free
- *    dictionaryapi.dev — only the selected word is sent),
+ *  - its meaning in your own language plus the English definition, phonetics and an example
+ *    (looked up on our server with free services; only the selected text is sent),
  *  - pronunciation (normal / slow) with the browser's English voice,
  *  - "Save to flashcards" so it comes back in spaced-repetition review.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { BookmarkPlus, Check, Loader2, Turtle, Volume2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiClient } from "../../lib/api/client";
 import { canSpeak, speak } from "../../lib/speech";
+import { meaningFrom, useLookupState } from "../../hooks/useLookup";
+import { LookupBody } from "../lookup/LookupBody";
 
 export interface WordSelection {
   text: string;
@@ -21,13 +24,6 @@ export interface WordSelection {
   context: string;
   /** Viewport rect of the selection, for positioning */
   rect: { top: number; left: number; bottom: number; width: number };
-}
-
-interface DictionaryResult {
-  phonetic?: string;
-  partOfSpeech?: string;
-  definition?: string;
-  example?: string;
 }
 
 const MAX_PHRASE_WORDS = 6;
@@ -52,69 +48,82 @@ export function readSelection(container: HTMLElement | null): WordSelection | nu
   };
 }
 
-async function lookUp(word: string, signal: AbortSignal): Promise<DictionaryResult | null> {
-  const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`, { signal });
-  if (!res.ok) return null;
-  const data = (await res.json()) as Array<{
-    phonetic?: string;
-    phonetics?: Array<{ text?: string }>;
-    meanings?: Array<{ partOfSpeech?: string; definitions?: Array<{ definition?: string; example?: string }> }>;
-  }>;
-  const entry = data?.[0];
-  if (!entry) return null;
-  const meaning = entry.meanings?.[0];
-  const def = meaning?.definitions?.find((d) => d.example) ?? meaning?.definitions?.[0];
-  return {
-    phonetic: entry.phonetic ?? entry.phonetics?.find((p) => p.text)?.text,
-    partOfSpeech: meaning?.partOfSpeech,
-    definition: def?.definition,
-    example: def?.example,
-  };
-}
-
 export const WordLookup: React.FC<{ selection: WordSelection; onClose: () => void }> = ({ selection, onClose }) => {
   const queryClient = useQueryClient();
-  const isSingleWord = !selection.text.includes(" ");
-  const [result, setResult] = useState<DictionaryResult | null>(null);
-  const [status, setStatus] = useState<"loading" | "done" | "none">(isSingleWord ? "loading" : "none");
+  const lookup = useLookupState(selection.text);
+  const phonetic = lookup.data?.phonetic ?? null;
+  const partOfSpeech = lookup.data?.meanings[0]?.partOfSpeech || null;
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isSingleWord) return;
-    const controller = new AbortController();
-    lookUp(selection.text, controller.signal)
-      .then((r) => {
-        setResult(r);
-        setStatus(r ? "done" : "none");
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setStatus("none");
-      });
-    return () => controller.abort();
-  }, [isSingleWord, selection.text]);
-
-  // Close on outside click / Escape
+  // Close on outside click, Escape, or scrolling the page under it (it would no longer point at the text)
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    const t = window.setTimeout(() => document.addEventListener("mousedown", onDoc), 0);
+    const onScroll = (e: Event) => {
+      if (!ref.current?.contains(e.target as Node)) onClose();
+    };
+    const t = window.setTimeout(() => {
+      document.addEventListener("mousedown", onDoc);
+      window.addEventListener("scroll", onScroll, true);
+    }, 0);
     document.addEventListener("keydown", onKey);
     return () => {
       window.clearTimeout(t);
       document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("scroll", onScroll, true);
       document.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
+
+  // The popup lives in <body> (a portal), so a transformed or offset parent cannot shift it. It is measured
+  // after it renders, and again whenever its size changes (the meaning arriving makes it taller), then put
+  // above the selection when it fits there, otherwise below, and always kept inside the window.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const place = () => {
+      const margin = 12;
+      const gap = 8;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const width = Math.min(340, vw - margin * 2);
+      el.style.width = `${width}px`;
+      el.style.maxHeight = `${vh - margin * 2}px`;
+      const height = el.offsetHeight;
+      const { top, bottom, left, width: selectionWidth } = selection.rect;
+      const x = Math.min(Math.max(left + selectionWidth / 2 - width / 2, margin), vw - width - margin);
+      const roomAbove = top - gap - margin;
+      const roomBelow = vh - bottom - gap - margin;
+      const above = height <= roomAbove || (height > roomBelow && roomAbove > roomBelow);
+      const y = above ? top - gap - height : bottom + gap;
+      el.style.left = `${x}px`;
+      el.style.top = `${Math.max(margin, Math.min(y, vh - height - margin))}px`;
+      el.style.visibility = "visible";
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(el);
+    window.addEventListener("resize", place);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+    };
+  }, [selection.rect]);
 
   const save = async () => {
     if (saving || saved) return;
     setSaving(true);
     try {
-      const meaning = result?.definition ? `${result.partOfSpeech ? `(${result.partOfSpeech}) ` : ""}${result.definition}` : "";
+      const data = lookup.data;
+      const definitions = (data?.meanings ?? [])
+        .slice(0, 3)
+        .map((m) => `${m.partOfSpeech ? `(${m.partOfSpeech}) ` : ""}${m.definition}`);
+      const similar = data?.synonyms.length ? `Similar: ${data.synonyms.slice(0, 5).join(", ")}` : "";
+      const meaning = [data?.translation, ...definitions, similar].filter(Boolean).join("\n") || meaningFrom(data);
       const contextLine = selection.context !== selection.text ? `“${selection.context}”` : "";
       await apiClient.post("/learning/flashcards", {
         front: selection.text,
@@ -132,33 +141,27 @@ export const WordLookup: React.FC<{ selection: WordSelection; onClose: () => voi
     }
   };
 
-  // Place above the selection, flipping below when there's no room; keep inside the viewport
-  const width = 300;
-  const left = Math.min(window.innerWidth - width - 12, Math.max(12, selection.rect.left + selection.rect.width / 2 - width / 2));
-  const placeAbove = selection.rect.top > 260;
-  const style: React.CSSProperties = placeAbove
-    ? { left, bottom: window.innerHeight - selection.rect.top + 8, width }
-    : { left, top: selection.rect.bottom + 8, width };
-
-  return (
+  return createPortal(
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: placeAbove ? 6 : -6, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.14 }}
-      className="fixed z-[90] rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#151521] shadow-2xl p-3.5"
-      style={style}
+      className="fixed left-0 top-0 z-[90] overflow-y-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#151521] shadow-2xl p-3.5"
+      // Hidden until it has been measured and placed
+      style={{ visibility: "hidden", width: 340 }}
       role="dialog"
       aria-label={`Look up ${selection.text}`}
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-[17px] font-bold text-slate-900 dark:text-white leading-tight break-words">{selection.text}</p>
-          {(result?.phonetic || result?.partOfSpeech) && (
+          {(phonetic || partOfSpeech) && (
             <p className="text-xs text-slate-500 mt-0.5">
-              {result.phonetic}
-              {result.phonetic && result.partOfSpeech ? " · " : ""}
-              <span className="italic">{result.partOfSpeech}</span>
+              {phonetic}
+              {phonetic && partOfSpeech ? " · " : ""}
+              <span className="italic">{partOfSpeech}</span>
             </p>
           )}
         </div>
@@ -177,21 +180,8 @@ export const WordLookup: React.FC<{ selection: WordSelection; onClose: () => voi
         </button>
       </div>
 
-      <div className="mt-2.5 text-[13px] leading-relaxed">
-        {status === "loading" && (
-          <p className="flex items-center gap-2 text-slate-500"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Looking it up…</p>
-        )}
-        {status === "done" && result?.definition && (
-          <>
-            <p className="text-slate-700 dark:text-slate-200">{result.definition}</p>
-            {result.example && <p className="mt-1.5 text-slate-500 italic">“{result.example}”</p>}
-          </>
-        )}
-        {status === "none" && (
-          <p className="text-slate-500">
-            {isSingleWord ? "No dictionary entry found." : "Save this phrase to practise it later."}
-          </p>
-        )}
+      <div className="mt-2.5">
+        <LookupBody lookup={lookup} sentence={selection.context} />
       </div>
 
       <button
@@ -204,7 +194,8 @@ export const WordLookup: React.FC<{ selection: WordSelection; onClose: () => voi
       >
         {saved ? <><Check className="w-4 h-4" /> Saved to flashcards</> : saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><BookmarkPlus className="w-4 h-4" /> Save to flashcards</>}
       </button>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 };
 

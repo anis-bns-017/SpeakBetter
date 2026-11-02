@@ -1,8 +1,10 @@
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma.service';
 import { OpenAI } from 'openai';
+import { LookupProvider } from '../../translate/lookup.provider';
+import { isEnglish, resolveLanguage } from '../../translate/languages';
 
 @Injectable()
 export class TranslationService {
@@ -12,6 +14,8 @@ export class TranslationService {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    /** Free translation, used when no paid provider is set up */
+    @Optional() private free?: LookupProvider,
   ) {
     const apiKey = this.configService.get('OPENAI_API_KEY');
     if (apiKey) {
@@ -21,33 +25,52 @@ export class TranslationService {
 
   /** True when at least one translation provider has an API key */
   isConfigured(): boolean {
-    return Boolean(this.openai || this.configService.get('GOOGLE_TRANSLATE_API_KEY'));
+    return Boolean(this.openai || this.free || this.configService.get('GOOGLE_TRANSLATE_API_KEY'));
   }
 
   async translateText(text: string, targetLanguage: string, sourceLanguage?: string) {
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a translator. Translate the following text to ${targetLanguage}. 
+    if (this.openai) {
+      try {
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a translator. Translate the following text to ${targetLanguage}. 
                      Keep the tone and context. Only return the translation, nothing else.`,
-          },
-          {
-            role: 'user',
-            content: text,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 1000,
-      });
+            },
+            {
+              role: 'user',
+              content: text,
+            },
+          ],
+          temperature: 0.3,
+          max_tokens: 1000,
+        });
 
-      return response.choices[0].message.content;
+        return response.choices[0].message.content;
+      } catch (error) {
+        this.logger.error(`Translation failed: ${error.message}`);
+      }
+    }
+
+    const viaFree = await this.freeTranslate(text, targetLanguage);
+    if (viaFree) return viaFree;
+    // Fallback to Google Translate API
+    return this.googleTranslate(text, targetLanguage);
+  }
+
+  /** The free service handles English text only, and short messages (its limit is about 500 characters) */
+  private async freeTranslate(text: string, targetLanguage: string): Promise<string | null> {
+    if (!this.free) return null;
+    if (isEnglish(targetLanguage)) return text;
+    const target = resolveLanguage(targetLanguage);
+    if (!target) return null;
+    try {
+      return await this.free.translate(text.slice(0, 480), target.code);
     } catch (error) {
-      this.logger.error(`Translation failed: ${error.message}`);
-      // Fallback to Google Translate API
-      return this.googleTranslate(text, targetLanguage);
+      this.logger.warn(`Free translation failed: ${(error as Error).message}`);
+      return null;
     }
   }
 

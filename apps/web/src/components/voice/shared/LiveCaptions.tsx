@@ -10,6 +10,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Captions, CaptionsOff, BookmarkPlus, BookmarkCheck, X } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
 import type { VoiceTranscription } from "../../../hooks/useVoiceTranscription";
+import { meaningFrom, useLookupState } from "../../../hooks/useLookup";
+import { LookupBody } from "../../lookup/LookupBody";
 
 interface LiveCaptionsProps {
   transcriptions: VoiceTranscription[];
@@ -59,6 +61,9 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
   } | null>(null);
   const [meaning, setMeaning] = useState("");
   const [saving, setSaving] = useState(false);
+  // What the tapped word means, so saving it does not need typing
+  const lookup = useLookupState(picked?.word ?? "");
+  const suggested = meaningFrom(lookup.data).slice(0, 120);
 
   // Old lines fade away; tick only while there is something to age out
   const hasLines = transcriptions.length > 0;
@@ -100,7 +105,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
     if (!picked || saving) return;
     setSaving(true);
     try {
-      await onSave({ ...picked, meaning: meaning.trim() || undefined });
+      await onSave({ ...picked, meaning: meaning.trim() || suggested || undefined });
       setPicked(null);
     } finally {
       setSaving(false);
@@ -144,13 +149,16 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
+            <div className="mt-2">
+              <LookupBody lookup={lookup} tone="dark" />
+            </div>
             <div className="flex gap-2 mt-2">
               <input
                 value={meaning}
                 onChange={(e) => setMeaning(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && void save()}
                 maxLength={120}
-                placeholder="Meaning in your words (optional)"
+                placeholder={suggested ? "Use the meaning above, or type your own" : "Meaning in your words (optional)"}
                 aria-label="Meaning (optional)"
                 className="flex-1 min-w-0 rounded-lg px-2.5 py-1.5 text-xs outline-none border"
                 style={{

@@ -99,6 +99,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Vocabulary", to: "/vocabulary", icon: BookOpen, keywords: "words" },
       { label: "Flashcards", to: "/flashcards", icon: Layers, keywords: "review cards spaced repetition" },
+      { label: "Pronunciation", to: "/pronunciation", icon: Mic, keywords: "pronounce speaking sounds accent th say aloud score" },
       { label: "Grammar", to: "/grammar", icon: FileText, keywords: "rules tenses" },
       { label: "Exercises", to: "/exercises", icon: Dumbbell, keywords: "practice quiz" },
       { label: "Progress", to: "/progress", icon: TrendingUp, keywords: "stats streak xp level" },
