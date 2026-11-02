@@ -8,9 +8,20 @@ export const callUserRoom = (userId: string) => `user:${userId}`;
 @Injectable()
 export class RandomCallBroadcaster {
   private server?: Server;
+  private readonly endedListeners = new Set<(callId: string) => void>();
 
   attach(server: Server) {
     this.server = server;
+  }
+
+  /** Told when a call ends on this instance, so caches about it can be dropped */
+  onCallEnded(listener: (callId: string) => void): () => void {
+    this.endedListeners.add(listener);
+    return () => this.endedListeners.delete(listener);
+  }
+
+  notifyCallEnded(callId: string) {
+    for (const listener of this.endedListeners) listener(callId);
   }
 
   emitToUser(userId: string, event: string, payload: unknown) {

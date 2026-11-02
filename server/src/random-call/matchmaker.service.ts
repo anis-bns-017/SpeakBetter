@@ -19,6 +19,7 @@ export class MatchmakerService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   private ticking = false;
   private tickCount = 0;
+  private warnedMissingTables = false;
 
   constructor(
     private readonly queue: MatchQueue,
@@ -88,7 +89,17 @@ export class MatchmakerService implements OnModuleInit, OnModuleDestroy {
         }
       }
     } catch (error) {
-      this.logger.error(`Matchmaking tick failed: ${(error as Error).message}`);
+      if ((error as { code?: string })?.code === 'P2021') {
+        // The random-call tables are missing: say so once instead of every 2 seconds
+        if (!this.warnedMissingTables) {
+          this.warnedMissingTables = true;
+          this.logger.error(
+            'Random calls are off: the database has no RandomCall tables. Run "npx prisma migrate deploy" in the server folder.',
+          );
+        }
+      } else {
+        this.logger.error(`Matchmaking tick failed: ${(error as Error).message}`);
+      }
     } finally {
       this.ticking = false;
     }

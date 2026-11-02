@@ -16,7 +16,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Phone, Plus } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { VoiceRoomView } from "../components/voice/VoiceRoomView";
 import type { MinimizedRoomData } from "../components/voice/VoiceRoomView.types";
@@ -608,6 +608,16 @@ export const VoicePage = () => {
                 </p>
               </div>
 
+              <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => navigate("/call")}
+                title="Talk one-to-one with someone at your level"
+                className="inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold transition-colors hover:bg-white/5"
+                style={{ borderColor: COLORS.live, color: COLORS.live }}
+              >
+                <Phone className="h-4 w-4" />
+                Random call
+              </button>
               <button
                 onClick={openCreate}
                 title="Create room (N)"
@@ -621,6 +631,7 @@ export const VoicePage = () => {
                 <Plus className="w-4 h-4" />
                 Create Room
               </button>
+              </div>
             </div>
 
             <LobbyHero

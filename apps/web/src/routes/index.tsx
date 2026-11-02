@@ -13,6 +13,7 @@ import { FlashcardPage } from "../pages/FlashcardPage";
 import { GrammarPage } from "../pages/GrammarPage";
 import { ExercisesPage } from "../pages/ExercisesPage";
 import { VoicePage } from "../pages/VoicePage";
+import { RandomCallPage } from "../pages/RandomCallPage";
 import { CommunitiesPage } from "../pages/CommunitiesPage";
 import { ProgressPage } from "../pages/ProgressPage";
 import { ProfilePage } from "../pages/ProfilePage";
@@ -142,6 +143,7 @@ const AppRoutes = () => {
           {/* ===== ✅ VOICE ROUTES ===== */}
           <Route path="/voice" element={<VoicePage />} />
           <Route path="/voice/:roomId" element={<VoicePage />} />
+          <Route path="/call" element={<RandomCallPage />} />
 
           {/* ===== ✅ COMMUNITY ROUTES (all added) ===== */}
           <Route path="/communities" element={<CommunitiesPage />} />

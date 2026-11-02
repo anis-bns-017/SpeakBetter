@@ -44,3 +44,18 @@ export const MAX_COUNTED_REPORTS_PER_DAY = 5;
 export const RESTRICTION_DAYS = [3, 14] as const; // then permanent
 
 export const CARD_COUNT = 10;
+
+/** Quick reactions people can send during a call */
+export const REACTIONS = ['👏', '❤️', '😂', '😮', '🔥', '🙏'] as const;
+
+/** Limits for what can be sent to a partner during a call */
+export const CAPTION_MAX_CHARS = 240;
+export const NOTE_MAX_CHARS = 200;
+export const MAX_NOTES_PER_CALL = 8;
+
+/** XP for a finished call: 1 per 15 seconds, only for real conversations */
+export const XP_MIN_CALL_SECONDS = 60;
+export const XP_PER_15_SECONDS = 1;
+export const XP_MAX_PER_CALL = 20;
+/** Calls per day that earn XP (so calls cannot be farmed) */
+export const XP_MAX_CALLS_PER_DAY = 12;

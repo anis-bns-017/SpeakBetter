@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { LearningModule } from '../learning/learning.module';
 import { PrismaService } from '../prisma.service';
 import { LiveKitService } from '../voice/livekit.service';
 import { MatchQueue } from './match-queue';
@@ -15,7 +16,8 @@ import { RandomCallService } from './random-call.service';
  * several server instances.
  */
 @Module({
-  imports: [AuthModule],
+  // ActivityService: XP and streaks for finished calls
+  imports: [AuthModule, LearningModule],
   controllers: [RandomCallController],
   providers: [
     PrismaService,

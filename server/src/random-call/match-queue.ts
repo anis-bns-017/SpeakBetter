@@ -41,7 +41,7 @@ export class MatchQueue {
 
   async list(): Promise<QueueEntry[]> {
     if (this.redis) {
-      const ids = await this.redis.zrange(ORDER_KEY, 0, -1);
+      const ids = await this.redis.zrange(ORDER_KEY, '0', '-1');
       if (ids.length === 0) return [];
       const raw = await this.redis.hmget(ENTRIES_KEY, ...ids);
       const entries: QueueEntry[] = [];

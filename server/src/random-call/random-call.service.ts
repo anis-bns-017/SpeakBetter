@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
+import { ActivityService } from '../learning/activity.service';
 import { PrismaService } from '../prisma.service';
 import { LiveKitService } from '../voice/livekit.service';
 import { buildDeck } from './conversation-cards';
@@ -21,6 +22,10 @@ import {
   MAX_COUNTED_REPORTS_PER_DAY,
   MAX_EXTENSIONS,
   RECENT_PARTNER_WINDOW_MS,
+  XP_MAX_CALLS_PER_DAY,
+  XP_MAX_PER_CALL,
+  XP_MIN_CALL_SECONDS,
+  XP_PER_15_SECONDS,
   REPORT_REASONS,
   REPORTS_TO_RESTRICT,
   REPORTS_TO_RESTRICT_SEVERE,
@@ -56,6 +61,7 @@ export class RandomCallService {
     private readonly queue: MatchQueue,
     private readonly broadcaster: RandomCallBroadcaster,
     private readonly config: ConfigService,
+    private readonly activity: ActivityService,
   ) {}
 
   // ==========================
@@ -63,11 +69,19 @@ export class RandomCallService {
   // ==========================
 
   private async ensureProfile(userId: string) {
-    return this.prisma.randomCallProfile.upsert({
-      where: { userId },
-      create: { userId },
-      update: {},
-    });
+    try {
+      return await this.prisma.randomCallProfile.upsert({
+        where: { userId },
+        create: { userId },
+        update: {},
+      });
+    } catch (error) {
+      // Two requests creating the same first-time row at once: the loser reads it
+      if ((error as { code?: string })?.code === 'P2002' || /Unique/i.test(String(error))) {
+        return this.prisma.randomCallProfile.findUniqueOrThrow({ where: { userId } });
+      }
+      throw error;
+    }
   }
 
   private async isUnderage(userId: string): Promise<boolean> {
@@ -337,15 +351,23 @@ export class RandomCallService {
     });
     if (result.count === 0) return null;
 
+    this.broadcaster.notifyCallEnded?.(callId);
+
     const call = await this.prisma.randomCall.findUnique({ where: { id: callId } });
     if (!call) return null;
 
+    const seconds = call.endedAt
+      ? Math.round((call.endedAt.getTime() - call.startedAt.getTime()) / 1000)
+      : 0;
     for (const userId of [call.userAId, call.userBId]) {
+      const xp = await this.awardCallXp(userId, seconds, reason);
       this.broadcaster.emitToUser(userId, 'rc:ended', {
         callId,
         reason,
         endedByYou: endedById === userId,
         endedAt: call.endedAt?.toISOString(),
+        seconds,
+        xp,
       });
       await this.prisma.randomCallProfile
         .upsert({
@@ -359,6 +381,29 @@ export class RandomCallService {
       this.logger.debug(`LiveKit room ${call.liveKitRoomId} already gone: ${error?.message}`);
     });
     return call;
+  }
+
+  /**
+   * XP for a real conversation: 1 per 15 seconds (up to 20) for calls of a
+   * minute or more, not for reported calls, and for a limited number of calls
+   * a day. Also keeps the daily streak going.
+   */
+  async awardCallXp(userId: string, seconds: number, reason: CallEndReason): Promise<number> {
+    if (reason === 'REPORTED' || seconds < XP_MIN_CALL_SECONDS) return 0;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const today = await this.prisma.randomCall.count({
+      where: {
+        endedAt: { gte: startOfDay },
+        endReason: { not: 'REPORTED' },
+        OR: [{ userAId: userId }, { userBId: userId }],
+      },
+    });
+    // this call is already counted in `today`
+    if (today > XP_MAX_CALLS_PER_DAY) return 0;
+    const xp = Math.min(XP_MAX_PER_CALL, Math.floor(seconds / 15) * XP_PER_15_SECONDS);
+    await this.activity.recordActivity(userId, xp, 'VOICE_SPEAKING');
+    return xp;
   }
 
   /** Ends calls whose time ran out (also covers an instance that restarted mid-call) */

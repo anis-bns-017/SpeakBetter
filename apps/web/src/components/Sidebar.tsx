@@ -24,6 +24,7 @@ import {
   Dumbbell,
   MessageCircle,
   AudioLines,
+  Phone,
   Hash,
   TrendingUp,
   User,
@@ -85,6 +86,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Speak",
     items: [
       { label: "Voice Rooms", to: "/voice", icon: AudioLines, keywords: "talk speak live audio stage" },
+      { label: "Random Call", to: "/call", icon: Phone, keywords: "random call one to one partner match talk 1:1" },
       { label: "Chat", to: "/chat", icon: MessageCircle, keywords: "messages dm conversation" },
       { label: "Communities", to: "/communities", icon: Hash, keywords: "groups clubs channels" },
       { label: "Friends", to: "/friends", icon: Users, keywords: "partners people suggestions", matches: ["/suggestions", "/blocked"] },
