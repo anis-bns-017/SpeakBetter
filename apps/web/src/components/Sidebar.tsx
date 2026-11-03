@@ -51,6 +51,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSidebar } from "../contexts/SidebarContext";
 import { SIDEBAR_WIDTH, MOBILE_TAB_BAR_HEIGHT } from "../lib/navLayout";
 import { SpeakBetterLogo } from "./common/SpeakBetterLogo";
+import { NotificationBell } from "./notifications/NotificationBell";
 import { useProgress } from "../hooks/useLearning";
 import { useLiveRoomsCount, useTrendingRooms } from "../hooks/useDiscovery";
 import { useChats } from "../hooks/useChat";
@@ -687,17 +688,26 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
           )}
         </button>
         {!collapsed && (
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            className="group relative w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-            aria-label="Collapse sidebar"
-            title={`Collapse (${MOD_KEY}+B)`}
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationBell variant="sidebar" />
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="group relative w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+              aria-label="Collapse sidebar"
+              title={`Collapse (${MOD_KEY}+B)`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
         )}
       </div>
+      {/* Collapsed: the bell sits under the logo */}
+      {collapsed && (
+        <div className="shrink-0 flex justify-center pb-2">
+          <NotificationBell variant="sidebar" />
+        </div>
+      )}
 
       {/* Search + primary action */}
       <div className={`shrink-0 space-y-2 ${collapsed ? "px-3" : "px-3"}`}>

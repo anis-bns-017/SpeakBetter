@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSuggestions, useSendFriendRequest } from '../hooks/useFriends';
 import { UserPlus, Users, Languages, Check, Sparkles } from 'lucide-react';
+import { FollowButton } from '../components/social/FollowButton';
 
 export const SuggestionsPage = () => {
   const { data, isLoading } = useSuggestions();
@@ -124,7 +125,8 @@ export const SuggestionsPage = () => {
                 </div>
 
                 {/* Action Button */}
-                <div className="shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-50 flex justify-end">
+                <div className="shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-50 flex items-center justify-end gap-2">
+                  <FollowButton userId={user.id} name={user.name} />
                   {isSent ? (
                     <button
                       disabled

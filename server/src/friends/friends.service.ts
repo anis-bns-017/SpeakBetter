@@ -3,8 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   SendFriendRequestDto,
   RespondFriendRequestDto,
@@ -17,7 +19,10 @@ const SUGGESTION_CANDIDATE_POOL = 200;
 
 @Injectable()
 export class FriendsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private notifications?: NotificationsService,
+  ) {}
 
   // ============ FRIEND REQUESTS ============
 
@@ -79,13 +84,24 @@ export class FriendsService {
       );
     }
 
-    return this.prisma.friendRequest.create({
+    const request = await this.prisma.friendRequest.create({
       data: {
         fromUserId: userId,
         toUserId,
         status: 'PENDING',
       },
     });
+    const sender = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, avatarUrl: true } });
+    void this.notifications?.notify([toUserId], {
+      type: 'FRIEND_REQUEST',
+      title: `${sender?.name ?? 'Someone'} wants to be friends`,
+      message: 'Accept to practise together and chat any time.',
+      actionUrl: '/friends',
+      data: { actor: sender, requestId: request.id },
+      dedupeKey: `friend:${request.id}`,
+      preference: 'friendRequests',
+    });
+    return request;
   }
 
   async respondFriendRequest(userId: string, dto: RespondFriendRequestDto) {

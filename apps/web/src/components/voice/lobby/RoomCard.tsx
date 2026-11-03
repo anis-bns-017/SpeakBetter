@@ -2,6 +2,8 @@
 import React from "react";
 import { motion } from "framer-motion";
 import {
+  Bell,
+  BellRing,
   CalendarPlus,
   Clock,
   Crown,
@@ -38,6 +40,9 @@ interface RoomCardProps {
   onEnd: () => void;
   onCopyLink: () => void;
   onToggleFavorite: () => void;
+  /** Scheduled rooms: people waiting for a reminder, and whether you are one of them */
+  reminder?: { count: number; mine: boolean };
+  onToggleReminder?: () => void;
 }
 
 export const RoomCard: React.FC<RoomCardProps> = ({
@@ -52,6 +57,8 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   onEnd,
   onCopyLink,
   onToggleFavorite,
+  reminder,
+  onToggleReminder,
 }) => {
   const typeConfig = TYPE_CONFIG[room.type] || TYPE_CONFIG.OPEN;
   const accent = TYPE_ACCENTS[room.type] || TYPE_ACCENTS.OPEN;
@@ -64,8 +71,9 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   const TypeIcon = typeConfig.icon;
   const StatusIcon = status.icon;
   const isList = variant === "list";
+  // Once a scheduled room has started (even early) it is just a live room: no countdown, no reminder
   const upcoming =
-    room.type === "SCHEDULED" && room.scheduledFor
+    room.type === "SCHEDULED" && room.scheduledFor && room.status === "WAITING"
       ? formatCountdown(room.scheduledFor, now)
       : null;
 
@@ -265,14 +273,29 @@ export const RoomCard: React.FC<RoomCardProps> = ({
 
           {upcoming && (
             <div
-              className="flex items-center gap-2 mt-3 text-xs font-medium"
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 text-xs font-medium"
               style={{ color: TYPE_ACCENTS.SCHEDULED }}
             >
-              <Clock className="w-3.5 h-3.5" />
-              {upcoming}
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <Clock className="w-3.5 h-3.5" />
+                {upcoming}
+              </span>
+              {onToggleReminder && !isCreator && (
+                <button
+                  onClick={onToggleReminder}
+                  aria-pressed={!!reminder?.mine}
+                  className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-colors hover:bg-white/5"
+                  style={{ color: reminder?.mine ? TYPE_ACCENTS.SCHEDULED : COLORS.textMuted }}
+                  title={reminder?.mine ? "You'll be reminded 10 minutes before" : "Get a reminder 10 minutes before it starts"}
+                >
+                  {reminder?.mine ? <BellRing className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
+                  {reminder?.mine ? "Reminder set" : "Remind me"}
+                  {reminder && reminder.count > 0 && <span className="opacity-70">· {reminder.count}</span>}
+                </button>
+              )}
               <button
                 onClick={() => downloadRoomCalendar(room)}
-                className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] transition-colors hover:bg-white/5"
+                className={`${onToggleReminder && !isCreator ? "" : "ml-auto "}inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] whitespace-nowrap transition-colors hover:bg-white/5`}
                 style={{ color: COLORS.textMuted }}
                 title="Add to calendar"
               >

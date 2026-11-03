@@ -22,6 +22,8 @@ import { PrismaService } from '../prisma.service';
 import { LiveKitService } from './livekit.service';
 import { ActivityService, XP_REWARDS } from '../learning/activity.service';
 import { ReviewService } from '../learning/review.service';
+import { RoomRemindersService } from '../social/room-reminders.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /** Soft-deleted chat messages keep their row (so replies still resolve) with this type */
 export const DELETED_MESSAGE_TYPE = 'DELETED';
@@ -47,6 +49,9 @@ export class VoiceService {
     private activity: ActivityService,
     // Turns corrections into flashcards; optional so rooms keep working (and tests stay simple) without it
     @Optional() private review?: ReviewService,
+    // Tells followers and interested people about scheduled and live rooms; optional like the review deck
+    @Optional() private reminders?: RoomRemindersService,
+    @Optional() private notifications?: NotificationsService,
   ) {}
 
   // ============ PRIVATE ROOM ACCESS ============
@@ -322,6 +327,8 @@ export class VoiceService {
       },
     });
 
+    if (room.scheduledFor) void this.reminders?.onRoomScheduled(room);
+
     await this.prisma.voiceParticipant.create({
       data: {
         roomId: room.id,
@@ -513,6 +520,8 @@ export class VoiceService {
           startedAt: room.startedAt || new Date(),
         },
       });
+      // The room just went live: the people waiting for it (and the host's followers) hear about it
+      if (room.status === 'WAITING') void this.reminders?.onRoomLive(room);
     }
 
     const existingParticipant = await this.prisma.voiceParticipant.findUnique({
@@ -1943,6 +1952,15 @@ export class VoiceService {
       corrected,
       note: saved.note,
       category,
+    });
+    void this.notifications?.notify([data.targetUserId], {
+      type: 'CORRECTION',
+      title: `${saved.author?.name ?? 'Someone'} corrected you`,
+      message: `“${corrected}”`,
+      actionUrl: '/flashcards',
+      data: { actor: saved.author, roomId: data.roomId, original, corrected },
+      dedupeKey: `correction:voice:${saved.id}`,
+      preference: 'corrections',
     });
     return this.toCorrectionPayload(saved);
   }

@@ -1,6 +1,7 @@
 import type React from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
+import { NotificationBell, NotificationsLive } from "../components/notifications/NotificationBell";
 import { useAuth } from "../contexts/AuthContext";
 import { useSidebar } from "../contexts/SidebarContext";
 import { SIDEBAR_WIDTH, MOBILE_TAB_BAR_HEIGHT } from "../lib/navLayout";
@@ -96,6 +97,13 @@ const AppLayout = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900" style={style}>
       <Sidebar />
+      {/* Live notifications on every page; on phones the bell floats in the corner (the sidebar has its own) */}
+      <NotificationsLive />
+      {!inVoiceRoom && (
+        <div className="lg:hidden fixed top-3 right-3 z-40">
+          <NotificationBell variant="floating" />
+        </div>
+      )}
       <div className="min-h-screen transition-[padding] duration-300 lg:pl-[var(--sidebar-w)] pb-[var(--tabbar-h)] lg:pb-0">
         <main className="min-h-screen">
           <Outlet />

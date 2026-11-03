@@ -25,7 +25,6 @@ import {
   Target,
   TrendingUp,
   TrendingDown,
-  Sparkles,
   CheckCircle2,
   ArrowRight,
   Search,
@@ -43,6 +42,8 @@ import { useSidebar } from "../contexts/SidebarContext";
 import { useDashboard, type DashboardData } from "../hooks/useLearning";
 import { useTrendingRooms } from "../hooks/useDiscovery";
 import { usePlacementStatus } from "../hooks/usePlacement";
+import { TodayPlanCard } from "../components/plan/TodayPlanCard";
+import { UpcomingRooms } from "../components/social/UpcomingRooms";
 import { CEFR_INFO, isCefr, type CefrCode } from "../lib/cefr";
 import { useSuggestions, useSendFriendRequest } from "../hooks/useFriends";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
@@ -230,53 +231,6 @@ const StatTile: React.FC<{ stat: Stat; index: number }> = ({ stat, index }) => {
   );
 };
 
-interface NextStep {
-  id: string;
-  title: string;
-  detail: string;
-  icon: LucideIcon;
-  tone: string;
-  to: string;
-  cta: string;
-}
-
-/** Suggestions picked from what the learner has (and hasn't) done */
-function buildNextSteps(d: DashboardData, liveRoom?: { id: string; name: string }, needsLevel = false): NextStep[] {
-  const steps: NextStep[] = [];
-  if (needsLevel) {
-    steps.push({ id: "level", title: "Find your English level", detail: "8 minutes · tunes rooms, calls and practice to you", icon: Target, tone: "bg-fuchsia-500/10 text-fuchsia-500", to: "/placement", cta: "Take the test" });
-  }
-  if (!d.streak.practicedToday && d.streak.current > 0) {
-    steps.push({ id: "streak", title: `Save your ${d.streak.current}-day streak`, detail: "Any practice today keeps it alive", icon: Flame, tone: "bg-orange-500/10 text-orange-500", to: liveRoom ? `/voice/${liveRoom.id}` : "/voice", cta: "Practice now" });
-  }
-  if (d.corrections.pending > 0) {
-    steps.push({ id: "corrections", title: `${d.corrections.pending} correction${d.corrections.pending === 1 ? "" : "s"} waiting for you`, detail: "Accept the ones that help — each earns 5 XP", icon: Wand2, tone: "bg-violet-500/10 text-violet-500", to: "/voice", cta: "Review" });
-  }
-  if (d.flashcards.due > 0) {
-    steps.push({ id: "cards", title: `${d.flashcards.due} flashcard${d.flashcards.due === 1 ? "" : "s"} due`, detail: "A quick review locks words into memory", icon: Layers, tone: "bg-sky-500/10 text-sky-500", to: "/flashcards", cta: "Review" });
-  }
-  if (d.voice.speakingMinutesThisWeek < 10) {
-    steps.push({
-      id: "speak",
-      title: liveRoom ? `Join “${liveRoom.name}”` : "Speak for 10 minutes this week",
-      detail: liveRoom ? "It's live right now — jump in and listen first" : `${d.voice.speakingMinutesThisWeek} of 10 minutes so far · speaking earns the most XP`,
-      icon: Mic,
-      tone: "bg-indigo-500/10 text-indigo-500",
-      to: liveRoom ? `/voice/${liveRoom.id}` : "/voice",
-      cta: liveRoom ? "Join" : "Find a room",
-    });
-  }
-  if (d.words.thisWeek === 0) {
-    steps.push({ id: "words", title: "Save new words you hear", detail: "Build your own vocabulary list from conversations", icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-500", to: "/vocabulary", cta: "Add words" });
-  }
-  if (d.corrections.given === 0) {
-    steps.push({ id: "help", title: "Help someone with a correction", detail: "Teaching is learning — and it earns 3 XP", icon: Sparkles, tone: "bg-amber-500/10 text-amber-500", to: "/voice", cta: "Find a room" });
-  }
-  steps.push({ id: "ai", title: "Practise with your AI partner", detail: "No one online? Talk any time and get instant corrections", icon: Bot, tone: "bg-violet-500/10 text-violet-500", to: "/ai-partner", cta: "Start talking" });
-  steps.push({ id: "exercise", title: "Do a short exercise", detail: "10 XP for each one you finish", icon: Dumbbell, tone: "bg-rose-500/10 text-rose-500", to: "/exercises", cta: "Start" });
-  return steps.slice(0, 4);
-}
-
 const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon; tone: string }> = [
   { to: "/voice", title: "Voice Rooms", desc: "Live speaking practice", icon: AudioLines, tone: "text-indigo-500 bg-indigo-500/10" },
   { to: "/ai-partner", title: "AI Partner", desc: "Talk any time", icon: Bot, tone: "text-violet-500 bg-violet-500/10" },
@@ -356,9 +310,6 @@ const DashboardPage: React.FC = () => {
   const lastSeven = data.activity.slice(-7);
   const activeDays = data.activity.filter((d) => d.xp > 0).length;
   const goalDone = data.xp.today >= data.xp.dailyGoal;
-  // `placement` is undefined while loading or if it failed: don't nag until we know there is no level
-  const needsLevel = placement !== undefined && !placement.level && !placement.inProgress;
-  const nextSteps = buildNextSteps(data, liveRooms[0], needsLevel);
   const cefr = placement?.level && isCefr(placement.level) ? (placement.level.toUpperCase() as CefrCode) : null;
   const isNewLearner = data.xp.total === 0 && data.voice.roomsJoined === 0;
   const learning = data.profile.learningLanguages[0] ?? "English";
@@ -494,34 +445,12 @@ const DashboardPage: React.FC = () => {
         {stats.map((stat, i) => <StatTile key={stat.label} stat={stat} index={i + 3} />)}
       </div>
 
-      {/* ================= Next steps + Live now ================= */}
+      {/* ================= Today's plan + Live now ================= */}
       <div className="grid lg:grid-cols-5 gap-5">
-        <motion.section variants={fadeUp} initial="hidden" animate="show" custom={4} className={`${card} p-6 lg:col-span-3`}>
-          <SectionTitle title="Your next steps" />
-          <div className="space-y-2.5">
-            {nextSteps.map((step) => {
-              const Icon = step.icon;
-              return (
-                <Link
-                  key={step.id}
-                  to={step.to}
-                  className="group flex items-center gap-3.5 p-3 rounded-2xl border border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
-                >
-                  <span className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${step.tone}`}>
-                    <Icon className="w-5 h-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{step.title}</span>
-                    <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">{step.detail}</span>
-                  </span>
-                  <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-300 flex items-center gap-1 shrink-0">
-                    {step.cta} <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </motion.section>
+        {/* The plan replaces the old rule-based "next steps": it fits your minutes and ticks itself off */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" custom={4} className="lg:col-span-3">
+          <TodayPlanCard className="h-full" />
+        </motion.div>
 
         <motion.section variants={fadeUp} initial="hidden" animate="show" custom={5} className={`${card} p-6 lg:col-span-2`}>
           <SectionTitle title="Live now" action={{ label: "All rooms", to: "/voice" }} />
@@ -562,6 +491,7 @@ const DashboardPage: React.FC = () => {
               ))}
             </div>
           )}
+          <UpcomingRooms />
         </motion.section>
       </div>
 

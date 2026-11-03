@@ -21,8 +21,17 @@ import {
   UserRound,
   Users,
   Zap,
+  CalendarClock,
+  Radio,
+  UserPlus,
+  Wand2,
 } from "lucide-react";
 import { useSettings } from "../../hooks/useSettings";
+import {
+  useNotificationPreferences,
+  useUpdateNotificationPreferences,
+  type NotificationPreferences,
+} from "../../hooks/useNotifications";
 
 /**
  * SettingsForm
@@ -322,6 +331,39 @@ const Section = ({
   </section>
 );
 
+const NOTIFICATION_KINDS: Array<{ key: keyof NotificationPreferences; icon: React.ElementType; title: string; description: string }> = [
+  { key: "roomReminders", icon: CalendarClock, title: "Room reminders", description: "“Starting in 10 minutes” for scheduled rooms you tapped “Remind me” on." },
+  { key: "followedLive", icon: Radio, title: "People you follow", description: "When someone you follow goes live or schedules a room." },
+  { key: "newFollowers", icon: UserPlus, title: "New followers", description: "When someone starts following you." },
+  { key: "corrections", icon: Wand2, title: "Corrections", description: "When someone corrects something you said in a room or a chat." },
+  { key: "friendRequests", icon: Users, title: "Friend requests", description: "When someone wants to be friends." },
+];
+
+/** Which in-app notifications you get. Each switch saves straight away. */
+const NotificationKinds = () => {
+  const { data } = useNotificationPreferences();
+  const update = useUpdateNotificationPreferences();
+  if (!data) return null;
+  return (
+    <>
+      <p className="pt-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Notify me about</p>
+      {NOTIFICATION_KINDS.map((kind) => (
+        <SettingRow
+          key={kind.key}
+          icon={kind.icon}
+          title={kind.title}
+          description={kind.description}
+          checked={data[kind.key]}
+          disabled={update.isPending}
+          onChange={(value) =>
+            update.mutate({ [kind.key]: value }, { onError: () => toast.error("Couldn't save that setting") })
+          }
+        />
+      ))}
+    </>
+  );
+};
+
 export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
   const { updateSettings, isUpdating } = useSettings();
 
@@ -558,7 +600,8 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
           </div>
         </Section>
 
-        {/* Notifications */}
+        {/* Notifications (the bell links here with #notifications) */}
+        <div id="notifications" className="scroll-mt-6" />
         <Section
           icon={Bell}
           title="Notifications"
@@ -587,6 +630,8 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
             checked={formData.soundEffects}
             onChange={(value) => updateField("soundEffects", value)}
           />
+
+          <NotificationKinds />
 
           <div className="rounded-2xl border border-slate-200 p-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

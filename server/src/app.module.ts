@@ -19,6 +19,10 @@ import { PlacementModule } from './placement/placement.module';
 import { AiTutorModule } from './ai-tutor/ai-tutor.module';
 import { TranslateModule } from './translate/translate.module';
 import { PronunciationModule } from './pronunciation/pronunciation.module';
+import { InsightsModule } from './insights/insights.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { SocialModule } from './social/social.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -38,6 +42,10 @@ import { PronunciationModule } from './pronunciation/pronunciation.module';
     AiTutorModule,
     TranslateModule,
     PronunciationModule,
+    InsightsModule,
+    NotificationsModule,
+    SocialModule,
+    BillingModule,
     CommunitiesModule,
   ],
   providers: [PrismaService, { provide: APP_GUARD, useClass: JwtAuthGuard }],

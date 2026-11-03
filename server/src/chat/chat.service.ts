@@ -10,6 +10,7 @@ import { CreateChatDto, SendMessageDto, GetMessagesDto } from './dto/chat.dto';
 import { MessageType, Prisma } from '@prisma/client';
 import { ActivityService, XP_REWARDS, CHAT_XP_DAILY_CAP } from '../learning/activity.service';
 import { ReviewService } from '../learning/review.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ChatPrivacyService } from './chat-privacy.service';
 import { MESSAGE_INCLUDE, metaOf, presentMessage, visibleMessagesWhere } from './chat.presenter';
 
@@ -38,6 +39,7 @@ export class ChatService {
     private privacy: ChatPrivacyService,
     // Turns corrections into flashcards; optional so chat keeps working (and tests stay simple) without it
     @Optional() private review?: ReviewService,
+    @Optional() private notifications?: NotificationsService,
   ) {}
 
   // ============ CHATS ============
@@ -593,6 +595,21 @@ export class ChatService {
           corrected: message.content ?? '',
           note: (metadata as { note?: string } | undefined)?.note ?? null,
         });
+        if (replyMessage.senderId !== userId) {
+          void this.notifications?.notify([replyMessage.senderId], {
+            type: 'CORRECTION',
+            title: `${message.sender?.name ?? 'Someone'} corrected your message`,
+            message: `“${message.content ?? ''}”`,
+            actionUrl: `/chat/${chatId}`,
+            // Only what the bell shows: never the sender's email
+            data: {
+              actor: message.sender ? { id: message.sender.id, name: message.sender.name, avatarUrl: message.sender.avatarUrl } : null,
+              chatId,
+            },
+            dedupeKey: `correction:chat:${message.id}`,
+            preference: 'corrections',
+          });
+        }
       }
     } else if (!options?.forwardedFromId && (message.type === 'TEXT' || message.type === 'VOICE_NOTE')) {
       // Chatting is practice too: small XP per message, capped per day

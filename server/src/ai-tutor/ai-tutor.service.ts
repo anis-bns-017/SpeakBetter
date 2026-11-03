@@ -11,6 +11,8 @@ import { XpReason } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { ActivityService } from '../learning/activity.service';
 import { ReviewService } from '../learning/review.service';
+import { BillingService } from '../billing/billing.service';
+import { PLAN_LIMITS } from '../billing/plans';
 import { TUTOR_SCENARIOS, getScenario } from './ai-tutor.scenarios';
 import {
   MAX_REPLY_CHARS,
@@ -24,8 +26,7 @@ import {
 import { buildSummary, type TutorSummary } from './ai-tutor.summary';
 import { TutorLlm, TutorRefusedError, TutorUnavailableError } from './ai-tutor.llm';
 
-/** Every turn is a paid model call, so a learner can only take so many a day and per conversation */
-export const DAILY_TURN_LIMIT = 150;
+/** Every turn is a paid model call, so a conversation is capped (and so is a day, by the learner's plan) */
 export const MAX_TURNS_PER_SESSION = 60;
 /** Only the latest messages go to the model, which keeps long conversations cheap and fast */
 export const HISTORY_MESSAGES = 24;
@@ -59,12 +60,14 @@ export class AiTutorService {
     private activity: ActivityService,
     private llm: TutorLlm,
     private review: ReviewService,
+    private billing: BillingService,
   ) {}
 
   async getStatus(userId: string) {
-    const [profile, turnsToday, active] = await Promise.all([
+    const [profile, turnsToday, limits, active] = await Promise.all([
       this.prisma.profile.findUnique({ where: { userId }, select: { level: true } }),
       this.turnsToday(userId),
+      this.billing.getLimits(userId),
       this.prisma.aiChat.findFirst({
         where: {
           userId,
@@ -80,7 +83,8 @@ export class AiTutorService {
     return {
       configured: this.llm.isConfigured(),
       level: profile?.level ?? null,
-      dailyTurnsLeft: Math.max(0, DAILY_TURN_LIMIT - turnsToday),
+      dailyTurnsLeft: Math.max(0, limits.aiTurnsPerDay - turnsToday),
+      dailyTurnLimit: limits.aiTurnsPerDay,
       activeSessionId: active?.id ?? null,
       scenarios: TUTOR_SCENARIOS.map(({ id, title, emoji, blurb }) => ({ id, title, emoji, blurb })),
     };
@@ -104,7 +108,7 @@ export class AiTutorService {
       },
       include: { messages: { orderBy: { createdAt: 'asc' } } },
     });
-    return this.view(chat, await this.turnsToday(userId));
+    return this.view(chat, await this.turnsLeft(userId));
   }
 
   async getSession(userId: string, sessionId: string) {
@@ -113,7 +117,7 @@ export class AiTutorService {
       include: { messages: { orderBy: { createdAt: 'asc' } } },
     });
     if (!chat) throw new NotFoundException('Conversation not found');
-    return this.view(chat, await this.turnsToday(userId));
+    return this.view(chat, await this.turnsLeft(userId));
   }
 
   async turn(userId: string, sessionId: string, rawText: string) {
@@ -127,16 +131,24 @@ export class AiTutorService {
     if (!chat) throw new NotFoundException('Conversation not found');
     if (chat.endedAt) throw new BadRequestException('This conversation has finished');
 
-    const [sessionTurns, turnsToday] = await Promise.all([
+    const [sessionTurns, turnsToday, limits] = await Promise.all([
       this.prisma.aiMessage.count({ where: { chatId: chat.id, role: 'USER' } }),
       this.turnsToday(userId),
+      this.billing.getLimits(userId),
     ]);
+    const dailyLimit = limits.aiTurnsPerDay;
     if (sessionTurns >= MAX_TURNS_PER_SESSION) {
       throw new BadRequestException('This conversation is getting long. Finish it to see your recap, then start a new one.');
     }
-    if (turnsToday >= DAILY_TURN_LIMIT) {
+    if (turnsToday >= dailyLimit) {
       throw new HttpException(
-        { message: "You've reached today's practice limit. Come back tomorrow!", limit: DAILY_TURN_LIMIT },
+        {
+          message:
+            dailyLimit < PLAN_LIMITS.PRO.aiTurnsPerDay
+              ? "You've used today's free practice turns. Come back tomorrow, or go Pro for more."
+              : "You've reached today's practice limit. Come back tomorrow!",
+          limit: dailyLimit,
+        },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -208,7 +220,7 @@ export class AiTutorService {
     return {
       userMessage: this.messageView(userMessage),
       reply: this.messageView(reply),
-      turnsLeftToday: Math.max(0, DAILY_TURN_LIMIT - turnsToday - 1),
+      turnsLeftToday: Math.max(0, dailyLimit - turnsToday - 1),
       sessionTurnsLeft: Math.max(0, MAX_TURNS_PER_SESSION - sessionTurns - 1),
     };
   }
@@ -243,6 +255,12 @@ export class AiTutorService {
     if (!this.llm.isConfigured()) {
       throw new ServiceUnavailableException('The AI speaking partner is not set up on this server yet.');
     }
+  }
+
+  /** Turns a learner can still take today on their plan */
+  private async turnsLeft(userId: string) {
+    const [used, limits] = await Promise.all([this.turnsToday(userId), this.billing.getLimits(userId)]);
+    return Math.max(0, limits.aiTurnsPerDay - used);
   }
 
   private turnsToday(userId: string) {
@@ -280,7 +298,7 @@ export class AiTutorService {
       summary: unknown;
       messages: Array<{ id: string; role: string; content: string; metadata?: unknown; createdAt: Date }>;
     },
-    turnsToday: number,
+    turnsLeft: number,
   ) {
     const scenario = getScenario(chat.scenario) ?? TUTOR_SCENARIOS[0];
     return {
@@ -289,7 +307,7 @@ export class AiTutorService {
       level: normalizeLevel(chat.level),
       ended: chat.endedAt !== null,
       summary: (chat.summary as TutorSummary | null) ?? null,
-      turnsLeftToday: Math.max(0, DAILY_TURN_LIMIT - turnsToday),
+      turnsLeftToday: turnsLeft,
       messages: chat.messages.filter((m) => m.role !== 'SYSTEM').map((m) => this.messageView(m)),
     };
   }

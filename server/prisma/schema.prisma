@@ -173,6 +173,7 @@ enum XpReason {
   MISSION_COMPLETED
   AI_PRACTICE
   PRONUNCIATION_PRACTICE
+  DAILY_PLAN
 }
 
 enum BadgeCategory {
@@ -349,6 +350,11 @@ enum NotificationType {
   PAYMENT
   ORDER
   PROMOTION
+  ROOM_REMINDER
+  ROOM_LIVE
+  ROOM_SCHEDULED
+  NEW_FOLLOWER
+  CORRECTION
 }
 
 enum NotificationPlatform {
@@ -378,6 +384,13 @@ enum PaymentMethod {
   NAGAD
   ROCKET
   BANK_TRANSFER
+  /// Fake checkout for development: no money moves
+  SANDBOX
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
 }
 
 enum SubscriptionPlan {
@@ -599,6 +612,10 @@ model User {
   voiceSavedWords          VoiceSavedWord[]           @relation("SavedWordUser")
   placementAttempts        PlacementAttempt[]         @relation("PlacementAttemptUser")
   pronunciationAttempts    PronunciationAttempt[]
+  dailyPlans               DailyPlan[]
+  following                Follow[]                   @relation("FollowFollower")
+  followers                Follow[]                   @relation("FollowFollowing")
+  roomInterests            VoiceRoomInterest[]
 }
 
 // One row per refresh token. A login starts a "family"; every refresh rotation
@@ -704,6 +721,8 @@ model Settings {
   showTypingIndicator      Boolean  @default(true)
   /// bcrypt hash of the PIN that opens locked chats
   chatLockPinHash          String?
+  /// Minutes a day the learner wants to practise; the daily plan fits into it
+  dailyGoalMinutes         Int      @default(10)
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }
@@ -757,21 +776,21 @@ model Block {
 
 // ----- Chat -----
 model Chat {
-  id           String            @id @default(cuid())
-  type         ChatType          @default(PRIVATE)
-  name         String?
-  description  String?
-  avatarUrl    String?
-  ownerId      String?
-  owner        User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  isPublic     Boolean           @default(false)
+  id                  String             @id @default(cuid())
+  type                ChatType           @default(PRIVATE)
+  name                String?
+  description         String?
+  avatarUrl           String?
+  ownerId             String?
+  owner               User?              @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  isPublic            Boolean            @default(false)
   /// Disappearing messages: new messages expire after this many seconds (null = off)
   disappearingSeconds Int?
-  participants ChatParticipant[]
-  messages     Message[]
-  scheduledMessages ScheduledMessage[]
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  participants        ChatParticipant[]
+  messages            Message[]
+  scheduledMessages   ScheduledMessage[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   @@index([ownerId])
 }
@@ -794,43 +813,43 @@ model CommunityMember {
 }
 
 model Message {
-  id           String               @id @default(cuid())
-  chatId       String? // 👈 Made optional
-  chat         Chat?                @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  communityId  String? // 👈 ADD THIS
-  community    Community?           @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  senderId     String
-  sender       User                 @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  content      String?
-  type         MessageType          @default(TEXT)
-  replyToId    String?
-  mediaUrl     String?
-  fileUrl      String?
+  id              String               @id @default(cuid())
+  chatId          String? // 👈 Made optional
+  chat            Chat?                @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  communityId     String? // 👈 ADD THIS
+  community       Community?           @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  senderId        String
+  sender          User                 @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content         String?
+  type            MessageType          @default(TEXT)
+  replyToId       String?
+  mediaUrl        String?
+  fileUrl         String?
   /// Extra data per type, e.g. CORRECTION: { note?, acceptedAt? }
-  metadata     Json?
-  replyTo      Message?             @relation("MessageReply", fields: [replyToId], references: [id])
-  replies      Message[]            @relation("MessageReply")
-  isEdited     Boolean              @default(false)
-  isDeleted    Boolean              @default(false)
-  isPinned     Boolean              @default(false)
-  editedAt     DateTime?
-  deletedAt    DateTime?
+  metadata        Json?
+  replyTo         Message?             @relation("MessageReply", fields: [replyToId], references: [id])
+  replies         Message[]            @relation("MessageReply")
+  isEdited        Boolean              @default(false)
+  isDeleted       Boolean              @default(false)
+  isPinned        Boolean              @default(false)
+  editedAt        DateTime?
+  deletedAt       DateTime?
   /// Disappearing messages: removed for everyone after this time
-  expiresAt    DateTime?
+  expiresAt       DateTime?
   /// Photo/video that the recipient can open once; the file is deleted after
-  isViewOnce   Boolean              @default(false)
+  isViewOnce      Boolean              @default(false)
   /// First time any recipient's device was connected after it was sent
-  deliveredAt  DateTime?
+  deliveredAt     DateTime?
   /// Set on forwarded copies: the message this was forwarded from
   forwardedFromId String?
-  reactions    Reaction[]
-  readReceipts ReadReceipt[]
-  translations MessageTranslation[]
-  attachments  MessageAttachment[]
-  savedBy      SavedMessage[]
-  hiddenFor    MessageHidden[]
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  reactions       Reaction[]
+  readReceipts    ReadReceipt[]
+  translations    MessageTranslation[]
+  attachments     MessageAttachment[]
+  savedBy         SavedMessage[]
+  hiddenFor       MessageHidden[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@index([chatId])
   @@index([communityId])
@@ -868,11 +887,11 @@ model MessageHidden {
 
 /// A message the sender scheduled; the server sends it at sendAt
 model ScheduledMessage {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   chatId    String
-  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat      Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
   senderId  String
-  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  sender    User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
   content   String?
   type      MessageType @default(TEXT)
   mediaUrl  String?
@@ -880,7 +899,7 @@ model ScheduledMessage {
   metadata  Json?
   replyToId String?
   sendAt    DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
 
   @@index([sendAt])
   @@index([chatId, senderId])
@@ -1748,24 +1767,27 @@ model HomeworkSubmission {
 
 // ----- Voice -----
 model VoiceRoom {
-  id              String        @id @default(cuid())
+  id              String              @id @default(cuid())
   name            String
   description     String?
-  type            VoiceRoomType @default(OPEN)
-  status          RoomStatus    @default(WAITING)
+  type            VoiceRoomType       @default(OPEN)
+  status          RoomStatus          @default(WAITING)
   creatorId       String
-  creator         User          @relation("RoomCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  creator         User                @relation("RoomCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   scheduledFor    DateTime?
+  /// When the "starting soon" reminder went out (once per scheduled room)
+  reminderSentAt  DateTime?
+  interests       VoiceRoomInterest[]
   startedAt       DateTime?
   endedAt         DateTime?
-  maxParticipants Int           @default(50)
-  isRecording     Boolean       @default(false)
+  maxParticipants Int                 @default(50)
+  isRecording     Boolean             @default(false)
   liveKitRoomId   String?
   language        String?
   categories      String[]
   tags            String[]
   topics          String[]
-  trendScore      Float         @default(0)
+  trendScore      Float               @default(0)
 
   // EXISTING RELATIONS
   participants VoiceParticipant[]
@@ -1789,20 +1811,20 @@ model VoiceRoom {
 }
 
 model VoiceParticipant {
-  id         String          @id @default(cuid())
-  roomId     String
-  room       VoiceRoom       @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role       ParticipantRole @default(LISTENER)
-  isMuted    Boolean         @default(false)
+  id          String          @id @default(cuid())
+  roomId      String
+  room        VoiceRoom       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        ParticipantRole @default(LISTENER)
+  isMuted     Boolean         @default(false)
   // A host/moderator muted this person: they cannot unmute themselves, and the
   // flag survives leaving and rejoining until the host lifts it
-  mutedByHost Boolean        @default(false)
-  isDeafened Boolean         @default(false)
-  raisedHand Boolean         @default(false)
-  joinedAt   DateTime        @default(now())
-  leftAt     DateTime?
+  mutedByHost Boolean         @default(false)
+  isDeafened  Boolean         @default(false)
+  raisedHand  Boolean         @default(false)
+  joinedAt    DateTime        @default(now())
+  leftAt      DateTime?
 
   @@unique([roomId, userId])
 }
@@ -1912,34 +1934,44 @@ model ProductReview {
 
 // ----- Payments -----
 model Payment {
-  id            String        @id @default(cuid())
+  id            String            @id @default(cuid())
   userId        String
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   orderId       String?
   amount        Float
-  currency      String        @default("USD")
-  status        PaymentStatus @default(PENDING)
+  currency      String            @default("USD")
+  status        PaymentStatus     @default(PENDING)
   method        PaymentMethod
-  transactionId String?       @unique
+  transactionId String?           @unique
   metadata      String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  /// What a subscription payment buys; null for other kinds of payment
+  plan          SubscriptionPlan?
+  interval      BillingInterval?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([userId])
   @@index([status])
 }
 
 model Subscription {
-  id          String             @id @default(cuid())
-  userId      String
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan        SubscriptionPlan   @default(FREE)
-  status      SubscriptionStatus @default(ACTIVE)
-  startDate   DateTime           @default(now())
-  endDate     DateTime?
-  renewalDate DateTime?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id                String             @id @default(cuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              SubscriptionPlan   @default(FREE)
+  status            SubscriptionStatus @default(ACTIVE)
+  startDate         DateTime           @default(now())
+  /// Paid up to here; the plan stops working after this moment unless a new payment extends it
+  endDate           DateTime?
+  renewalDate       DateTime?
+  interval          BillingInterval?
+  /// The learner cancelled: access carries on until endDate, then drops to FREE
+  cancelAtPeriodEnd Boolean            @default(false)
+  canceledAt        DateTime?
+  /// Which payment provider holds the billing ("sandbox")
+  provider          String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@unique([userId])
   @@index([userId])
@@ -2028,9 +2060,15 @@ model Notification {
   message   String
   actionUrl String?
   isRead    Boolean          @default(false)
+  /// Extra details for the app: { actor: { id, name, avatarUrl }, roomId, ... }
+  data      Json?
+  /// Stops the same event notifying someone twice ("live:<roomId>")
+  dedupeKey String?
   createdAt DateTime         @default(now())
 
+  @@unique([userId, dedupeKey])
   @@index([userId])
+  @@index([userId, createdAt])
   @@index([isRead])
 }
 
@@ -2040,6 +2078,14 @@ model NotificationPreference {
   user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   enableEmailNotifications Boolean  @default(true)
   enablePushNotifications  Boolean  @default(true)
+  /// "Starting in 10 minutes" for rooms you said you are interested in
+  roomReminders            Boolean  @default(true)
+  /// People you follow going live or scheduling a room
+  followedLive             Boolean  @default(true)
+  newFollowers             Boolean  @default(true)
+  /// Someone corrected something you said
+  corrections              Boolean  @default(true)
+  friendRequests           Boolean  @default(true)
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }
@@ -2286,9 +2332,9 @@ model VoiceSessionReport {
 
 /// A word a learner tapped in a room's live captions, with a simple spaced-repetition schedule (Leitner boxes)
 model VoiceSavedWord {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   userId      String
-  user        User      @relation("SavedWordUser", fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation("SavedWordUser", fields: [userId], references: [id], onDelete: Cascade)
   /// Lowercase
   word        String
   /// The sentence it was heard in
@@ -2297,11 +2343,11 @@ model VoiceSavedWord {
   speakerName String?
   roomName    String?
   /// 0 = new/forgotten; higher boxes come back less often
-  box         Int       @default(0)
-  dueAt       DateTime  @default(now())
-  reviewCount Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  box         Int      @default(0)
+  dueAt       DateTime @default(now())
+  reviewCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([userId, word])
   @@index([userId, dueAt])
@@ -2443,4 +2489,47 @@ model PronunciationAttempt {
   createdAt   DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+/// One day's practice plan: the tasks are fixed for the day, their progress is measured from what you did
+model DailyPlan {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The day it is for, YYYY-MM-DD in the server's time zone
+  day         String
+  goalMinutes Int
+  /// [{ id, kind, title, detail, to, target, unit, minutes, meta }]
+  tasks       Json
+  /// When every task was done (and the bonus XP given)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, day])
+  @@index([userId, completedAt])
+}
+
+/// Following someone: you hear when they go live or schedule a room
+model Follow {
+  followerId  String
+  follower    User     @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+/// "Remind me" on a scheduled room
+model VoiceRoomInterest {
+  roomId    String
+  room      VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@id([roomId, userId])
+  @@index([userId])
 }

@@ -10,6 +10,7 @@ import {
   useUnblockUser,
 } from "../hooks/useFriends";
 import { toast } from "sonner";
+import { FollowButton } from "../components/social/FollowButton";
 import {
   Users,
   UserPlus,
@@ -197,10 +198,14 @@ export const FriendsPage = () => {
                       </div>
                     </div>
 
-                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-full text-xs font-semibold shrink-0">
-                      <UserCheck className="w-3.5 h-3.5" />
-                      <span>Connected</span>
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="hidden sm:inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
+                        <UserCheck className="w-3.5 h-3.5" />
+                        <span>Connected</span>
+                      </span>
+                      {/* Follow to hear when they go live or schedule a room */}
+                      <FollowButton userId={friend.id} name={friend.name} />
+                    </div>
                   </div>
                 ))}
               </div>

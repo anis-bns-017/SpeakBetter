@@ -32,6 +32,7 @@ import {
   type CreateRoomForm,
 } from "../components/voice/lobby/CreateRoomModal";
 import { RoomCard } from "../components/voice/lobby/RoomCard";
+import { useRoomInterests, useToggleRoomInterest } from "../hooks/useNotifications";
 import { LobbyHero } from "../components/voice/lobby/LobbyHero";
 import {
   StatsStrip,
@@ -214,6 +215,24 @@ export const VoicePage = () => {
     prefs.hideFull,
     prefs.sort,
   ]);
+
+  // "Remind me" on scheduled rooms: how many people asked, and whether you did
+  const scheduledIds = useMemo(
+    () => filteredRooms.filter((r) => r.type === "SCHEDULED" && r.scheduledFor).map((r) => r.id),
+    [filteredRooms],
+  );
+  const { data: interests } = useRoomInterests(scheduledIds);
+  const toggleInterest = useToggleRoomInterest();
+  const handleToggleReminder = (roomId: string) => {
+    const interested = !interests?.[roomId]?.mine;
+    toggleInterest.mutate(
+      { roomId, interested },
+      {
+        onSuccess: () => toast.success(interested ? "We'll remind you 10 minutes before it starts" : "Reminder removed"),
+        onError: () => toast.error("Couldn't update the reminder"),
+      },
+    );
+  };
 
   const activeFilterCount =
     (searchQuery.trim() ? 1 : 0) +
@@ -710,6 +729,8 @@ export const VoicePage = () => {
                         onEnd={() => handleEnd(room.id)}
                         onCopyLink={() => copyRoomLink(room.id)}
                         onToggleFavorite={() => prefs.toggleFavorite(room.id)}
+                        reminder={interests?.[room.id]}
+                        onToggleReminder={() => handleToggleReminder(room.id)}
                       />
                     ))}
                   </div>

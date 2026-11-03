@@ -814,7 +814,7 @@ const SOCKET_URL = (
 
 const CHAT_SOCKET_NAMESPACE = "/chat";
 
-const getStoredToken = (): string | null => {
+export const getStoredToken = (): string | null => {
   if (typeof window === "undefined") return null;
 
   const isUsable = (value: string | null | undefined): value is string => {

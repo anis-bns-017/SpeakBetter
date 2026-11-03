@@ -7,12 +7,12 @@ import {
 } from '@nestjs/common';
 import {
   AiTutorService,
-  DAILY_TURN_LIMIT,
   HISTORY_MESSAGES,
   MAX_TURNS_PER_SESSION,
   XP_DAILY_CAP,
   XP_PER_TURN,
 } from './ai-tutor.service';
+import { PLAN_LIMITS } from '../billing/plans';
 import { TutorLlm, TutorRefusedError, TutorUnavailableError, type TutorLlmRequest } from './ai-tutor.llm';
 
 class FakeLlm extends TutorLlm {
@@ -98,15 +98,19 @@ function setup() {
   };
   const review: any = { addCorrectionCard: jest.fn(async () => ({ created: true })) };
   const llm = new FakeLlm();
-  return { service: new AiTutorService(prisma, activity, llm, review), prisma, activity, review, llm, chats, messages, profile };
+  // Pro by default, so most tests see the full daily allowance
+  const billing: any = { getLimits: jest.fn(async () => PLAN_LIMITS.PRO) };
+  return { service: new AiTutorService(prisma, activity, llm, review, billing), prisma, activity, review, llm, billing, chats, messages, profile };
 }
+
+const DAILY_TURN_LIMIT = PLAN_LIMITS.PRO.aiTurnsPerDay;
 
 describe('AiTutorService', () => {
   describe('status', () => {
     it('reports availability, level, turns left and scenarios', async () => {
       const { service } = setup();
       const status = await service.getStatus('u1');
-      expect(status).toMatchObject({ configured: true, level: 'B2', dailyTurnsLeft: DAILY_TURN_LIMIT });
+      expect(status).toMatchObject({ configured: true, level: 'B2', dailyTurnsLeft: DAILY_TURN_LIMIT, dailyTurnLimit: DAILY_TURN_LIMIT });
       expect(status.scenarios.length).toBeGreaterThan(3);
       expect(status.scenarios[0]).not.toHaveProperty('persona');
     });
@@ -237,6 +241,21 @@ describe('AiTutorService', () => {
       expect(err).toBeInstanceOf(HttpException);
       expect(err.getStatus()).toBe(429);
       expect(day.llm.calls).toHaveLength(0);
+    });
+
+    it('gives free learners a smaller day than Pro, and says how to get more', async () => {
+      const free = setup();
+      free.billing.getLimits.mockResolvedValue(PLAN_LIMITS.FREE);
+      expect(await free.service.getStatus('u1')).toMatchObject({
+        dailyTurnsLeft: PLAN_LIMITS.FREE.aiTurnsPerDay,
+        dailyTurnLimit: PLAN_LIMITS.FREE.aiTurnsPerDay,
+      });
+      const s = await free.service.startSession('u1', 'free');
+      free.prisma.aiMessage.count.mockResolvedValueOnce(0).mockResolvedValueOnce(PLAN_LIMITS.FREE.aiTurnsPerDay);
+      const err = await free.service.turn('u1', s.sessionId, 'hi').catch((e) => e);
+      expect(err.getStatus()).toBe(429);
+      expect(err.getResponse()).toMatchObject({ limit: PLAN_LIMITS.FREE.aiTurnsPerDay, message: expect.stringContaining('Pro') });
+      expect(free.llm.calls).toHaveLength(0);
     });
 
     it('does not save anything when the model fails', async () => {

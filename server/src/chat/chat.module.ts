@@ -11,6 +11,7 @@ import { ChatBroadcaster } from './realtime/chat-broadcaster';
 import { PrismaService } from '../prisma.service';
 import { LearningModule } from '../learning/learning.module';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ChatFeaturesController } from './chat-features.controller';
 import { ChatPrivacyService } from './chat-privacy.service';
 import { ChatFeaturesService } from './chat-features.service';
@@ -30,6 +31,8 @@ import { ChatSchedulerService } from './chat-scheduler.service';
     LearningModule,
     // AuthService: session-aware socket authentication
     AuthModule,
+    // Tells people when their message is corrected
+    NotificationsModule,
   ],
   controllers: [ChatController, ChatFeaturesController],
   providers: [
