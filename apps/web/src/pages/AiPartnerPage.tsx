@@ -42,6 +42,7 @@ import {
   type TutorSummary,
 } from "../hooks/useAiTutor";
 import useWordBank from "../hooks/useWordBank";
+import { useMySubscription } from "../hooks/useBilling";
 import { WordLookup, readSelection, type WordSelection } from "../components/chat/WordLookup";
 import { CEFR_CODES, CEFR_INFO, isCefr, type CefrCode } from "../lib/cefr";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
@@ -96,6 +97,7 @@ const Setup: React.FC<{
   );
   const hasLevel = isCefr(status.level);
   const outOfTurns = status.dailyTurnsLeft <= 0;
+  const onFreePlan = useMySubscription().data?.plan === "FREE";
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 lg:py-12">
@@ -194,6 +196,14 @@ const Setup: React.FC<{
       </button>
       <p className="text-center text-xs text-slate-400 mt-3">
         {outOfTurns ? "You've used all of today's practice turns. Come back tomorrow!" : `${status.dailyTurnsLeft} practice turns left today`}
+        {onFreePlan && (
+          <>
+            {" · "}
+            <Link to="/premium" className="font-medium text-indigo-500 hover:text-indigo-600">
+              Get more with Pro
+            </Link>
+          </>
+        )}
         {!speechCaptionsSupported() && " · Voice input needs Chrome or Edge. You can type instead."}
       </p>
     </div>

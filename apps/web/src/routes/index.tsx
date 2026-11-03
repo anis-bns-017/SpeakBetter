@@ -20,6 +20,8 @@ import { ProgressPage } from "../pages/ProgressPage";
 import { PlacementPage } from "../pages/PlacementPage";
 import { AiPartnerPage } from "../pages/AiPartnerPage";
 import { PronunciationPage } from "../pages/PronunciationPage";
+import { PremiumPage } from "../pages/PremiumPage";
+import { CheckoutPage } from "../pages/CheckoutPage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { ChatPage } from "../pages/ChatPage";
@@ -145,6 +147,8 @@ const AppRoutes = () => {
           <Route path="/placement" element={<PlacementPage />} />
           <Route path="/ai-partner" element={<AiPartnerPage />} />
           <Route path="/pronunciation" element={<PronunciationPage />} />
+          <Route path="/premium" element={<PremiumPage />} />
+          <Route path="/billing/checkout/:paymentId" element={<CheckoutPage />} />
 
           {/* Profile & Settings */}
           <Route path="/profile" element={<ProfilePage />} />

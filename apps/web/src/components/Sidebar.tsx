@@ -45,6 +45,7 @@ import {
   Radio,
   Sparkles,
   Bot,
+  Crown,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -112,6 +113,7 @@ const NAV_SECTIONS: NavSection[] = [
 const ACCOUNT_ITEMS: NavItem[] = [
   { label: "Profile", to: "/profile", icon: User, keywords: "me account" },
   { label: "Settings", to: "/settings", icon: Settings, keywords: "preferences notifications privacy" },
+  { label: "Premium", to: "/premium", icon: Crown, keywords: "pro upgrade subscription billing plan pay price", matches: ["/billing"] },
 ];
 
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);

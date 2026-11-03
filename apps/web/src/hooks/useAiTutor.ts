@@ -13,6 +13,8 @@ export interface TutorStatus {
   configured: boolean;
   level: string | null;
   dailyTurnsLeft: number;
+  /** Turns a day on the learner's plan (Free or Pro) */
+  dailyTurnLimit: number;
   activeSessionId: string | null;
   scenarios: TutorScenarioInfo[];
 }
