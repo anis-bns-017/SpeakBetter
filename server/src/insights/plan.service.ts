@@ -167,7 +167,7 @@ export class PlanService {
   /** How far each task got today, from what you actually did anywhere in the app */
   private async measure(userId: string, tasks: PlanTask[], since: Date): Promise<PlanTaskProgress[]> {
     const kinds = new Set(tasks.map((t) => t.kind));
-    const [xp, cardReviews, wordReviews, attempts, cardsSaved, wordsSaved, profile] = await Promise.all([
+    const [xp, cardReviews, wordReviews, attempts, cardsSaved, wordsSaved, profile, challengeAnswers, textsRead] = await Promise.all([
       this.prisma.xpTransaction.findMany({ where: { userId, createdAt: { gte: since } }, select: { reason: true, amount: true } }),
       kinds.has('REVIEW') ? this.prisma.flashcardReview.count({ where: { userId, lastReviewedAt: { gte: since } } }) : 0,
       kinds.has('REVIEW')
@@ -177,6 +177,8 @@ export class PlanService {
       kinds.has('WORDS') ? this.prisma.flashcard.count({ where: { userId, kind: 'word', createdAt: { gte: since } } }) : 0,
       kinds.has('WORDS') ? this.prisma.voiceSavedWord.count({ where: { userId, createdAt: { gte: since } } }) : 0,
       kinds.has('LEVEL') ? this.prisma.profile.findUnique({ where: { userId }, select: { level: true } }) : null,
+      kinds.has('CHALLENGE') ? this.prisma.challengeEntry.count({ where: { userId, createdAt: { gte: since } } }) : 0,
+      kinds.has('READ') ? this.prisma.libraryProgress.count({ where: { userId, updatedAt: { gte: since } } }) : 0,
     ]);
 
     const sum = (reason: string) => xp.filter((t) => t.reason === reason).reduce((s, t) => s + t.amount, 0);
@@ -194,6 +196,10 @@ export class PlanService {
           return attempts;
         case 'SPEAK':
           return Math.floor(speakingMinutes);
+        case 'CHALLENGE':
+          return challengeAnswers;
+        case 'READ':
+          return textsRead;
         case 'CORRECTION':
           return count('CORRECTION_GIVEN');
         case 'WORDS':

@@ -59,7 +59,7 @@ export const useMarkNotificationsRead = () => {
   });
 };
 
-export type NotificationPreferences = Record<'roomReminders' | 'followedLive' | 'newFollowers' | 'corrections' | 'friendRequests', boolean>;
+export type NotificationPreferences = Record<'roomReminders' | 'followedLive' | 'newFollowers' | 'corrections' | 'friendRequests' | 'achievements' | 'challenges', boolean>;
 
 export const useNotificationPreferences = () =>
   useQuery({

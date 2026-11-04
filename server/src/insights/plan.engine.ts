@@ -6,7 +6,7 @@
 export const GOAL_OPTIONS = [5, 10, 20, 30] as const;
 export const DEFAULT_GOAL_MINUTES = 10;
 
-export type PlanTaskKind = 'LEVEL' | 'REVIEW' | 'PRONUNCIATION' | 'SPEAK' | 'CORRECTION' | 'WORDS' | 'EXERCISE';
+export type PlanTaskKind = 'LEVEL' | 'REVIEW' | 'PRONUNCIATION' | 'SPEAK' | 'CHALLENGE' | 'READ' | 'CORRECTION' | 'WORDS' | 'EXERCISE';
 
 export interface PlanTask {
   id: string;
@@ -17,7 +17,7 @@ export interface PlanTask {
   to: string;
   /** How much counts as done, in `unit` */
   target: number;
-  unit: 'test' | 'cards' | 'tries' | 'minutes' | 'corrections' | 'words' | 'exercises';
+  unit: 'test' | 'cards' | 'tries' | 'minutes' | 'answers' | 'texts' | 'corrections' | 'words' | 'exercises';
   /** Estimated time */
   minutes: number;
 }
@@ -120,7 +120,28 @@ export function buildPlan(s: PlanSignals): PlanTask[] {
   }
 
   // Small tasks to fill the rest of the time
-  const fillers: PlanTask[] = [];
+  const fillers: PlanTask[] = [
+    {
+      id: 'challenge',
+      kind: 'CHALLENGE',
+      title: "Answer today's speaking challenge",
+      detail: 'One question, about a minute, out loud',
+      to: '/challenge',
+      target: 1,
+      unit: 'answers',
+      minutes: 2,
+    },
+    {
+      id: 'read',
+      kind: 'READ',
+      title: 'Read and listen to one story',
+      detail: 'A short text for your level, then three quick questions',
+      to: '/library',
+      target: 1,
+      unit: 'texts',
+      minutes: 3,
+    },
+  ];
   if (s.correctionsGivenThisWeek === 0) {
     fillers.push({
       id: 'correction',

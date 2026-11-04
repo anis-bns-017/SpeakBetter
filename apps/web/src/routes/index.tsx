@@ -2,6 +2,7 @@ import type React from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
 import { NotificationBell, NotificationsLive } from "../components/notifications/NotificationBell";
+import { CelebrationLayer } from "../components/gamification/CelebrationLayer";
 import { useAuth } from "../contexts/AuthContext";
 import { useSidebar } from "../contexts/SidebarContext";
 import { SIDEBAR_WIDTH, MOBILE_TAB_BAR_HEIGHT } from "../lib/navLayout";
@@ -20,6 +21,10 @@ import { ProgressPage } from "../pages/ProgressPage";
 import { PlacementPage } from "../pages/PlacementPage";
 import { AiPartnerPage } from "../pages/AiPartnerPage";
 import { PronunciationPage } from "../pages/PronunciationPage";
+import { LeaguesPage } from "../pages/LeaguesPage";
+import { ChallengePage } from "../pages/ChallengePage";
+import { LibraryPage } from "../pages/LibraryPage";
+import { LibraryReaderPage } from "../pages/LibraryReaderPage";
 import { PremiumPage } from "../pages/PremiumPage";
 import { CheckoutPage } from "../pages/CheckoutPage";
 import { ProfilePage } from "../pages/ProfilePage";
@@ -101,6 +106,8 @@ const AppLayout = () => {
       <Sidebar />
       {/* Live notifications on every page; on phones the bell floats in the corner (the sidebar has its own) */}
       <NotificationsLive />
+      {/* New badges and last week's league result, shown once each (never over a live room) */}
+      <CelebrationLayer paused={inVoiceRoom} />
       {!inVoiceRoom && (
         <div className="lg:hidden fixed top-3 right-3 z-40">
           <NotificationBell variant="floating" />
@@ -147,6 +154,10 @@ const AppRoutes = () => {
           <Route path="/placement" element={<PlacementPage />} />
           <Route path="/ai-partner" element={<AiPartnerPage />} />
           <Route path="/pronunciation" element={<PronunciationPage />} />
+          <Route path="/leagues" element={<LeaguesPage />} />
+          <Route path="/challenge" element={<ChallengePage />} />
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/library/:textId" element={<LibraryReaderPage />} />
           <Route path="/premium" element={<PremiumPage />} />
           <Route path="/billing/checkout/:paymentId" element={<CheckoutPage />} />
 

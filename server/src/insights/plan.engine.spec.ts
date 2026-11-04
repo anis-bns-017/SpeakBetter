@@ -49,7 +49,8 @@ describe('buildPlan', () => {
   it('fills a long day with small tasks, up to five', () => {
     const tasks = buildPlan({ ...base, goalMinutes: 30, correctionsGivenThisWeek: 0, wordsSavedThisWeek: 0 });
     expect(tasks.length).toBeLessThanOrEqual(5);
-    expect(tasks.map((t) => t.kind)).toEqual(expect.arrayContaining(['REVIEW', 'PRONUNCIATION', 'SPEAK', 'CORRECTION']));
+    // Spare time goes to the daily challenge and a story first
+    expect(tasks.map((t) => t.kind)).toEqual(expect.arrayContaining(['REVIEW', 'PRONUNCIATION', 'SPEAK', 'CHALLENGE', 'READ']));
   });
 
   it('gives a new learner with nothing due at least two tasks', () => {

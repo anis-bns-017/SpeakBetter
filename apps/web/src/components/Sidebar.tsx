@@ -32,6 +32,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Flame,
+  Snowflake,
   LogOut,
   Search,
   Users,
@@ -45,6 +46,9 @@ import {
   Radio,
   Sparkles,
   Bot,
+  Trophy,
+  Megaphone,
+  Library,
   Crown,
   type LucideIcon,
 } from "lucide-react";
@@ -93,18 +97,21 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Chat", to: "/chat", icon: MessageCircle, keywords: "messages dm conversation" },
       { label: "Communities", to: "/communities", icon: Hash, keywords: "groups clubs channels" },
       { label: "Friends", to: "/friends", icon: Users, keywords: "partners people suggestions", matches: ["/suggestions", "/blocked"] },
+      { label: "Daily challenge", to: "/challenge", icon: Megaphone, keywords: "daily speaking challenge question answer record prompt" },
       { label: "AI Partner", to: "/ai-partner", icon: Bot, keywords: "ai tutor practice talk speaking conversation roleplay interview" },
     ],
   },
   {
     title: "Learn",
     items: [
+      { label: "Library", to: "/library", icon: Library, keywords: "reading listening stories dialogues articles read listen comprehension" },
       { label: "Vocabulary", to: "/vocabulary", icon: BookOpen, keywords: "words" },
       { label: "Flashcards", to: "/flashcards", icon: Layers, keywords: "review cards spaced repetition" },
       { label: "Pronunciation", to: "/pronunciation", icon: Mic, keywords: "pronounce speaking sounds accent th say aloud score" },
       { label: "Grammar", to: "/grammar", icon: FileText, keywords: "rules tenses" },
       { label: "Exercises", to: "/exercises", icon: Dumbbell, keywords: "practice quiz" },
       { label: "Progress", to: "/progress", icon: TrendingUp, keywords: "stats streak xp level" },
+      { label: "Leagues", to: "/leagues", icon: Trophy, keywords: "league leaderboard rank badges achievements weekly competition" },
       { label: "Level test", to: "/placement", icon: Sparkles, keywords: "placement cefr a1 b2 c1 assessment find my english level" },
     ],
   },
@@ -147,6 +154,8 @@ function useSidebarData(userId?: string) {
 
   const xp = Number(progress?.totalXP ?? 0) || 0;
   const streak = Number(progress?.streak ?? 0) || 0;
+  const freezes = Number(progress?.freezes ?? 0) || 0;
+  const practicedToday = !!progress?.practicedToday;
   const liveCount = typeof liveCountData === "number" ? liveCountData : Number((liveCountData as { count?: number } | undefined)?.count ?? 0) || 0;
 
   const liveRooms = useMemo(
@@ -165,6 +174,8 @@ function useSidebarData(userId?: string) {
   return {
     xp,
     streak,
+    freezes,
+    practicedToday,
     level: getXpLevel(xp),
     levelProgress: getLevelProgress(xp),
     xpToNext: Math.max(0, getNextLevelXp(xp) - xp),
@@ -483,9 +494,21 @@ const StreakCard: React.FC<{ data: SidebarData; onOpen: () => void }> = ({ data,
             {data.streak > 0 ? `${data.streak}-day streak` : "Start a streak"}
           </p>
           <p className="text-[11.5px] text-slate-500 dark:text-slate-400 truncate">
-            {data.streak > 0 ? "Practice today to keep it going" : "Speak or study today to begin"}
+            {data.streak > 0
+              ? data.practicedToday
+                ? "Done for today. See you tomorrow"
+                : "Practise today to keep it going"
+              : "Speak or study today to begin"}
           </p>
         </div>
+        {data.freezes > 0 && (
+          <span
+            className="ml-auto shrink-0 inline-flex items-center gap-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-300 px-1.5 py-1 text-[11px] font-bold tabular-nums"
+            title={`${data.freezes} streak ${data.freezes === 1 ? "freeze" : "freezes"}: a missed day won't break your streak`}
+          >
+            <Snowflake className="w-3 h-3" /> {data.freezes}
+          </span>
+        )}
       </div>
       <div className="relative mt-3">
         <div className="flex items-center justify-between text-[11px] mb-1.5">

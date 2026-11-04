@@ -73,6 +73,8 @@ export const useAnswerReview = () => {
     onSuccess: () => {
       // Not the queue itself: a session keeps working on the cards it started with
       queryClient.invalidateQueries({ queryKey: ['learning-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['quests'] });
+      queryClient.invalidateQueries({ queryKey: ['streak'] });
       queryClient.invalidateQueries({ queryKey: ['review-mistakes'] });
     },
   });

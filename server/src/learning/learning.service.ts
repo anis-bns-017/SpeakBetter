@@ -433,6 +433,7 @@ export class LearningService {
         current: streak.current,
         longest: streakRow?.longestStreak ?? 0,
         practicedToday: streak.practicedToday,
+        freezes: streak.freezes,
       },
       xp: {
         total: totalXp._sum.amount ?? 0,
@@ -483,10 +484,13 @@ export class LearningService {
       _sum: { amount: true },
     });
 
+    const effective = ActivityService.effectiveStreak(streak);
     return {
       progress,
-      // A streak only survives if they practised today or yesterday
-      streak: ActivityService.effectiveStreak(streak).current,
+      // A streak only survives if they practised today or yesterday (or a freeze covers the gap)
+      streak: effective.current,
+      practicedToday: effective.practicedToday,
+      freezes: effective.freezes,
       totalXP: totalXP._sum.amount || 0,
     };
   }

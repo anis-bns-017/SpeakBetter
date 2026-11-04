@@ -174,6 +174,7 @@ enum XpReason {
   AI_PRACTICE
   PRONUNCIATION_PRACTICE
   DAILY_PLAN
+  QUEST_COMPLETED
 }
 
 enum BadgeCategory {
@@ -355,6 +356,7 @@ enum NotificationType {
   ROOM_SCHEDULED
   NEW_FOLLOWER
   CORRECTION
+  CHALLENGE_REACTION
 }
 
 enum NotificationPlatform {
@@ -616,6 +618,13 @@ model User {
   following                Follow[]                   @relation("FollowFollower")
   followers                Follow[]                   @relation("FollowFollowing")
   roomInterests            VoiceRoomInterest[]
+  leagueProfile            LeagueProfile?
+  leagueMemberships        LeagueMember[]
+  challengeEntries         ChallengeEntry[]
+  challengeReactions       ChallengeReaction[]
+  libraryProgress          LibraryProgress[]
+  questWeeks               QuestWeek[]
+  streakFreezeUses         StreakFreezeUse[]
 }
 
 // One row per refresh token. A login starts a "family"; every refresh rotation
@@ -1551,8 +1560,49 @@ model Streak {
   currentStreak    Int      @default(0)
   longestStreak    Int      @default(0)
   lastActivityDate DateTime @default(now())
+  /// Streak freezes in hand (at most 2): each one covers one missed day
+  freezes          Int      @default(0)
+  /// XP spent on freezes. Level and leagues still count it; only the shop balance goes down
+  xpSpent          Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+/// A day a streak freeze covered, so the learner can be told their streak was saved
+model StreakFreezeUse {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The missed day (YYYY-MM-DD, server time)
+  day       String
+  /// The streak it kept alive
+  streak    Int
+  seenAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, day])
+  @@index([userId, seenAt])
+}
+
+/// This week's three quests for a learner, fixed when the week's first visit makes them
+model QuestWeek {
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Monday of the week (YYYY-MM-DD), the same key the leagues use
+  week         String
+  /// [{ id, kind, target, xp }]
+  quests       Json
+  /// Bit i is set once quest i's XP was given
+  rewardedMask Int       @default(0)
+  /// When all of them were done and the chest was opened
+  completedAt  DateTime?
+  /// Whether the chest held a streak freeze (not when two were already in hand)
+  freezeGiven  Boolean   @default(false)
+  /// When the chest was celebrated
+  seenAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@id([userId, week])
 }
 
 model Progress {
@@ -1587,6 +1637,8 @@ model UserBadge {
   badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
   badgeId   String
   earnedAt  DateTime @default(now())
+  /// When the learner saw the reveal (null = still to celebrate)
+  seenAt    DateTime?
   createdAt DateTime @default(now())
 
   @@unique([userId, badgeId])
@@ -2086,6 +2138,10 @@ model NotificationPreference {
   /// Someone corrected something you said
   corrections              Boolean  @default(true)
   friendRequests           Boolean  @default(true)
+  /// Badges earned and weekly league results
+  achievements             Boolean  @default(true)
+  /// Someone reacted to your daily challenge answer
+  challenges               Boolean  @default(true)
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }
@@ -2532,4 +2588,104 @@ model VoiceRoomInterest {
 
   @@id([roomId, userId])
   @@index([userId])
+}
+
+/// Where someone stands in the weekly leagues (0 = Bronze ... 9 = Diamond)
+model LeagueProfile {
+  userId     String   @id
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier       Int      @default(0)
+  bestTier   Int      @default(0)
+  promotions Int      @default(0)
+  /// Weeks finished in the top 3 of a group
+  podiums    Int      @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+/// One week's group of up to 30 people in the same league
+model LeagueGroup {
+  id          String         @id @default(cuid())
+  /// The week's Monday, YYYY-MM-DD in the server's time zone
+  weekStart   String
+  tier        Int
+  finalizedAt DateTime?
+  createdAt   DateTime       @default(now())
+  members     LeagueMember[]
+
+  @@index([weekStart, tier])
+  @@index([finalizedAt])
+}
+
+model LeagueMember {
+  id        String      @id @default(cuid())
+  groupId   String
+  group     LeagueGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStart String
+  tier      Int
+  /// Filled in when the week ends
+  xp        Int?
+  rank      Int?
+  /// promote | stay | demote
+  result    String?
+  /// When the learner saw the week's results screen
+  seenAt    DateTime?
+  createdAt DateTime    @default(now())
+
+  @@unique([userId, weekStart])
+  @@index([groupId])
+}
+
+/// One answer to the daily speaking challenge (one per person per day; recording again replaces it)
+model ChallengeEntry {
+  id          String              @id @default(cuid())
+  userId      String
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// YYYY-MM-DD in the server's time zone
+  day         String
+  promptId    String
+  level       String
+  audioUrl    String
+  transcript  String
+  durationSec Int
+  /// { words, wpm, fluency, fillersPer100, uniqueWords, richWords, topicWords, onTopic, score, ... }
+  stats       Json
+  /// public: in today's feed; private: only you
+  visibility  String              @default("public")
+  reactions   ChallengeReaction[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([userId, day])
+  @@index([day, visibility])
+}
+
+model ChallengeReaction {
+  entryId   String
+  entry     ChallengeEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime       @default(now())
+
+  @@id([entryId, userId])
+  @@index([userId])
+}
+
+/// How far someone got with one text in the reading and listening library
+model LibraryProgress {
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  textId      String
+  /// Right answers on the best try, out of `total`
+  bestScore   Int       @default(0)
+  total       Int       @default(0)
+  attempts    Int       @default(0)
+  /// The first time every question was answered
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@id([userId, textId])
+  @@index([userId, completedAt])
 }

@@ -22,6 +22,10 @@ import { PronunciationModule } from './pronunciation/pronunciation.module';
 import { InsightsModule } from './insights/insights.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SocialModule } from './social/social.module';
+import { GamificationModule } from './gamification/gamification.module';
+import { ChallengesModule } from './challenges/challenges.module';
+import { LibraryModule } from './library/library.module';
+import { QuestsModule } from './quests/quests.module';
 import { BillingModule } from './billing/billing.module';
 
 @Module({
@@ -45,6 +49,10 @@ import { BillingModule } from './billing/billing.module';
     InsightsModule,
     NotificationsModule,
     SocialModule,
+    GamificationModule,
+    ChallengesModule,
+    LibraryModule,
+    QuestsModule,
     BillingModule,
     CommunitiesModule,
   ],

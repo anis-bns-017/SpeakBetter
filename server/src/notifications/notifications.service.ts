@@ -3,7 +3,7 @@ import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 /** Which setting lets a kind of notification through */
-export const PREFERENCE_KEYS = ['roomReminders', 'followedLive', 'newFollowers', 'corrections', 'friendRequests'] as const;
+export const PREFERENCE_KEYS = ['roomReminders', 'followedLive', 'newFollowers', 'corrections', 'friendRequests', 'achievements', 'challenges'] as const;
 export type PreferenceKey = (typeof PREFERENCE_KEYS)[number];
 
 export interface NotifyInput {

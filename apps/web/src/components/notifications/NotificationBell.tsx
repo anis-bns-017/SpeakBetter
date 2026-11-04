@@ -20,6 +20,9 @@ import {
   CheckCheck,
   Radio,
   Settings,
+  Trophy,
+  Zap,
+  Megaphone,
   UserPlus,
   Users,
   Wand2,
@@ -45,6 +48,9 @@ const TYPE: Record<string, { icon: LucideIcon; tone: string }> = {
   NEW_FOLLOWER: { icon: UserPlus, tone: "bg-emerald-500/10 text-emerald-500" },
   CORRECTION: { icon: Wand2, tone: "bg-violet-500/10 text-violet-500" },
   FRIEND_REQUEST: { icon: Users, tone: "bg-sky-500/10 text-sky-500" },
+  ACHIEVEMENT: { icon: Trophy, tone: "bg-amber-500/10 text-amber-500" },
+  REMINDER: { icon: Zap, tone: "bg-indigo-500/10 text-indigo-500" },
+  CHALLENGE_REACTION: { icon: Megaphone, tone: "bg-rose-500/10 text-rose-500" },
 };
 const typeOf = (type: string) => TYPE[type] ?? { icon: Bell, tone: "bg-slate-500/10 text-slate-500" };
 
@@ -88,6 +94,17 @@ export const NotificationsLive: React.FC = () => {
       }
       if (n.type.startsWith("ROOM_")) queryClient.invalidateQueries({ queryKey: ["voice-upcoming"] });
       if (n.type === "FRIEND_REQUEST") queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
+      if (n.type === "ACHIEVEMENT") {
+        queryClient.invalidateQueries({ queryKey: ["achievements"] });
+        queryClient.invalidateQueries({ queryKey: ["league-current"] });
+        // A badge or a week's result gets its full-screen moment straight away
+        queryClient.invalidateQueries({ queryKey: ["celebrations"] });
+      }
+      if (n.type === "CHALLENGE_REACTION") queryClient.invalidateQueries({ queryKey: ["challenge-today"] });
+      if (n.type === "REMINDER") {
+        queryClient.invalidateQueries({ queryKey: ["league-current"] });
+        queryClient.invalidateQueries({ queryKey: ["league-friends"] });
+      }
 
       toast(n.title, {
         description: n.message,

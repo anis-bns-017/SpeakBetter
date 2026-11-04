@@ -26,6 +26,8 @@ import {
   TrendingUp,
   TrendingDown,
   CheckCircle2,
+  Megaphone,
+  Library,
   ArrowRight,
   Search,
   UserPlus,
@@ -44,6 +46,8 @@ import { useTrendingRooms } from "../hooks/useDiscovery";
 import { usePlacementStatus } from "../hooks/usePlacement";
 import { TodayPlanCard } from "../components/plan/TodayPlanCard";
 import { UpcomingRooms } from "../components/social/UpcomingRooms";
+import { LeagueSummary } from "../components/gamification/LeagueSummary";
+import { WeeklyQuestsCard } from "../components/quests/WeeklyQuestsCard";
 import { CEFR_INFO, isCefr, type CefrCode } from "../lib/cefr";
 import { useSuggestions, useSendFriendRequest } from "../hooks/useFriends";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
@@ -237,9 +241,11 @@ const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon
   { to: "/chat", title: "Chat", desc: "Message partners", icon: MessageCircle, tone: "text-rose-500 bg-rose-500/10" },
   { to: "/communities", title: "Communities", desc: "Groups by interest", icon: Hash, tone: "text-teal-500 bg-teal-500/10" },
   { to: "/discover", title: "Discover", desc: "Trending rooms", icon: Compass, tone: "text-amber-500 bg-amber-500/10" },
+  { to: "/library", title: "Library", desc: "Read & listen", icon: Library, tone: "text-teal-500 bg-teal-500/10" },
   { to: "/vocabulary", title: "Vocabulary", desc: "Your word bank", icon: BookOpen, tone: "text-emerald-500 bg-emerald-500/10" },
   { to: "/flashcards", title: "Flashcards", desc: "Spaced repetition", icon: Layers, tone: "text-sky-500 bg-sky-500/10" },
   { to: "/pronunciation", title: "Pronunciation", desc: "Say it, get a score", icon: Mic, tone: "text-cyan-500 bg-cyan-500/10" },
+  { to: "/challenge", title: "Daily challenge", desc: "One question a day", icon: Megaphone, tone: "text-rose-500 bg-rose-500/10" },
   { to: "/grammar", title: "Grammar", desc: "Rules & tenses", icon: FileText, tone: "text-violet-500 bg-violet-500/10" },
   { to: "/exercises", title: "Exercises", desc: "Quizzes & drills", icon: Dumbbell, tone: "text-orange-500 bg-orange-500/10" },
 ];
@@ -452,7 +458,8 @@ const DashboardPage: React.FC = () => {
           <TodayPlanCard className="h-full" />
         </motion.div>
 
-        <motion.section variants={fadeUp} initial="hidden" animate="show" custom={5} className={`${card} p-6 lg:col-span-2`}>
+        <div className="lg:col-span-2 space-y-5">
+        <motion.section variants={fadeUp} initial="hidden" animate="show" custom={5} className={`${card} p-6`}>
           <SectionTitle title="Live now" action={{ label: "All rooms", to: "/voice" }} />
           {liveRooms.length === 0 ? (
             <div className="text-center py-6">
@@ -493,6 +500,9 @@ const DashboardPage: React.FC = () => {
           )}
           <UpcomingRooms />
         </motion.section>
+        <WeeklyQuestsCard />
+        <LeagueSummary />
+        </div>
       </div>
 
       {/* ================= Activity + corrections ================= */}

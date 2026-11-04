@@ -106,6 +106,8 @@ export const useSubmitAttempt = () => {
       queryClient.invalidateQueries({ queryKey: ['pronunciation-practice'] });
       queryClient.invalidateQueries({ queryKey: ['pronunciation-drill'] });
       queryClient.invalidateQueries({ queryKey: ['learning-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['quests'] });
+      queryClient.invalidateQueries({ queryKey: ['streak'] });
       if (result.addedToReview.length) queryClient.invalidateQueries({ queryKey: ['review-queue'] });
     },
   });

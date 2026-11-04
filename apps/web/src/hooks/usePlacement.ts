@@ -96,6 +96,8 @@ export const useAnswerPlacement = () => {
       queryClient.invalidateQueries({ queryKey: ['placement'] });
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['learning-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['quests'] });
+      queryClient.invalidateQueries({ queryKey: ['streak'] });
     },
   });
 };

@@ -64,6 +64,10 @@ export interface Progress {
 export interface UserProgress {
   progress: Progress[];
   streak: number;
+  /** Whether today already counts towards the streak */
+  practicedToday?: boolean;
+  /** Streak freezes in hand */
+  freezes?: number;
   totalXP: number;
 }
 
@@ -207,7 +211,7 @@ export const useProgress = () => {
 };
 // ---------- Dashboard ----------
 export interface DashboardData {
-  streak: { current: number; longest: number; practicedToday: boolean };
+  streak: { current: number; longest: number; practicedToday: boolean; freezes?: number };
   xp: { total: number; today: number; dailyGoal: number; thisWeek: number; lastWeek: number };
   /** XP earned per day for the last 84 days, oldest first */
   activity: Array<{ date: string; xp: number }>;
