@@ -4,6 +4,8 @@
  * numbers, so they are pure and easy to test.
  */
 
+import { GRAMMAR } from '../grammar/grammar.content';
+
 export type BadgeTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND';
 export type BadgeCategory = 'STREAK' | 'LEARNING' | 'SPEAKING' | 'VOCABULARY' | 'COMMUNITY' | 'SPECIAL';
 
@@ -37,6 +39,10 @@ export interface LearnerStats {
   textsRead: number;
   /** Library texts at B2 or above with every question right */
   hardTextsPerfect: number;
+  /** Grammar lessons passed */
+  lessonsPassed: number;
+  /** Grammar lessons finished with every exercise right */
+  perfectLessons: number;
   /** Weeks with every weekly quest done */
   questWeeks: number;
   /** Days a streak freeze covered */
@@ -90,6 +96,10 @@ export const BADGES: BadgeDef[] = [
   { key: 'read-1', name: 'Bookworm', description: 'Finish a story in the library', category: 'VOCABULARY', tier: 'BRONZE', icon: 'BookOpen', measure: at('textsRead'), target: 1 },
   { key: 'read-10', name: 'Avid reader', description: 'Finish 10 library texts', category: 'VOCABULARY', tier: 'SILVER', icon: 'BookOpen', measure: at('textsRead'), target: 10 },
   { key: 'read-perfect', name: 'Sharp reader', description: 'Get every question right on a B2 or C1 text', category: 'VOCABULARY', tier: 'GOLD', icon: 'Target', measure: at('hardTextsPerfect'), target: 1 },
+  { key: 'grammar-1', name: 'Rule learner', description: 'Pass a grammar lesson', category: 'LEARNING', tier: 'BRONZE', icon: 'GraduationCap', measure: at('lessonsPassed'), target: 1 },
+  { key: 'grammar-6', name: 'Grammar fan', description: 'Pass 6 grammar lessons', category: 'LEARNING', tier: 'SILVER', icon: 'GraduationCap', measure: at('lessonsPassed'), target: 6 },
+  { key: 'grammar-perfect', name: 'Spot on', description: 'Get every exercise right in a grammar lesson', category: 'LEARNING', tier: 'SILVER', icon: 'Target', measure: at('perfectLessons'), target: 1 },
+  { key: 'grammar-all', name: 'Grammar graduate', description: 'Pass every grammar lesson', category: 'LEARNING', tier: 'GOLD', icon: 'GraduationCap', measure: at('lessonsPassed'), target: GRAMMAR.length },
   { key: 'quest-1', name: 'Quest complete', description: 'Finish all three weekly quests', category: 'STREAK', tier: 'BRONZE', icon: 'Gift', measure: at('questWeeks'), target: 1 },
   { key: 'quest-4', name: 'Month of quests', description: 'Finish your weekly quests in 4 different weeks', category: 'STREAK', tier: 'SILVER', icon: 'Gift', measure: at('questWeeks'), target: 4 },
   { key: 'quest-12', name: 'Quest master', description: 'Finish your weekly quests in 12 different weeks', category: 'STREAK', tier: 'GOLD', icon: 'Gift', measure: at('questWeeks'), target: 12 },

@@ -13,7 +13,6 @@ import {
   Flame,
   BookOpen,
   Layers,
-  FileText,
   Dumbbell,
   MessageCircle,
   AudioLines,
@@ -28,6 +27,7 @@ import {
   CheckCircle2,
   Megaphone,
   Library,
+  GraduationCap,
   ArrowRight,
   Search,
   UserPlus,
@@ -246,7 +246,7 @@ const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon
   { to: "/flashcards", title: "Flashcards", desc: "Spaced repetition", icon: Layers, tone: "text-sky-500 bg-sky-500/10" },
   { to: "/pronunciation", title: "Pronunciation", desc: "Say it, get a score", icon: Mic, tone: "text-cyan-500 bg-cyan-500/10" },
   { to: "/challenge", title: "Daily challenge", desc: "One question a day", icon: Megaphone, tone: "text-rose-500 bg-rose-500/10" },
-  { to: "/grammar", title: "Grammar", desc: "Rules & tenses", icon: FileText, tone: "text-violet-500 bg-violet-500/10" },
+  { to: "/grammar", title: "Grammar", desc: "Lessons & drills", icon: GraduationCap, tone: "text-violet-500 bg-violet-500/10" },
   { to: "/exercises", title: "Exercises", desc: "Quizzes & drills", icon: Dumbbell, tone: "text-orange-500 bg-orange-500/10" },
 ];
 

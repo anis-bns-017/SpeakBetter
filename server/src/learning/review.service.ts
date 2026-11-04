@@ -19,7 +19,7 @@ const SYNC_THROTTLE_MS = 10 * 60 * 1000;
 const LEARNED_AFTER_DAYS = 21;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type CorrectionSource = 'voice' | 'chat' | 'ai' | 'pronunciation';
+export type CorrectionSource = 'voice' | 'chat' | 'ai' | 'pronunciation' | 'grammar';
 
 export interface CorrectionInput {
   source: CorrectionSource;
@@ -30,6 +30,8 @@ export interface CorrectionInput {
   note?: string | null;
   /** A person's label (grammar, spelling, pronunciation...) when there is one */
   category?: string | null;
+  /** The mistake type when the source already knows it (a grammar lesson does), instead of guessing from the words */
+  pattern?: MistakePattern | null;
   /** When the correction was made (for history imports) */
   createdAt?: Date;
 }
@@ -109,7 +111,7 @@ export class ReviewService {
           kind: 'correction',
           source: input.source,
           sourceId: input.sourceId,
-          pattern: patternFor(original, corrected, input.category),
+          pattern: isPattern(input.pattern) ? input.pattern : patternFor(original, corrected, input.category),
           note: clean(input.note, 300) || null,
           ...(input.createdAt ? { createdAt: input.createdAt } : {}),
           reviews: {

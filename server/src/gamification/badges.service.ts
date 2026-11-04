@@ -76,6 +76,7 @@ export class BadgesService implements OnModuleInit {
       challenges,
       reactionsReceived,
       library,
+      grammar,
       questWeeks,
       freezesUsed,
     ] = await Promise.all([
@@ -105,6 +106,7 @@ export class BadgesService implements OnModuleInit {
       this.prisma.challengeEntry.count({ where: { userId } }),
       this.prisma.challengeReaction.count({ where: { entry: { userId } } }),
       this.prisma.libraryProgress.findMany({ where: { userId, completedAt: { not: null } }, select: { textId: true, bestScore: true, total: true } }),
+      this.prisma.grammarProgress.findMany({ where: { userId, completedAt: { not: null } }, select: { bestScore: true, total: true } }),
       this.prisma.questWeek.count({ where: { userId, completedAt: { not: null } } }),
       this.prisma.streakFreezeUse.count({ where: { userId } }),
     ]);
@@ -135,6 +137,8 @@ export class BadgesService implements OnModuleInit {
       textsRead: library.length,
       // B2 and C1 text ids start with their level
       hardTextsPerfect: library.filter((p) => /^(b2|c1)-/.test(p.textId) && p.total > 0 && p.bestScore === p.total).length,
+      lessonsPassed: grammar.length,
+      perfectLessons: grammar.filter((g) => g.total > 0 && g.bestScore === g.total).length,
       questWeeks,
       freezesUsed,
     };

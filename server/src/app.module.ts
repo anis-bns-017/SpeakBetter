@@ -25,6 +25,7 @@ import { SocialModule } from './social/social.module';
 import { GamificationModule } from './gamification/gamification.module';
 import { ChallengesModule } from './challenges/challenges.module';
 import { LibraryModule } from './library/library.module';
+import { GrammarModule } from './grammar/grammar.module';
 import { QuestsModule } from './quests/quests.module';
 import { BillingModule } from './billing/billing.module';
 
@@ -52,6 +53,7 @@ import { BillingModule } from './billing/billing.module';
     GamificationModule,
     ChallengesModule,
     LibraryModule,
+    GrammarModule,
     QuestsModule,
     BillingModule,
     CommunitiesModule,

@@ -167,7 +167,7 @@ export class PlanService {
   /** How far each task got today, from what you actually did anywhere in the app */
   private async measure(userId: string, tasks: PlanTask[], since: Date): Promise<PlanTaskProgress[]> {
     const kinds = new Set(tasks.map((t) => t.kind));
-    const [xp, cardReviews, wordReviews, attempts, cardsSaved, wordsSaved, profile, challengeAnswers, textsRead] = await Promise.all([
+    const [xp, cardReviews, wordReviews, attempts, cardsSaved, wordsSaved, profile, challengeAnswers, textsRead, grammarTries] = await Promise.all([
       this.prisma.xpTransaction.findMany({ where: { userId, createdAt: { gte: since } }, select: { reason: true, amount: true } }),
       kinds.has('REVIEW') ? this.prisma.flashcardReview.count({ where: { userId, lastReviewedAt: { gte: since } } }) : 0,
       kinds.has('REVIEW')
@@ -179,6 +179,7 @@ export class PlanService {
       kinds.has('LEVEL') ? this.prisma.profile.findUnique({ where: { userId }, select: { level: true } }) : null,
       kinds.has('CHALLENGE') ? this.prisma.challengeEntry.count({ where: { userId, createdAt: { gte: since } } }) : 0,
       kinds.has('READ') ? this.prisma.libraryProgress.count({ where: { userId, updatedAt: { gte: since } } }) : 0,
+      kinds.has('EXERCISE') ? this.prisma.grammarProgress.count({ where: { userId, updatedAt: { gte: since } } }) : 0,
     ]);
 
     const sum = (reason: string) => xp.filter((t) => t.reason === reason).reduce((s, t) => s + t.amount, 0);
@@ -205,7 +206,8 @@ export class PlanService {
         case 'WORDS':
           return cardsSaved + wordsSaved;
         case 'EXERCISE':
-          return count('EXERCISE_COMPLETED');
+          // A grammar lesson tried today counts, even a repeat that earns no XP
+          return Math.max(count('EXERCISE_COMPLETED'), grammarTries);
         default:
           return 0;
       }

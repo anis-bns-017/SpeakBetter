@@ -623,6 +623,7 @@ model User {
   challengeEntries         ChallengeEntry[]
   challengeReactions       ChallengeReaction[]
   libraryProgress          LibraryProgress[]
+  grammarProgress          GrammarProgress[]
   questWeeks               QuestWeek[]
   streakFreezeUses         StreakFreezeUse[]
 }
@@ -2687,5 +2688,22 @@ model LibraryProgress {
   updatedAt   DateTime  @updatedAt
 
   @@id([userId, textId])
+  @@index([userId, completedAt])
+}
+
+/// How far someone got with one grammar lesson
+model GrammarProgress {
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId    String
+  /// Right answers on the best try, out of `total`
+  bestScore   Int       @default(0)
+  total       Int       @default(0)
+  attempts    Int       @default(0)
+  /// The first time the lesson was passed
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@id([userId, lessonId])
   @@index([userId, completedAt])
 }

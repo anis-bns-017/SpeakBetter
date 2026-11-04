@@ -13,6 +13,8 @@ import { DiscoveryPage } from "../pages/DiscoveryPage";
 import { VocabularyPage } from "../pages/VocabularyPage";
 import { FlashcardPage } from "../pages/FlashcardPage";
 import { GrammarPage } from "../pages/GrammarPage";
+import { GrammarCoursePage } from "../pages/GrammarCoursePage";
+import { GrammarLessonPage } from "../pages/GrammarLessonPage";
 import { ExercisesPage } from "../pages/ExercisesPage";
 import { VoicePage } from "../pages/VoicePage";
 import { RandomCallPage } from "../pages/RandomCallPage";
@@ -148,7 +150,9 @@ const AppRoutes = () => {
           <Route path="/discover" element={<DiscoveryPage />} />
           <Route path="/vocabulary" element={<VocabularyPage />} />
           <Route path="/flashcards" element={<FlashcardPage />} />
-          <Route path="/grammar" element={<GrammarPage />} />
+          <Route path="/grammar" element={<GrammarCoursePage />} />
+          <Route path="/grammar/rules" element={<GrammarPage />} />
+          <Route path="/grammar/:lessonId" element={<GrammarLessonPage />} />
           <Route path="/exercises" element={<ExercisesPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/placement" element={<PlacementPage />} />

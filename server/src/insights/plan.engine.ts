@@ -169,9 +169,9 @@ export function buildPlan(s: PlanSignals): PlanTask[] {
   fillers.push({
     id: 'exercise',
     kind: 'EXERCISE',
-    title: 'Do a short exercise',
-    detail: 'A quick quiz on grammar or words',
-    to: '/exercises',
+    title: 'Practise one grammar lesson',
+    detail: 'A short rule and six quick exercises',
+    to: '/grammar',
     target: 1,
     unit: 'exercises',
     minutes: MINUTES_PER.exercise,
