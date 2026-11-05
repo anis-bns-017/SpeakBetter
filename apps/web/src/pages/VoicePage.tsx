@@ -462,13 +462,14 @@ export const VoicePage = () => {
       setShowMiniRoom(false);
       setMiniRoom(null);
       setActiveRoomId(null);
-      navigate("/voice");
+      // The recap of the session you just left (it shows a friendly note if there was too little to recap)
+      navigate(`/recap/${roomId}`);
     } catch (error) {
       console.error("Error refreshing after leaving room:", error);
       setShowMiniRoom(false);
       setMiniRoom(null);
       setActiveRoomId(null);
-      navigate("/voice");
+      navigate(`/recap/${roomId}`);
     }
   };
 

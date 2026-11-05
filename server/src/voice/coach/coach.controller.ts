@@ -27,6 +27,14 @@ export class CoachController {
     return this.coach.getMyReports(req.user.id, limit ? Number(limit) : 20);
   }
 
+  @Get('recap/:roomId')
+  @ApiOperation({ summary: 'The recap after leaving a room: your numbers, corrections, saved words, people and a tip' })
+  async getRecap(@Req() req: any, @Param('roomId') roomId: string) {
+    const recap = await this.coach.getRecap(roomId, req.user.id);
+    if (!recap) throw new NotFoundException('No recap for this room yet');
+    return recap;
+  }
+
   @Get('reports/room/:roomId')
   @ApiOperation({ summary: 'My report for one voice room' })
   async getRoomReport(@Req() req: any, @Param('roomId') roomId: string) {

@@ -18,6 +18,8 @@ import {
   type GrammarResult,
 } from "../hooks/useGrammar";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
+import { ChallengeFriendButton } from "../components/challenges/ChallengeFriendButton";
+import { ChallengeOutcomes } from "../components/challenges/ChallengeOutcomes";
 
 const card =
   "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
@@ -357,6 +359,9 @@ export const GrammarLessonPage: React.FC = () => {
               ))}
             </ul>
           </section>
+
+          <ChallengeOutcomes outcomes={result.challenges} />
+          <ChallengeFriendButton kind="grammar" refId={lesson.id} />
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button type="button" className={ghostBtn} onClick={restart}>

@@ -1,3 +1,5 @@
+import { apiOrigin } from "./offline";
+
 /**
  * Making SpeakBetter an installable app: registers the service worker and keeps the browser's "install" offer
  * so a button of our own can show it. Imported once at start-up, because `beforeinstallprompt` fires early.
@@ -75,7 +77,7 @@ export async function promptInstall(): Promise<boolean> {
 export function registerServiceWorker(): void {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
   const register = () => {
-    navigator.serviceWorker.register("/sw.js").catch((error) => {
+    navigator.serviceWorker.register(`/sw.js?api=${encodeURIComponent(apiOrigin())}`).catch((error) => {
       console.warn("Service worker could not be registered:", error);
     });
   };

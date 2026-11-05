@@ -1,5 +1,7 @@
-import React from "react";
-import { BellRing, CheckCircle2, Download, Loader2, Send, Share, Smartphone } from "lucide-react";
+import React, { useState } from "react";
+import { toast } from "sonner";
+import { BellRing, CheckCircle2, CloudDownload, Download, Loader2, Send, Share, Smartphone } from "lucide-react";
+import { lastSavedAt, offlineReady, saveForOffline } from "../../lib/offline";
 import { useInstall, usePushDevice } from "../../hooks/usePush";
 import { isStandalone } from "../../lib/pwa";
 
@@ -24,6 +26,46 @@ const Row: React.FC<{ icon: React.ElementType; title: string; children: React.Re
     </div>
   </div>
 );
+
+/** Save every story, lesson and word pack on this device, so they open without a connection */
+const OfflineRow: React.FC = () => {
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [savedAt, setSavedAt] = useState<Date | null>(lastSavedAt());
+  const ready = offlineReady();
+
+  const save = async () => {
+    try {
+      const n = await saveForOffline((done, total) => setProgress({ done, total }));
+      setSavedAt(lastSavedAt());
+      toast.success(`Saved ${n} lessons, stories and packs for offline use`);
+    } catch {
+      toast.error("Couldn't save everything. Check your connection and try again.");
+    } finally {
+      setProgress(null);
+    }
+  };
+
+  return (
+    <Row
+      icon={CloudDownload}
+      title="Use SpeakBetter offline"
+      action={
+        ready ? (
+          <button type="button" className={quiet} onClick={() => void save()} disabled={!!progress}>
+            {progress ? <Loader2 className="h-4 w-4 animate-spin" /> : <CloudDownload className="h-4 w-4" />}
+            {progress ? `${progress.done}/${progress.total}` : savedAt ? "Update" : "Save for offline"}
+          </button>
+        ) : undefined
+      }
+    >
+      {ready
+        ? savedAt
+          ? `Lessons, stories and word packs are saved on this device (last updated ${savedAt.toLocaleDateString()}). Things you open are also kept automatically.`
+          : "Save every story, grammar lesson and word pack on this device, so you can study on the bus or a plane. Things you open are also kept automatically."
+        : "Offline use needs the app to finish setting up in this browser. Reload the page, or install the app, and it will be ready."}
+    </Row>
+  );
+};
 
 /** Install SpeakBetter on the home screen, and get practice reminders on this device */
 export const AppAlertsCard: React.FC = () => {
@@ -122,6 +164,7 @@ export const AppAlertsCard: React.FC = () => {
     <div className="space-y-3">
       {installRow}
       {alertsRow}
+      <OfflineRow />
     </div>
   );
 };

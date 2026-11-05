@@ -6,6 +6,7 @@
 
 import { GRAMMAR } from '../grammar/grammar.content';
 import { PACKS } from '../vocab-packs/packs.content';
+import { SCENARIOS } from '../roleplay/roleplay.content';
 
 export type BadgeTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND';
 export type BadgeCategory = 'STREAK' | 'LEARNING' | 'SPEAKING' | 'VOCABULARY' | 'COMMUNITY' | 'SPECIAL';
@@ -40,6 +41,12 @@ export interface LearnerStats {
   textsRead: number;
   /** Library texts at B2 or above with every question right */
   hardTextsPerfect: number;
+  /** Role-play scenarios finished (each counts once) */
+  scenariosDone: number;
+  /** Listening dictations finished */
+  dictations: number;
+  /** Dictations with every word right */
+  perfectDictations: number;
   /** Vocabulary packs whose quiz was passed */
   packsPassed: number;
   /** Words from vocabulary packs in the flashcard review */
@@ -101,6 +108,11 @@ export const BADGES: BadgeDef[] = [
   { key: 'read-1', name: 'Bookworm', description: 'Finish a story in the library', category: 'VOCABULARY', tier: 'BRONZE', icon: 'BookOpen', measure: at('textsRead'), target: 1 },
   { key: 'read-10', name: 'Avid reader', description: 'Finish 10 library texts', category: 'VOCABULARY', tier: 'SILVER', icon: 'BookOpen', measure: at('textsRead'), target: 10 },
   { key: 'read-perfect', name: 'Sharp reader', description: 'Get every question right on a B2 or C1 text', category: 'VOCABULARY', tier: 'GOLD', icon: 'Target', measure: at('hardTextsPerfect'), target: 1 },
+  { key: 'roleplay-1', name: 'In character', description: 'Finish a role-play conversation', category: 'SPEAKING', tier: 'BRONZE', icon: 'Drama', measure: at('scenariosDone'), target: 1 },
+  { key: 'roleplay-all', name: 'Ready for anything', description: 'Finish every role-play scenario', category: 'SPEAKING', tier: 'GOLD', icon: 'Drama', measure: at('scenariosDone'), target: SCENARIOS.length },
+  { key: 'dictation-1', name: 'Good ears', description: 'Finish a listening dictation', category: 'LEARNING', tier: 'BRONZE', icon: 'Headphones', measure: at('dictations'), target: 1 },
+  { key: 'dictation-10', name: 'Sharp ears', description: 'Finish 10 listening dictations', category: 'LEARNING', tier: 'SILVER', icon: 'Headphones', measure: at('dictations'), target: 10 },
+  { key: 'dictation-perfect', name: 'Every word', description: 'Get every word right in a dictation', category: 'LEARNING', tier: 'GOLD', icon: 'Headphones', measure: at('perfectDictations'), target: 1 },
   { key: 'pack-1', name: 'Word collector', description: 'Pass a vocabulary pack quiz', category: 'VOCABULARY', tier: 'BRONZE', icon: 'BookOpen', measure: at('packsPassed'), target: 1 },
   { key: 'pack-5', name: 'Wordsmith', description: 'Pass 5 vocabulary pack quizzes', category: 'VOCABULARY', tier: 'SILVER', icon: 'BookOpen', measure: at('packsPassed'), target: 5 },
   { key: 'pack-words-50', name: 'Word garden', description: 'Add 50 words from packs to your review', category: 'VOCABULARY', tier: 'SILVER', icon: 'Layers', measure: at('packWordsSaved'), target: 50 },

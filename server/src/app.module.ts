@@ -28,6 +28,9 @@ import { LibraryModule } from './library/library.module';
 import { GrammarModule } from './grammar/grammar.module';
 import { VocabPacksModule } from './vocab-packs/packs.module';
 import { PushModule } from './push/push.module';
+import { DictationModule } from './dictation/dictation.module';
+import { RoleplayModule } from './roleplay/roleplay.module';
+import { FriendChallengesModule } from './friend-challenges/friend-challenges.module';
 import { QuestsModule } from './quests/quests.module';
 import { BillingModule } from './billing/billing.module';
 
@@ -58,6 +61,9 @@ import { BillingModule } from './billing/billing.module';
     GrammarModule,
     VocabPacksModule,
     PushModule,
+    DictationModule,
+    RoleplayModule,
+    FriendChallengesModule,
     QuestsModule,
     BillingModule,
     CommunitiesModule,

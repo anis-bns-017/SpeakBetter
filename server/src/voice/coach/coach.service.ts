@@ -8,6 +8,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
+import { recapTip } from './recap';
 import { ActivityService, XP_REWARDS } from '../../learning/activity.service';
 import {
   MISSION_POINTS,
@@ -556,6 +557,58 @@ export class CoachService {
       orderBy: { updatedAt: 'desc' },
       take: Math.min(Math.max(Math.floor(limit) || 20, 1), 50),
     });
+  }
+
+  /**
+   * Everything for the page you see after leaving a room: your numbers, the corrections people gave you, the
+   * words you saved there, who else was in the room, and one tip for next time. Null until a report exists.
+   */
+  async getRecap(roomId: string, userId: string) {
+    const report = await this.prisma.voiceSessionReport.findUnique({ where: { roomId_userId: { roomId, userId } } });
+    if (!report) return null;
+    const me = await this.prisma.voiceParticipant.findUnique({ where: { roomId_userId: { roomId, userId } }, select: { joinedAt: true } });
+    const since = me?.joinedAt ?? report.createdAt;
+    const [corrections, saved, others] = await Promise.all([
+      this.prisma.voiceCorrection.findMany({
+        where: { roomId, targetUserId: userId, status: { not: 'dismissed' } },
+        orderBy: { createdAt: 'asc' },
+        take: 20,
+        include: { author: { select: { id: true, name: true, avatarUrl: true } } },
+      }),
+      this.prisma.voiceSavedWord.findMany({
+        where: { userId, roomName: report.roomName, createdAt: { gte: since } },
+        orderBy: { createdAt: 'asc' },
+        take: 30,
+        select: { word: true, meaning: true, sentence: true },
+      }),
+      this.prisma.voiceParticipant.findMany({
+        where: { roomId, userId: { not: userId } },
+        orderBy: { joinedAt: 'asc' },
+        take: 8,
+        include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+      }),
+    ]);
+    const topFillers = Array.isArray(report.topFillers) ? (report.topFillers as Array<{ word: string; count: number }>) : [];
+    return {
+      roomId,
+      roomName: report.roomName,
+      at: report.updatedAt,
+      durationSec: report.durationSec,
+      speakingSec: report.speakingSec,
+      words: report.words,
+      uniqueWords: report.uniqueWords,
+      wpm: report.wpm,
+      fluencyScore: report.fluencyScore,
+      fillerCount: report.fillerCount,
+      topFillers,
+      richWords: report.richWords,
+      missionsCompleted: report.missionsCompleted,
+      correctionsGiven: report.correctionsGiven,
+      corrections: corrections.map((c) => ({ id: c.id, original: c.original, corrected: c.corrected, note: c.note, category: c.category, author: c.author })),
+      savedWords: saved,
+      people: others.map((p) => p.user),
+      tip: recapTip({ speakingSec: report.speakingSec, words: report.words, fillerCount: report.fillerCount, wpm: report.wpm, topFillers }, corrections),
+    };
   }
 
   getRoomReport(roomId: string, userId: string) {

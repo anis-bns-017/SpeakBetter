@@ -54,16 +54,17 @@ export function reminderDue(now: LocalParts, targetMinutes: number, lastPractice
   return now.minutes >= targetMinutes && now.minutes < targetMinutes + REMINDER_WINDOW_MINUTES;
 }
 
-/** The wording: a streak at risk is the strongest reason to open the app */
-export function reminderText(streak: number): { title: string; message: string } {
-  if (streak >= 2) {
-    return {
-      title: `Keep your ${streak}-day streak going`,
-      message: 'A few minutes today is all it takes. Your daily plan is ready.',
-    };
+/**
+ * The wording: a streak at risk is the strongest reason to open the app. Today's word, when there is one, gives
+ * them something small to learn straight away.
+ */
+export function reminderText(streak: number, word?: { word: string; meaning: string } | null): { title: string; message: string } {
+  const title = streak >= 2 ? `Keep your ${streak}-day streak going` : 'Time to practise English';
+  if (word) {
+    return { title, message: `Today's word is "${word.word}": ${word.meaning}. Learn it in a minute, then do your plan.`.slice(0, 300) };
   }
   return {
-    title: 'Time to practise English',
-    message: 'Five minutes today keeps your progress moving. Your daily plan is ready.',
+    title,
+    message: streak >= 2 ? 'A few minutes today is all it takes. Your daily plan is ready.' : 'Five minutes today keeps your progress moving. Your daily plan is ready.',
   };
 }

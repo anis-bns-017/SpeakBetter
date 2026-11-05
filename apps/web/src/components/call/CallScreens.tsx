@@ -292,6 +292,11 @@ export const InCallScreen: React.FC<{
             {p.call.partner.nativeLanguage && <span>Speaks {languageName(p.call.partner.nativeLanguage)}</span>}
             <span className="capitalize">{p.call.partner.level}</span>
           </p>
+          {!!p.call.partner.sharedInterests?.length && (
+            <p className="mt-1 text-xs" style={{ color: COLORS.textMuted }}>
+              You both like <span className="font-semibold" style={{ color: COLORS.textPrimary }}>{p.call.partner.sharedInterests.slice(0, 3).join(", ")}</span>. A good place to start!
+            </p>
+          )}
         </div>
         <TimerRing seconds={p.secondsLeft} total={total} warn={p.secondsLeft <= 30} />
       </div>

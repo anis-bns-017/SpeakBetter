@@ -357,6 +357,7 @@ enum NotificationType {
   NEW_FOLLOWER
   CORRECTION
   CHALLENGE_REACTION
+  FRIEND_CHALLENGE
 }
 
 enum NotificationPlatform {
@@ -626,6 +627,10 @@ model User {
   grammarProgress          GrammarProgress[]
   vocabPackProgress        VocabPackProgress[]
   pushSubscriptions        PushSubscription[]
+  dictationResults         DictationResult[]
+  roleplayProgress         RoleplayProgress[]
+  challengesSent           FriendChallenge[]        @relation("ChallengesSent")
+  challengesReceived       FriendChallenge[]        @relation("ChallengesReceived")
   questWeeks               QuestWeek[]
   streakFreezeUses         StreakFreezeUse[]
 }
@@ -2742,4 +2747,64 @@ model PushSubscription {
   lastSeenAt DateTime @default(now())
 
   @@index([userId])
+}
+
+/// One finished listening dictation
+model DictationResult {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// YYYY-MM-DD on the learner's own clock, for "first one today" and today's sentences
+  day              String
+  sentences        Int
+  perfectSentences Int
+  correctWords     Int
+  totalWords       Int
+  /// 0-100, words right out of all words
+  score            Int
+  createdAt        DateTime @default(now())
+
+  @@index([userId, day])
+}
+
+/// How someone did in one role-play scenario
+model RoleplayProgress {
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenarioId  String
+  /// Best average pronunciation score over the replies said aloud (null if never said aloud)
+  bestScore   Int?
+  completions Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@id([userId, scenarioId])
+}
+
+/// "Beat my score": a friend challenge on a grammar lesson, a pack quiz or a dictation
+model FriendChallenge {
+  id            String    @id @default(cuid())
+  fromUserId    String
+  fromUser      User      @relation("ChallengesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId      String
+  toUser        User      @relation("ChallengesReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+  /// grammar | pack | dictation
+  kind          String
+  /// The lesson or pack id ("dictation" for dictations)
+  refId         String
+  /// The activity's name when the challenge was made
+  title         String
+  /// The challenger's score to beat
+  score         Int
+  total         Int
+  responseScore Int?
+  responseTotal Int?
+  /// OPEN | BEATEN | HELD | TIED (an open one past expiresAt counts as expired)
+  status        String    @default("OPEN")
+  expiresAt     DateTime
+  respondedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([toUserId, status])
+  @@index([fromUserId, createdAt])
 }

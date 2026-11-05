@@ -8,6 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSidebar } from "../contexts/SidebarContext";
 import { SIDEBAR_WIDTH, MOBILE_TAB_BAR_HEIGHT } from "../lib/navLayout";
 import { syncPush } from "../lib/push";
+import { OfflineBanner } from "../components/OfflineBanner";
 
 // Main Pages
 import DashboardPage from "../pages/DashboardPage";
@@ -16,6 +17,12 @@ import { VocabularyPage } from "../pages/VocabularyPage";
 import { FlashcardPage } from "../pages/FlashcardPage";
 import { GrammarPage } from "../pages/GrammarPage";
 import { PacksPage } from "../pages/PacksPage";
+import { DictationPage } from "../pages/DictationPage";
+import { ShadowingPage } from "../pages/ShadowingPage";
+import { RoleplayListPage } from "../pages/RoleplayListPage";
+import { RoleplayPage } from "../pages/RoleplayPage";
+import { SessionRecapPage } from "../pages/SessionRecapPage";
+import { SessionsPage } from "../pages/SessionsPage";
 import { PackPage } from "../pages/PackPage";
 import { PublicProfilePage } from "../pages/PublicProfilePage";
 import { GrammarCoursePage } from "../pages/GrammarCoursePage";
@@ -115,6 +122,7 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900" style={style}>
+      <OfflineBanner />
       <Sidebar />
       {/* Live notifications on every page; on phones the bell floats in the corner (the sidebar has its own) */}
       <NotificationsLive />
@@ -165,6 +173,10 @@ const AppRoutes = () => {
           <Route path="/grammar/:lessonId" element={<GrammarLessonPage />} />
           <Route path="/exercises" element={<ExercisesPage />} />
           <Route path="/packs" element={<PacksPage />} />
+          <Route path="/dictation" element={<DictationPage />} />
+          <Route path="/shadowing" element={<ShadowingPage />} />
+          <Route path="/roleplay" element={<RoleplayListPage />} />
+          <Route path="/roleplay/:scenarioId" element={<RoleplayPage />} />
           <Route path="/packs/:packId" element={<PackPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/placement" element={<PlacementPage />} />
@@ -190,6 +202,8 @@ const AppRoutes = () => {
           <Route path="/voice" element={<VoicePage />} />
           <Route path="/voice/:roomId" element={<VoicePage />} />
           <Route path="/call" element={<RandomCallPage />} />
+          <Route path="/recap/:roomId" element={<SessionRecapPage />} />
+          <Route path="/sessions" element={<SessionsPage />} />
 
           {/* ===== ✅ COMMUNITY ROUTES (all added) ===== */}
           <Route path="/communities" element={<CommunitiesPage />} />

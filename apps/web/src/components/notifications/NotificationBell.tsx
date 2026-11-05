@@ -23,6 +23,7 @@ import {
   Trophy,
   Zap,
   Megaphone,
+  Swords,
   UserPlus,
   Users,
   Wand2,
@@ -51,6 +52,7 @@ const TYPE: Record<string, { icon: LucideIcon; tone: string }> = {
   ACHIEVEMENT: { icon: Trophy, tone: "bg-amber-500/10 text-amber-500" },
   REMINDER: { icon: Zap, tone: "bg-indigo-500/10 text-indigo-500" },
   CHALLENGE_REACTION: { icon: Megaphone, tone: "bg-rose-500/10 text-rose-500" },
+  FRIEND_CHALLENGE: { icon: Swords, tone: "bg-rose-500/10 text-rose-500" },
 };
 const typeOf = (type: string) => TYPE[type] ?? { icon: Bell, tone: "bg-slate-500/10 text-slate-500" };
 
@@ -101,6 +103,7 @@ export const NotificationsLive: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ["celebrations"] });
       }
       if (n.type === "CHALLENGE_REACTION") queryClient.invalidateQueries({ queryKey: ["challenge-today"] });
+      if (n.type === "FRIEND_CHALLENGE") queryClient.invalidateQueries({ queryKey: ["friend-challenges"] });
       if (n.type === "REMINDER") {
         queryClient.invalidateQueries({ queryKey: ["league-current"] });
         queryClient.invalidateQueries({ queryKey: ["league-friends"] });

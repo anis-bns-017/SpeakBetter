@@ -3,6 +3,9 @@ import { PrismaService } from '../prisma.service';
 import { ActivityService } from '../learning/activity.service';
 import { DEFAULT_REMINDER_TIME, localParts, parseTime, reminderDue, reminderText } from './daily-reminder.engine';
 import { NotificationsService } from './notifications.service';
+import { practiceLevel } from '../pronunciation/pronunciation.service';
+import type { PackLevel } from '../vocab-packs/packs.content';
+import { wordOfDay } from '../vocab-packs/word-of-day';
 
 const TICK_MS = 5 * 60 * 1000;
 /** Most people checked in one pass */
@@ -46,11 +49,12 @@ export class DailyReminderService implements OnModuleInit, OnModuleDestroy {
           where: { userId: { in: ids } },
           select: { userId: true, dailyReminderEnabled: true, dailyReminderTime: true, pushNotifications: true },
         }),
-        this.prisma.profile.findMany({ where: { userId: { in: ids } }, select: { userId: true, timezone: true } }),
+        this.prisma.profile.findMany({ where: { userId: { in: ids } }, select: { userId: true, timezone: true, level: true } }),
         this.prisma.streak.findMany({ where: { userId: { in: ids } } }),
       ]);
       const settingsOf = new Map(settings.map((s) => [s.userId, s]));
       const zoneOf = new Map(profiles.map((p) => [p.userId, p.timezone]));
+      const levelOf = new Map(profiles.map((p) => [p.userId, p.level]));
       const streakOf = new Map(streaks.map((s) => [s.userId, s]));
 
       let reminded = 0;
@@ -65,13 +69,15 @@ export class DailyReminderService implements OnModuleInit, OnModuleDestroy {
         const lastPracticeDay = streak ? localParts(streak.lastActivityDate, zone).day : null;
         if (!reminderDue(here, target, lastPracticeDay)) continue;
 
-        const { title, message } = reminderText(ActivityService.effectiveStreak(streak).current);
+        // The same word the dashboard shows them today
+        const word = wordOfDay(practiceLevel(levelOf.get(userId)) as PackLevel, here.day);
+        const { title, message } = reminderText(ActivityService.effectiveStreak(streak).current, word);
         const sent = await this.notifications.notify([userId], {
           type: 'REMINDER',
           title,
           message,
           actionUrl: '/dashboard',
-          data: { kind: 'daily-reminder' },
+          data: { kind: 'daily-reminder', word: word.word },
           dedupeKey: `daily:${here.day}`,
         });
         reminded += sent;

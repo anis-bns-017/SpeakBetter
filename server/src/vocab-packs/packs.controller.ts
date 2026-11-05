@@ -15,6 +15,12 @@ export class VocabPacksController {
     return this.packs.list(req.user.id);
   }
 
+  @Get('today')
+  @ApiOperation({ summary: 'Word of the day for your level: the word, its meaning and example, three meanings to choose from' })
+  today(@Req() req: any) {
+    return this.packs.today(req.user.id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'One pack: its words, which you saved, and this attempt\'s quiz' })
   get(@Req() req: any, @Param('id') id: string) {

@@ -1,5 +1,6 @@
 import { DEFAULT_REMINDER_TIME, REMINDER_WINDOW_MINUTES, localParts, parseTime, reminderDue, reminderText } from './daily-reminder.engine';
 import { DailyReminderService } from './daily-reminder.service';
+import { wordOfDay } from '../vocab-packs/word-of-day';
 
 describe('daily reminder engine', () => {
   it('works out the date and time on someone else\'s clock', () => {
@@ -41,6 +42,13 @@ describe('daily reminder engine', () => {
     expect(reminderText(1).title).toBe('Time to practise English');
     expect(reminderText(0).title).toBe('Time to practise English');
   });
+
+  it('teaches today\'s word in the message when there is one', () => {
+    const text = reminderText(4, { word: 'commute', meaning: 'to travel to work or school regularly' });
+    expect(text.title).toBe('Keep your 4-day streak going');
+    expect(text.message).toBe('Today\'s word is "commute": to travel to work or school regularly. Learn it in a minute, then do your plan.');
+    expect(reminderText(0, { word: 'x', meaning: 'y'.repeat(400) }).message.length).toBeLessThanOrEqual(300);
+  });
 });
 
 function setup(options: { settings?: any[]; zone?: string | null; lastActivity?: Date | null; subscribed?: string[]; streak?: number } = {}) {
@@ -78,6 +86,11 @@ describe('DailyReminderService', () => {
       ['u1'],
       expect.objectContaining({ type: 'REMINDER', title: 'Keep your 3-day streak going', actionUrl: '/dashboard', dedupeKey: 'daily:2026-11-05' }),
     );
+    // The same word the dashboard shows that day (no level saved counts as A2)
+    const word = wordOfDay('A2', '2026-11-05');
+    const sent = notifications.notify.mock.calls[0][1];
+    expect(sent.message).toContain(`"${word.word}"`);
+    expect(sent.data).toEqual({ kind: 'daily-reminder', word: word.word });
   });
 
   it('waits for their own clock: 20:10 UTC is the next morning in Dhaka', async () => {

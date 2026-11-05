@@ -19,7 +19,7 @@ const SYNC_THROTTLE_MS = 10 * 60 * 1000;
 const LEARNED_AFTER_DAYS = 21;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type CorrectionSource = 'voice' | 'chat' | 'ai' | 'pronunciation' | 'grammar';
+export type CorrectionSource = 'voice' | 'chat' | 'ai' | 'pronunciation' | 'grammar' | 'dictation';
 
 export interface CorrectionInput {
   source: CorrectionSource;

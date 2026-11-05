@@ -32,6 +32,8 @@ function badgesSetup(stats: Partial<Record<string, number>> = {}) {
     libraryProgress: { findMany: jest.fn().mockResolvedValue([]) },
     grammarProgress: { findMany: jest.fn().mockResolvedValue([]) },
     vocabPackProgress: { count: jest.fn().mockResolvedValue(0) },
+    dictationResult: { count: jest.fn().mockResolvedValue(0) },
+    roleplayProgress: { count: jest.fn().mockResolvedValue(0) },
     questWeek: { count: jest.fn().mockResolvedValue(0) },
     streakFreezeUse: { count: jest.fn().mockResolvedValue(0) },
     userBadge: {

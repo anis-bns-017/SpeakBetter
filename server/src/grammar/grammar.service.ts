@@ -4,6 +4,7 @@ import { ActivityService } from '../learning/activity.service';
 import { ReviewService } from '../learning/review.service';
 import { MISTAKE_PATTERNS, isPattern } from '../learning/mistakes';
 import { BadgesService } from '../gamification/badges.service';
+import { FriendChallengesService } from '../friend-challenges/friend-challenges.service';
 import { practiceLevel } from '../pronunciation/pronunciation.service';
 import { optionOrder } from '../library/library.content';
 import { GRAMMAR, GRAMMAR_LEVELS, LESSON_BY_ID, type GrammarExercise, type GrammarLevel, type GrammarLesson } from './grammar.content';
@@ -23,6 +24,8 @@ export class GrammarService {
     private review: ReviewService,
     // Grammar badges; optional so lessons work (and tests stay simple) without it
     @Optional() private badges?: BadgesService,
+    // "Beat my score" challenges from friends on this lesson
+    @Optional() private challenges?: FriendChallengesService,
   ) {}
 
   /** Every lesson with your progress, your level, and the lesson to do next */
@@ -191,8 +194,10 @@ export class GrammarService {
       await this.activity.recordActivity(userId, GRAMMAR_XP, 'EXERCISE_COMPLETED');
     }
     if (passed) void this.badges?.evaluate(userId);
+    const challenges = (await this.challenges?.resolve(userId, 'grammar', lessonId, score, total)) ?? [];
 
     return {
+      challenges,
       score,
       total,
       passed,

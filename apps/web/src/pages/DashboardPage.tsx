@@ -29,6 +29,9 @@ import {
   Library,
   GraduationCap,
   Package,
+  Headphones,
+  Repeat2,
+  Drama,
   ArrowRight,
   Search,
   UserPlus,
@@ -50,6 +53,8 @@ import { TodayPlanCard } from "../components/plan/TodayPlanCard";
 import { UpcomingRooms } from "../components/social/UpcomingRooms";
 import { LeagueSummary } from "../components/gamification/LeagueSummary";
 import { WeeklyQuestsCard } from "../components/quests/WeeklyQuestsCard";
+import { WordOfDayCard } from "../components/packs/WordOfDayCard";
+import { FriendChallengesCard } from "../components/challenges/FriendChallengesCard";
 import { CEFR_INFO, isCefr, type CefrCode } from "../lib/cefr";
 import { useSuggestions, useSendFriendRequest } from "../hooks/useFriends";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
@@ -246,6 +251,9 @@ const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon
   { to: "/library", title: "Library", desc: "Read & listen", icon: Library, tone: "text-teal-500 bg-teal-500/10" },
   { to: "/vocabulary", title: "Vocabulary", desc: "Your word bank", icon: BookOpen, tone: "text-emerald-500 bg-emerald-500/10" },
   { to: "/packs", title: "Word packs", desc: "Themed word sets", icon: Package, tone: "text-amber-500 bg-amber-500/10" },
+  { to: "/dictation", title: "Dictation", desc: "Listen and type", icon: Headphones, tone: "text-sky-500 bg-sky-500/10" },
+  { to: "/shadowing", title: "Shadowing", desc: "Listen and repeat", icon: Repeat2, tone: "text-fuchsia-500 bg-fuchsia-500/10" },
+  { to: "/roleplay", title: "Role-play", desc: "Real conversations", icon: Drama, tone: "text-orange-500 bg-orange-500/10" },
   { to: "/flashcards", title: "Flashcards", desc: "Spaced repetition", icon: Layers, tone: "text-sky-500 bg-sky-500/10" },
   { to: "/pronunciation", title: "Pronunciation", desc: "Say it, get a score", icon: Mic, tone: "text-cyan-500 bg-cyan-500/10" },
   { to: "/challenge", title: "Daily challenge", desc: "One question a day", icon: Megaphone, tone: "text-rose-500 bg-rose-500/10" },
@@ -457,13 +465,15 @@ const DashboardPage: React.FC = () => {
       </div>
 
       {/* ================= Today's plan + Live now ================= */}
-      <div className="grid lg:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         {/* The plan replaces the old rule-based "next steps": it fits your minutes and ticks itself off */}
         <motion.div variants={fadeUp} initial="hidden" animate="show" custom={4} className="lg:col-span-3">
           <TodayPlanCard className="h-full" />
         </motion.div>
 
         <div className="lg:col-span-2 space-y-5">
+        <WordOfDayCard />
+        <FriendChallengesCard />
         <motion.section variants={fadeUp} initial="hidden" animate="show" custom={5} className={`${card} p-6`}>
           <SectionTitle title="Live now" action={{ label: "All rooms", to: "/voice" }} />
           {liveRooms.length === 0 ? (
@@ -511,7 +521,7 @@ const DashboardPage: React.FC = () => {
       </div>
 
       {/* ================= Activity + corrections ================= */}
-      <div className="grid lg:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         <motion.section variants={fadeUp} initial="hidden" animate="show" custom={6} className={`${card} p-6 lg:col-span-3 overflow-hidden`}>
           <SectionTitle title="Your practice, last 12 weeks" action={{ label: "Progress", to: "/progress" }} />
           <div className="flex flex-wrap items-end gap-x-10 gap-y-5">

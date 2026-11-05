@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api/client';
+import type { ChallengeOutcome } from './useFriendChallenges';
 
 export type GrammarLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 
@@ -56,6 +57,7 @@ export interface GrammarCheck {
 }
 
 export interface GrammarResult {
+  challenges?: ChallengeOutcome[];
   score: number;
   total: number;
   passed: boolean;

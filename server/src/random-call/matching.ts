@@ -19,7 +19,22 @@ export interface QueueEntry {
   recent: string[];
   /** Average rating from other people (1-5), null while there are too few */
   reputation: number | null;
+  /** Profile interests, lower case (older queue entries may not have them) */
+  interests?: string[];
+  /** People this person rated 4 or 5 stars in an earlier call */
+  liked?: string[];
 }
+
+/** Interests two people share (compared without case) */
+export function sharedInterests(a: string[] | undefined, b: string[] | undefined): string[] {
+  const theirs = new Set((b ?? []).map((i) => i.trim().toLowerCase()).filter(Boolean));
+  return [...new Set((a ?? []).map((i) => i.trim().toLowerCase()).filter((i) => theirs.has(i)))];
+}
+
+/** The most shared interests that still raise a match's score */
+export const MAX_INTEREST_BONUS = 3;
+/** Bonus for someone either of you rated highly before */
+export const LIKED_BONUS = 2;
 
 /** How far apart two levels may be, given how long the longer wait has been */
 export function maxLevelGap(waitedMs: number): number {
@@ -41,10 +56,15 @@ export function compatible(a: QueueEntry, b: QueueEntry, now: number): boolean {
   return gap <= maxLevelGap(waited);
 }
 
-/** Higher is a better match: same goal, same level, similar reputation */
+/**
+ * Higher is a better match: same goal, same level, similar reputation, things in common, and people you
+ * enjoyed talking to before.
+ */
 export function matchScore(a: QueueEntry, b: QueueEntry): number {
   let score = 0;
   if (a.goal === b.goal) score += 3;
+  score += Math.min(MAX_INTEREST_BONUS, sharedInterests(a.interests, b.interests).length);
+  if ((a.liked ?? []).includes(b.userId) || (b.liked ?? []).includes(a.userId)) score += LIKED_BONUS;
   score -= 2 * Math.abs(levelIndex(a.level) - levelIndex(b.level));
   if (a.reputation !== null && b.reputation !== null) {
     score -= Math.abs(a.reputation - b.reputation);

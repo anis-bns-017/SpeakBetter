@@ -12,7 +12,7 @@ import { PrismaService } from '../prisma.service';
 import { LiveKitService } from '../voice/livekit.service';
 import { buildDeck } from './conversation-cards';
 import { MatchQueue } from './match-queue';
-import { QueueEntry } from './matching';
+import { QueueEntry, sharedInterests } from './matching';
 import { RandomCallBroadcaster } from './random-call.broadcaster';
 import {
   CALL_SECONDS,
@@ -189,7 +189,7 @@ export class RandomCallService {
     prefs: { level: Level; goal: Goal; language: string },
   ): Promise<QueueEntry> {
     const since = new Date(Date.now() - RECENT_PARTNER_WINDOW_MS);
-    const [blocks, recentCalls, profile] = await Promise.all([
+    const [blocks, recentCalls, profile, learner, goodCalls] = await Promise.all([
       this.prisma.block.findMany({
         where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
         select: { blockerId: true, blockedId: true },
@@ -204,6 +204,14 @@ export class RandomCallService {
         take: 50,
       }),
       this.ensureProfile(userId),
+      this.prisma.profile.findUnique({ where: { userId }, select: { interests: true } }),
+      // Calls this person rated 4 or 5: those partners get a small preference next time
+      this.prisma.randomCallRating.findMany({
+        where: { raterId: userId, rating: { gte: 4 } },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: { call: { select: { userAId: true, userBId: true } } },
+      }),
     ]);
     const other = (a: string, b: string) => (a === userId ? b : a);
     return {
@@ -218,6 +226,8 @@ export class RandomCallService {
         profile.ratingCount >= MIN_RATINGS_FOR_REPUTATION
           ? profile.ratingSum / profile.ratingCount
           : null,
+      interests: (learner?.interests ?? []).map((i) => i.trim().toLowerCase()).filter(Boolean).slice(0, 20),
+      liked: [...new Set(goodCalls.map((r) => other(r.call.userAId, r.call.userBId)))],
     };
   }
 
@@ -292,15 +302,18 @@ export class RandomCallService {
     userId: string,
   ) {
     const partnerId = call.userAId === userId ? call.userBId : call.userAId;
-    const partner = await this.prisma.user.findUnique({
-      where: { id: partnerId },
-      select: {
-        id: true,
-        name: true,
-        avatarUrl: true,
-        profile: { select: { country: true, nativeLanguage: true } },
-      },
-    });
+    const [partner, mine] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: partnerId },
+        select: {
+          id: true,
+          name: true,
+          avatarUrl: true,
+          profile: { select: { country: true, nativeLanguage: true, interests: true } },
+        },
+      }),
+      this.prisma.profile.findUnique({ where: { userId }, select: { interests: true } }),
+    ]);
     const token = await this.liveKit.getParticipantToken(call.liveKitRoomId, userId);
     const partnerLevel = call.userAId === userId ? call.levelB : call.levelA;
     const myLevel = call.userAId === userId ? call.levelA : call.levelB;
@@ -326,6 +339,7 @@ export class RandomCallService {
         country: partner?.profile?.country ?? null,
         nativeLanguage: partner?.profile?.nativeLanguage ?? null,
         level: partnerLevel,
+        sharedInterests: sharedInterests(mine?.interests, partner?.profile?.interests),
       },
       deck: buildDeck(call.id, call.goal as Goal, lower),
       liveKit: {

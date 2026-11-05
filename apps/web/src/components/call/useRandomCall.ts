@@ -42,6 +42,8 @@ export interface ActiveCall {
     avatarUrl: string | null;
     country: string | null;
     nativeLanguage: string | null;
+    /** Interests you both have, as conversation starters */
+    sharedInterests?: string[];
     level: string;
   };
   deck: ConversationCard[];

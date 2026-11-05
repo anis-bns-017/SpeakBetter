@@ -339,7 +339,7 @@ const NOTIFICATION_KINDS: Array<{ key: keyof NotificationPreferences; icon: Reac
   { key: "corrections", icon: Wand2, title: "Corrections", description: "When someone corrects something you said in a room or a chat." },
   { key: "friendRequests", icon: Users, title: "Friend requests", description: "When someone wants to be friends." },
   { key: "achievements", icon: Zap, title: "Badges and leagues", description: "When you earn a badge, and your weekly league result." },
-  { key: "challenges", icon: Radio, title: "Daily challenge reactions", description: "When someone reacts to your answer." },
+  { key: "challenges", icon: Radio, title: "Challenges", description: "Reactions to your daily challenge answer, and friends challenging you to beat a score." },
 ];
 
 /** Which in-app notifications you get. Each switch saves straight away. */

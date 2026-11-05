@@ -1,6 +1,6 @@
 import { CARD_POOL, buildDeck, drawCard, getCard } from './conversation-cards';
 import { MatchQueue } from './match-queue';
-import { QueueEntry, compatible, findPairs, maxLevelGap } from './matching';
+import { LIKED_BONUS, MAX_INTEREST_BONUS, QueueEntry, compatible, findPairs, matchScore, maxLevelGap, sharedInterests } from './matching';
 import { CARD_COUNT } from './random-call.constants';
 
 const NOW = 1_000_000;
@@ -14,6 +14,54 @@ const entry = (userId: string, over: Partial<QueueEntry> = {}): QueueEntry => ({
   recent: [],
   reputation: null,
   ...over,
+});
+
+describe('matching: who is the better partner', () => {
+  it('finds shared interests without caring about case or spaces', () => {
+    expect(sharedInterests(['Music', ' travel', 'football'], ['music', 'Travel ', 'cooking'])).toEqual(['music', 'travel']);
+    expect(sharedInterests(undefined, ['music'])).toEqual([]);
+    expect(sharedInterests(['music', 'music'], ['music'])).toEqual(['music']);
+  });
+
+  it('prefers someone with interests in common, up to a limit', () => {
+    const me = entry('me', { interests: ['music', 'travel', 'football', 'films', 'food'] });
+    const stranger = entry('a', { interests: ['cars'] });
+    const twoInCommon = entry('b', { interests: ['music', 'travel'] });
+    const fiveInCommon = entry('c', { interests: ['music', 'travel', 'football', 'films', 'food'] });
+    expect(matchScore(me, twoInCommon) - matchScore(me, stranger)).toBe(2);
+    expect(matchScore(me, fiveInCommon) - matchScore(me, stranger)).toBe(MAX_INTEREST_BONUS);
+  });
+
+  it('prefers someone either of you rated highly before', () => {
+    const me = entry('me', { liked: ['old-friend'] });
+    expect(matchScore(me, entry('old-friend')) - matchScore(me, entry('new'))).toBe(LIKED_BONUS);
+    // it works whichever side gave the rating
+    expect(matchScore(entry('x'), entry('y', { liked: ['x'] })) - matchScore(entry('x'), entry('y'))).toBe(LIKED_BONUS);
+  });
+
+  it('still lets the hard rules win: a liked partner met minutes ago is not matched', () => {
+    const me = entry('me', { liked: ['old-friend'], recent: ['old-friend'] });
+    expect(compatible(me, entry('old-friend'), NOW)).toBe(false);
+  });
+
+  it('pairs the waiting person with the partner who shares more', () => {
+    const pairs = findPairs(
+      [
+        entry('first', { joinedAt: NOW - 5_000, interests: ['music', 'travel'] }),
+        entry('cars-fan', { joinedAt: NOW - 1_000, interests: ['cars'] }),
+        entry('music-fan', { joinedAt: NOW - 1_000, interests: ['music', 'travel'] }),
+      ],
+      NOW,
+    );
+    expect(pairs.map(([a, b]) => [a.userId, b.userId])).toEqual([['first', 'music-fan']]);
+  });
+
+  it('copes with queue entries saved before interests existed', () => {
+    const legacy = entry('old');
+    delete (legacy as Partial<QueueEntry>).interests;
+    delete (legacy as Partial<QueueEntry>).liked;
+    expect(Number.isFinite(matchScore(legacy, entry('new', { interests: ['music'] })))).toBe(true);
+  });
 });
 
 describe('matching: who may talk to whom', () => {

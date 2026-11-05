@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api/client';
+import type { ChallengeOutcome } from './useFriendChallenges';
 
 export type PackLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 
@@ -64,6 +65,7 @@ export interface PackCheck {
 }
 
 export interface PackResult {
+  challenges?: ChallengeOutcome[];
   score: number;
   total: number;
   passed: boolean;
@@ -73,6 +75,30 @@ export interface PackResult {
   wordsAdded: number;
   results: Array<{ id: string; correct: boolean; chosen: string | null; correctText: string; meaning: string; example: string }>;
 }
+
+/** GET /vocab-packs/today: the same word for everyone at your level today, and three meanings to choose from */
+export interface WordOfDay {
+  day: string;
+  packId: string;
+  packTitle: string;
+  level: PackLevel;
+  wordId: string;
+  word: string;
+  pos: string;
+  meaning: string;
+  example: string;
+  saved: boolean;
+  options: string[];
+  /** Position of the right meaning in `options` (nothing is at stake, so it comes with the question) */
+  answer: number;
+}
+
+export const useWordOfDay = () =>
+  useQuery({
+    queryKey: ['word-of-day'],
+    queryFn: async () => (await apiClient.get<WordOfDay>('/vocab-packs/today')).data,
+    staleTime: 10 * 60_000,
+  });
 
 export const usePacks = () =>
   useQuery({
@@ -103,6 +129,7 @@ export const useSavePackWords = (packId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vocab-pack', packId] });
       queryClient.invalidateQueries({ queryKey: ['vocab-packs'] });
+      queryClient.invalidateQueries({ queryKey: ['word-of-day'] });
       refreshReview(queryClient);
     },
   });

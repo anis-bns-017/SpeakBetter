@@ -3,9 +3,12 @@ import { PrismaService } from '../prisma.service';
 import { ActivityService } from '../learning/activity.service';
 import { ReviewService } from '../learning/review.service';
 import { BadgesService } from '../gamification/badges.service';
+import { FriendChallengesService } from '../friend-challenges/friend-challenges.service';
 import { practiceLevel } from '../pronunciation/pronunciation.service';
 import { PACKS, PACK_BY_ID, PACK_LEVELS, type PackLevel, type VocabPack } from './packs.content';
 import { PACK_XP, buildQuiz, judge, passMark, quizSeed, shownOrder } from './packs.engine';
+import { meaningChoices, wordOfDay } from './word-of-day';
+import { localParts } from '../notifications/daily-reminder.engine';
 
 /** Flashcard.sourceId for a pack word, so the same word never makes two cards */
 export const cardSourceId = (packId: string, wordId: string) => `${packId}:${wordId}`;
@@ -18,6 +21,7 @@ export class VocabPacksService {
     private review: ReviewService,
     // Pack badges; optional so packs work (and tests stay simple) without it
     @Optional() private badges?: BadgesService,
+    @Optional() private challenges?: FriendChallengesService,
   ) {}
 
   /** Ids of the pack words this learner already has as flashcards, grouped by pack */
@@ -72,6 +76,20 @@ export class VocabPacksService {
       wordsSaved: packs.reduce((n, p) => n + p.saved, 0),
       recommended: (packs.find((p) => !p.done && p.level === level) ?? packs.find((p) => !p.done))?.id ?? null,
     };
+  }
+
+  /**
+   * Today's word for this learner: chosen by their level and their own calendar day, with three meanings for a
+   * quick "Do you know it?" and whether it is already in their review. Nothing is at stake, so the right answer
+   * comes with it.
+   */
+  async today(userId: string, now = new Date()) {
+    const profile = await this.prisma.profile.findUnique({ where: { userId }, select: { level: true, timezone: true } });
+    const level = practiceLevel(profile?.level) as PackLevel;
+    const day = localParts(now, profile?.timezone).day;
+    const word = wordOfDay(level, day);
+    const saved = (await this.prisma.flashcard.count({ where: { userId, source: 'pack', sourceId: cardSourceId(word.packId, word.wordId) } })) > 0;
+    return { day, ...word, saved, ...meaningChoices(word, day) };
   }
 
   /** One pack: its words (with which are saved), and this attempt's quiz without the answers */
@@ -174,8 +192,10 @@ export class VocabPacksService {
 
     if (firstPass) await this.activity.recordActivity(userId, PACK_XP, 'VOCABULARY_MASTERED');
     if (passed || wordsAdded) void this.badges?.evaluate(userId);
+    const challenges = (await this.challenges?.resolve(userId, 'pack', id, score, total)) ?? [];
 
     return {
+      challenges,
       score,
       total,
       passed,
