@@ -85,7 +85,7 @@ const Row: React.FC<{ s: LeagueStanding }> = ({ s }) => (
       </span>
     )}
     <span className="min-w-0 flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-      {s.isMe ? "You" : s.name}
+      <Link to={`/u/${s.userId}`} className="hover:underline">{s.isMe ? "You" : s.name}</Link>
     </span>
     <span className="text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-200">{s.xp.toLocaleString()} XP</span>
   </li>
@@ -226,7 +226,7 @@ const FriendsView: React.FC = () => {
                 </span>
               )}
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{p.isMe ? "You" : p.name}</span>
+                <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate"><Link to={`/u/${p.userId}`} className="hover:underline">{p.isMe ? "You" : p.name}</Link></span>
                 <span className="block text-[11px] font-semibold" style={{ color: p.leagueColor }}>
                   {p.league} league
                 </span>

@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import { PushService } from '../push/push.service';
 
 /** Which setting lets a kind of notification through */
 export const PREFERENCE_KEYS = ['roomReminders', 'followedLive', 'newFollowers', 'corrections', 'friendRequests', 'achievements', 'challenges'] as const;
@@ -67,7 +68,11 @@ export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   private emit: Emitter | null = null;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    // Phone and browser push; optional so notifications work (and tests stay simple) without it
+    @Optional() private push?: PushService,
+  ) {}
 
   /** Called once by the gateway, with a way to reach a user's open tabs */
   attachEmitter(emit: Emitter) {
@@ -90,6 +95,7 @@ export class NotificationsService {
       }
 
       let sent = 0;
+      const created: string[] = [];
       for (const userId of recipients) {
         try {
           const row = await this.prisma.notification.create({
@@ -104,12 +110,25 @@ export class NotificationsService {
             },
           });
           sent++;
+          created.push(userId);
           this.emit?.(userId, 'notification:new', toView(row));
         } catch (error) {
           // Already notified about this exact event
           if ((error as { code?: string })?.code === 'P2002') continue;
           throw error;
         }
+      }
+      // Also reach phones and browsers that are closed. The service worker stays quiet when the app is open.
+      if (created.length) {
+        // Fire and forget, but never let a rejected push become an unhandled rejection
+        void this.push
+          ?.sendToUsers(created, {
+            title: input.title,
+            body: input.message,
+            url: input.actionUrl,
+            tag: input.dedupeKey ?? input.type,
+          })
+          .catch((error: Error) => this.logger.warn(`Push for ${input.type} failed: ${error?.message}`));
       }
       return sent;
     } catch (error) {

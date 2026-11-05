@@ -6,6 +6,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { authApi } from "../lib/api/auth";
+import { removePushOnSignOut } from "../lib/push";
 
 interface User {
   id: string;
@@ -63,6 +64,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const logout = async () => {
+    // This device must stop getting this person's notifications once they are signed out
+    await removePushOnSignOut();
     try {
       await authApi.logout();
     } catch (error) {

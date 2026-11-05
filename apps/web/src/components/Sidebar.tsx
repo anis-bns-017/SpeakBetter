@@ -49,6 +49,7 @@ import {
   Megaphone,
   Library,
   GraduationCap,
+  Package,
   Crown,
   type LucideIcon,
 } from "lucide-react";
@@ -106,6 +107,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Library", to: "/library", icon: Library, keywords: "reading listening stories dialogues articles read listen comprehension" },
       { label: "Vocabulary", to: "/vocabulary", icon: BookOpen, keywords: "words" },
+      { label: "Word packs", to: "/packs", icon: Package, keywords: "vocabulary packs themed words travel work food idioms phrasal verbs ielts quiz" },
       { label: "Flashcards", to: "/flashcards", icon: Layers, keywords: "review cards spaced repetition" },
       { label: "Pronunciation", to: "/pronunciation", icon: Mic, keywords: "pronounce speaking sounds accent th say aloud score" },
       { label: "Grammar", to: "/grammar", icon: GraduationCap, keywords: "rules tenses lessons articles prepositions conditionals passive exercises drills" },

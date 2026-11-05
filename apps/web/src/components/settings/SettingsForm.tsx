@@ -27,6 +27,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { useSettings } from "../../hooks/useSettings";
+import { AppAlertsCard } from "./AppAlertsCard";
 import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
@@ -624,6 +625,8 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
             checked={formData.pushNotifications}
             onChange={(value) => updateField("pushNotifications", value)}
           />
+
+          <AppAlertsCard />
 
           <SettingRow
             icon={Volume2}

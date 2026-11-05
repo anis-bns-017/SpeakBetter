@@ -34,6 +34,28 @@ function setup(options: { optedOut?: string[] } = {}) {
 
 const input = { type: 'ROOM_LIVE' as const, title: 'Sam is live now', message: 'Jump in', actionUrl: '/voice/r1', dedupeKey: 'live:r1' };
 
+describe('NotificationsService push', () => {
+  it('also pushes to phones and browsers, once per person who got the notification', async () => {
+    const { prisma, rows } = setup();
+    const push: any = { sendToUsers: jest.fn().mockResolvedValue(2) };
+    const service = new NotificationsService(prisma, push);
+    // u1 already has this exact notification, so only u2 is new
+    rows.push({ userId: 'u1', dedupeKey: 'live:r1' });
+    expect(await service.notify(['u1', 'u2'], input)).toBe(1);
+    expect(push.sendToUsers).toHaveBeenCalledTimes(1);
+    expect(push.sendToUsers).toHaveBeenCalledWith(['u2'], { title: 'Sam is live now', body: 'Jump in', url: '/voice/r1', tag: 'live:r1' });
+  });
+
+  it('does not push when nobody was notified, and a push problem never breaks a notification', async () => {
+    const { prisma } = setup();
+    const push: any = { sendToUsers: jest.fn().mockRejectedValue(new Error('push down')) };
+    const service = new NotificationsService(prisma, push);
+    expect(await service.notify([], input)).toBe(0);
+    expect(push.sendToUsers).not.toHaveBeenCalled();
+    expect(await service.notify(['u3'], input)).toBe(1);
+  });
+});
+
 describe('NotificationsService', () => {
   it('saves one notification per person and pushes it to their open tabs', async () => {
     const { service, rows, emitted } = setup();

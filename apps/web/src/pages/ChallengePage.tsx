@@ -238,7 +238,7 @@ const AnswerCard: React.FC<{ entry: ChallengeEntry; reactions: string[] }> = ({ 
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{entry.user.name}</p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-white truncate"><Link to={`/u/${entry.user.id}`} className="hover:underline">{entry.user.name}</Link></p>
           <p className="text-[11px] text-slate-500 truncate">
             {entry.level} · {entry.promptTitle} · {clock(entry.durationSec)}
           </p>

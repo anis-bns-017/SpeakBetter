@@ -127,6 +127,42 @@ export class ReviewService {
     }
   }
 
+  /**
+   * Puts a word from a vocabulary pack into the review deck, due right away. Never throws, and saving the
+   * same word twice does nothing the second time.
+   */
+  async addWordCard(
+    userId: string,
+    input: { source: 'pack'; sourceId: string; word: string; meaning: string; example?: string | null },
+  ): Promise<{ created: boolean } | null> {
+    try {
+      const word = clean(input.word, 120);
+      const meaning = clean(input.meaning, 300);
+      if (!userId || !word || !meaning) return { created: false };
+      await this.prisma.language.upsert({ where: { code: 'en' }, create: { code: 'en', name: 'English' }, update: {} });
+      await this.prisma.flashcard.create({
+        data: {
+          userId,
+          language: 'en',
+          front: word,
+          back: meaning,
+          kind: 'word',
+          source: input.source,
+          sourceId: input.sourceId,
+          note: clean(input.example, 300) || null,
+          reviews: {
+            create: { userId, easeFactor: NEW_CARD.easeFactor, interval: 0, reviewCount: 0, lastReviewedAt: null, dueAt: new Date() },
+          },
+        },
+      });
+      return { created: true };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return { created: false };
+      this.logger.warn(`Could not save a ${input.source} word card for ${userId}: ${(error as Error)?.message}`);
+      return null;
+    }
+  }
+
   /** The learner dismissed the correction, so its card goes too */
   async removeCorrectionCard(userId: string, source: CorrectionSource, sourceId: string) {
     try {

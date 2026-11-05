@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Eye } from "lucide-react";
 import {
   AlertCircle,
   BarChart3,
@@ -289,6 +291,15 @@ export const ProfilePage: React.FC = () => {
                   : `Level ${derived.level}`}
               </p>
             </div>
+
+            <Link
+              to={`/u/${profile.userId}`}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-black text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+            >
+              <Eye className="h-4 w-4" />
+              <span className="hidden sm:inline">How others see you</span>
+              <span className="sm:hidden">Public view</span>
+            </Link>
 
             <button
               type="button"

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useSuggestions, useSendFriendRequest } from '../hooks/useFriends';
 import { UserPlus, Users, Languages, Check, Sparkles } from 'lucide-react';
 import { FollowButton } from '../components/social/FollowButton';
@@ -95,7 +96,7 @@ export const SuggestionsPage = () => {
 
                   <div className="space-y-1">
                     <h3 className="font-bold text-slate-800 text-base">
-                      {user.name}
+                      <Link to={`/u/${user.id}`} className="hover:underline">{user.name}</Link>
                     </h3>
 
                     {user.reason && (

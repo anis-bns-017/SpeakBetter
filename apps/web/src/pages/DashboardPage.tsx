@@ -28,6 +28,7 @@ import {
   Megaphone,
   Library,
   GraduationCap,
+  Package,
   ArrowRight,
   Search,
   UserPlus,
@@ -40,6 +41,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { EnableAlertsBanner } from "../components/notifications/EnableAlertsBanner";
 import { useSidebar } from "../contexts/SidebarContext";
 import { useDashboard, type DashboardData } from "../hooks/useLearning";
 import { useTrendingRooms } from "../hooks/useDiscovery";
@@ -243,6 +245,7 @@ const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon
   { to: "/discover", title: "Discover", desc: "Trending rooms", icon: Compass, tone: "text-amber-500 bg-amber-500/10" },
   { to: "/library", title: "Library", desc: "Read & listen", icon: Library, tone: "text-teal-500 bg-teal-500/10" },
   { to: "/vocabulary", title: "Vocabulary", desc: "Your word bank", icon: BookOpen, tone: "text-emerald-500 bg-emerald-500/10" },
+  { to: "/packs", title: "Word packs", desc: "Themed word sets", icon: Package, tone: "text-amber-500 bg-amber-500/10" },
   { to: "/flashcards", title: "Flashcards", desc: "Spaced repetition", icon: Layers, tone: "text-sky-500 bg-sky-500/10" },
   { to: "/pronunciation", title: "Pronunciation", desc: "Say it, get a score", icon: Mic, tone: "text-cyan-500 bg-cyan-500/10" },
   { to: "/challenge", title: "Daily challenge", desc: "One question a day", icon: Megaphone, tone: "text-rose-500 bg-rose-500/10" },
@@ -366,6 +369,8 @@ const DashboardPage: React.FC = () => {
           <kbd className="ml-3 rounded-md border border-slate-200 dark:border-white/10 px-1.5 py-0.5 text-[11px] font-sans">{IS_MAC ? "⌘" : "Ctrl"} K</kbd>
         </button>
       </motion.header>
+
+      <EnableAlertsBanner />
 
       {/* ================= Hero: today + this week ================= */}
       <div className="grid lg:grid-cols-3 gap-5">

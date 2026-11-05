@@ -624,6 +624,8 @@ model User {
   challengeReactions       ChallengeReaction[]
   libraryProgress          LibraryProgress[]
   grammarProgress          GrammarProgress[]
+  vocabPackProgress        VocabPackProgress[]
+  pushSubscriptions        PushSubscription[]
   questWeeks               QuestWeek[]
   streakFreezeUses         StreakFreezeUse[]
 }
@@ -2706,4 +2708,38 @@ model GrammarProgress {
 
   @@id([userId, lessonId])
   @@index([userId, completedAt])
+}
+
+/// How far someone got with one vocabulary pack
+model VocabPackProgress {
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packId      String
+  /// Right answers on the best quiz try, out of `total`
+  bestScore   Int       @default(0)
+  total       Int       @default(0)
+  attempts    Int       @default(0)
+  /// The first time the quiz was passed
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@id([userId, packId])
+  @@index([userId, completedAt])
+}
+
+/// One browser or phone that can receive push notifications for a user (Web Push)
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The push service address for this browser; unique, so the same browser never subscribes twice
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  /// Last time the app confirmed this subscription is still in use
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
 }

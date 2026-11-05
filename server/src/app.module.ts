@@ -26,6 +26,8 @@ import { GamificationModule } from './gamification/gamification.module';
 import { ChallengesModule } from './challenges/challenges.module';
 import { LibraryModule } from './library/library.module';
 import { GrammarModule } from './grammar/grammar.module';
+import { VocabPacksModule } from './vocab-packs/packs.module';
+import { PushModule } from './push/push.module';
 import { QuestsModule } from './quests/quests.module';
 import { BillingModule } from './billing/billing.module';
 
@@ -54,6 +56,8 @@ import { BillingModule } from './billing/billing.module';
     ChallengesModule,
     LibraryModule,
     GrammarModule,
+    VocabPacksModule,
+    PushModule,
     QuestsModule,
     BillingModule,
     CommunitiesModule,

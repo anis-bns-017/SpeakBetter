@@ -21,7 +21,13 @@ export const normalizeAnswer = (value: string): string =>
     .trim();
 
 const GAP = '___';
-export const fillGap = (prompt: string, text: string): string => prompt.replace(GAP, text);
+/** The sentence with the gap filled and any "(hint)" left out, so results and flashcards read as plain sentences */
+export const fillGap = (prompt: string, text: string): string =>
+  prompt
+    .replace(GAP, text)
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /** The seed that keeps one learner's shuffle the same every time they open a lesson */
 export const seedFor = (userId: string, lessonId: string, exerciseId: string): string => `${userId}:${lessonId}:${exerciseId}`;

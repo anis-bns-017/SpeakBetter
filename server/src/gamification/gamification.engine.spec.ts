@@ -23,6 +23,8 @@ const zero: LearnerStats = {
   challenges: 0,
   reactionsReceived: 0,
   textsRead: 0,
+  packsPassed: 0,
+  packWordsSaved: 0,
   lessonsPassed: 0,
   perfectLessons: 0,
   hardTextsPerfect: 0,

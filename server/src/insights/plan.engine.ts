@@ -158,9 +158,9 @@ export function buildPlan(s: PlanSignals): PlanTask[] {
     fillers.push({
       id: 'words',
       kind: 'WORDS',
-      title: 'Save 3 new words',
-      detail: 'Select a word in a chat, or tap one in live captions',
-      to: '/chat',
+      title: 'Learn 3 new words',
+      detail: 'Save a word pack, or select a word in a chat',
+      to: '/packs',
       target: 3,
       unit: 'words',
       minutes: 2,

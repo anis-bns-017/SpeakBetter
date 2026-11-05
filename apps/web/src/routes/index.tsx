@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type React from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
@@ -6,6 +7,7 @@ import { CelebrationLayer } from "../components/gamification/CelebrationLayer";
 import { useAuth } from "../contexts/AuthContext";
 import { useSidebar } from "../contexts/SidebarContext";
 import { SIDEBAR_WIDTH, MOBILE_TAB_BAR_HEIGHT } from "../lib/navLayout";
+import { syncPush } from "../lib/push";
 
 // Main Pages
 import DashboardPage from "../pages/DashboardPage";
@@ -13,6 +15,9 @@ import { DiscoveryPage } from "../pages/DiscoveryPage";
 import { VocabularyPage } from "../pages/VocabularyPage";
 import { FlashcardPage } from "../pages/FlashcardPage";
 import { GrammarPage } from "../pages/GrammarPage";
+import { PacksPage } from "../pages/PacksPage";
+import { PackPage } from "../pages/PackPage";
+import { PublicProfilePage } from "../pages/PublicProfilePage";
 import { GrammarCoursePage } from "../pages/GrammarCoursePage";
 import { GrammarLessonPage } from "../pages/GrammarLessonPage";
 import { ExercisesPage } from "../pages/ExercisesPage";
@@ -98,6 +103,11 @@ const AppLayout = () => {
   const location = useLocation();
   const inVoiceRoom = /^\/voice\/[^/]+/.test(location.pathname);
 
+  // If this device already gets push, keep its record on the server fresh and pointed at whoever is signed in
+  useEffect(() => {
+    void syncPush().catch(() => undefined);
+  }, []);
+
   const style = {
     "--sidebar-w": `${isMinimized ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded}px`,
     "--tabbar-h": inVoiceRoom ? "0px" : `${MOBILE_TAB_BAR_HEIGHT}px`,
@@ -154,6 +164,8 @@ const AppRoutes = () => {
           <Route path="/grammar/rules" element={<GrammarPage />} />
           <Route path="/grammar/:lessonId" element={<GrammarLessonPage />} />
           <Route path="/exercises" element={<ExercisesPage />} />
+          <Route path="/packs" element={<PacksPage />} />
+          <Route path="/packs/:packId" element={<PackPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/placement" element={<PlacementPage />} />
           <Route path="/ai-partner" element={<AiPartnerPage />} />
@@ -167,6 +179,7 @@ const AppRoutes = () => {
 
           {/* Profile & Settings */}
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/u/:userId" element={<PublicProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
 
           {/* ===== ✅ CHAT ROUTES ===== */}

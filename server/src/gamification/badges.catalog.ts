@@ -5,6 +5,7 @@
  */
 
 import { GRAMMAR } from '../grammar/grammar.content';
+import { PACKS } from '../vocab-packs/packs.content';
 
 export type BadgeTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND';
 export type BadgeCategory = 'STREAK' | 'LEARNING' | 'SPEAKING' | 'VOCABULARY' | 'COMMUNITY' | 'SPECIAL';
@@ -39,6 +40,10 @@ export interface LearnerStats {
   textsRead: number;
   /** Library texts at B2 or above with every question right */
   hardTextsPerfect: number;
+  /** Vocabulary packs whose quiz was passed */
+  packsPassed: number;
+  /** Words from vocabulary packs in the flashcard review */
+  packWordsSaved: number;
   /** Grammar lessons passed */
   lessonsPassed: number;
   /** Grammar lessons finished with every exercise right */
@@ -96,6 +101,10 @@ export const BADGES: BadgeDef[] = [
   { key: 'read-1', name: 'Bookworm', description: 'Finish a story in the library', category: 'VOCABULARY', tier: 'BRONZE', icon: 'BookOpen', measure: at('textsRead'), target: 1 },
   { key: 'read-10', name: 'Avid reader', description: 'Finish 10 library texts', category: 'VOCABULARY', tier: 'SILVER', icon: 'BookOpen', measure: at('textsRead'), target: 10 },
   { key: 'read-perfect', name: 'Sharp reader', description: 'Get every question right on a B2 or C1 text', category: 'VOCABULARY', tier: 'GOLD', icon: 'Target', measure: at('hardTextsPerfect'), target: 1 },
+  { key: 'pack-1', name: 'Word collector', description: 'Pass a vocabulary pack quiz', category: 'VOCABULARY', tier: 'BRONZE', icon: 'BookOpen', measure: at('packsPassed'), target: 1 },
+  { key: 'pack-5', name: 'Wordsmith', description: 'Pass 5 vocabulary pack quizzes', category: 'VOCABULARY', tier: 'SILVER', icon: 'BookOpen', measure: at('packsPassed'), target: 5 },
+  { key: 'pack-words-50', name: 'Word garden', description: 'Add 50 words from packs to your review', category: 'VOCABULARY', tier: 'SILVER', icon: 'Layers', measure: at('packWordsSaved'), target: 50 },
+  { key: 'pack-all', name: 'Lexicon', description: 'Pass every vocabulary pack quiz', category: 'VOCABULARY', tier: 'GOLD', icon: 'Layers', measure: at('packsPassed'), target: PACKS.length },
   { key: 'grammar-1', name: 'Rule learner', description: 'Pass a grammar lesson', category: 'LEARNING', tier: 'BRONZE', icon: 'GraduationCap', measure: at('lessonsPassed'), target: 1 },
   { key: 'grammar-6', name: 'Grammar fan', description: 'Pass 6 grammar lessons', category: 'LEARNING', tier: 'SILVER', icon: 'GraduationCap', measure: at('lessonsPassed'), target: 6 },
   { key: 'grammar-perfect', name: 'Spot on', description: 'Get every exercise right in a grammar lesson', category: 'LEARNING', tier: 'SILVER', icon: 'Target', measure: at('perfectLessons'), target: 1 },

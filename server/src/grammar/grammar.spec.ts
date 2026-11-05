@@ -62,7 +62,7 @@ describe('grammar engine', () => {
     expect(judge(ex, "Didn't eat", 's').correct).toBe(true);
     expect(judge(ex, 'did not eat.', 's').correct).toBe(true);
     const wrong = judge(ex, 'ate', 's');
-    expect(wrong).toMatchObject({ answered: true, correct: false, original: 'He ate breakfast this morning. (not eat)' });
+    expect(wrong).toMatchObject({ answered: true, correct: false, original: 'He ate breakfast this morning.', corrected: "He didn't eat breakfast this morning." });
     expect(judge(ex, '   ', 's').answered).toBe(false);
   });
 

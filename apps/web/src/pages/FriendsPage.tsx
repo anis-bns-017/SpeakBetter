@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   useFriends,
   useFriendRequests,
@@ -183,7 +184,7 @@ export const FriendsPage = () => {
 
                       {/* Details */}
                       <div>
-                        <h3 className="font-bold text-slate-800 text-sm">{friend.name}</h3>
+                        <h3 className="font-bold text-slate-800 text-sm"><Link to={`/u/${friend.id}`} className="hover:underline">{friend.name}</Link></h3>
                         <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                           <Globe className="w-3 h-3 text-slate-400" />
                           <span>
@@ -349,7 +350,7 @@ export const FriendsPage = () => {
                         </div>
 
                         <div>
-                          <h3 className="font-bold text-slate-800 text-sm">{result.name}</h3>
+                          <h3 className="font-bold text-slate-800 text-sm"><Link to={`/u/${result.id}`} className="hover:underline">{result.name}</Link></h3>
                           <p className="text-xs text-slate-500">{result.email}</p>
                           {result.profile && (
                             <p className="text-[11px] text-slate-400 mt-0.5">
