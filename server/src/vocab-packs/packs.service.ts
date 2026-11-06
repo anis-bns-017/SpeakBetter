@@ -5,7 +5,7 @@ import { ReviewService } from '../learning/review.service';
 import { BadgesService } from '../gamification/badges.service';
 import { FriendChallengesService } from '../friend-challenges/friend-challenges.service';
 import { practiceLevel } from '../pronunciation/pronunciation.service';
-import { PACKS, PACK_BY_ID, PACK_LEVELS, type PackLevel, type VocabPack } from './packs.content';
+import { CATEGORIES, PACKS, PACK_BY_ID, PACK_LEVELS, type PackLevel, type VocabPack } from './packs.content';
 import { PACK_XP, buildQuiz, judge, passMark, quizSeed, shownOrder } from './packs.engine';
 import { meaningChoices, wordOfDay } from './word-of-day';
 import { localParts } from '../notifications/daily-reminder.engine';
@@ -54,6 +54,7 @@ export class VocabPacksService {
       return {
         id: p.id,
         level: p.level,
+        category: p.category,
         title: p.title,
         topic: p.topic,
         icon: p.icon,
@@ -70,6 +71,10 @@ export class VocabPacksService {
       levels: PACK_LEVELS.map((lv) => {
         const atLevel = packs.filter((p) => p.level === lv);
         return { level: lv, total: atLevel.length, done: atLevel.filter((p) => p.done).length };
+      }),
+      categories: CATEGORIES.map((c) => {
+        const inside = packs.filter((p) => p.category === c.id);
+        return { ...c, total: inside.length, done: inside.filter((p) => p.done).length, words: inside.reduce((n, p) => n + p.words, 0) };
       }),
       packs,
       done: packs.filter((p) => p.done).length,
@@ -106,6 +111,7 @@ export class VocabPacksService {
     return {
       id: pack.id,
       level: pack.level,
+      category: pack.category,
       title: pack.title,
       topic: pack.topic,
       icon: pack.icon,

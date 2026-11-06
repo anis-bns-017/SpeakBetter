@@ -203,6 +203,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@nestjs/cli@11.0.24': 35fbeab74407314ad3868c599ae73575c6beb80fc34bf3f1f0ab4da9363d3d2b
+
 importers:
 
   .:
@@ -514,6 +517,9 @@ importers:
       dotenv:
         specifier: ^18.0.4
         version: 18.0.4
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1(supports-color@8.1.1)
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0(supports-color@8.1.1)
@@ -565,7 +571,7 @@ importers:
         version: 9.39.5
       '@nestjs/cli':
         specifier: ^11.0.0
-        version: 11.0.24(@types/node@24.13.3)(lightningcss@1.33.0)(postcss@8.5.23)(prettier@3.9.6)(uglify-js@3.19.3)
+        version: 11.0.24(patch_hash=35fbeab74407314ad3868c599ae73575c6beb80fc34bf3f1f0ab4da9363d3d2b)(@types/node@24.13.3)(lightningcss@1.33.0)(postcss@8.5.23)(prettier@3.9.6)(uglify-js@3.19.3)
       '@nestjs/schematics':
         specifier: ^11.0.0
         version: 11.1.0(chokidar@4.0.3)(prettier@3.9.6)(typescript@5.9.3)
@@ -8402,7 +8408,7 @@ snapshots:
       axios: 1.18.1(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
       rxjs: 7.8.2
 
-  '@nestjs/cli@11.0.24(@types/node@24.13.3)(lightningcss@1.33.0)(postcss@8.5.23)(prettier@3.9.6)(uglify-js@3.19.3)':
+  '@nestjs/cli@11.0.24(patch_hash=35fbeab74407314ad3868c599ae73575c6beb80fc34bf3f1f0ab4da9363d3d2b)(@types/node@24.13.3)(lightningcss@1.33.0)(postcss@8.5.23)(prettier@3.9.6)(uglify-js@3.19.3)':
     dependencies:
       '@angular-devkit/core': 19.2.27(chokidar@4.0.3)
       '@angular-devkit/schematics': 19.2.27(chokidar@4.0.3)

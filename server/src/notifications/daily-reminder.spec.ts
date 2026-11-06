@@ -1,6 +1,27 @@
-import { DEFAULT_REMINDER_TIME, REMINDER_WINDOW_MINUTES, localParts, parseTime, reminderDue, reminderText } from './daily-reminder.engine';
+import { DEFAULT_REMINDER_TIME, REMINDER_WINDOW_MINUTES, localParts, parseTime, reminderDue, reminderText, streakOnDay } from './daily-reminder.engine';
 import { DailyReminderService } from './daily-reminder.service';
 import { wordOfDay } from '../vocab-packs/word-of-day';
+
+describe('streakOnDay', () => {
+  it('keeps a streak practised today or yesterday on the learner\'s own calendar', () => {
+    expect(streakOnDay({ currentStreak: 5 }, '2026-11-05', '2026-11-05')).toBe(5);
+    expect(streakOnDay({ currentStreak: 5 }, '2026-11-05', '2026-11-04')).toBe(5);
+    // across a month end
+    expect(streakOnDay({ currentStreak: 5 }, '2026-12-01', '2026-11-30')).toBe(5);
+  });
+
+  it('loses it after a missed day unless freezes cover the gap', () => {
+    expect(streakOnDay({ currentStreak: 5 }, '2026-11-05', '2026-11-03')).toBe(0);
+    expect(streakOnDay({ currentStreak: 5, freezes: 1 }, '2026-11-05', '2026-11-03')).toBe(5);
+    expect(streakOnDay({ currentStreak: 5, freezes: 1 }, '2026-11-05', '2026-11-02')).toBe(0);
+  });
+
+  it('is zero without a streak or a practice day', () => {
+    expect(streakOnDay(null, '2026-11-05', '2026-11-05')).toBe(0);
+    expect(streakOnDay({ currentStreak: 3 }, '2026-11-05', null)).toBe(0);
+    expect(streakOnDay({ currentStreak: 0 }, '2026-11-05', '2026-11-05')).toBe(0);
+  });
+});
 
 describe('daily reminder engine', () => {
   it('works out the date and time on someone else\'s clock', () => {

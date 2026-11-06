@@ -1,10 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#4f46e5"/>
-      <stop offset="1" stop-color="#7c3aed"/>
+      <stop offset="0.55" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#c026d3"/>
+    </linearGradient>
+    <linearGradient id="bars" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="0.55" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#c026d3"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="113" fill="url(#g)"/>
-  <path d="M323.4 159.8A71.7 71.7 0 1 0 256 256A71.7 71.7 0 1 1 188.6 303.2" fill="none" stroke="#fff" stroke-width="44.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="48" height="48" rx="14" fill="url(#tile)"/>
+  <path d="M17 11H31A7 7 0 0 1 38 18V26A7 7 0 0 1 31 33H21L14.2 38.4C13.5 38.9 12.7 38.3 13 37.5L14.6 32.6A7 7 0 0 1 10 26V18A7 7 0 0 1 17 11Z" fill="#fff"/>
+  <g fill="url(#bars)">
+    <rect x="13.7" y="25" width="2.6" height="4.5" rx="1.3"/>
+    <rect x="18.2" y="22.5" width="2.6" height="7" rx="1.3"/>
+    <rect x="22.7" y="20" width="2.6" height="9.5" rx="1.3"/>
+    <rect x="27.2" y="17.5" width="2.6" height="12" rx="1.3"/>
+    <rect x="31.7" y="15" width="2.6" height="14.5" rx="1.3"/>
+  </g>
+  <path d="M40.5 4.5L41.6 8.4L45.5 9.5L41.6 10.6L40.5 14.5L39.4 10.6L35.5 9.5L39.4 8.4Z" fill="#fff"/>
 </svg>

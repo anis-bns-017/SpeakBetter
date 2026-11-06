@@ -58,6 +58,21 @@ export function reminderDue(now: LocalParts, targetMinutes: number, lastPractice
  * The wording: a streak at risk is the strongest reason to open the app. Today's word, when there is one, gives
  * them something small to learn straight away.
  */
+/**
+ * The streak someone still has today, judged on their own calendar (YYYY-MM-DD days in their time zone):
+ * alive if they practised today or yesterday, or if their freezes cover the days missed since.
+ */
+export function streakOnDay(
+  streak: { currentStreak: number; freezes?: number | null } | null,
+  today: string,
+  lastPracticeDay: string | null,
+): number {
+  if (!streak || !lastPracticeDay || streak.currentStreak <= 0) return 0;
+  const days = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${lastPracticeDay}T00:00:00Z`)) / 86_400_000);
+  if (!Number.isFinite(days)) return 0;
+  return days <= 1 || days - 1 <= (streak.freezes ?? 0) ? streak.currentStreak : 0;
+}
+
 export function reminderText(streak: number, word?: { word: string; meaning: string } | null): { title: string; message: string } {
   const title = streak >= 2 ? `Keep your ${streak}-day streak going` : 'Time to practise English';
   if (word) {

@@ -1,0 +1,19 @@
+diff --git a/lib/utils/tree-kill.js b/lib/utils/tree-kill.js
+index 47f78a070523e7278c5137c584feed3689c62620..9b5e07221fefac42ba660296fa874e82f9637dd7 100644
+--- a/lib/utils/tree-kill.js
++++ b/lib/utils/tree-kill.js
+@@ -4,7 +4,13 @@ exports.treeKillSync = treeKillSync;
+ const child_process_1 = require("child_process");
+ function treeKillSync(pid, signal) {
+     if (process.platform === 'win32') {
+-        (0, child_process_1.execSync)('taskkill /pid ' + pid + ' /T /F');
++        try {
++            (0, child_process_1.execSync)('taskkill /pid ' + pid + ' /T /F', { stdio: 'ignore' });
++        }
++        catch {
++            // The app already exited (it crashed, or was closed): nothing left to kill. Without this the
++            // whole watcher dies with "The process ... not found" and needs a manual restart.
++        }
+         return;
+     }
+     const childs = getAllChilds(pid);

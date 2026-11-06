@@ -30,6 +30,7 @@ import { VocabPacksModule } from './vocab-packs/packs.module';
 import { PushModule } from './push/push.module';
 import { DictationModule } from './dictation/dictation.module';
 import { RoleplayModule } from './roleplay/roleplay.module';
+import { ShadowingModule } from './shadowing/shadowing.module';
 import { FriendChallengesModule } from './friend-challenges/friend-challenges.module';
 import { QuestsModule } from './quests/quests.module';
 import { BillingModule } from './billing/billing.module';
@@ -63,6 +64,7 @@ import { BillingModule } from './billing/billing.module';
     PushModule,
     DictationModule,
     RoleplayModule,
+    ShadowingModule,
     FriendChallengesModule,
     QuestsModule,
     BillingModule,

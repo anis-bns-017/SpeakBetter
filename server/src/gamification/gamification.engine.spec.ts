@@ -24,6 +24,7 @@ const zero: LearnerStats = {
   reactionsReceived: 0,
   textsRead: 0,
   scenariosDone: 0,
+  shadowingLessons: 0,
   dictations: 0,
   perfectDictations: 0,
   packsPassed: 0,

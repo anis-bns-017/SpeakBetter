@@ -4,7 +4,7 @@
  *  - Makes the app installable and shows a friendly page when you are offline.
  *  - Keeps the built files (hashed, so they never change) after the first visit, so the app opens faster.
  *  - Shows push notifications, and opens the right page when one is tapped.
- *  - Offline mode: keeps the last good copy of your learning content (library, grammar, word packs) and of
+ *  - Offline mode: keeps the last good copy of your learning content (library, grammar, word packs, shadowing) and of
  *    the app itself, so they still open without a connection.
  *
  * The API is only touched for that short list of GET requests, network first; everything else (other API
@@ -30,7 +30,13 @@ const API_ORIGIN = (() => {
 })();
 
 /** API reads worth keeping for offline: who you are, and learning content */
-const OFFLINE_API = [/^\/auth\/me$/, /^\/library(\/[^/]+)?$/, /^\/grammar\/lessons(\/[^/]+)?$/, /^\/vocab-packs(\/[^/]+)?$/];
+const OFFLINE_API = [
+  /^\/auth\/me$/,
+  /^\/library(\/[^/]+)?$/,
+  /^\/grammar\/lessons(\/[^/]+)?$/,
+  /^\/vocab-packs(\/[^/]+)?$/,
+  /^\/shadowing(\/[^/]+)?$/,
+];
 /** How long to wait for the network before using the saved copy */
 const API_TIMEOUT_MS = 6000;
 

@@ -34,15 +34,17 @@ export const lastSavedAt = (): Date | null => {
  * Calls `onProgress(done, total)` as it goes. Returns how many items were saved.
  */
 export async function saveForOffline(onProgress?: (done: number, total: number) => void): Promise<number> {
-  const [library, grammar, packs] = await Promise.all([
+  const [library, grammar, packs, shadowing] = await Promise.all([
     apiClient.get<{ texts: Array<{ id: string }> }>("/library"),
     apiClient.get<{ lessons: Array<{ id: string }> }>("/grammar/lessons"),
     apiClient.get<{ packs: Array<{ id: string }> }>("/vocab-packs"),
+    apiClient.get<{ tracks: Array<{ lessons: Array<{ id: string }> }> }>("/shadowing").catch(() => ({ data: { tracks: [] } })),
   ]);
   const urls = [
     ...library.data.texts.map((t) => `/library/${t.id}`),
     ...grammar.data.lessons.map((l) => `/grammar/lessons/${l.id}`),
     ...packs.data.packs.map((p) => `/vocab-packs/${p.id}`),
+    ...shadowing.data.tracks.flatMap((t) => t.lessons.map((l) => `/shadowing/${l.id}`)),
     "/vocab-packs/today",
     "/auth/me",
   ];

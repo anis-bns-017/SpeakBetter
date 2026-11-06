@@ -4,9 +4,31 @@ import type { ChallengeOutcome } from './useFriendChallenges';
 
 export type PackLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 
+export type PackCategory =
+  | 'everyday'
+  | 'ielts'
+  | 'toefl'
+  | 'gre'
+  | 'sat'
+  | 'cambridge'
+  | 'academic'
+  | 'business'
+  | 'expressions';
+
+export interface PackCategoryInfo {
+  id: PackCategory;
+  label: string;
+  description: string;
+  icon: string;
+  total: number;
+  done: number;
+  words: number;
+}
+
 export interface PackItem {
   id: string;
   level: PackLevel;
+  category: PackCategory;
   title: string;
   topic: string;
   icon: string;
@@ -21,6 +43,7 @@ export interface PackItem {
 export interface PackList {
   level: PackLevel;
   levels: Array<{ level: PackLevel; total: number; done: number }>;
+  categories: PackCategoryInfo[];
   packs: PackItem[];
   done: number;
   wordsSaved: number;
@@ -46,6 +69,7 @@ export interface PackQuestion {
 export interface Pack {
   id: string;
   level: PackLevel;
+  category: PackCategory;
   title: string;
   topic: string;
   icon: string;

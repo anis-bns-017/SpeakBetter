@@ -17,7 +17,7 @@ import {
   type PackResult,
   type PackWord,
 } from "../hooks/useVocabPacks";
-import { packIcon, topicTone } from "../components/packs/packIcons";
+import { categoryTone, packIcon, topicTone } from "../components/packs/packIcons";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { ChallengeFriendButton } from "../components/challenges/ChallengeFriendButton";
 import { ChallengeOutcomes } from "../components/challenges/ChallengeOutcomes";
@@ -189,7 +189,7 @@ export const PackPage: React.FC = () => {
       </Link>
 
       <header className="flex items-start gap-3">
-        <span className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${topicTone(pack.topic)}`}>
+        <span className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${pack.category === "everyday" ? topicTone(pack.topic) : categoryTone(pack.category)}`}>
           <Icon className="w-6 h-6" />
         </span>
         <div className="min-w-0 flex-1">

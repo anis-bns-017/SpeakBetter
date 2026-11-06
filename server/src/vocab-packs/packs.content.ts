@@ -7,33 +7,14 @@
  * and every word id is unique inside its pack.
  */
 
-export type PackLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
-export const PACK_LEVELS: PackLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1'];
+import { w, type PackCategory, type VocabPack } from './packs.types';
+import { ADVANCED_PACKS } from './packs.advanced';
+import { MORE_PACKS } from './packs.more';
 
-export type PartOfSpeech = 'noun' | 'verb' | 'adjective' | 'phrasal verb' | 'idiom' | 'conjunction';
+export * from './packs.types';
 
-export interface PackWord {
-  id: string;
-  word: string;
-  pos: PartOfSpeech;
-  meaning: string;
-  example: string;
-}
-
-export interface VocabPack {
-  id: string;
-  level: PackLevel;
-  title: string;
-  topic: string;
-  /** A lucide icon name the web app knows */
-  icon: string;
-  summary: string;
-  words: PackWord[];
-}
-
-const w = (id: string, word: string, pos: PartOfSpeech, meaning: string, example: string): PackWord => ({ id, word, pos, meaning, example });
-
-export const PACKS: VocabPack[] = [
+/** The first packs: everyday English from A1 to C1 */
+const EVERYDAY_PACKS: Array<Omit<VocabPack, 'category'>> = [
   {
     id: 'a1-daily-routines',
     level: 'A1',
@@ -255,6 +236,12 @@ export const PACKS: VocabPack[] = [
     ],
   },
 ];
+
+/** Everyday packs that belong with the advanced groups */
+const MOVED: Record<string, PackCategory> = { 'b2-academic': 'academic', 'c1-idioms': 'expressions', 'b1-phrasal-verbs': 'expressions' };
+
+/** Every pack: the everyday ones first, then exam prep, academic, business and expressions */
+export const PACKS: VocabPack[] = [...EVERYDAY_PACKS.map((p) => ({ ...p, category: MOVED[p.id] ?? ('everyday' as const) })), ...ADVANCED_PACKS, ...MORE_PACKS];
 
 export const PACK_BY_ID = new Map(PACKS.map((p) => [p.id, p]));
 export const TOTAL_PACK_WORDS = PACKS.reduce((n, p) => n + p.words.length, 0);

@@ -60,7 +60,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { useSidebar } from "../contexts/SidebarContext";
 import { SIDEBAR_WIDTH, MOBILE_TAB_BAR_HEIGHT } from "../lib/navLayout";
-import { SpeakBetterLogo } from "./common/SpeakBetterLogo";
+import { LogoMark, SpeakBetterLogo } from "./common/SpeakBetterLogo";
 import { NotificationBell } from "./notifications/NotificationBell";
 import { useProgress } from "../hooks/useLearning";
 import { useLiveRoomsCount, useTrendingRooms } from "../hooks/useDiscovery";
@@ -711,13 +711,11 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
         <button
           type="button"
           onClick={() => navigate("/dashboard")}
-          className="flex items-center min-w-0 rounded-xl p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+          className="group flex items-center min-w-0 rounded-xl p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
           aria-label="SpeakBetter home"
         >
           {collapsed ? (
-            <span className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-600 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-500/25 text-[19px] font-black italic tracking-tighter text-white">
-              S
-            </span>
+            <LogoMark size={40} />
           ) : (
             <SpeakBetterLogo />
           )}

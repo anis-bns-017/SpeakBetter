@@ -1,173 +1,135 @@
-import { motion } from "framer-motion";
+// apps/web/src/components/common/SpeakBetterLogo.tsx
+/**
+ * The SpeakBetter logo. The mark is a speech bubble holding a rising equalizer: you speak, and it gets
+ * better. It sits on an aurora tile that slowly turns, with a spark above the tallest bar.
+ *
+ * Motion lives in speakBetterLogo.css: an intro (bubble pops, bars grow, underline draws), a quiet idle loop
+ * (the voice moves, the spark twinkles) and a hover burst (bounce, sound rings) on any `.group` parent.
+ * Everything stays still for people who ask their system for reduced motion.
+ */
 
-export function SpeakBetterLogo() {
+import React, { useId } from "react";
+import "./speakBetterLogo.css";
+
+/** The bars, left to right: x, and height (they all stand on the same line) */
+const BARS: Array<[number, number]> = [
+  [13.7, 4.5],
+  [18.2, 7],
+  [22.7, 9.5],
+  [27.2, 12],
+  [31.7, 14.5],
+];
+const BAR_BOTTOM = 29.5;
+const BAR_WIDTH = 2.6;
+
+/** The bubble, with its tail at the lower left (48 x 48 grid) */
+const BUBBLE =
+  "M17 11H31A7 7 0 0 1 38 18V26A7 7 0 0 1 31 33H21L14.2 38.4C13.5 38.9 12.7 38.3 13 37.5L14.6 32.6A7 7 0 0 1 10 26V18A7 7 0 0 1 17 11Z";
+/** A four-point spark */
+const SPARK = "M40.5 4.5L41.6 8.4L45.5 9.5L41.6 10.6L40.5 14.5L39.4 10.6L35.5 9.5L39.4 8.4Z";
+
+interface MarkProps {
+  /** Pixels */
+  size?: number;
+  animated?: boolean;
+  className?: string;
+}
+
+/** The mark alone: the tile with the bubble, bars and spark */
+export const LogoMark: React.FC<MarkProps> = ({ size = 36, animated = true, className = "" }) => {
+  const id = useId().replace(/:/g, "");
+  const radius = Math.round(size * 0.3);
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className="group relative flex items-center select-none"
+    <span
+      className={`sb-logo ${animated ? "" : "sb-logo-still"} relative inline-flex shrink-0 ${className}`}
+      style={{ width: size, height: size }}
+      aria-hidden="true"
     >
-      {/* Ambient glow */}
-      <motion.div
-        aria-hidden="true"
-        className="pointer-events-none absolute -inset-3 rounded-2xl bg-indigo-500/10 blur-xl"
-        animate={{
-          opacity: [0.35, 0.7, 0.35],
-          scale: [0.95, 1.05, 0.95],
-        }}
-        transition={{
-          duration: 3.5,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      />
+      {/* Glow and sound rings sit behind and around the tile */}
+      <span className="sb-logo-glow pointer-events-none absolute -inset-2 rounded-full bg-violet-500/30 blur-lg" />
+      {[0, 1].map((i) => (
+        <span
+          key={i}
+          className="sb-logo-ring pointer-events-none absolute inset-0"
+          style={{ borderRadius: radius, ["--i" as string]: i } as React.CSSProperties}
+        />
+      ))}
 
-      {/* Logo mark */}
-      <motion.div
-        className="relative mr-2.5 flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-600 via-violet-600 to-blue-600 shadow-lg shadow-indigo-500/25"
-        whileHover={{
-          scale: 1.08,
-          rotate: -3,
-          boxShadow: "0 10px 30px rgba(79, 70, 229, 0.35)",
-        }}
-        transition={{ type: "spring", stiffness: 400, damping: 15 }}
+      <span
+        className="relative block w-full h-full overflow-hidden shadow-lg shadow-violet-500/30 ring-1 ring-white/20"
+        style={{ borderRadius: radius }}
       >
-        {/* Animated shine */}
-        <motion.div
-          aria-hidden="true"
-          className="absolute inset-y-0 -left-10 w-6 rotate-[20deg] bg-white/30 blur-sm"
-          animate={{
-            x: [-10, 55],
-          }}
-          transition={{
-            duration: 2.8,
-            repeat: Infinity,
-            repeatDelay: 2,
-            ease: "easeInOut",
-          }}
-        />
+        <span className="sb-logo-aurora absolute -inset-1/2 block" />
+        {/* Light from the top left, so the tile has depth */}
+        <span className="absolute inset-0 block bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.45),transparent_55%)]" />
+        <svg viewBox="0 0 48 48" className="relative block w-full h-full">
+          <defs>
+            <linearGradient id={`${id}-bars`} x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0" stopColor="#4f46e5" />
+              <stop offset="0.55" stopColor="#7c3aed" />
+              <stop offset="1" stopColor="#c026d3" />
+            </linearGradient>
+            <filter id={`${id}-shadow`} x="-20%" y="-20%" width="140%" height="150%">
+              <feDropShadow dx="0" dy="1.2" stdDeviation="1.2" floodColor="#1e1b4b" floodOpacity="0.35" />
+            </filter>
+          </defs>
+          {/* Two layers so the hover bounce never replays the pop-in */}
+          <g className="sb-logo-bubble-in">
+            <g className="sb-logo-bubble" filter={`url(#${id}-shadow)`}>
+              <path d={BUBBLE} fill="#fff" />
+              {BARS.map(([x, h], i) => (
+                <rect
+                  key={i}
+                  className="sb-logo-bar"
+                  style={{ ["--i" as string]: i } as React.CSSProperties}
+                  x={x}
+                  y={BAR_BOTTOM - h}
+                  width={BAR_WIDTH}
+                  height={h}
+                  rx={BAR_WIDTH / 2}
+                  fill={`url(#${id}-bars)`}
+                />
+              ))}
+            </g>
+          </g>
+          <path className="sb-logo-spark" d={SPARK} fill="#fff" />
+        </svg>
+      </span>
+    </span>
+  );
+};
 
-        {/* Speech bubble / S */}
-        <motion.span
-          className="relative z-10 text-[19px] font-black italic tracking-tighter text-white"
-          animate={{
-            y: [0, -1, 0],
-          }}
-          transition={{
-            duration: 2.2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        >
-          S
-        </motion.span>
-
-        {/* Tiny conversation dots */}
-        <motion.span
-          className="absolute bottom-[7px] right-[6px] h-1 w-1 rounded-full bg-white/90"
-          animate={{
-            scale: [0.7, 1.3, 0.7],
-            opacity: [0.5, 1, 0.5],
-          }}
-          transition={{
-            duration: 1.4,
-            repeat: Infinity,
-            delay: 0.1,
-          }}
-        />
-
-        <motion.span
-          className="absolute bottom-[5px] right-[3px] h-0.5 w-0.5 rounded-full bg-white/70"
-          animate={{
-            scale: [0.7, 1.4, 0.7],
-            opacity: [0.4, 1, 0.4],
-          }}
-          transition={{
-            duration: 1.4,
-            repeat: Infinity,
-            delay: 0.35,
-          }}
-        />
-      </motion.div>
-
-      <div className="relative min-w-0 text-left">
-        {/* Brand name */}
-        <motion.p
-          className="relative text-[17px] font-extrabold leading-none tracking-[-0.04em] text-slate-900 dark:text-white"
-          whileHover={{ letterSpacing: "-0.02em" }}
-          transition={{ duration: 0.2 }}
-        >
+/** The full logo for the sidebar: the mark, "SpeakBetter" with a drawn voice-wave underline, and the tagline */
+export function SpeakBetterLogo({ animated = true }: { animated?: boolean }) {
+  return (
+    <span className={`sb-logo ${animated ? "" : "sb-logo-still"} group relative flex items-center gap-2.5 select-none`}>
+      <LogoMark size={38} animated={animated} />
+      <span className="sb-logo-fade relative min-w-0 text-left">
+        <span className="block text-[17px] font-extrabold leading-none tracking-[-0.04em] text-slate-900 dark:text-white">
           Speak
-          
-          <span className="relative ml-[1px] inline-block">
-            {/* Gradient brand text */}
-            <motion.span
-              className="relative z-10 bg-gradient-to-r from-indigo-600 via-violet-600 to-blue-600 bg-clip-text text-transparent"
-              animate={{
-                backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-              }}
-              style={{
-                backgroundSize: "200% 200%",
-              }}
-              transition={{
-                duration: 4,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-            >
-              Better
-            </motion.span>
-
-            {/* Underline glow */}
-            <motion.span
-              aria-hidden="true"
-              className="absolute -bottom-[3px] left-0 h-[2px] rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-blue-500"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{
-                width: ["0%", "100%", "65%"],
-                opacity: [0, 1, 0.7],
-              }}
-              transition={{
-                duration: 1.5,
-                delay: 0.5,
-                repeat: Infinity,
-                repeatDelay: 3,
-                ease: "easeInOut",
-              }}
-            />
+          <span className="relative inline-block">
+            <span className="sb-logo-shimmer bg-clip-text text-transparent">Better</span>
+            {/* A little voice wave draws itself under "Better" */}
+            <svg viewBox="0 0 52 6" className="absolute left-0 -bottom-[5px] w-full h-[6px] overflow-visible" aria-hidden="true">
+              <path
+                className="sb-logo-wave"
+                d="M1 3C4 3 5 1 8 1S12 5 15 5 19 1 22 1 26 5 29 5 33 1 36 1 40 5 43 5 47 3 51 3"
+                fill="none"
+                stroke="url(#sb-logo-wave-gradient)"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+              <defs>
+                <linearGradient id="sb-logo-wave-gradient" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0" stopColor="#6366f1" />
+                  <stop offset="1" stopColor="#d946ef" />
+                </linearGradient>
+              </defs>
+            </svg>
           </span>
-        </motion.p>
-
-        {/* Tagline */}
-        <motion.div
-          className="mt-1.5 flex items-center gap-1.5"
-          initial={{ opacity: 0, y: 3 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.5,
-            delay: 0.25,
-            ease: "easeOut",
-          }}
-        >
-          <motion.span
-            className="h-1 w-1 rounded-full bg-indigo-500"
-            animate={{
-              scale: [1, 1.5, 1],
-              opacity: [0.5, 1, 0.5],
-            }}
-            transition={{
-              duration: 1.8,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-
-          <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
-            Language Learning
-          </p>
-        </motion.div>
-      </div>
-    </motion.div>
+        </span>
+        <span className="mt-2 block whitespace-nowrap text-[8.5px] font-bold uppercase tracking-[0.16em] text-slate-400">English · out loud</span>
+      </span>
+    </span>
   );
 }

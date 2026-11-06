@@ -7,6 +7,7 @@
 import { GRAMMAR } from '../grammar/grammar.content';
 import { PACKS } from '../vocab-packs/packs.content';
 import { SCENARIOS } from '../roleplay/roleplay.content';
+import { LESSONS as SHADOW_LESSONS } from '../shadowing/shadowing.content';
 
 export type BadgeTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND';
 export type BadgeCategory = 'STREAK' | 'LEARNING' | 'SPEAKING' | 'VOCABULARY' | 'COMMUNITY' | 'SPECIAL';
@@ -43,6 +44,8 @@ export interface LearnerStats {
   hardTextsPerfect: number;
   /** Role-play scenarios finished (each counts once) */
   scenariosDone: number;
+  /** Shadowing lessons finished (each counts once) */
+  shadowingLessons: number;
   /** Listening dictations finished */
   dictations: number;
   /** Dictations with every word right */
@@ -110,6 +113,9 @@ export const BADGES: BadgeDef[] = [
   { key: 'read-perfect', name: 'Sharp reader', description: 'Get every question right on a B2 or C1 text', category: 'VOCABULARY', tier: 'GOLD', icon: 'Target', measure: at('hardTextsPerfect'), target: 1 },
   { key: 'roleplay-1', name: 'In character', description: 'Finish a role-play conversation', category: 'SPEAKING', tier: 'BRONZE', icon: 'Drama', measure: at('scenariosDone'), target: 1 },
   { key: 'roleplay-all', name: 'Ready for anything', description: 'Finish every role-play scenario', category: 'SPEAKING', tier: 'GOLD', icon: 'Drama', measure: at('scenariosDone'), target: SCENARIOS.length },
+  { key: 'shadow-1', name: 'Echo', description: 'Finish a shadowing lesson', category: 'SPEAKING', tier: 'BRONZE', icon: 'Repeat2', measure: at('shadowingLessons'), target: 1 },
+  { key: 'shadow-10', name: 'In sync', description: 'Finish 10 shadowing lessons', category: 'SPEAKING', tier: 'SILVER', icon: 'Repeat2', measure: at('shadowingLessons'), target: 10 },
+  { key: 'shadow-all', name: 'Second voice', description: 'Finish every shadowing lesson', category: 'SPEAKING', tier: 'GOLD', icon: 'Repeat2', measure: at('shadowingLessons'), target: SHADOW_LESSONS.length },
   { key: 'dictation-1', name: 'Good ears', description: 'Finish a listening dictation', category: 'LEARNING', tier: 'BRONZE', icon: 'Headphones', measure: at('dictations'), target: 1 },
   { key: 'dictation-10', name: 'Sharp ears', description: 'Finish 10 listening dictations', category: 'LEARNING', tier: 'SILVER', icon: 'Headphones', measure: at('dictations'), target: 10 },
   { key: 'dictation-perfect', name: 'Every word', description: 'Get every word right in a dictation', category: 'LEARNING', tier: 'GOLD', icon: 'Headphones', measure: at('perfectDictations'), target: 1 },

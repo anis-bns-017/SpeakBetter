@@ -9,7 +9,6 @@ import {
   EyeOff,
   Loader2,
   ArrowRight,
-  Globe,
   BookOpen,
   Zap,
   ShieldCheck,
@@ -18,6 +17,7 @@ import {
   Languages,
   Star,
 } from "lucide-react";
+import { LogoMark } from "../components/common/SpeakBetterLogo";
 
 export const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -57,10 +57,8 @@ export const LoginPage = () => {
 
       <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-10 items-center relative z-10">
         <div className="hidden lg:block space-y-8">
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center shadow-2xl shadow-cyan-500/30">
-              <Globe className="w-10 h-10" />
-            </div>
+          <div className="group flex items-center gap-5">
+            <LogoMark size={80} />
 
             <div>
               <h1 className="text-5xl font-black">SpeakBetter</h1>
@@ -104,8 +102,8 @@ export const LoginPage = () => {
 
         <div className="w-full max-w-md mx-auto">
           <div className="rounded-[36px] bg-white/10 border border-white/10 backdrop-blur-2xl p-8 shadow-2xl">
-            <div className="text-center mb-8 lg:hidden">
-              <Globe className="mx-auto w-14 h-14 text-cyan-400" />
+            <div className="group text-center mb-8 lg:hidden">
+              <LogoMark size={60} />
               <h1 className="text-4xl font-black mt-3">SpeakBetter</h1>
             </div>
 

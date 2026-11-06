@@ -19,6 +19,7 @@ import { GrammarPage } from "../pages/GrammarPage";
 import { PacksPage } from "../pages/PacksPage";
 import { DictationPage } from "../pages/DictationPage";
 import { ShadowingPage } from "../pages/ShadowingPage";
+import { ShadowingLessonPage } from "../pages/ShadowingLessonPage";
 import { RoleplayListPage } from "../pages/RoleplayListPage";
 import { RoleplayPage } from "../pages/RoleplayPage";
 import { SessionRecapPage } from "../pages/SessionRecapPage";
@@ -175,6 +176,7 @@ const AppRoutes = () => {
           <Route path="/packs" element={<PacksPage />} />
           <Route path="/dictation" element={<DictationPage />} />
           <Route path="/shadowing" element={<ShadowingPage />} />
+          <Route path="/shadowing/:lessonId" element={<ShadowingLessonPage />} />
           <Route path="/roleplay" element={<RoleplayListPage />} />
           <Route path="/roleplay/:scenarioId" element={<RoleplayPage />} />
           <Route path="/packs/:packId" element={<PackPage />} />

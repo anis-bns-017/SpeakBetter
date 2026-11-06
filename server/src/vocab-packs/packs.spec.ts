@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { PACKS, PACK_LEVELS } from './packs.content';
+import { CATEGORIES, PACKS, PACK_LEVELS } from './packs.content';
 import { PACK_XP, QUIZ_SIZE, buildQuiz, gapSentence, judge, passMark, quizSeed, shownOrder } from './packs.engine';
 import { VocabPacksService, cardSourceId } from './packs.service';
 
@@ -16,13 +16,36 @@ describe('vocabulary pack content', () => {
     }
   });
 
-  it('writes every example with the word exactly as listed, so a quiz can blank it out', () => {
-    for (const p of PACKS) {
-      for (const w of p.words) {
-        expect(gapSentence(w.example, w.word)).not.toBeNull();
-        expect(w.meaning.length).toBeGreaterThan(4);
+  it('puts every pack in a known category, with several packs in each exam and advanced category', () => {
+    const ids = new Set(CATEGORIES.map((c) => c.id));
+    for (const p of PACKS) expect(ids.has(p.category)).toBe(true);
+    for (const c of ['ielts', 'toefl', 'gre', 'sat', 'cambridge', 'academic', 'business', 'expressions'] as const) {
+      expect(PACKS.filter((p) => p.category === c).length).toBeGreaterThanOrEqual(4);
+    }
+    // every category on the page has packs in it
+    for (const c of CATEGORIES) expect(PACKS.some((p) => p.category === c.id)).toBe(true);
+    expect(PACKS.length).toBeGreaterThanOrEqual(68);
+  });
+
+  it('never repeats a word inside a category', () => {
+    const repeats: string[] = [];
+    for (const c of CATEGORIES) {
+      const seen = new Map<string, string>();
+      for (const p of PACKS.filter((x) => x.category === c.id)) {
+        for (const w of p.words) {
+          const key = w.word.toLowerCase();
+          if (seen.has(key)) repeats.push(`${c.id}: "${w.word}" in ${seen.get(key)} and ${p.id}`);
+          else seen.set(key, p.id);
+        }
       }
     }
+    expect(repeats).toEqual([]);
+  });
+
+  it('writes every example with the word exactly as listed, so a quiz can blank it out', () => {
+    const missing = PACKS.flatMap((p) => p.words.filter((w) => gapSentence(w.example, w.word) === null).map((w) => `${p.id}/${w.word}: ${w.example}`));
+    expect(missing).toEqual([]);
+    for (const p of PACKS) for (const w of p.words) expect(w.meaning.length).toBeGreaterThan(4);
   });
 
   it('never gives the word away in its own meaning', () => {

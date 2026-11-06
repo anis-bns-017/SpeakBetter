@@ -242,6 +242,99 @@ Files:
 
 ---
 
+## 14. feat: group word packs by category and add exam packs
+
+```
+feat: group word packs by category and add exam packs
+
+Word packs now come in categories: Everyday English, IELTS, TOEFL, GRE,
+SAT, Cambridge C1/C2, Academic writing, Business English and Advanced
+expressions. Adds 58 packs (696 words) with meanings and examples written
+for the app, for 68 packs and 816 words in all. The Word packs page gets a
+category overview, a level filter and search.
+```
+
+Files:
+- new: `server/src/vocab-packs/packs.types.ts`, `packs.advanced.ts`, `packs.more.ts`
+- `server/src/vocab-packs/packs.content.ts`, `packs.service.ts`, `packs.spec.ts`
+- `apps/web/src/pages/PacksPage.tsx`, `PackPage.tsx`, `hooks/useVocabPacks.ts`, `components/packs/packIcons.ts`
+
+---
+
+## 15. fix: add express to server dependencies
+
+```
+fix: add express to server dependencies
+
+main.ts imports express directly for static uploads, but it was only
+available through pnpm hoisting. After a reinstall the API failed to start
+with "Cannot find module 'express'".
+```
+
+Files: `server/package.json`, `pnpm-lock.yaml` (one line and three lines)
+
+---
+
+## 16. feat: turn shadowing into a full course
+
+```
+feat: turn shadowing into a full course
+
+27 lessons in 9 tracks (everyday, questions and intonation, connected
+speech, stress and rhythm, travel, stories, work, opinions, tricky
+sounds), A1-C1, plus a daily mix from the library. Four modes: repeat,
+build up (back-chaining), speak along and blind. Lines show stressed
+words, weak forms, linking and the tune; speed control, record and
+compare with the model voice, keyboard shortcuts. Finishing reads scores
+from your real pronunciation attempts, saves your best per line, lists
+words to work on and gives 6 XP the first time. Adds shadowing badges and
+offline copies of the lessons.
+```
+
+Files:
+- new: `server/src/shadowing/` (content, engine, service, controller, module, spec)
+- new: `server/prisma/migrations/20261106090000_add_shadowing_progress/`
+- new: `apps/web/src/hooks/useShadowing.ts`, `pages/ShadowingLessonPage.tsx`, `components/shadowing/shadowingUi.ts`
+- `apps/web/src/pages/ShadowingPage.tsx` (rewritten as the course page), `routes/index.tsx`, `lib/offline.ts`, `public/sw.js`
+- shared: `schema.prisma`, `app.module.ts`, badge catalog/service and the two gamification specs, `BadgeIcon.tsx`
+
+---
+
+## 17. fix: judge the reminder streak on the learner's calendar
+
+```
+fix: judge the reminder streak on the learner's calendar
+
+The daily reminder checked whether a streak was still alive using the
+server's clock and day, while everything else in the reminder uses the
+learner's time zone. Someone far from the server could be told their
+streak was gone. Work it out from their own calendar days instead.
+```
+
+Files: `server/src/notifications/daily-reminder.engine.ts`, `daily-reminder.service.ts`, `daily-reminder.spec.ts`
+
+---
+
+## 18. feat: new animated logo
+
+```
+feat: new animated logo
+
+A speech bubble holding a rising equalizer (speak, and get better) on a
+slowly turning aurora tile, with a spark. In the sidebar it pops in, the
+bars move like a live voice, the spark twinkles and a voice wave draws
+under "Better"; on hover the bubble bounces and sound rings ripple out.
+Stays still with reduced motion. Same mark in the collapsed sidebar, on the
+login page, the favicon and the app icons.
+```
+
+Files:
+- new: `apps/web/src/components/common/speakBetterLogo.css`
+- `apps/web/src/components/common/SpeakBetterLogo.tsx` (rewritten), `components/Sidebar.tsx`, `pages/LoginPage.tsx`
+- `apps/web/public/favicon.svg`, `public/icons/` (all five PNGs regenerated)
+
+---
+
 ## Shared files (touched by several commits)
 
 `server/prisma/schema.prisma`, `server/src/app.module.ts`, `server/src/gamification/badges.catalog.ts`,

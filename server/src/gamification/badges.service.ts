@@ -82,6 +82,7 @@ export class BadgesService implements OnModuleInit {
       dictations,
       perfectDictations,
       scenariosDone,
+      shadowingLessons,
       questWeeks,
       freezesUsed,
     ] = await Promise.all([
@@ -117,6 +118,7 @@ export class BadgesService implements OnModuleInit {
       this.prisma.dictationResult.count({ where: { userId } }),
       this.prisma.dictationResult.count({ where: { userId, score: 100 } }),
       this.prisma.roleplayProgress.count({ where: { userId } }),
+      this.prisma.shadowingProgress.count({ where: { userId } }),
       this.prisma.questWeek.count({ where: { userId, completedAt: { not: null } } }),
       this.prisma.streakFreezeUse.count({ where: { userId } }),
     ]);
@@ -152,6 +154,7 @@ export class BadgesService implements OnModuleInit {
       dictations,
       perfectDictations,
       scenariosDone,
+      shadowingLessons,
       lessonsPassed: grammar.length,
       perfectLessons: grammar.filter((g) => g.total > 0 && g.bestScore === g.total).length,
       questWeeks,

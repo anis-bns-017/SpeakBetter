@@ -1,7 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { ActivityService } from '../learning/activity.service';
-import { DEFAULT_REMINDER_TIME, localParts, parseTime, reminderDue, reminderText } from './daily-reminder.engine';
+import { DEFAULT_REMINDER_TIME, localParts, parseTime, reminderDue, reminderText, streakOnDay } from './daily-reminder.engine';
 import { NotificationsService } from './notifications.service';
 import { practiceLevel } from '../pronunciation/pronunciation.service';
 import type { PackLevel } from '../vocab-packs/packs.content';
@@ -71,7 +70,8 @@ export class DailyReminderService implements OnModuleInit, OnModuleDestroy {
 
         // The same word the dashboard shows them today
         const word = wordOfDay(practiceLevel(levelOf.get(userId)) as PackLevel, here.day);
-        const { title, message } = reminderText(ActivityService.effectiveStreak(streak).current, word);
+        // Judged on their calendar, not the server's, so a streak is not lost across time zones
+        const { title, message } = reminderText(streakOnDay(streak, here.day, lastPracticeDay), word);
         const sent = await this.notifications.notify([userId], {
           type: 'REMINDER',
           title,

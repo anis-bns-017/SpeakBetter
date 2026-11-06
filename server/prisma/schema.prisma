@@ -629,6 +629,7 @@ model User {
   pushSubscriptions        PushSubscription[]
   dictationResults         DictationResult[]
   roleplayProgress         RoleplayProgress[]
+  shadowingProgress        ShadowingProgress[]
   challengesSent           FriendChallenge[]        @relation("ChallengesSent")
   challengesReceived       FriendChallenge[]        @relation("ChallengesReceived")
   questWeeks               QuestWeek[]
@@ -2807,4 +2808,22 @@ model FriendChallenge {
 
   @@index([toUserId, status])
   @@index([fromUserId, createdAt])
+}
+
+/// Shadowing lessons you finished: best average score, and your best score on each line
+model ShadowingProgress {
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId    String
+  /// Best average over the lines said aloud (null if never said aloud)
+  bestScore   Int?
+  completions Int      @default(0)
+  /// Lines said aloud, over every finish
+  linesSpoken Int      @default(0)
+  /// { "<lessonId>:<line>": best score }
+  lineScores  Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@id([userId, lessonId])
 }
