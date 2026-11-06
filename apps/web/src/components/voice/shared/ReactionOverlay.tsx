@@ -90,7 +90,7 @@ const FloatingReaction: React.FC<{
         transform: "translateX(-50%)",
         fontSize: "2.25rem",
         lineHeight: 1,
-        filter: "drop-shadow(0 8px 14px rgba(0,0,0,0.45))",
+        filter: "drop-shadow(0 8px 14px var(--sx-bg-0-0-0-450))",
         willChange: "transform, opacity",
       }}
     >

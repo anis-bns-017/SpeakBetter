@@ -49,11 +49,11 @@ interface PracticeJournalProps {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  grammar: "#22d3ee",
-  vocabulary: "#a78bfa",
-  pronunciation: "#fbbf24",
-  "word-choice": "#34d399",
-  spelling: "#f472b6",
+  grammar: "var(--sx-bg-22d3ee)",
+  vocabulary: "var(--sx-bg-a78bfa)",
+  pronunciation: "var(--sx-bg-fbbf24)",
+  "word-choice": "var(--sx-bg-34d399)",
+  spelling: "var(--sx-bg-f472b6)",
   other: "#94a3b8",
 };
 
@@ -61,9 +61,9 @@ const MASTERY_META: Record<
   MasteryLevel,
   { label: string; color: string; icon: typeof Zap }
 > = {
-  new: { label: "New", color: "#22d3ee", icon: Sparkles },
-  learning: { label: "Learning", color: "#fbbf24", icon: Brain },
-  mastered: { label: "Mastered", color: "#34d399", icon: Trophy },
+  new: { label: "New", color: "var(--sx-text-22d3ee)", icon: Sparkles },
+  learning: { label: "Learning", color: "var(--sx-text-fbbf24)", icon: Brain },
+  mastered: { label: "Mastered", color: "var(--sx-text-34d399)", icon: Trophy },
 };
 
 export const PracticeJournal: React.FC<PracticeJournalProps> = ({
@@ -284,7 +284,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                             className="text-[9px] px-2 py-1 rounded-full border transition-colors"
                             style={{
                               background: active
-                                ? `${CATEGORY_COLORS[c]}22`
+                                ? `color-mix(in srgb, ${CATEGORY_COLORS[c]} 13.3%, transparent)`
                                 : "transparent",
                               borderColor: active
                                 ? CATEGORY_COLORS[c]
@@ -323,7 +323,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                             className="text-[10px] px-2 py-1 rounded-full border flex items-center gap-1 transition-colors"
                             style={{
                               background: active
-                                ? `${meta.color}22`
+                                ? `color-mix(in srgb, ${meta.color} 13.3%, transparent)`
                                 : "transparent",
                               borderColor: active
                                 ? meta.color
@@ -416,7 +416,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                         <span
                           className="px-2 py-0.5 rounded-full font-semibold"
                           style={{
-                            background: `${MASTERY_META[currentReview.mastery].color}22`,
+                            background: `color-mix(in srgb, ${MASTERY_META[currentReview.mastery].color} 13.3%, transparent)`,
                             color: MASTERY_META[currentReview.mastery].color,
                           }}
                         >
@@ -428,7 +428,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                       <div
                         className="rounded-2xl border p-6 min-h-[220px] flex flex-col items-center justify-center text-center"
                         style={{
-                          background: "rgba(255,255,255,0.02)",
+                          background: "var(--sx-bg-255-255-255-20)",
                           borderColor: THEME.colors.border.primary,
                         }}
                       >
@@ -521,7 +521,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                             className="flex-1 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 transition-all hover:-translate-y-0.5"
                             style={{
                               background: `linear-gradient(135deg, ${THEME.colors.accent.success}, ${THEME.colors.accent.cyan})`,
-                              color: "#fff",
+                              color: "var(--sx-text-ffffff)",
                             }}
                           >
                             <Check className="w-4 h-4" />
@@ -562,7 +562,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                   <div
                     className="rounded-2xl border p-4 flex items-center gap-4"
                     style={{
-                      background: "rgba(255,255,255,0.02)",
+                      background: "var(--sx-bg-255-255-255-20)",
                       borderColor: THEME.colors.border.primary,
                     }}
                   >
@@ -596,7 +596,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                     <div
                       className="rounded-2xl border p-4"
                       style={{
-                        background: "rgba(255,255,255,0.02)",
+                        background: "var(--sx-bg-255-255-255-20)",
                         borderColor: THEME.colors.border.primary,
                       }}
                     >
@@ -633,7 +633,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                                 </div>
                                 <div
                                   className="h-1.5 rounded-full overflow-hidden"
-                                  style={{ background: "rgba(255,255,255,0.06)" }}
+                                  style={{ background: "var(--sx-bg-255-255-255-60)" }}
                                 >
                                   <motion.div
                                     initial={{ width: 0 }}
@@ -659,7 +659,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                       style={{
                         borderColor: THEME.colors.border.primary,
                         color: THEME.colors.text.secondary,
-                        background: "rgba(255,255,255,0.02)",
+                        background: "var(--sx-bg-255-255-255-20)",
                       }}
                     >
                       <Download className="w-4 h-4" />
@@ -692,14 +692,14 @@ const EntryCard: React.FC<{
       animate={{ opacity: 1, y: 0 }}
       className="group rounded-xl border p-3 transition-colors hover:bg-white/[0.02]"
       style={{
-        background: "rgba(255,255,255,0.015)",
+        background: "var(--sx-bg-255-255-255-15)",
         borderColor: THEME.colors.border.primary,
       }}
     >
       <div className="flex items-start gap-2.5">
         <span
           className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-          style={{ background: `${catColor}22`, color: catColor }}
+          style={{ background: `color-mix(in srgb, ${catColor} 13.3%, transparent)`, color: catColor }}
         >
           <MetaIcon className="w-3.5 h-3.5" />
         </span>
@@ -708,13 +708,13 @@ const EntryCard: React.FC<{
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider"
-              style={{ background: `${catColor}22`, color: catColor }}
+              style={{ background: `color-mix(in srgb, ${catColor} 13.3%, transparent)`, color: catColor }}
             >
               {entry.category}
             </span>
             <span
               className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider"
-              style={{ background: `${meta.color}22`, color: meta.color }}
+              style={{ background: `color-mix(in srgb, ${meta.color} 13.3%, transparent)`, color: meta.color }}
             >
               {meta.label}
             </span>
@@ -803,7 +803,7 @@ const StatTile: React.FC<{
   <div
     className="rounded-xl border p-3 text-center"
     style={{
-      background: "rgba(255,255,255,0.02)",
+      background: "var(--sx-bg-255-255-255-20)",
       borderColor: THEME.colors.border.primary,
     }}
   >
@@ -837,7 +837,7 @@ const MasteryRing: React.FC<{ percentage: number }> = ({ percentage }) => {
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.08)"
+          stroke="var(--sx-bg-255-255-255-80)"
           strokeWidth={6}
         />
         <motion.circle

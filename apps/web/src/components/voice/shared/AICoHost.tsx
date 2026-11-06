@@ -105,7 +105,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
           transition={{ duration: 0.18, ease: "easeOut" }}
           className="fixed top-16 left-4 w-[min(92vw,380px)] rounded-2xl border shadow-2xl backdrop-blur-2xl z-[80] overflow-hidden"
           style={{
-            background: "rgba(10, 10, 18, 0.97)",
+            background: "var(--sx-bg-10-10-18-970)",
             borderColor: THEME.colors.border.primary,
           }}
           onClick={(e) => e.stopPropagation()}
@@ -233,7 +233,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                           className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-[11px] transition-all hover:scale-[1.02] active:scale-95"
                           style={{
                             background: `linear-gradient(135deg, ${THEME.colors.accent.primary}, ${THEME.colors.accent.secondary})`,
-                            color: "#fff",
+                            color: "var(--sx-text-ffffff)",
                           }}
                         >
                           <Send className="w-3 h-3" />
@@ -257,7 +257,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                     animate={{ opacity: 1 }}
                     className="rounded-xl border p-4 text-center"
                     style={{
-                      background: "rgba(255,255,255,0.02)",
+                      background: "var(--sx-bg-255-255-255-20)",
                       borderColor: THEME.colors.border.primary,
                     }}
                   >
@@ -308,7 +308,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                 <div
                   className="rounded-xl border p-4 text-center"
                   style={{
-                    background: "rgba(255,255,255,0.02)",
+                    background: "var(--sx-bg-255-255-255-20)",
                     borderColor: THEME.colors.border.primary,
                   }}
                 >
@@ -327,7 +327,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                 <div
                   className="rounded-xl border p-3 space-y-2.5"
                   style={{
-                    background: "rgba(255,255,255,0.02)",
+                    background: "var(--sx-bg-255-255-255-20)",
                     borderColor: THEME.colors.border.primary,
                   }}
                 >

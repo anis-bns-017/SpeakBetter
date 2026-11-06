@@ -42,9 +42,9 @@ export const SpotlightBanner: React.FC<SpotlightBannerProps> = ({
           exit={{ opacity: 0, y: -16, scale: 0.97 }}
           className="fixed top-48 left-1/2 -translate-x-1/2 z-[85] w-[min(94vw,520px)] rounded-2xl border shadow-2xl backdrop-blur-xl"
           style={{
-            background: mine ? "rgba(40,30,8,0.95)" : "rgba(14,14,26,0.95)",
+            background: mine ? "rgba(40,30,8,0.95)" : "var(--sx-bg-14-14-26-950)",
             borderColor: mine ? "rgba(251,191,36,0.5)" : THEME.colors.border.accent,
-            boxShadow: mine ? "0 0 40px rgba(251,191,36,0.2)" : THEME.shadow.xl,
+            boxShadow: mine ? "0 0 40px var(--sx-shadow-251-191-36-200)" : THEME.shadow.xl,
           }}
           role="status"
           aria-live="polite"
@@ -66,7 +66,7 @@ export const SpotlightBanner: React.FC<SpotlightBannerProps> = ({
                 </span>
                 <span
                   className="px-1.5 py-0.5 rounded text-[10px]"
-                  style={{ background: "rgba(255,255,255,0.08)", color: THEME.colors.text.muted }}
+                  style={{ background: "var(--sx-bg-255-255-255-80)", color: THEME.colors.text.muted }}
                 >
                   {spotlight.card.level}
                 </span>

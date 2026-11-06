@@ -6,14 +6,12 @@ import {
   ChevronDown,
   Languages,
   MessageCircle,
-  Moon,
   Palette,
   RotateCcw,
   Save,
   Shield,
   Smartphone,
   Sparkles,
-  Sun,
   Volume2,
   Eye,
   EyeOff,
@@ -27,6 +25,9 @@ import {
   Wand2,
 } from "lucide-react";
 import { useSettings } from "../../hooks/useSettings";
+import { useTheme } from "../../contexts/ThemeContext";
+import { ThemeCards } from "../theme/ThemePicker";
+import { useChooseTheme } from "../../hooks/useChooseTheme";
 import { AppAlertsCard } from "./AppAlertsCard";
 import {
   useNotificationPreferences,
@@ -59,7 +60,7 @@ import {
  * provides a complete, production-style settings experience.
  */
 
-type ThemeValue = "light" | "dark" | "system";
+type ThemeValue = "light" | "dark" | "navy" | "system";
 
 interface Settings {
   id?: string;
@@ -120,32 +121,6 @@ const LANGUAGE_OPTIONS = [
   { value: "zh", label: "Chinese", nativeLabel: "中文" },
 ];
 
-const THEME_OPTIONS: Array<{
-  value: ThemeValue;
-  label: string;
-  description: string;
-  icon: React.ElementType;
-}> = [
-  {
-    value: "system",
-    label: "System",
-    description: "Follow your device preference",
-    icon: Smartphone,
-  },
-  {
-    value: "light",
-    label: "Light",
-    description: "Use a bright interface",
-    icon: Sun,
-  },
-  {
-    value: "dark",
-    label: "Dark",
-    description: "Use a darker interface",
-    icon: Moon,
-  },
-];
-
 const REMINDER_TIMES = [
   "06:00",
   "07:00",
@@ -167,6 +142,7 @@ const normalizeTheme = (theme?: string): ThemeValue => {
 
   if (value === "light") return "light";
   if (value === "dark") return "dark";
+  if (value === "navy") return "navy";
   return "system";
 };
 
@@ -369,6 +345,9 @@ const NotificationKinds = () => {
 
 export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
   const { updateSettings, isUpdating } = useSettings();
+  // The theme applies and saves the moment it is picked; the form only carries the current one along
+  const { theme: currentTheme } = useTheme();
+  const chooseTheme = useChooseTheme();
 
   const initialFormData = useMemo(() => buildFormData(settings), [settings]);
 
@@ -417,7 +396,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
         emailNotifications: formData.emailNotifications,
         pushNotifications: formData.pushNotifications,
         soundEffects: formData.soundEffects,
-        theme: formData.theme,
+        theme: currentTheme.toUpperCase(),
         language: formData.language,
         dailyReminderEnabled: formData.dailyReminderEnabled,
         dailyReminderTime: formData.dailyReminderEnabled
@@ -514,53 +493,13 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
               <div>
                 <p className="font-semibold text-slate-900">Theme</p>
                 <p className="text-sm text-slate-500">
-                  Choose your preferred interface appearance.
+                  Light, dark or navy blue. Pick what is easiest on your eyes.
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              {THEME_OPTIONS.map((option) => {
-                const Icon = option.icon;
-                const selected = formData.theme === option.value;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => updateField("theme", option.value)}
-                    className={`relative rounded-2xl border p-4 text-left transition-all focus:outline-none focus:ring-4 focus:ring-indigo-100 ${
-                      selected
-                        ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
-                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                    }`}
-                  >
-                    {selected && (
-                      <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white">
-                        <Check size={13} strokeWidth={3} />
-                      </span>
-                    )}
-
-                    <div
-                      className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${
-                        selected
-                          ? "bg-white text-indigo-600"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      <Icon size={19} />
-                    </div>
-
-                    <p className="font-semibold text-slate-900">
-                      {option.label}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {option.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
+            <ThemeCards value={currentTheme} onChange={chooseTheme} />
+            <p className="mt-3 text-xs text-slate-500">Changes apply right away and follow you to your other devices.</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 p-4">

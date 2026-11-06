@@ -265,7 +265,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                 <div className="grid grid-cols-5 gap-2">
                   <ShareButton
                     label="WhatsApp"
-                    color="#25D366"
+                    color="var(--sx-bg-25d366)"
                     icon={<MessageCircle className="w-4 h-4" />}
                     onClick={() => shareTo("whatsapp")}
                   />
@@ -277,19 +277,19 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                   />
                   <ShareButton
                     label="Telegram"
-                    color="#26A5E4"
+                    color="var(--sx-bg-26a5e4)"
                     icon={<Send className="w-4 h-4" />}
                     onClick={() => shareTo("telegram")}
                   />
                   <ShareButton
                     label="Email"
-                    color="#F59E0B"
+                    color="var(--sx-bg-f59e0b)"
                     icon={<Mail className="w-4 h-4" />}
                     onClick={() => shareTo("email")}
                   />
                   <ShareButton
                     label="Discord"
-                    color="#5865F2"
+                    color="var(--sx-bg-5865f2)"
                     icon={<Users className="w-4 h-4" />}
                     onClick={() => shareTo("discord")}
                   />
@@ -396,20 +396,20 @@ const ShareButton: React.FC<{
     onClick={onClick}
     className="flex flex-col items-center justify-center gap-1.5 rounded-xl border py-2.5 transition-all hover:-translate-y-0.5 active:scale-95"
     style={{
-      background: "rgba(255,255,255,0.02)",
-      borderColor: "rgba(255,255,255,0.08)",
+      background: "var(--sx-bg-255-255-255-20)",
+      borderColor: "var(--sx-border-255-255-255-80)",
     }}
     title={label}
   >
     <span
       className="w-7 h-7 rounded-full flex items-center justify-center"
-      style={{ background: `${color}22`, color }}
+      style={{ background: `color-mix(in srgb, ${color} 13.3%, transparent)`, color }}
     >
       {icon}
     </span>
     <span
       className="text-[9px] font-medium"
-      style={{ color: "rgba(255,255,255,0.7)" }}
+      style={{ color: "var(--sx-text-255-255-255-700)" }}
     >
       {label}
     </span>

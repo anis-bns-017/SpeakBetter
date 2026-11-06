@@ -68,7 +68,7 @@ export const ShortcutPanel: React.FC<ShortcutPanelProps> = ({
             <div
               key={key}
               className="flex items-center justify-between gap-4 rounded-xl px-3 py-2"
-              style={{ background: "rgba(255,255,255,0.02)" }}
+              style={{ background: "var(--sx-bg-255-255-255-20)" }}
             >
               <span
                 className="text-xs"

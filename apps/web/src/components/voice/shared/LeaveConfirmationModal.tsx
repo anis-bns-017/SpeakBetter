@@ -57,7 +57,7 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
             className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
             style={{ background: 'rgba(239, 68, 68, 0.15)' }}
           >
-            <PhoneOff className="w-8 h-8" style={{ color: '#EF4444' }} />
+            <PhoneOff className="w-8 h-8" style={{ color: 'var(--sx-text-ef4444)' }} />
           </div>
           <h3 className="font-bold text-xl mb-2" style={{ color: THEME.colors.text.primary }}>
             Leave Room?
@@ -76,7 +76,7 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
                   <div
                     key={s.label}
                     className="rounded-xl px-2 py-2 text-center"
-                    style={{ background: 'rgba(255,255,255,0.04)' }}
+                    style={{ background: 'var(--sx-bg-255-255-255-40)' }}
                   >
                     <div className="text-sm font-bold" style={{ color: THEME.colors.text.primary }}>
                       {s.value}
@@ -104,7 +104,7 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
                 onClose();
               }}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors hover:opacity-80"
-              style={{ background: '#EF4444', color: '#fff' }}
+              style={{ background: 'var(--sx-bg-ef4444)', color: 'var(--sx-text-ffffff)' }}
             >
               Leave Room
             </button>

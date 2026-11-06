@@ -147,7 +147,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
 
           <div
             className="flex items-center gap-1 rounded-xl p-1"
-            style={{ background: "rgba(255,255,255,0.05)" }}
+            style={{ background: "var(--sx-bg-255-255-255-50)" }}
           >
             {(["grid", "list"] as const).map((mode) => (
               <button
@@ -194,7 +194,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
               aria-pressed={selected}
               className="px-3 py-1.5 rounded-full text-xs font-medium border transition-all"
               style={{
-                background: selected ? `${color}26` : "transparent",
+                background: selected ? `color-mix(in srgb, ${color} 14.9%, transparent)` : "transparent",
                 borderColor: selected ? color : COLORS.border,
                 color: selected ? color : COLORS.textMuted,
               }}
@@ -214,7 +214,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
             type="checkbox"
             checked={hideFull}
             onChange={(e) => onHideFull(e.target.checked)}
-            className="accent-[#F5A623]"
+            className="accent-[var(--sx-bg-f5a623)]"
           />
           Hide full rooms
         </label>

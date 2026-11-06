@@ -264,7 +264,7 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
           transition={{ duration: 0.15 }}
           className="fixed top-16 right-4 w-[min(92vw,320px)] rounded-2xl border shadow-2xl backdrop-blur-2xl z-[80]"
           style={{
-            background: "rgba(10, 10, 18, 0.97)",
+            background: "var(--sx-bg-10-10-18-970)",
             borderColor: THEME.colors.border.primary,
           }}
           onClick={(e) => e.stopPropagation()}
@@ -277,7 +277,7 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
             <div className="flex items-center gap-2.5 min-w-0">
               <div
                 className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: `${conf.color}22` }}
+                style={{ background: `color-mix(in srgb, ${conf.color} 13.3%, transparent)` }}
               >
                 <Wifi className="w-4 h-4" style={{ color: conf.color }} />
               </div>
@@ -330,7 +330,7 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
                   <span
                     className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
                     style={{
-                      background: `${THEME.colors.accent.error}22`,
+                      background: `color-mix(in srgb, ${THEME.colors.accent.error} 13.3%, transparent)`,
                       color: THEME.colors.accent.error,
                     }}
                   >
@@ -422,7 +422,7 @@ const MetricCell: React.FC<{
   <div
     className="rounded-xl border p-2.5 flex flex-col gap-0.5"
     style={{
-      background: "rgba(255,255,255,0.02)",
+      background: "var(--sx-bg-255-255-255-20)",
       borderColor: THEME.colors.border.primary,
     }}
     title={hint}

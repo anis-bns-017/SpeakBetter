@@ -69,30 +69,30 @@ import { getDraft, setDraft } from "../../../lib/chatDrafts";
 const THEME = {
   colors: {
     background: {
-      primary: "#0a0a12",
-      secondary: "#0f0f1a",
-      tertiary: "#141422",
-      card: "rgba(20, 20, 34, 0.98)",
+      primary: "var(--sx-bg-page-0a0a12)",
+      secondary: "var(--sx-bg-card-0f0f1a)",
+      tertiary: "var(--sx-bg-raised-141422)",
+      card: "var(--sx-bg-card-20-20-34-980)",
     },
     border: {
-      primary: "rgba(255,255,255,0.08)",
-      strong: "rgba(255,255,255,0.14)",
+      primary: "var(--sx-border-255-255-255-80)",
+      strong: "var(--sx-border-255-255-255-140)",
     },
     text: {
-      primary: "#f4f4f8",
-      secondary: "#c4c4d4",
-      muted: "#8b8b9e",
+      primary: "var(--sx-text-f4f4f8)",
+      secondary: "var(--sx-text-c4c4d4)",
+      muted: "var(--sx-text-8b8b9e)",
     },
     accent: {
-      primary: "#818cf8",
-      secondary: "#a78bfa",
-      cyan: "#22d3ee",
-      success: "#34d399",
-      warning: "#fbbf24",
-      error: "#f87171",
+      primary: "var(--sx-accent-818cf8)",
+      secondary: "var(--sx-accent-a78bfa)",
+      cyan: "var(--sx-accent-22d3ee)",
+      success: "var(--sx-accent-34d399)",
+      warning: "var(--sx-accent-fbbf24)",
+      error: "var(--sx-accent-f87171)",
     },
     status: {
-      online: "#34d399",
+      online: "var(--sx-accent-34d399)",
     },
   },
 } as const;
@@ -510,7 +510,7 @@ function renderRichText(text: string, searchQuery: string, onAccent: boolean): R
   const tokenRe = /(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`|https?:\/\/[^\s<]+|(?<![\w@])@[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*)/gi;
   const linkColor = onAccent ? "#ffffff" : THEME.colors.accent.cyan;
   const mentionColor = onAccent ? "#ffffff" : THEME.colors.accent.secondary;
-  const mentionBg = onAccent ? "rgba(255,255,255,0.18)" : "rgba(167,139,250,0.14)";
+  const mentionBg = onAccent ? "var(--sx-bg-255-255-255-180)" : "rgba(167,139,250,0.14)";
 
   const pushPlain = (chunk: string, keyBase: string) => {
     if (!chunk) return;
@@ -554,7 +554,7 @@ function renderRichText(text: string, searchQuery: string, onAccent: boolean): R
       nodes.push(<em key={key} className="italic">{token.slice(1, -1)}</em>);
     } else if (token.startsWith("`") && token.endsWith("`")) {
       nodes.push(
-        <code key={key} className="rounded px-1 py-0.5 text-[0.85em] font-mono" style={{ background: onAccent ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.08)", color: onAccent ? "#fff" : THEME.colors.accent.cyan }}>
+        <code key={key} className="rounded px-1 py-0.5 text-[0.85em] font-mono" style={{ background: onAccent ? "var(--sx-bg-0-0-0-250)" : "var(--sx-bg-255-255-255-80)", color: onAccent ? "var(--sx-text-ffffff)" : THEME.colors.accent.cyan }}>
           {token.slice(1, -1)}
         </code>,
       );
@@ -664,20 +664,20 @@ const IconButton: React.FC<{
       "w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60",
       className,
     )}
-    style={{ color: active ? activeColor : THEME.colors.text.muted, background: active ? "rgba(255,255,255,0.06)" : undefined }}
+    style={{ color: active ? activeColor : THEME.colors.text.muted, background: active ? "var(--sx-bg-255-255-255-60)" : undefined }}
   >
     {children}
   </button>
 );
 
 const Toggle: React.FC<{ on: boolean }> = ({ on }) => (
-  <span className="w-8 h-[18px] rounded-full p-0.5 transition-colors shrink-0" style={{ background: on ? THEME.colors.accent.primary : "rgba(255,255,255,0.12)" }}>
+  <span className="w-8 h-[18px] rounded-full p-0.5 transition-colors shrink-0" style={{ background: on ? THEME.colors.accent.primary : "var(--sx-bg-255-255-255-120)" }}>
     <span className={cn("block w-3.5 h-3.5 rounded-full bg-white shadow transition-transform", on ? "translate-x-3.5" : "translate-x-0")} />
   </span>
 );
 
 const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <kbd className="px-1.5 py-0.5 rounded-md border text-[10px] font-medium font-sans" style={{ borderColor: THEME.colors.border.strong, background: "rgba(255,255,255,0.05)", color: THEME.colors.text.secondary }}>
+  <kbd className="px-1.5 py-0.5 rounded-md border text-[10px] font-medium font-sans" style={{ borderColor: THEME.colors.border.strong, background: "var(--sx-bg-255-255-255-50)", color: THEME.colors.text.secondary }}>
     {children}
   </kbd>
 );
@@ -737,15 +737,15 @@ const LinkPreview: React.FC<{ url: string; onAccent: boolean }> = ({ url, onAcce
     target="_blank"
     rel="noreferrer"
     className="mt-2 flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors"
-    style={{ background: onAccent ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.04)" }}
+    style={{ background: onAccent ? "var(--sx-bg-0-0-0-180)" : "var(--sx-bg-255-255-255-40)" }}
     onClick={(e) => e.stopPropagation()}
   >
-    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: onAccent ? "rgba(255,255,255,0.14)" : "rgba(34,211,238,0.12)" }}>
-      <Link2 className="w-4 h-4" style={{ color: onAccent ? "#fff" : THEME.colors.accent.cyan }} />
+    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: onAccent ? "var(--sx-bg-255-255-255-140)" : "rgba(34,211,238,0.12)" }}>
+      <Link2 className="w-4 h-4" style={{ color: onAccent ? "var(--sx-text-ffffff)" : THEME.colors.accent.cyan }} />
     </div>
     <div className="min-w-0 flex-1">
-      <div className="text-xs font-semibold truncate" style={{ color: onAccent ? "#fff" : THEME.colors.text.primary }}>{extractHostname(url)}</div>
-      <div className="text-[11px] truncate" style={{ color: onAccent ? "rgba(255,255,255,0.75)" : THEME.colors.text.muted }}>{url}</div>
+      <div className="text-xs font-semibold truncate" style={{ color: onAccent ? "var(--sx-text-ffffff)" : THEME.colors.text.primary }}>{extractHostname(url)}</div>
+      <div className="text-[11px] truncate" style={{ color: onAccent ? "var(--sx-text-255-255-255-750)" : THEME.colors.text.muted }}>{url}</div>
     </div>
   </a>
 );
@@ -787,7 +787,7 @@ const AttachmentList: React.FC<{ attachments: Attachment[]; onOpenImage?: (attac
 
       if (att.type === "audio") {
         return (
-          <div key={att.id} className="col-span-full flex items-center gap-2 p-2 rounded-xl" style={{ background: "rgba(0,0,0,0.2)" }}>
+          <div key={att.id} className="col-span-full flex items-center gap-2 p-2 rounded-xl" style={{ background: "var(--sx-bg-0-0-0-200)" }}>
             <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(129,140,248,0.18)" }}>
               <Music className="w-4 h-4" style={{ color: THEME.colors.accent.primary }} />
             </div>
@@ -801,7 +801,7 @@ const AttachmentList: React.FC<{ attachments: Attachment[]; onOpenImage?: (attac
       }
 
       return (
-        <a key={att.id} href={att.url} target="_blank" rel="noreferrer" className="col-span-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/5 transition-colors" style={{ background: "rgba(0,0,0,0.18)" }} onClick={(e) => e.stopPropagation()}>
+        <a key={att.id} href={att.url} target="_blank" rel="noreferrer" className="col-span-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/5 transition-colors" style={{ background: "var(--sx-bg-0-0-0-180)" }} onClick={(e) => e.stopPropagation()}>
           <Icon className="w-4 h-4 shrink-0" style={{ color: THEME.colors.accent.primary }} />
           <span className="text-xs truncate flex-1" style={{ color: THEME.colors.text.primary }}>{att.name || "File"}</span>
           {att.size ? <span className="text-[11px] shrink-0" style={{ color: THEME.colors.text.muted }}>{formatFileSize(att.size)}</span> : null}
@@ -812,14 +812,14 @@ const AttachmentList: React.FC<{ attachments: Attachment[]; onOpenImage?: (attac
 );
 
 const StatusIcon: React.FC<{ status: Message["status"]; onAccent: boolean }> = ({ status, onAccent }) => {
-  const base = onAccent ? "rgba(255,255,255,0.75)" : THEME.colors.text.muted;
+  const base = onAccent ? "var(--sx-bg-255-255-255-750)" : THEME.colors.text.muted;
   switch (status) {
     case "sending":
       return <Clock className="w-3 h-3" style={{ color: base }} aria-label="Sending" />;
     case "failed":
       return <CircleAlert className="w-3 h-3" style={{ color: THEME.colors.accent.error }} aria-label="Not sent" />;
     case "read":
-      return <CheckCheck className="w-3.5 h-3.5" style={{ color: onAccent ? "#a5f3fc" : THEME.colors.accent.cyan }} aria-label="Read" />;
+      return <CheckCheck className="w-3.5 h-3.5" style={{ color: onAccent ? "var(--sx-text-a5f3fc)" : THEME.colors.accent.cyan }} aria-label="Read" />;
     case "delivered":
       return <CheckCheck className="w-3.5 h-3.5" style={{ color: base }} aria-label="Delivered" />;
     default:
@@ -1019,7 +1019,7 @@ const MessageBubble = React.memo(function MessageBubble({
       ? OWN_BUBBLE_GRADIENT
       : mentionsMe
         ? "linear-gradient(135deg, rgba(251,191,36,0.14), rgba(251,191,36,0.06))"
-        : "rgba(255,255,255,0.055)";
+        : "var(--sx-bg-255-255-255-55)";
 
   const bubbleBorder = message.isPinned
     ? "rgba(251,191,36,0.55)"
@@ -1029,9 +1029,9 @@ const MessageBubble = React.memo(function MessageBubble({
         ? "transparent"
         : mentionsMe
           ? "rgba(251,191,36,0.4)"
-          : "rgba(255,255,255,0.07)";
+          : "var(--sx-bg-255-255-255-70)";
 
-  const metaColor = onAccent ? "rgba(255,255,255,0.72)" : THEME.colors.text.muted;
+  const metaColor = onAccent ? "var(--sx-bg-255-255-255-720)" : THEME.colors.text.muted;
 
   return (
     <div
@@ -1081,11 +1081,11 @@ const MessageBubble = React.memo(function MessageBubble({
             borderColor: bubbleBorder,
             borderRadius: bubbleRadius(position, isOwn),
             opacity: isSending ? 0.7 : 1,
-            boxShadow: isOwn && !isHighlighted ? "0 6px 18px -10px rgba(99,102,241,0.8)" : undefined,
+            boxShadow: isOwn && !isHighlighted ? "0 6px 18px -10px var(--sx-shadow-99-102-241-800)" : undefined,
           }}
         >
           {message.isPinned && (
-            <div className="flex items-center gap-1 text-[11px] font-semibold mb-1" style={{ color: onAccent ? "#fde68a" : THEME.colors.accent.warning }}>
+            <div className="flex items-center gap-1 text-[11px] font-semibold mb-1" style={{ color: onAccent ? "var(--sx-text-fde68a)" : THEME.colors.accent.warning }}>
               <Pin className="w-3 h-3" /> Pinned
             </div>
           )}
@@ -1096,15 +1096,15 @@ const MessageBubble = React.memo(function MessageBubble({
               onClick={(e) => { e.stopPropagation(); actions.jumpTo(message.replyTo!.id); }}
               className="w-full text-left mb-1.5 pl-2 pr-2 py-1 border-l-[3px] rounded-md transition-colors hover:brightness-125"
               style={{
-                borderColor: onAccent ? "rgba(255,255,255,0.7)" : THEME.colors.accent.primary,
-                background: onAccent ? "rgba(0,0,0,0.18)" : "rgba(129,140,248,0.08)",
+                borderColor: onAccent ? "var(--sx-border-255-255-255-700)" : THEME.colors.accent.primary,
+                background: onAccent ? "var(--sx-bg-0-0-0-180)" : "rgba(129,140,248,0.08)",
               }}
               title="Jump to the original message"
             >
-              <div className="text-[11px] font-semibold truncate" style={{ color: onAccent ? "#fff" : THEME.colors.accent.secondary }}>
+              <div className="text-[11px] font-semibold truncate" style={{ color: onAccent ? "var(--sx-text-ffffff)" : THEME.colors.accent.secondary }}>
                 {resolveSenderName(message.replyTo)}
               </div>
-              <div className="text-xs truncate" style={{ color: onAccent ? "rgba(255,255,255,0.8)" : THEME.colors.text.muted }}>
+              <div className="text-xs truncate" style={{ color: onAccent ? "var(--sx-text-255-255-255-800)" : THEME.colors.text.muted }}>
                 {previewText(message.replyTo)}
               </div>
             </button>
@@ -1116,7 +1116,7 @@ const MessageBubble = React.memo(function MessageBubble({
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
                 className="w-full px-2.5 py-2 rounded-lg text-sm outline-none border resize-none focus:border-indigo-300/60"
-                style={{ background: "rgba(10,10,18,0.85)", color: THEME.colors.text.primary, borderColor: THEME.colors.border.strong }}
+                style={{ background: "var(--sx-bg-10-10-18-850)", color: THEME.colors.text.primary, borderColor: THEME.colors.border.strong }}
                 rows={Math.min(6, Math.max(2, editContent.split("\n").length))}
                 autoFocus
                 aria-label="Edit message"
@@ -1130,14 +1130,14 @@ const MessageBubble = React.memo(function MessageBubble({
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[11px]" style={{ color: metaColor }}>Enter to save · Esc to cancel</span>
                 <div className="flex gap-1.5">
-                  <button type="button" onClick={actions.stopEdit} className="px-2.5 py-1 rounded-md text-xs hover:bg-white/10" style={{ color: onAccent ? "#fff" : THEME.colors.text.secondary }}>Cancel</button>
-                  <button type="button" onClick={submitEdit} className="px-2.5 py-1 rounded-md text-xs font-semibold" style={{ background: onAccent ? "#fff" : THEME.colors.accent.primary, color: onAccent ? "#4f46e5" : "#fff" }}>Save</button>
+                  <button type="button" onClick={actions.stopEdit} className="px-2.5 py-1 rounded-md text-xs hover:bg-white/10" style={{ color: onAccent ? "var(--sx-text-ffffff)" : THEME.colors.text.secondary }}>Cancel</button>
+                  <button type="button" onClick={submitEdit} className="px-2.5 py-1 rounded-md text-xs font-semibold" style={{ background: onAccent ? "#fff" : THEME.colors.accent.primary, color: onAccent ? "var(--sx-text-4f46e5)" : "var(--sx-text-ffffff)" }}>Save</button>
                 </div>
               </div>
             </div>
           ) : (
             visibleText && (
-              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words" style={{ color: onAccent ? "#fff" : THEME.colors.text.primary }}>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words" style={{ color: onAccent ? "var(--sx-text-ffffff)" : THEME.colors.text.primary }}>
                 {renderRichText(visibleText, searchQuery, onAccent)}
               </p>
             )
@@ -1150,16 +1150,16 @@ const MessageBubble = React.memo(function MessageBubble({
             </div>
           )}
           {!isEditing && translated && (
-            <div className="mt-2 pt-1.5 border-t" style={{ borderColor: onAccent ? "rgba(255,255,255,0.22)" : THEME.colors.border.primary }}>
+            <div className="mt-2 pt-1.5 border-t" style={{ borderColor: onAccent ? "var(--sx-border-255-255-255-220)" : THEME.colors.border.primary }}>
               <div className="flex items-center justify-between gap-2 mb-0.5">
-                <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: onAccent ? "rgba(255,255,255,0.8)" : THEME.colors.accent.cyan }}>
+                <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: onAccent ? "var(--sx-text-255-255-255-800)" : THEME.colors.accent.cyan }}>
                   <Globe className="w-3 h-3" /> {translated.language}
                 </span>
                 <button type="button" onClick={() => actions.translate(message)} className="text-[10px] underline-offset-2 hover:underline" style={{ color: metaColor }}>
                   Hide
                 </button>
               </div>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words" style={{ color: onAccent ? "rgba(255,255,255,0.95)" : THEME.colors.text.secondary }}>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words" style={{ color: onAccent ? "var(--sx-text-255-255-255-950)" : THEME.colors.text.secondary }}>
                 {translated.text}
               </p>
             </div>
@@ -1211,7 +1211,7 @@ const MessageBubble = React.memo(function MessageBubble({
                   onClick={() => isSaved && actions.react(message, emoji)}
                   className="flex items-center gap-1 h-6 px-2 rounded-full text-xs border transition-transform hover:scale-105 active:scale-95"
                   style={{
-                    background: reacted ? "rgba(129,140,248,0.22)" : "rgba(255,255,255,0.05)",
+                    background: reacted ? "rgba(129,140,248,0.22)" : "var(--sx-bg-255-255-255-50)",
                     borderColor: reacted ? "rgba(129,140,248,0.55)" : THEME.colors.border.primary,
                   }}
                   title={tip}
@@ -1219,7 +1219,7 @@ const MessageBubble = React.memo(function MessageBubble({
                   aria-pressed={reacted}
                 >
                   <span className="leading-none">{emoji}</span>
-                  <span className="text-[11px] font-semibold tabular-nums" style={{ color: reacted ? "#c7d2fe" : THEME.colors.text.secondary }}>{users.length}</span>
+                  <span className="text-[11px] font-semibold tabular-nums" style={{ color: reacted ? "var(--sx-text-c7d2fe)" : THEME.colors.text.secondary }}>{users.length}</span>
                 </motion.button>
               );
             })}
@@ -1349,7 +1349,7 @@ const DateSeparator: React.FC<{ label: string }> = ({ label }) => (
   <div className="sticky top-1 z-10 flex justify-center my-3 pointer-events-none select-none">
     <span
       className="text-[11px] font-semibold px-3 py-1 rounded-full border shadow-md backdrop-blur-md"
-      style={{ color: THEME.colors.text.secondary, borderColor: THEME.colors.border.primary, background: "rgba(20,20,34,0.85)" }}
+      style={{ color: THEME.colors.text.secondary, borderColor: THEME.colors.border.primary, background: "var(--sx-bg-20-20-34-850)" }}
     >
       {label}
     </span>
@@ -1527,7 +1527,7 @@ const ReportDialog: React.FC<{
             <div className="text-xs mt-0.5" style={{ color: THEME.colors.text.muted }}>Moderators review reports. {resolveSenderName(message)} won't know it was you.</div>
           </div>
         </div>
-        <blockquote className="mx-4 mb-3 px-3 py-2 rounded-lg border-l-[3px] text-xs line-clamp-3" style={{ borderColor: THEME.colors.accent.error, background: "rgba(255,255,255,0.04)", color: THEME.colors.text.secondary }}>
+        <blockquote className="mx-4 mb-3 px-3 py-2 rounded-lg border-l-[3px] text-xs line-clamp-3" style={{ borderColor: THEME.colors.accent.error, background: "var(--sx-bg-255-255-255-40)", color: THEME.colors.text.secondary }}>
           {previewText(message)}
         </blockquote>
         <div className="px-4 space-y-1" role="radiogroup" aria-label="Reason">
@@ -1545,7 +1545,7 @@ const ReportDialog: React.FC<{
             rows={2}
             placeholder="Anything moderators should know? (optional)"
             className="w-full px-3 py-2 rounded-xl text-sm outline-none border resize-none focus:border-red-300/50"
-            style={{ background: "rgba(255,255,255,0.04)", color: THEME.colors.text.primary, borderColor: THEME.colors.border.primary }}
+            style={{ background: "var(--sx-bg-255-255-255-40)", color: THEME.colors.text.primary, borderColor: THEME.colors.border.primary }}
             onKeyDown={(e) => e.stopPropagation()}
           />
         </div>
@@ -2277,7 +2277,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       ref={panelRef}
       className={cn("relative flex flex-col min-h-0 shrink-0 border-l overflow-hidden", "w-full md:w-auto", className)}
       style={{
-        background: "rgba(10, 10, 18, 0.97)",
+        background: "var(--sx-bg-10-10-18-970)",
         borderColor: THEME.colors.border.primary,
         width: isDesktop ? panelWidth : "100%",
         minWidth: isDesktop ? MIN_CHAT_WIDTH : undefined,
@@ -2315,7 +2315,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-semibold tracking-tight" style={{ color: THEME.colors.text.primary }}>Room chat</span>
               {visibleCount > 0 && (
-                <span className="text-[10px] px-1.5 py-px rounded-full tabular-nums font-semibold" style={{ background: "rgba(129,140,248,0.16)", color: "#c7d2fe" }}>{visibleCount}</span>
+                <span className="text-[10px] px-1.5 py-px rounded-full tabular-nums font-semibold" style={{ background: "rgba(129,140,248,0.16)", color: "var(--sx-text-c7d2fe)" }}>{visibleCount}</span>
               )}
             </div>
             <div className="flex items-center gap-1.5 text-[11px]" style={{ color: THEME.colors.text.muted }}>
@@ -2414,7 +2414,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   onChange={(e) => onChatSearchChange(e.target.value)}
                   placeholder="Search messages, people, files…"
                   className="w-full h-9 pl-9 pr-9 rounded-xl text-sm outline-none border transition-colors focus:border-indigo-400/60"
-                  style={{ background: "rgba(255,255,255,0.04)", color: THEME.colors.text.primary, borderColor: THEME.colors.border.primary }}
+                  style={{ background: "var(--sx-bg-255-255-255-40)", color: THEME.colors.text.primary, borderColor: THEME.colors.border.primary }}
                   aria-label="Search messages"
                   autoFocus
                 />
@@ -2641,7 +2641,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         {/* Composer */}
         <div
           className="flex items-end gap-0.5 p-1 rounded-2xl border transition-colors focus-within:border-indigo-400/50"
-          style={{ background: "rgba(255,255,255,0.04)", borderColor: THEME.colors.border.primary }}
+          style={{ background: "var(--sx-bg-255-255-255-40)", borderColor: THEME.colors.border.primary }}
         >
           {onAttachFile && (
             <IconButton label="Attach image, video, or file" onClick={onAttachFile} className="w-9 h-9 rounded-xl shrink-0">
@@ -2662,7 +2662,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             onClick={(e) => updateMentionState(e.currentTarget.value, e.currentTarget.selectionStart ?? 0)}
             onBlur={() => window.setTimeout(() => setMention(null), 120)}
             placeholder={replyTo ? `Reply to ${resolveSenderName(replyTo)}…` : "Write a message…"}
-            className="flex-1 min-w-0 self-center bg-transparent px-1.5 py-2 text-sm outline-none resize-none leading-5 placeholder:text-[#6b6b80]"
+            className="flex-1 min-w-0 self-center bg-transparent px-1.5 py-2 text-sm outline-none resize-none leading-5 placeholder:text-[var(--sx-text-6b6b80)]"
             style={{ color: THEME.colors.text.primary, maxHeight: COMPOSER_MAX_HEIGHT }}
             aria-label="Chat message"
           />
@@ -2678,9 +2678,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             disabled={!canSend}
             className="w-9 h-9 flex items-center justify-center rounded-xl shrink-0 transition-all disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70"
             style={{
-              background: canSend ? OWN_BUBBLE_GRADIENT : "rgba(255,255,255,0.06)",
-              color: canSend ? "#fff" : THEME.colors.text.muted,
-              boxShadow: canSend ? "0 6px 16px -6px rgba(99,102,241,0.9)" : "none",
+              background: canSend ? OWN_BUBBLE_GRADIENT : "var(--sx-bg-255-255-255-60)",
+              color: canSend ? "var(--sx-text-ffffff)" : THEME.colors.text.muted,
+              boxShadow: canSend ? "0 6px 16px -6px var(--sx-shadow-99-102-241-900)" : "none",
             }}
             aria-label="Send message"
             title="Send (Enter)"

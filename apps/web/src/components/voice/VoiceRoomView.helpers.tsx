@@ -85,7 +85,7 @@ export function renderMessageContent(content: string) {
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           className="underline underline-offset-2 hover:opacity-80 break-all"
-          style={{ color: "#22D3EE" }}
+          style={{ color: "var(--sx-text-22d3ee)" }}
         >
           {chunk}
         </a>
@@ -98,7 +98,7 @@ export function renderMessageContent(content: string) {
         <span
           key={`${ci}-${i}`}
           className="font-semibold"
-          style={{ color: "#A78BFA" }}
+          style={{ color: "var(--sx-text-a78bfa)" }}
         >
           {part}
         </span>

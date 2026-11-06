@@ -66,6 +66,7 @@ import { useProgress } from "../hooks/useLearning";
 import { useLiveRoomsCount, useTrendingRooms } from "../hooks/useDiscovery";
 import { useChats } from "../hooks/useChat";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
+import { ThemeSwitch } from "./theme/ThemePicker";
 
 // ============================================================
 // Types & config
@@ -248,7 +249,7 @@ const LevelRing: React.FC<{ progress: number; level: number; children: React.Rea
         />
       </svg>
       <div className="absolute inset-[5px] flex">{children}</div>
-      <span className="absolute -bottom-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-[#F8F9FC] dark:ring-[#0b0b14]">
+      <span className="absolute -bottom-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-[#F8F9FC] dark:ring-shell">
         {level}
       </span>
     </div>
@@ -260,7 +261,7 @@ const Badge: React.FC<{ count?: number; live?: boolean; compact?: boolean }> = (
   const text = count > (compact ? 9 : 99) ? (compact ? "9+" : "99+") : String(count);
   if (live) {
     return compact ? (
-      <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-[#F8F9FC] dark:ring-[#0b0b14]">
+      <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-[#F8F9FC] dark:ring-shell">
         <span className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-60" />
       </span>
     ) : (
@@ -273,7 +274,7 @@ const Badge: React.FC<{ count?: number; live?: boolean; compact?: boolean }> = (
     );
   }
   return compact ? (
-    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-[#F8F9FC] dark:ring-[#0b0b14]">
+    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-[#F8F9FC] dark:ring-shell">
       {text}
     </span>
   ) : (
@@ -410,7 +411,7 @@ const CommandPalette: React.FC<{
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.14 }}
-            className="w-full max-w-xl rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#12121c] shadow-2xl overflow-hidden"
+            className="w-full max-w-xl rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-panel shadow-2xl overflow-hidden"
             onKeyDown={onKeyDown}
           >
             <div className="flex items-center gap-3 px-4 h-14 border-b border-slate-100 dark:border-white/5">
@@ -703,7 +704,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
   const desktop = (
     <aside
       aria-label="Main navigation"
-      className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-[#F8F9FC] dark:bg-[#0b0b14] border-r border-slate-200/80 dark:border-white/[0.06] transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${className ?? ""}`}
+      className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-[#F8F9FC] dark:bg-shell border-r border-slate-200/80 dark:border-white/[0.06] transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${className ?? ""}`}
       style={{ width: collapsed ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded }}
     >
       {/* Logo + collapse */}
@@ -804,7 +805,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.12 }}
-              className={`absolute bottom-full mb-2 z-50 w-60 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#151521] shadow-2xl p-1.5 ${collapsed ? "left-3" : "left-3 right-3 w-auto"}`}
+              className={`absolute bottom-full mb-2 z-50 w-60 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-panel shadow-2xl p-1.5 ${collapsed ? "left-3" : "left-3 right-3 w-auto"}`}
               role="menu"
             >
               <div className="px-2.5 py-2 border-b border-slate-100 dark:border-white/5 mb-1">
@@ -822,6 +823,10 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
               <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); openPalette(); }} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5">
                 <Search className="w-4 h-4 text-slate-400" /> Command palette <span className="ml-auto flex gap-0.5"><Kbd>{MOD_KEY}</Kbd><Kbd>K</Kbd></span>
               </button>
+              <div className="px-1.5 pt-1.5 pb-1">
+                <p className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Theme</p>
+                <ThemeSwitch />
+              </div>
               <div className="my-1 h-px bg-slate-100 dark:bg-white/5" />
               <button
                 type="button"
@@ -884,7 +889,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
   const mobile = !inVoiceRoom && (
     <nav
       aria-label="Main navigation"
-      className="lg:hidden fixed left-0 right-0 bottom-0 z-50 border-t border-slate-200/80 dark:border-white/[0.06] bg-white/90 dark:bg-[#0b0b14]/90 backdrop-blur-xl"
+      className="lg:hidden fixed left-0 right-0 bottom-0 z-50 border-t border-slate-200/80 dark:border-white/[0.06] bg-white/90 dark:bg-shell/90 backdrop-blur-xl"
       style={{ height: MOBILE_TAB_BAR_HEIGHT, paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="h-full grid grid-cols-5">
@@ -932,7 +937,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 380, damping: 38 }}
-            className="absolute left-0 right-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-[#F8F9FC] dark:bg-[#0f0f19] border-t border-slate-200 dark:border-white/10 px-4 pt-3"
+            className="absolute left-0 right-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-[#F8F9FC] dark:bg-panel border-t border-slate-200 dark:border-white/10 px-4 pt-3"
             style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -993,6 +998,11 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                 </div>
               </div>
             ))}
+
+            <div className="mb-4">
+              <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Theme</p>
+              <ThemeSwitch size="md" />
+            </div>
 
             <button
               type="button"

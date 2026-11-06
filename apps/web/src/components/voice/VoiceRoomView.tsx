@@ -378,7 +378,7 @@ export const RoomDropZone: React.FC<{
           className="fixed inset-0 z-[90] flex items-center justify-center pointer-events-none"
           style={{
             background:
-              "radial-gradient(circle at center, rgba(129,140,248,0.22), rgba(10,10,20,0.55))",
+              "radial-gradient(circle at center, rgba(129,140,248,0.22), var(--sx-bg-10-10-20-550))",
             backdropFilter: "blur(10px)",
           }}
         >
@@ -389,7 +389,7 @@ export const RoomDropZone: React.FC<{
             className="px-10 py-8 rounded-3xl text-center"
             style={{
               background:
-                "linear-gradient(180deg, rgba(24,24,42,0.85), rgba(14,14,26,0.85))",
+                "linear-gradient(180deg, var(--sx-bg-24-24-42-850), var(--sx-bg-14-14-26-850))",
               border: `1.5px dashed ${THEME.colors.accent.primary}`,
               boxShadow:
                 "0 30px 80px -20px rgba(129,140,248,0.45), inset 0 0 60px rgba(129,140,248,0.08)",
@@ -405,7 +405,7 @@ export const RoomDropZone: React.FC<{
               className="mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center"
               style={{
                 background: `linear-gradient(135deg, ${THEME.colors.accent.primary}, ${THEME.colors.accent.secondary})`,
-                boxShadow: "0 10px 30px -8px rgba(129,140,248,0.6)",
+                boxShadow: "0 10px 30px -8px var(--sx-shadow-129-140-248-600)",
               }}
             >
               <Upload className="w-8 h-8 text-white" />
@@ -590,7 +590,7 @@ const RoomSkeleton: React.FC = () => (
     className="p-5 rounded-3xl border animate-pulse"
     style={{
       background:
-        "linear-gradient(180deg, rgba(20,20,34,0.9), rgba(12,12,22,0.9))",
+        "linear-gradient(180deg, var(--sx-bg-20-20-34-900), var(--sx-bg-12-12-22-900))",
       borderColor: THEME.colors.border.primary,
     }}
   >
@@ -676,7 +676,7 @@ const RoomCard: React.FC<{
         className="relative p-5 rounded-3xl border transition-shadow overflow-hidden group-hover:border-transparent group-hover:shadow-[0_25px_60px_-25px_rgba(129,140,248,0.5)]"
         style={{
           background:
-            "linear-gradient(180deg, rgba(20,20,34,0.97), rgba(12,12,22,0.97))",
+            "linear-gradient(180deg, var(--sx-bg-20-20-34-970), var(--sx-bg-12-12-22-970))",
           borderColor: THEME.colors.border.primary,
         }}
       >
@@ -706,7 +706,7 @@ const RoomCard: React.FC<{
                 className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse"
                 style={{
                   background: THEME.colors.status.online,
-                  boxShadow: `0 0 0 2px rgba(10,10,20,1), 0 0 12px ${THEME.colors.status.online}`,
+                  boxShadow: `0 0 0 2px var(--sx-shadow-0a0a14), 0 0 12px ${THEME.colors.status.online}`,
                 }}
               />
             )}
@@ -811,7 +811,7 @@ const RoomCard: React.FC<{
                 {avatars.map((a: any, i: number) => (
                   <div
                     key={i}
-                    className="w-7 h-7 rounded-full ring-2 ring-[#0a0a14] flex items-center justify-center text-[10px] font-semibold text-white overflow-hidden"
+                    className="w-7 h-7 rounded-full ring-2 ring-[var(--sx-border-0a0a14)] flex items-center justify-center text-[10px] font-semibold text-white overflow-hidden"
                     style={{
                       background: `hsl(${hueFromString(a.name)}, 55%, 30%)`,
                     }}
@@ -830,7 +830,7 @@ const RoomCard: React.FC<{
                 ))}
                 {participantCount > 4 && (
                   <div
-                    className="w-7 h-7 rounded-full ring-2 ring-[#0a0a14] flex items-center justify-center text-[9px] font-bold"
+                    className="w-7 h-7 rounded-full ring-2 ring-[var(--sx-border-0a0a14)] flex items-center justify-center text-[9px] font-bold"
                     style={{
                       background: "rgba(129,140,248,0.2)",
                       color: THEME.colors.accent.tertiary,
@@ -857,7 +857,7 @@ const RoomCard: React.FC<{
                 background: isUserInside
                   ? "rgba(52,211,153,0.12)"
                   : isFull
-                    ? "rgba(255,255,255,0.06)"
+                    ? "var(--sx-bg-255-255-255-60)"
                     : THEME.colors.gradient.primary,
                 color: isUserInside
                   ? THEME.colors.status.online
@@ -1029,9 +1029,9 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           className="w-full max-w-md rounded-3xl border p-7 text-center"
           style={{
             background:
-              "linear-gradient(180deg, rgba(24,24,42,0.9), rgba(14,14,26,0.9))",
+              "linear-gradient(180deg, var(--sx-bg-24-24-42-900), var(--sx-bg-14-14-26-900))",
             borderColor: THEME.colors.border.primary,
-            boxShadow: "0 30px 80px -30px rgba(0,0,0,0.8)",
+            boxShadow: "0 30px 80px -30px var(--sx-shadow-0-0-0-800)",
           }}
         >
           <div
@@ -1064,7 +1064,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
             className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:scale-[1.03] active:scale-95"
             style={{
               background: THEME.colors.gradient.primary,
-              boxShadow: "0 12px 30px -10px rgba(129,140,248,0.7)",
+              boxShadow: "0 12px 30px -10px var(--sx-shadow-129-140-248-700)",
             }}
           >
             <RotateCcw className="w-4 h-4" /> Try again
@@ -1081,7 +1081,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
   ];
 
   const glassInput = {
-    background: "rgba(18,18,32,0.7)",
+    background: "var(--sx-bg-18-18-32-700)",
     color: THEME.colors.text.primary,
     borderColor: THEME.colors.border.primary,
     backdropFilter: "blur(12px)",
@@ -1143,7 +1143,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           <div
             className="px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-medium border"
             style={{
-              background: "rgba(255,255,255,0.03)",
+              background: "var(--sx-bg-255-255-255-30)",
               borderColor: THEME.colors.border.primary,
               color: THEME.colors.text.secondary,
             }}
@@ -1154,7 +1154,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           <div
             className="px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-medium border"
             style={{
-              background: "rgba(255,255,255,0.03)",
+              background: "var(--sx-bg-255-255-255-30)",
               borderColor: THEME.colors.border.primary,
               color: THEME.colors.text.secondary,
             }}
@@ -1216,7 +1216,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           {activeFilterCount > 0 && (
             <span
               className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold"
-              style={{ background: THEME.colors.accent.primary, color: "#fff" }}
+              style={{ background: THEME.colors.accent.primary, color: "var(--sx-text-ffffff)" }}
             >
               {activeFilterCount}
             </span>
@@ -1233,7 +1233,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           className="px-5 py-3 rounded-2xl flex items-center gap-2 text-sm font-semibold text-white transition-transform hover:scale-[1.03] active:scale-95"
           style={{
             background: THEME.colors.gradient.primary,
-            boxShadow: "0 14px 34px -12px rgba(129,140,248,0.7)",
+            boxShadow: "0 14px 34px -12px var(--sx-shadow-129-140-248-700)",
           }}
         >
           <Plus className="w-4 h-4" />
@@ -1259,8 +1259,8 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
               style={{
                 background: selected
                   ? THEME.colors.accent.primary
-                  : "rgba(255,255,255,0.04)",
-                color: selected ? "#fff" : THEME.colors.text.secondary,
+                  : "var(--sx-bg-255-255-255-40)",
+                color: selected ? "var(--sx-text-ffffff)" : THEME.colors.text.secondary,
                 boxShadow: selected
                   ? "0 6px 16px -6px rgba(129,140,248,0.8)"
                   : "none",
@@ -1313,7 +1313,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                         background:
                           sortBy === s
                             ? THEME.colors.accent.primary
-                            : "rgba(255,255,255,0.04)",
+                            : "var(--sx-bg-255-255-255-40)",
                         color:
                           sortBy === s ? "#fff" : THEME.colors.text.secondary,
                       }}
@@ -1348,7 +1348,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                     placeholder={placeholder}
                     className="w-full mt-2 px-3 py-1.5 rounded-full text-xs outline-none border focus:border-indigo-400"
                     style={{
-                      background: "rgba(255,255,255,0.04)",
+                      background: "var(--sx-bg-255-255-255-40)",
                       color: THEME.colors.text.primary,
                       borderColor: THEME.colors.border.primary,
                     }}
@@ -1626,8 +1626,8 @@ const ClapDock: React.FC<{
     <div
       className="pointer-events-auto relative rounded-full p-1"
       style={{
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: "var(--sx-bg-255-255-255-40)",
+        border: "1px solid var(--sx-border-255-255-255-80)",
       }}
     >
       {audioLevel > 0.05 && (
@@ -1661,9 +1661,9 @@ const ClapDock: React.FC<{
               style={{
                 background:
                   streak >= 5
-                    ? `linear-gradient(135deg, ${THEME.colors.accent.warning}, #f97316)`
+                    ? `linear-gradient(135deg, ${THEME.colors.accent.warning}, var(--sx-bg-f97316))`
                     : "rgba(129,140,248,0.2)",
-                color: "#fff",
+                color: "var(--sx-text-ffffff)",
               }}
             >
               {streak >= 5 ? `🔥 ${streak}` : `×${streak}`}
@@ -3456,7 +3456,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           <span
             aria-hidden
             className="h-6 w-px shrink-0"
-            style={{ background: "rgba(255,255,255,0.08)" }}
+            style={{ background: "var(--sx-bg-255-255-255-80)" }}
           />
           <ClapDock
             onClap={handleClap}
@@ -3524,8 +3524,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         <div
           className="flex min-w-0 items-center gap-2.5 rounded-2xl py-1.5 pl-1.5 pr-3"
           style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            background: "var(--sx-bg-255-255-255-30)",
+            border: "1px solid var(--sx-border-255-255-255-60)",
           }}
         >
           <span
@@ -3548,7 +3548,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
               <span
                 className="absolute inset-0 rounded-xl"
                 style={{
-                  boxShadow: `0 0 0 ${1 + clamp01(audioLevel) * 4}px rgba(52,211,153,0.35)`,
+                  boxShadow: `0 0 0 ${1 + clamp01(audioLevel) * 4}px var(--sx-shadow-52-211-153-350)`,
                 }}
               />
             )}
@@ -3685,17 +3685,17 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             aria-live="polite"
           >
             {connectionLost ? (
-              <span className="text-sm" style={{ color: "#fecaca" }}>
+              <span className="text-sm" style={{ color: "var(--sx-text-fecaca)" }}>
                 {liveKitError}
               </span>
             ) : (
               <span
                 className="flex items-center gap-2 text-sm"
-                style={{ color: "#fde68a" }}
+                style={{ color: "var(--sx-text-fde68a)" }}
               >
                 <motion.span
                   className="w-2 h-2 rounded-full"
-                  style={{ background: "#fbbf24" }}
+                  style={{ background: "var(--sx-bg-fbbf24)" }}
                   animate={{ opacity: [1, 0.3, 1] }}
                   transition={{ duration: 1.1, repeat: Infinity }}
                 />
@@ -3712,9 +3712,9 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
               className="px-3 py-1 rounded-full text-xs font-semibold transition-colors hover:brightness-110"
               style={{
                 background: connectionLost
-                  ? "#ef4444"
+                  ? "var(--sx-bg-ef4444)"
                   : "rgba(251,191,36,0.2)",
-                color: connectionLost ? "#fff" : "#fde68a",
+                color: connectionLost ? "var(--sx-text-ffffff)" : "var(--sx-text-fde68a)",
               }}
             >
               {liveKitError?.includes("another tab")

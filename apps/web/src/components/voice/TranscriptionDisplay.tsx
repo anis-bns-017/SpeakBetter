@@ -146,7 +146,7 @@ const StatsBar: React.FC<{ stats: TranscriptionStats }> = ({ stats }) => {
   return (
     <div
       className="flex items-center gap-4 px-3 py-1.5 rounded-lg"
-      style={{ background: "rgba(255,255,255,0.03)" }}
+      style={{ background: "var(--sx-bg-255-255-255-30)" }}
     >
       <div className="flex items-center gap-1.5 text-xs">
         <span style={{ color: THEME.text.muted }}>Total:</span>
@@ -242,7 +242,7 @@ const TranscriptionMessage: React.FC<{
       )}
       style={{
         background: transcription.isFinal
-          ? "rgba(255,255,255,0.02)"
+          ? "var(--sx-bg-255-255-255-20)"
           : "rgba(252, 211, 77, 0.05)",
       }}
       onMouseEnter={() => setShowActions(true)}
@@ -335,7 +335,7 @@ const TranscriptionMessage: React.FC<{
               <button
                 onClick={handleEdit}
                 className="px-2 py-1 rounded text-xs font-medium"
-                style={{ background: THEME.aurora.primary, color: "#fff" }}
+                style={{ background: THEME.aurora.primary, color: "var(--sx-text-ffffff)" }}
               >
                 Save
               </button>
@@ -366,7 +366,7 @@ const TranscriptionMessage: React.FC<{
               className="mt-1.5 p-2 rounded-lg text-xs"
               style={{
                 background: "rgba(167, 139, 250, 0.05)",
-                border: `1px solid ${THEME.aurora.primary}20`,
+                border: `1px solid color-mix(in srgb, ${THEME.aurora.primary} 12.5%, transparent)`,
               }}
             >
               <div className="flex items-center gap-1.5 mb-0.5">

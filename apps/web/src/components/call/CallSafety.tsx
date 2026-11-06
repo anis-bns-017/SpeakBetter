@@ -73,7 +73,7 @@ export const ReportDialog: React.FC<{
                     onClick={() => setReason(option.value)}
                     className="flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors"
                     style={{
-                      background: selected ? `${COLORS.danger}1a` : COLORS.surfaceRaised,
+                      background: selected ? `color-mix(in srgb, ${COLORS.danger} 10.2%, transparent)` : COLORS.surfaceRaised,
                       borderColor: selected ? COLORS.danger : COLORS.border,
                     }}
                   >
@@ -124,7 +124,7 @@ export const ReportDialog: React.FC<{
                 onClick={submit}
                 disabled={!reason || busy}
                 className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
-                style={{ background: COLORS.danger, color: "#fff" }}
+                style={{ background: COLORS.danger, color: "var(--sx-text-ffffff)" }}
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4" />}
                 Report and end call
@@ -144,7 +144,7 @@ export const SafetyBar: React.FC<{
 }> = ({ onReport, onBlock }) => (
   <div
     className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-2xl border px-4 py-2.5 text-xs"
-    style={{ background: "rgba(28,20,48,0.6)", borderColor: COLORS.border, color: COLORS.textMuted }}
+    style={{ background: "var(--sx-bg-28-20-48-600)", borderColor: COLORS.border, color: COLORS.textMuted }}
   >
     <span className="inline-flex items-center gap-1.5">
       <ShieldCheck className="h-3.5 w-3.5" style={{ color: COLORS.live }} />

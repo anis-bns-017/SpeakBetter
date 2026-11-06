@@ -61,7 +61,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
           transition={{ duration: 0.16 }}
           className="fixed top-16 left-4 w-[min(92vw,380px)] rounded-2xl border shadow-2xl backdrop-blur-2xl z-[80]"
           style={{
-            background: "rgba(10, 10, 18, 0.97)",
+            background: "var(--sx-bg-10-10-18-970)",
             borderColor: THEME.colors.border.primary,
           }}
           onClick={(e) => e.stopPropagation()}
@@ -244,7 +244,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                               className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-[11px] transition-all hover:scale-[1.02]"
                               style={{
                                 background: `linear-gradient(135deg, ${THEME.colors.accent.success}, ${THEME.colors.accent.cyan})`,
-                                color: "#fff",
+                                color: "var(--sx-text-ffffff)",
                               }}
                             >
                               <Check className="w-3 h-3" />
@@ -288,7 +288,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                     <div
                       key={c.id}
                       className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
-                      style={{ background: "rgba(255,255,255,0.02)" }}
+                      style={{ background: "var(--sx-bg-255-255-255-20)" }}
                     >
                       <span
                         className="text-[10px] shrink-0"

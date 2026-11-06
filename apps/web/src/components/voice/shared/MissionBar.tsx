@@ -52,9 +52,9 @@ export const MissionBar: React.FC<MissionBarProps> = ({ mission, myMission, onOp
     <div
       className="fixed top-36 left-4 z-30 hidden md:block w-[250px] rounded-2xl border p-3 backdrop-blur-xl"
       style={{
-        background: "rgba(10,10,18,0.88)",
+        background: "var(--sx-bg-10-10-18-880)",
         borderColor: "rgba(99,102,241,0.35)",
-        boxShadow: "0 0 30px rgba(99,102,241,0.12)",
+        boxShadow: "0 0 30px var(--sx-shadow-99-102-241-120)",
       }}
       role="status"
       aria-label="Secret word mission"
@@ -81,7 +81,7 @@ export const MissionBar: React.FC<MissionBarProps> = ({ mission, myMission, onOp
             onClick={() => setReveal((v) => !v)}
             aria-label={reveal ? "Hide my secret word" : "Show my secret word"}
             className="w-full flex items-center justify-between rounded-lg px-2.5 py-1.5 text-left"
-            style={{ background: "rgba(255,255,255,0.05)" }}
+            style={{ background: "var(--sx-bg-255-255-255-50)" }}
           >
             <span
               className="text-base font-bold transition-[filter]"
@@ -109,7 +109,7 @@ export const MissionBar: React.FC<MissionBarProps> = ({ mission, myMission, onOp
           </span>
           {mission.completed[0] && <span>🥇 {mission.completed[0].userName}</span>}
         </div>
-        <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+        <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--sx-bg-255-255-255-70)" }}>
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{ width: `${pct}%`, background: THEME.colors.gradient.primary }}
@@ -180,9 +180,9 @@ export const MissionCelebration: React.FC<CelebrationProps> = ({ celebration, us
             transition={{ type: "spring", damping: 16, stiffness: 260 }}
             className="rounded-3xl border px-7 py-5 text-center backdrop-blur-xl"
             style={{
-              background: mine ? "rgba(20,36,28,0.95)" : "rgba(14,14,26,0.95)",
+              background: mine ? "var(--sx-bg-20-36-28-950)" : "var(--sx-bg-14-14-26-950)",
               borderColor: mine ? "rgba(52,211,153,0.5)" : THEME.colors.border.accent,
-              boxShadow: mine ? "0 0 60px rgba(52,211,153,0.25)" : THEME.shadow.glowStrong,
+              boxShadow: mine ? "0 0 60px var(--sx-shadow-52-211-153-250)" : THEME.shadow.glowStrong,
             }}
           >
             <div className="text-[11px] uppercase tracking-widest mb-1" style={{ color: THEME.colors.text.muted }}>

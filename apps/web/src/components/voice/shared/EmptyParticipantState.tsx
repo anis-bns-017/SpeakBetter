@@ -76,12 +76,12 @@ const ICEBREAKERS: { text: string; icon: typeof Coffee; color: string }[] = [
 ];
 
 const COLOR_MAP: Record<string, { fg: string; bg: string }> = {
-  cyan: { fg: "#22d3ee", bg: "rgba(34,211,238,0.12)" },
-  violet: { fg: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  pink: { fg: "#f472b6", bg: "rgba(244,114,182,0.12)" },
-  amber: { fg: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
-  emerald: { fg: "#34d399", bg: "rgba(52,211,153,0.12)" },
-  yellow: { fg: "#eab308", bg: "rgba(234,179,8,0.12)" },
+  cyan: { fg: "var(--sx-bg-22d3ee)", bg: "rgba(34,211,238,0.12)" },
+  violet: { fg: "var(--sx-bg-a78bfa)", bg: "rgba(167,139,250,0.12)" },
+  pink: { fg: "var(--sx-bg-f472b6)", bg: "rgba(244,114,182,0.12)" },
+  amber: { fg: "var(--sx-bg-fbbf24)", bg: "rgba(251,191,36,0.12)" },
+  emerald: { fg: "var(--sx-bg-34d399)", bg: "rgba(52,211,153,0.12)" },
+  yellow: { fg: "var(--sx-bg-eab308)", bg: "rgba(234,179,8,0.12)" },
 };
 
 export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
@@ -198,7 +198,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
         />
         <div
           className="relative w-20 h-20 rounded-3xl flex items-center justify-center"
-          style={{ background: `${config.color}22` }}
+          style={{ background: `color-mix(in srgb, ${config.color} 13.3%, transparent)` }}
         >
           <ConfigIcon className="w-9 h-9" style={{ color: config.color }} />
         </div>
@@ -235,8 +235,8 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-sm transition-all hover:scale-[1.03] active:scale-95"
         style={{
           background: `linear-gradient(135deg, ${config.color}, ${THEME.colors.accent.secondary})`,
-          color: "#fff",
-          boxShadow: `0 6px 20px ${config.color}44`,
+          color: "var(--sx-text-ffffff)",
+          boxShadow: `0 6px 20px color-mix(in srgb, ${config.color} 26.7%, transparent)`,
         }}
       >
         {variant === "no-participants" && (isHost || isModerator) && (
@@ -284,7 +284,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
                 style={{
                   borderColor: THEME.colors.border.primary,
                   color: THEME.colors.text.secondary,
-                  background: "rgba(255,255,255,0.02)",
+                  background: "var(--sx-bg-255-255-255-20)",
                 }}
               >
                 {idea}
@@ -334,7 +334,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
                     animate={{ opacity: 1, x: 0 }}
                     className="w-full text-left flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all hover:-translate-y-0.5"
                     style={{
-                      background: "rgba(255,255,255,0.02)",
+                      background: "var(--sx-bg-255-255-255-20)",
                       borderColor: isCopied
                         ? THEME.colors.accent.success
                         : THEME.colors.border.primary,

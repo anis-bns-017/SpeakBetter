@@ -591,7 +591,7 @@ export const VoicePage = () => {
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 h-[520px]"
         style={{
-          background: `radial-gradient(60% 80% at 15% 0%, ${COLORS.purple}1f 0%, transparent 70%), radial-gradient(50% 70% at 90% 5%, ${COLORS.live}18 0%, transparent 70%)`,
+          background: `radial-gradient(60% 80% at 15% 0%, color-mix(in srgb, ${COLORS.purple} 12.2%, transparent) 0%, transparent 70%), radial-gradient(50% 70% at 90% 5%, color-mix(in srgb, ${COLORS.live} 9.4%, transparent) 0%, transparent 70%)`,
         }}
       />
 
@@ -643,7 +643,7 @@ export const VoicePage = () => {
                 title="Create room (N)"
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full font-semibold text-sm transition-all hover:scale-105"
                 style={{
-                  background: `linear-gradient(135deg, ${COLORS.spotlight}, #FFC857)`,
+                  background: `linear-gradient(135deg, ${COLORS.spotlight}, var(--sx-bg-ffc857))`,
                   color: COLORS.void,
                   boxShadow: `0 10px 30px -10px ${COLORS.spotlight}`,
                 }}

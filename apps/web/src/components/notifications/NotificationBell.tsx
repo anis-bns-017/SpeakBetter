@@ -189,7 +189,7 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
   const button =
     variant === "sidebar"
       ? "relative w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200 transition-colors"
-      : "relative w-11 h-11 rounded-full flex items-center justify-center bg-white/90 dark:bg-[#151521]/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 shadow-lg text-slate-600 dark:text-slate-200";
+      : "relative w-11 h-11 rounded-full flex items-center justify-center bg-white/90 dark:bg-panel/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 shadow-lg text-slate-600 dark:text-slate-200";
 
   const panelPosition: React.CSSProperties =
     variant === "sidebar" ? { left: "calc(var(--sidebar-w, 260px) + 12px)", top: 12 } : { right: 12, top: 64 };
@@ -206,7 +206,7 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
       >
         {unread ? <BellRing className="w-[18px] h-[18px]" /> : <Bell className="w-[18px] h-[18px]" />}
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#0b0b14]">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-shell">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
@@ -218,7 +218,7 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
             ref={panelRef}
             role="dialog"
             aria-label="Notifications"
-            className="fixed z-[120] w-[min(92vw,380px)] max-h-[min(70vh,560px)] flex flex-col rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#151521] shadow-2xl overflow-hidden"
+            className="fixed z-[120] w-[min(92vw,380px)] max-h-[min(70vh,560px)] flex flex-col rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-panel shadow-2xl overflow-hidden"
             style={panelPosition}
           >
             <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100 dark:border-white/[0.06]">

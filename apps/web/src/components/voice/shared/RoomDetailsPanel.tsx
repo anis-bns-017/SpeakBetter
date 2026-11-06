@@ -37,7 +37,7 @@ export const RoomDetailsPanel: React.FC<RoomDetailsPanelProps> = ({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       className="fixed right-4 bottom-20 z-30 w-72 rounded-2xl border p-4 shadow-2xl backdrop-blur-2xl"
-      style={{ background: 'rgba(18,18,31,0.95)', borderColor: THEME.colors.border.primary }}
+      style={{ background: 'var(--sx-bg-18-18-31-950)', borderColor: THEME.colors.border.primary }}
     >
       <div className="flex items-center justify-between mb-3">
         <div>

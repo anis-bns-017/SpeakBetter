@@ -119,8 +119,8 @@ export const CallSetup: React.FC<{
       <div
         className="relative overflow-hidden rounded-3xl border p-6 sm:p-8"
         style={{
-          borderColor: `${COLORS.spotlight}44`,
-          background: `radial-gradient(120% 140% at 0% 0%, ${COLORS.spotlight}22 0%, transparent 55%), radial-gradient(90% 120% at 100% 100%, ${COLORS.purple}22 0%, transparent 60%), ${COLORS.surface}`,
+          borderColor: `color-mix(in srgb, ${COLORS.spotlight} 26.7%, transparent)`,
+          background: `radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${COLORS.spotlight} 13.3%, transparent) 0%, transparent 55%), radial-gradient(90% 120% at 100% 100%, color-mix(in srgb, ${COLORS.purple} 13.3%, transparent) 0%, transparent 60%), ${COLORS.surface}`,
         }}
       >
         <span
@@ -141,7 +141,7 @@ export const CallSetup: React.FC<{
         {blocked ? (
           <div
             className="mt-6 flex items-start gap-3 rounded-2xl border p-4"
-            style={{ borderColor: `${COLORS.danger}55`, background: `${COLORS.danger}12` }}
+            style={{ borderColor: `color-mix(in srgb, ${COLORS.danger} 33.3%, transparent)`, background: `color-mix(in srgb, ${COLORS.danger} 7.1%, transparent)` }}
           >
             <Lock className="mt-0.5 h-5 w-5 shrink-0" style={{ color: COLORS.danger }} />
             <div>
@@ -207,7 +207,7 @@ export const CallSetup: React.FC<{
                   type="checkbox"
                   checked={confirmed}
                   onChange={(e) => setConfirmed(e.target.checked)}
-                  className="mt-0.5 accent-[#F5A623]"
+                  className="mt-0.5 accent-[var(--sx-bg-f5a623)]"
                 />
                 <span>
                   I am <strong style={{ color: COLORS.textPrimary }}>18 or older</strong>. I will be
@@ -221,7 +221,7 @@ export const CallSetup: React.FC<{
               disabled={!connected || saving || (needsConsent && !confirmed)}
               className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-base font-semibold transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 sm:w-auto"
               style={{
-                background: `linear-gradient(135deg, ${COLORS.spotlight}, #FFC857)`,
+                background: `linear-gradient(135deg, ${COLORS.spotlight}, var(--sx-bg-ffc857))`,
                 color: COLORS.void,
                 boxShadow: `0 10px 30px -10px ${COLORS.spotlight}`,
               }}
@@ -253,7 +253,7 @@ export const CallSetup: React.FC<{
               <li
                 key={item.id}
                 className="flex items-center gap-3 rounded-2xl border px-4 py-3"
-                style={{ background: "rgba(28,20,48,0.6)", borderColor: COLORS.border }}
+                style={{ background: "var(--sx-bg-28-20-48-600)", borderColor: COLORS.border }}
               >
                 <Users className="h-4 w-4 shrink-0" style={{ color: COLORS.textSecondary }} />
                 <span className="min-w-0 flex-1 truncate text-sm" style={{ color: COLORS.textPrimary }}>

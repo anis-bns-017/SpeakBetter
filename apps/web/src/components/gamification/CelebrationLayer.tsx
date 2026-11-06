@@ -88,7 +88,7 @@ const BadgeReveal: React.FC<{
       {!reduced && <Confetti key={badge.key} colors={[tier.ring, "#6366f1", "#f59e0b", "#10b981", "#ec4899"]} />}
       <motion.div
         key={badge.key}
-        className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-[#151521] p-7 text-center shadow-2xl"
+        className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-panel p-7 text-center shadow-2xl"
         initial={reduced ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.92 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
@@ -155,7 +155,7 @@ const LeagueResult: React.FC<{ result: NonNullable<Celebrations["league"]>; redu
     <Backdrop onClose={onClose} label="Last week's league results">
       {!reduced && result.result === "promote" && <Confetti colors={[result.to.color, result.from.color, "#f59e0b", "#6366f1"]} />}
       <motion.div
-        className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-[#151521] p-7 text-center shadow-2xl"
+        className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-panel p-7 text-center shadow-2xl"
         initial={reduced ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.92 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
@@ -233,7 +233,7 @@ const LeagueResult: React.FC<{ result: NonNullable<Celebrations["league"]>; redu
 
 const Card: React.FC<{ reduced: boolean; children: React.ReactNode }> = ({ reduced, children }) => (
   <motion.div
-    className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-[#151521] p-7 text-center shadow-2xl"
+    className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-panel p-7 text-center shadow-2xl"
     initial={reduced ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.92 }}
     animate={{ opacity: 1, y: 0, scale: 1 }}
     transition={{ type: "spring", stiffness: 260, damping: 22 }}
@@ -320,7 +320,7 @@ const StreakSaved: React.FC<{ status: StreakStatus; reduced: boolean; onClose: (
           </motion.div>
           {/* The ice settles over the flame and keeps it */}
           <motion.div
-            className="absolute -right-2 -bottom-2 w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/40 ring-4 ring-white dark:ring-[#151521]"
+            className="absolute -right-2 -bottom-2 w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/40 ring-4 ring-white dark:ring-panel"
             initial={reduced ? false : { scale: 0, rotate: -40 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 240, damping: 12, delay: 0.4 }}

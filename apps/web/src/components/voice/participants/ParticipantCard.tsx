@@ -145,7 +145,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
               color: participant.avatarUrl ? 'transparent' : THEME.colors.text.primary,
               fontSize: s.avatar / 3,
               boxShadow: isOnline && isSpeaking
-                ? `0 0 30px ${THEME.colors.accent.primary}44`
+                ? `0 0 30px color-mix(in srgb, ${THEME.colors.accent.primary} 26.7%, transparent)`
                 : 'none',
             }}
           >
@@ -157,7 +157,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
             <div
               className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
               style={{
-                background: isSpeaking ? THEME.colors.accent.primary : '#22C55E',
+                background: isSpeaking ? THEME.colors.accent.primary : 'var(--sx-bg-22c55e)',
                 borderColor: THEME.colors.background.primary,
               }}
             />
@@ -192,7 +192,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
               className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 flex items-center justify-center"
               style={{ background: '#4B5563', borderColor: THEME.colors.background.primary }}
             >
-              <MicOff className="w-1.5 h-1.5" style={{ color: '#9CA3AF' }} />
+              <MicOff className="w-1.5 h-1.5" style={{ color: 'var(--sx-text-9ca3af)' }} />
             </div>
           )}
 
@@ -233,7 +233,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
           {isCurrentUser && !isSpeaking && (
             <div
               className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full text-[7px] font-bold whitespace-nowrap"
-              style={{ background: THEME.colors.accent.primary, color: '#fff' }}
+              style={{ background: THEME.colors.accent.primary, color: 'var(--sx-text-ffffff)' }}
             >
               You
             </div>
@@ -338,7 +338,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
             exit={{ opacity: 0, scale: 0.8, y: -8 }}
             className="absolute -top-10 left-1/2 -translate-x-1/2 flex gap-0.5 p-1 rounded-xl backdrop-blur-xl border shadow-lg"
             style={{
-              background: 'rgba(18, 18, 31, 0.96)',
+              background: 'var(--sx-bg-18-18-31-960)',
               borderColor: THEME.colors.border.primary,
             }}
           >

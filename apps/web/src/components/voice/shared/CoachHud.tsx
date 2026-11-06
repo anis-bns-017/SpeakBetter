@@ -40,20 +40,20 @@ export const CoachHud: React.FC<CoachHudProps> = ({ live, tip, onOpen }) => {
       aria-label={`Open room coach. Fluency ${score ?? "not yet measured"}`}
       className="fixed bottom-36 left-4 z-20 hidden md:flex items-center gap-3 rounded-2xl border px-3 py-2 text-left backdrop-blur-xl transition-transform hover:scale-[1.02]"
       style={{
-        background: "rgba(10,10,18,0.85)",
+        background: "var(--sx-bg-10-10-18-850)",
         borderColor: THEME.colors.border.primary,
         maxWidth: 270,
       }}
     >
       <div className="relative w-11 h-11 shrink-0">
         <svg viewBox="0 0 44 44" className="w-11 h-11 -rotate-90" aria-hidden>
-          <circle cx="22" cy="22" r={RADIUS} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
+          <circle cx="22" cy="22" r={RADIUS} fill="none" stroke="var(--sx-bg-255-255-255-80)" strokeWidth="4" />
           <circle
             cx="22"
             cy="22"
             r={RADIUS}
             fill="none"
-            stroke={score === null ? "rgba(255,255,255,0.2)" : ringColor(score)}
+            stroke={score === null ? "var(--sx-bg-255-255-255-200)" : ringColor(score)}
             strokeWidth="4"
             strokeLinecap="round"
             strokeDasharray={CIRC}

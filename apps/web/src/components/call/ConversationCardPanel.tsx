@@ -70,8 +70,8 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
       aria-label="Conversation card"
       className="overflow-hidden rounded-3xl border"
       style={{
-        borderColor: `${meta.color}44`,
-        background: `radial-gradient(90% 120% at 0% 0%, ${meta.color}1c 0%, transparent 60%), ${COLORS.surface}`,
+        borderColor: `color-mix(in srgb, ${meta.color} 26.7%, transparent)`,
+        background: `radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, ${meta.color} 11%, transparent) 0%, transparent 60%), ${COLORS.surface}`,
       }}
     >
       {/* Header: what kind of card, and how deep */}
@@ -79,7 +79,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
         <div className="flex items-center gap-2">
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider"
-            style={{ background: `${meta.color}22`, color: meta.color }}
+            style={{ background: `color-mix(in srgb, ${meta.color} 13.3%, transparent)`, color: meta.color }}
           >
             <KindIcon className="h-3.5 w-3.5" />
             {meta.label}
@@ -142,7 +142,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
                 className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors"
                 style={{
                   borderColor: active ? meta.color : COLORS.border,
-                  background: active ? `${meta.color}1f` : "transparent",
+                  background: active ? `color-mix(in srgb, ${meta.color} 12.2%, transparent)` : "transparent",
                   color: active ? meta.color : COLORS.textMuted,
                 }}
               >
@@ -168,7 +168,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
                     <li
                       key={question}
                       className="flex gap-3 rounded-2xl border px-3 py-2.5 text-sm"
-                      style={{ borderColor: COLORS.border, background: "rgba(255,255,255,0.03)", color: COLORS.textPrimary }}
+                      style={{ borderColor: COLORS.border, background: "var(--sx-bg-255-255-255-30)", color: COLORS.textPrimary }}
                     >
                       <span className="font-mono text-xs" style={{ color: meta.color }}>
                         {i + 1}
@@ -183,7 +183,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
                     <li
                       key={phrase}
                       className="rounded-2xl border px-3 py-1.5 text-sm italic"
-                      style={{ borderColor: COLORS.border, background: "rgba(255,255,255,0.03)", color: COLORS.textPrimary }}
+                      style={{ borderColor: COLORS.border, background: "var(--sx-bg-255-255-255-30)", color: COLORS.textPrimary }}
                     >
                       “{phrase}”
                     </li>
@@ -228,7 +228,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
           <button
             onClick={onNext}
             className="inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-semibold"
-            style={{ background: `${meta.color}26`, color: meta.color }}
+            style={{ background: `color-mix(in srgb, ${meta.color} 14.9%, transparent)`, color: meta.color }}
           >
             Next <ChevronRight className="h-4 w-4" />
           </button>
@@ -238,7 +238,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
       {/* Random question generator */}
       <div
         className="flex flex-wrap items-center gap-2 border-t px-5 py-3"
-        style={{ borderColor: COLORS.border, background: "rgba(0,0,0,0.18)" }}
+        style={{ borderColor: COLORS.border, background: "var(--sx-bg-0-0-0-180)" }}
       >
         <button
           onClick={() => onDraw()}
@@ -267,7 +267,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
               onClick={() => onDraw(kind)}
               disabled={drawing}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/5 disabled:opacity-60"
-              style={{ borderColor: `${item.color}55`, color: item.color }}
+              style={{ borderColor: `color-mix(in srgb, ${item.color} 33.3%, transparent)`, color: item.color }}
             >
               <Icon className="h-3.5 w-3.5" />
               {item.label}

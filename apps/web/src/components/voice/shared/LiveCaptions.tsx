@@ -125,7 +125,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
             exit={{ opacity: 0, y: 8 }}
             className="pointer-events-auto w-[min(92%,420px)] rounded-2xl border p-3 shadow-2xl backdrop-blur-xl"
             style={{
-              background: "rgba(14,14,26,0.97)",
+              background: "var(--sx-bg-14-14-26-970)",
               borderColor: THEME.colors.border.accent,
             }}
             role="dialog"
@@ -162,7 +162,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
                 aria-label="Meaning (optional)"
                 className="flex-1 min-w-0 rounded-lg px-2.5 py-1.5 text-xs outline-none border"
                 style={{
-                  background: "rgba(255,255,255,0.04)",
+                  background: "var(--sx-bg-255-255-255-40)",
                   borderColor: THEME.colors.border.primary,
                   color: THEME.colors.text.primary,
                 }}
@@ -171,7 +171,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
                 onClick={() => void save()}
                 disabled={saving}
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
-                style={{ background: THEME.colors.accent.primary, color: "#fff" }}
+                style={{ background: THEME.colors.accent.primary, color: "var(--sx-text-ffffff)" }}
               >
                 {alreadySaved ? <BookmarkCheck className="w-3.5 h-3.5" /> : <BookmarkPlus className="w-3.5 h-3.5" />}
                 {alreadySaved ? "Update" : "Save word"}
@@ -190,7 +190,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
             exit={{ opacity: 0 }}
             className="pointer-events-auto w-[min(94%,720px)] rounded-2xl border px-4 py-3 space-y-1.5 backdrop-blur-xl"
             style={{
-              background: "rgba(8,8,16,0.82)",
+              background: "var(--sx-bg-8-8-16-820)",
               borderColor: THEME.colors.border.primary,
             }}
             aria-live="polite"
@@ -250,7 +250,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
         aria-label={enabled ? "Hide live captions" : "Show live captions"}
         className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] backdrop-blur-xl hover:bg-white/5"
         style={{
-          background: "rgba(14,14,26,0.8)",
+          background: "var(--sx-bg-14-14-26-800)",
           borderColor: THEME.colors.border.primary,
           color: enabled ? THEME.colors.accent.primaryLight : THEME.colors.text.muted,
         }}

@@ -306,7 +306,7 @@ export const InCallScreen: React.FC<{
         className="relative flex items-center justify-around rounded-3xl border px-4 py-8"
         style={{
           borderColor: COLORS.border,
-          background: `radial-gradient(80% 120% at 50% 0%, ${COLORS.purple}1c 0%, transparent 70%), ${COLORS.surface}`,
+          background: `radial-gradient(80% 120% at 50% 0%, color-mix(in srgb, ${COLORS.purple} 11%, transparent) 0%, transparent 70%), ${COLORS.surface}`,
         }}
       >
         <div className="flex flex-col items-center gap-3">
@@ -335,7 +335,7 @@ export const InCallScreen: React.FC<{
       </div>
 
       {p.micError && (
-        <p className="rounded-xl border px-3 py-2 text-center text-xs" role="alert" style={{ borderColor: `${COLORS.danger}55`, color: COLORS.danger }}>
+        <p className="rounded-xl border px-3 py-2 text-center text-xs" role="alert" style={{ borderColor: `color-mix(in srgb, ${COLORS.danger} 33.3%, transparent)`, color: COLORS.danger }}>
           {p.micError}
         </p>
       )}
@@ -363,7 +363,7 @@ export const InCallScreen: React.FC<{
           animate={{ opacity: 1, y: 0 }}
           role="status"
           className="rounded-2xl border px-4 py-2.5 text-center text-sm"
-          style={{ borderColor: `${COLORS.live}44`, background: COLORS.liveDim, color: COLORS.live }}
+          style={{ borderColor: `color-mix(in srgb, ${COLORS.live} 26.7%, transparent)`, background: COLORS.liveDim, color: COLORS.live }}
         >
           Quiet for a moment. Tap “Keep it going” on the card, or press “Surprise me” for a new question.
         </motion.p>
@@ -373,7 +373,7 @@ export const InCallScreen: React.FC<{
         <p
           className="rounded-2xl border px-4 py-2.5 text-center text-sm"
           role="status"
-          style={{ borderColor: `${COLORS.spotlight}55`, background: COLORS.spotlightDim, color: COLORS.spotlight }}
+          style={{ borderColor: `color-mix(in srgb, ${COLORS.spotlight} 33.3%, transparent)`, background: COLORS.spotlightDim, color: COLORS.spotlight }}
         >
           {p.justExtended ? "5 more minutes added. Enjoy!" : `${p.call.partner.name} would like to keep talking.`}
         </p>
@@ -393,7 +393,7 @@ export const InCallScreen: React.FC<{
           className="flex h-14 w-14 items-center justify-center rounded-full border transition-colors"
           style={{
             borderColor: p.muted ? COLORS.danger : COLORS.borderLight,
-            background: p.muted ? `${COLORS.danger}22` : "transparent",
+            background: p.muted ? `color-mix(in srgb, ${COLORS.danger} 13.3%, transparent)` : "transparent",
             color: p.muted ? COLORS.danger : COLORS.textPrimary,
           }}
         >
@@ -416,7 +416,7 @@ export const InCallScreen: React.FC<{
           onClick={p.onEnd}
           aria-label="End call"
           className="flex h-14 items-center gap-2 rounded-full px-6 text-sm font-semibold"
-          style={{ background: COLORS.danger, color: "#fff" }}
+          style={{ background: COLORS.danger, color: "var(--sx-text-ffffff)" }}
         >
           <PhoneOff className="h-5 w-5" />
           End call

@@ -73,7 +73,7 @@ export const BadgeIcon: React.FC<{ icon: string; tier: BadgeTier; earned: boolea
         className={earned ? "" : "text-slate-300 dark:text-slate-600"}
       />
       {!earned && (
-        <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-white dark:bg-[#151521] border border-slate-200 dark:border-white/10 flex items-center justify-center">
+        <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-white dark:bg-panel border border-slate-200 dark:border-white/10 flex items-center justify-center">
           <Lock className="w-2.5 h-2.5 text-slate-400" />
         </span>
       )}

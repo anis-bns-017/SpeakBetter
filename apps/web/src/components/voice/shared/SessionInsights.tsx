@@ -108,7 +108,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
       transition={{ duration: 0.15 }}
       className="fixed top-16 left-4 w-[min(92vw,360px)] rounded-2xl border shadow-2xl backdrop-blur-2xl z-[80]"
       style={{
-        background: "rgba(10, 10, 18, 0.97)",
+        background: "var(--sx-bg-10-10-18-970)",
         borderColor: THEME.colors.border.primary,
       }}
       onClick={(e) => e.stopPropagation()}
@@ -188,7 +188,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
       <div
         className="mx-3 p-3 rounded-xl border"
         style={{
-          background: "rgba(255,255,255,0.02)",
+          background: "var(--sx-bg-255-255-255-20)",
           borderColor: THEME.colors.border.primary,
         }}
       >
@@ -215,7 +215,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
 
         <div
           className="h-2 rounded-full overflow-hidden flex"
-          style={{ background: "rgba(255,255,255,0.06)" }}
+          style={{ background: "var(--sx-bg-255-255-255-60)" }}
         >
           <motion.div
             initial={{ width: 0 }}
@@ -286,7 +286,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
                             : idx === 1
                               ? "#C0C0C0"
                               : idx === 2
-                                ? "#CD7F32"
+                                ? "var(--sx-bg-cd7f32)"
                                 : THEME.colors.text.muted,
                       }}
                     >
@@ -328,7 +328,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
                   {/* Speaking bar */}
                   <div
                     className="ml-6 h-1 rounded-full overflow-hidden"
-                    style={{ background: "rgba(255,255,255,0.04)" }}
+                    style={{ background: "var(--sx-bg-255-255-255-40)" }}
                   >
                     <motion.div
                       initial={{ width: 0 }}
@@ -338,7 +338,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
                       style={{
                         background:
                           idx === 0
-                            ? `linear-gradient(90deg, ${THEME.colors.accent.warning}, #f97316)`
+                            ? `linear-gradient(90deg, ${THEME.colors.accent.warning}, var(--sx-bg-f97316))`
                             : `linear-gradient(90deg, ${THEME.colors.accent.primary}, ${THEME.colors.accent.secondary})`,
                       }}
                     />
@@ -385,14 +385,14 @@ const MetricTile: React.FC<{
   <div
     className="rounded-xl border p-2.5 flex flex-col gap-1"
     style={{
-      background: "rgba(255,255,255,0.02)",
+      background: "var(--sx-bg-255-255-255-20)",
       borderColor: THEME.colors.border.primary,
     }}
   >
     <div className="flex items-center gap-1.5">
       <span
         className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
-        style={{ background: `${color}20`, color }}
+        style={{ background: `color-mix(in srgb, ${color} 12.5%, transparent)`, color }}
       >
         {icon}
       </span>

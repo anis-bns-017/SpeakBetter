@@ -89,7 +89,7 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
     <header
       className="relative z-10 flex items-center justify-between gap-3 px-3 sm:px-4 py-3 border-b shrink-0"
       style={{
-        background: "rgba(10, 10, 18, 0.92)",
+        background: "var(--sx-bg-10-10-18-920)",
         backdropFilter: "blur(20px)",
         borderColor: THEME.colors.border.primary,
       }}
@@ -188,7 +188,7 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
           {unreadCount > 0 && (
             <span
               className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] text-[8px] rounded-full flex items-center justify-center px-1 font-bold"
-              style={{ background: THEME.colors.accent.error, color: "#fff" }}
+              style={{ background: THEME.colors.accent.error, color: "var(--sx-text-ffffff)" }}
             >
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>

@@ -131,7 +131,7 @@ const SpeakerChip: React.FC<{
       transition={{ duration: 0.18 }}
       className="group flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full border shrink-0 hover:bg-white/5 transition-colors"
       style={{
-        background: isMe ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.03)",
+        background: isMe ? "rgba(129,140,248,0.12)" : "var(--sx-bg-255-255-255-30)",
         borderColor: isMe
           ? "rgba(129,140,248,0.35)"
           : THEME.colors.border.primary,
@@ -174,7 +174,7 @@ const SpeakerChip: React.FC<{
         {isHost && (
           <Crown
             className="absolute -top-1 -right-1 w-3 h-3 z-20 drop-shadow"
-            style={{ color: "#FBBF24" }}
+            style={{ color: "var(--sx-text-fbbf24)" }}
           />
         )}
       </div>

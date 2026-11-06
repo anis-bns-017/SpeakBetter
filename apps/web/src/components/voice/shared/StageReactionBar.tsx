@@ -76,9 +76,9 @@ export const StageReactionBar: React.FC<StageReactionBarProps> = ({
         transition={{ type: "spring", damping: 24, stiffness: 280 }}
         className="pointer-events-auto flex items-center gap-1 rounded-full border px-2 py-1.5 shadow-2xl backdrop-blur-xl"
         style={{
-          background: "rgba(18, 18, 32, 0.82)",
-          borderColor: "rgba(255,255,255,0.12)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+          background: "var(--sx-bg-18-18-32-820)",
+          borderColor: "var(--sx-border-255-255-255-120)",
+          boxShadow: "0 8px 32px var(--sx-shadow-0-0-0-450)",
         }}
       >
         {/* Expanded mode */}
@@ -133,7 +133,7 @@ export const StageReactionBar: React.FC<StageReactionBarProps> = ({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           className="ml-1 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors shrink-0"
-          style={{ color: "rgba(255,255,255,0.6)" }}
+          style={{ color: "var(--sx-text-255-255-255-600)" }}
           title={expanded ? "Show fewer reactions" : "More reactions"}
         >
           {expanded ? (

@@ -38,8 +38,8 @@ export const LobbyHero: React.FC<LobbyHeroProps> = ({
       aria-label="Featured room"
       className="relative overflow-hidden rounded-3xl border p-6 sm:p-8 mb-6"
       style={{
-        borderColor: `${accent}44`,
-        background: `radial-gradient(120% 140% at 0% 0%, ${accent}26 0%, transparent 55%), radial-gradient(90% 120% at 100% 100%, ${COLORS.purple}22 0%, transparent 60%), ${COLORS.surface}`,
+        borderColor: `color-mix(in srgb, ${accent} 26.7%, transparent)`,
+        background: `radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${accent} 14.9%, transparent) 0%, transparent 55%), radial-gradient(90% 120% at 100% 100%, color-mix(in srgb, ${COLORS.purple} 13.3%, transparent) 0%, transparent 60%), ${COLORS.surface}`,
       }}
     >
       <div className="relative flex flex-col lg:flex-row lg:items-center gap-6">
@@ -48,7 +48,7 @@ export const LobbyHero: React.FC<LobbyHeroProps> = ({
             <>
               <span
                 className="inline-flex items-center gap-2 text-[10px] font-mono tracking-widest uppercase px-2.5 py-1 rounded-full"
-                style={{ background: `${accent}22`, color: accent }}
+                style={{ background: `color-mix(in srgb, ${accent} 13.3%, transparent)`, color: accent }}
               >
                 <Equalizer color={accent} bars={3} height={12} />
                 Happening now

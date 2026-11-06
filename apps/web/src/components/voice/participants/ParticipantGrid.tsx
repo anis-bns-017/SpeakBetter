@@ -48,7 +48,7 @@ const SectionLabel: React.FC<{ title: string; count: number; hint?: string }> = 
     <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: THEME.colors.text.secondary }}>
       {title}
     </span>
-    <span className="text-[11px] tabular-nums px-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)", color: THEME.colors.text.muted }}>
+    <span className="text-[11px] tabular-nums px-1.5 rounded-full" style={{ background: "var(--sx-bg-255-255-255-60)", color: THEME.colors.text.muted }}>
       {count}
     </span>
     {hint && <span className="text-[11px]" style={{ color: THEME.colors.text.muted }}>{hint}</span>}

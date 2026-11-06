@@ -63,7 +63,7 @@ const Tile: React.FC<{
 }> = ({ icon: Icon, title, accent, onClick, children }) => (
   <div
     className="rounded-xl border p-2.5 min-w-0 flex flex-col gap-1"
-    style={{ background: "rgba(14,14,26,0.72)", borderColor: THEME.colors.border.primary }}
+    style={{ background: "var(--sx-bg-14-14-26-720)", borderColor: THEME.colors.border.primary }}
   >
     <button
       onClick={onClick}
@@ -89,7 +89,7 @@ const ActionButton: React.FC<{
     style={
       tone === "warning"
         ? { background: "rgba(251,191,36,0.16)", color: THEME.colors.accent.warning }
-        : { background: THEME.colors.accent.primary, color: "#fff" }
+        : { background: THEME.colors.accent.primary, color: "var(--sx-text-ffffff)" }
     }
   >
     {Icon && <Icon className="w-3 h-3" />}

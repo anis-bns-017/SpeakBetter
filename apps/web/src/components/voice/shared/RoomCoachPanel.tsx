@@ -110,7 +110,7 @@ const Meter: React.FC<{
     </div>
     <div
       className="h-1.5 rounded-full overflow-hidden"
-      style={{ background: "rgba(255,255,255,0.06)" }}
+      style={{ background: "var(--sx-bg-255-255-255-60)" }}
       role="progressbar"
       aria-label={label}
       aria-valuemin={0}
@@ -211,7 +211,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
           transition={{ duration: 0.16 }}
           className="fixed top-16 left-4 w-[min(92vw,400px)] max-h-[80vh] flex flex-col rounded-2xl border shadow-2xl backdrop-blur-2xl z-[80]"
           style={{
-            background: "rgba(10, 10, 18, 0.97)",
+            background: "var(--sx-bg-10-10-18-970)",
             borderColor: THEME.colors.border.primary,
           }}
           role="dialog"
@@ -400,7 +400,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                         <li
                           key={r.id}
                           className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg"
-                          style={{ background: "rgba(255,255,255,0.03)", color: THEME.colors.text.secondary }}
+                          style={{ background: "var(--sx-bg-255-255-255-30)", color: THEME.colors.text.secondary }}
                         >
                           <span className="truncate pr-2">{r.roomName}</span>
                           <span className="shrink-0" style={{ color: THEME.colors.text.muted }}>
@@ -482,7 +482,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                           <li
                             key={c.userId}
                             className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg"
-                            style={{ background: "rgba(255,255,255,0.03)", color: THEME.colors.text.secondary }}
+                            style={{ background: "var(--sx-bg-255-255-255-30)", color: THEME.colors.text.secondary }}
                           >
                             <span>
                               #{c.place} {c.userId === userId ? "You" : c.userName}
@@ -499,7 +499,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                       <button
                         onClick={onStopMission}
                         className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold"
-                        style={{ background: "rgba(239,68,68,0.15)", color: "#F87171" }}
+                        style={{ background: "rgba(239,68,68,0.15)", color: "var(--sx-text-f87171)" }}
                       >
                         <Square className="w-3.5 h-3.5" /> End round now
                       </button>
@@ -520,7 +520,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                             <li
                               key={r.userId}
                               className="px-2.5 py-1.5 rounded-lg text-xs"
-                              style={{ background: "rgba(255,255,255,0.03)" }}
+                              style={{ background: "var(--sx-bg-255-255-255-30)" }}
                             >
                               <div className="flex items-center justify-between" style={{ color: THEME.colors.text.secondary }}>
                                 <span>
@@ -552,7 +552,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                     )}
 
                     {canManage ? (
-                      <div className="space-y-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}>
+                      <div className="space-y-3 p-3 rounded-xl" style={{ background: "var(--sx-bg-255-255-255-30)" }}>
                         <div>
                           <div className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
                             Level
@@ -565,8 +565,8 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                                 aria-pressed={level === l}
                                 className="flex-1 py-1.5 rounded-lg text-xs font-semibold"
                                 style={{
-                                  background: level === l ? THEME.colors.accent.primary : "rgba(255,255,255,0.05)",
-                                  color: level === l ? "#fff" : THEME.colors.text.secondary,
+                                  background: level === l ? THEME.colors.accent.primary : "var(--sx-bg-255-255-255-50)",
+                                  color: level === l ? "var(--sx-text-ffffff)" : THEME.colors.text.secondary,
                                 }}
                               >
                                 {l}
@@ -586,8 +586,8 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                                 aria-pressed={minutes === m}
                                 className="flex-1 py-1.5 rounded-lg text-xs font-semibold"
                                 style={{
-                                  background: minutes === m ? THEME.colors.accent.primary : "rgba(255,255,255,0.05)",
-                                  color: minutes === m ? "#fff" : THEME.colors.text.secondary,
+                                  background: minutes === m ? THEME.colors.accent.primary : "var(--sx-bg-255-255-255-50)",
+                                  color: minutes === m ? "var(--sx-text-ffffff)" : THEME.colors.text.secondary,
                                 }}
                               >
                                 {m} min
@@ -598,7 +598,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                         <button
                           onClick={() => onStartMission(level, minutes * 60)}
                           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
-                          style={{ background: THEME.colors.gradient.primary, color: "#fff" }}
+                          style={{ background: THEME.colors.gradient.primary, color: "var(--sx-text-ffffff)" }}
                         >
                           <Play className="w-4 h-4" /> Start a round
                         </button>
@@ -623,7 +623,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                       {airtime?.balance == null ? "—" : `${airtime.balance}%`}
                     </span>
                   </div>
-                  <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--sx-bg-255-255-255-60)" }}>
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
@@ -665,7 +665,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                               {Math.floor(e.seconds / 60)}m {Math.round(e.seconds % 60)}s
                             </span>
                           </div>
-                          <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+                          <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--sx-bg-255-255-255-50)" }}>
                             <div
                               className="h-full rounded-full"
                               style={{
@@ -681,7 +681,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 )}
 
                 {canManage && (
-                  <div className="space-y-2 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}>
+                  <div className="space-y-2 p-3 rounded-xl" style={{ background: "var(--sx-bg-255-255-255-30)" }}>
                     <div className="text-[10px] uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>
                       Host tools
                     </div>
@@ -805,7 +805,7 @@ const WordsTab: React.FC<{
             <button
               onClick={() => setFlipped(true)}
               className="w-full py-2 rounded-xl text-xs font-semibold"
-              style={{ background: THEME.colors.accent.primary, color: "#fff" }}
+              style={{ background: THEME.colors.accent.primary, color: "var(--sx-text-ffffff)" }}
             >
               Show answer
             </button>
@@ -826,7 +826,7 @@ const WordsTab: React.FC<{
             <li
               key={w.id}
               className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs"
-              style={{ background: "rgba(255,255,255,0.03)", color: THEME.colors.text.secondary }}
+              style={{ background: "var(--sx-bg-255-255-255-30)", color: THEME.colors.text.secondary }}
             >
               <span className="min-w-0 truncate">
                 <span className="font-semibold" style={{ color: THEME.colors.text.primary }}>

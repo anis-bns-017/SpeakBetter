@@ -1,6 +1,7 @@
 import { IsOptional, IsBoolean, IsString, IsArray } from 'class-validator';
 import { Theme } from '@prisma/client';
 import { IsEnum } from 'class-validator';
+import { Transform } from 'class-transformer';
 export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
@@ -15,6 +16,8 @@ export class UpdateSettingsDto {
   soundEffects?: boolean;
 
   @IsOptional()
+  // The web app sends 'dark'; the column stores DARK
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
   @IsEnum(Theme)
   theme?: Theme;
 

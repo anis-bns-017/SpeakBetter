@@ -102,7 +102,7 @@ export const RandomCallPage = () => {
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 h-[520px]"
         style={{
-          background: `radial-gradient(60% 80% at 15% 0%, ${COLORS.purple}1f 0%, transparent 70%), radial-gradient(50% 70% at 90% 5%, ${COLORS.spotlight}16 0%, transparent 70%)`,
+          background: `radial-gradient(60% 80% at 15% 0%, color-mix(in srgb, ${COLORS.purple} 12.2%, transparent) 0%, transparent 70%), radial-gradient(50% 70% at 90% 5%, color-mix(in srgb, ${COLORS.spotlight} 8.6%, transparent) 0%, transparent 70%)`,
         }}
       />
       <div className="relative mx-auto max-w-3xl px-4 py-6 sm:px-6">

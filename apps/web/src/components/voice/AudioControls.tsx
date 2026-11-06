@@ -77,40 +77,40 @@ interface AudioControlsProps {
 
 // ---- Theme ----
 const THEME = {
-  void: "#0A0A12",
-  surface: "#141425",
-  surfaceRaised: "#1E1E38",
-  surfaceHover: "#2A2A4A",
-  border: "#2A2A4A",
-  borderGlow: "rgba(120, 80, 255, 0.2)",
+  void: "var(--sx-bg-page-0a0a12)",
+  surface: "var(--sx-bg-card-141425)",
+  surfaceRaised: "var(--sx-bg-raised-1e1e38)",
+  surfaceHover: "var(--sx-bg-hover-2a2a4a)",
+  border: "var(--sx-border-2a2a4a)",
+  borderGlow: "var(--sx-accent-120-80-255-200)",
   aurora: {
-    primary: "#7C6AFF",
-    secondary: "#A78BFA",
-    tertiary: "#6EE7B7",
-    quaternary: "#FCD34D",
-    pink: "#F472B6",
-    cyan: "#67E8F9",
-    purple: "#8B5CF6",
-    blue: "#3B82F6",
-    green: "#34D399",
-    red: "#EF4444",
-    orange: "#F59E0B",
-    yellow: "#FBBF24",
+    primary: "var(--sx-accent-7c6aff)",
+    secondary: "var(--sx-accent-a78bfa)",
+    tertiary: "var(--sx-accent-6ee7b7)",
+    quaternary: "var(--sx-accent-fcd34d)",
+    pink: "var(--sx-accent-f472b6)",
+    cyan: "var(--sx-accent-67e8f9)",
+    purple: "var(--sx-accent-8b5cf6)",
+    blue: "var(--sx-accent-3b82f6)",
+    green: "var(--sx-accent-34d399)",
+    red: "var(--sx-accent-ef4444)",
+    orange: "var(--sx-accent-f59e0b)",
+    yellow: "var(--sx-accent-fbbf24)",
   },
   text: {
-    primary: "#F8F7FF",
-    secondary: "#B8B0D8",
-    muted: "#7A72A0",
-    accent: "#A78BFA",
+    primary: "var(--sx-text-f8f7ff)",
+    secondary: "var(--sx-text-b8b0d8)",
+    muted: "var(--sx-text-7a72a0)",
+    accent: "var(--sx-text-a78bfa)",
   },
   status: {
-    live: "#6EE7B7",
-    liveGlow: "rgba(110, 231, 183, 0.3)",
-    muted: "#7A72A0",
-    speaking: "#A78BFA",
-    speakingGlow: "rgba(167, 139, 250, 0.4)",
-    danger: "#EF4444",
-    warning: "#FBBF24",
+    live: "var(--sx-accent-6ee7b7)",
+    liveGlow: "var(--sx-accent-110-231-183-300)",
+    muted: "var(--sx-accent-7a72a0)",
+    speaking: "var(--sx-accent-a78bfa)",
+    speakingGlow: "var(--sx-accent-167-139-250-400)",
+    danger: "var(--sx-accent-ef4444)",
+    warning: "var(--sx-accent-fbbf24)",
   },
 };
 
@@ -238,7 +238,7 @@ const ConnectionQuality: React.FC<{
   return (
     <div
       className="flex items-center gap-2 px-2.5 py-1 rounded-full"
-      style={{ background: "rgba(255,255,255,0.05)" }}
+      style={{ background: "var(--sx-bg-255-255-255-50)" }}
     >
       <div className="flex items-center gap-0.5 h-4">
         {[0, 1, 2, 3].map((i) => (
@@ -365,10 +365,10 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         <div
           className="flex items-center gap-3 px-4 py-3 rounded-2xl backdrop-blur-xl border"
           style={{
-            background: "rgba(20, 20, 37, 0.8)",
+            background: "var(--sx-bg-20-20-37-800)",
             borderColor: THEME.border,
             boxShadow: isCallActive
-              ? `0 0 40px ${THEME.aurora.primary}22`
+              ? `0 0 40px color-mix(in srgb, ${THEME.aurora.primary} 13.3%, transparent)`
               : "none",
           }}
         >
@@ -383,7 +383,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                 background: isHandRaised
                   ? "rgba(251, 191, 36, 0.18)"
                   : `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-                color: isHandRaised ? "#FBBF24" : "#fff",
+                color: isHandRaised ? "var(--sx-text-fbbf24)" : "var(--sx-text-ffffff)",
                 border: isHandRaised ? "1px solid rgba(251,191,36,0.45)" : "1px solid transparent",
               }}
               aria-pressed={isHandRaised}
@@ -413,7 +413,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                 : `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
               boxShadow: isMuted
                 ? "none"
-                : `0 0 30px ${THEME.aurora.primary}33`,
+                : `0 0 30px color-mix(in srgb, ${THEME.aurora.primary} 20%, transparent)`,
             }}
           >
             <AnimatePresence>
@@ -500,7 +500,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                   : "hover:bg-white/5"
               }`}
               style={{
-                color: isDeafened ? "#EF4444" : THEME.text.secondary,
+                color: isDeafened ? "var(--sx-text-ef4444)" : THEME.text.secondary,
               }}
             >
               {isDeafened ? (
@@ -596,7 +596,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium"
               style={{
                 background: "rgba(251, 191, 36, 0.15)",
-                color: "#FBBF24",
+                color: "var(--sx-text-fbbf24)",
               }}
             >
               <ShieldCheck className="w-3 h-3" />
@@ -613,7 +613,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               className="p-3 rounded-full transition-all"
               style={{
                 background: `linear-gradient(135deg, ${THEME.aurora.tertiary}, ${THEME.aurora.cyan})`,
-                boxShadow: `0 0 30px ${THEME.aurora.tertiary}33`,
+                boxShadow: `0 0 30px color-mix(in srgb, ${THEME.aurora.tertiary} 20%, transparent)`,
               }}
             >
               <Phone className="w-5 h-5 text-white" />
@@ -681,9 +681,9 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         <div
           className="flex items-center gap-3 px-6 py-4 rounded-full backdrop-blur-2xl border shadow-2xl"
           style={{
-            background: "rgba(10, 10, 18, 0.85)",
+            background: "var(--sx-bg-10-10-18-850)",
             borderColor: THEME.border,
-            boxShadow: `0 20px 60px rgba(0,0,0,0.8), 0 0 40px ${THEME.aurora.primary}22`,
+            boxShadow: `0 20px 60px var(--sx-shadow-0-0-0-800), 0 0 40px color-mix(in srgb, ${THEME.aurora.primary} 13.3%, transparent)`,
           }}
         >
           <button
@@ -694,7 +694,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             style={{
               boxShadow: isMuted
                 ? "none"
-                : `0 0 30px ${THEME.aurora.primary}33`,
+                : `0 0 30px color-mix(in srgb, ${THEME.aurora.primary} 20%, transparent)`,
             }}
           >
             {isMuted ? (
@@ -722,7 +722,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             <button
               onClick={onEndCall}
               className="p-3 rounded-full hover:bg-red-500/20 transition-colors"
-              style={{ color: "#EF4444" }}
+              style={{ color: "var(--sx-text-ef4444)" }}
             >
               <PhoneOff className="w-5 h-5" />
             </button>
@@ -738,7 +738,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       <div
         className={`fixed bottom-0 left-0 right-0 p-4 backdrop-blur-xl border-t ${className}`}
         style={{
-          background: "rgba(10, 10, 18, 0.9)",
+          background: "var(--sx-bg-10-10-18-900)",
           borderColor: THEME.border,
         }}
       >
@@ -751,7 +751,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             style={{
               boxShadow: isMuted
                 ? "none"
-                : `0 0 40px ${THEME.aurora.primary}33`,
+                : `0 0 40px color-mix(in srgb, ${THEME.aurora.primary} 20%, transparent)`,
             }}
           >
             {isMuted ? (
@@ -804,7 +804,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                       isDeafened ? "bg-red-500/20" : "hover:bg-white/5"
                     }`}
                     style={{
-                      color: isDeafened ? "#EF4444" : THEME.text.secondary,
+                      color: isDeafened ? "var(--sx-text-ef4444)" : THEME.text.secondary,
                     }}
                   >
                     {isDeafened ? (
@@ -861,7 +861,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
     <div
       className={`flex items-center gap-2 px-3 py-2 rounded-full backdrop-blur-xl border ${className}`}
       style={{
-        background: "rgba(20, 20, 37, 0.8)",
+        background: "var(--sx-bg-20-20-37-800)",
         borderColor: THEME.border,
       }}
     >

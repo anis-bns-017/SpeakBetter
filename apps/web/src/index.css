@@ -1,1 +1,67 @@
 @import "tailwindcss";
+/* Dark versions of light-only screens (generated: pnpm --filter web theme:fallback) */
+@import "./styles/dark-fallback.css";
+/* Voice rooms, calls and Discover: their palettes in light, dark and navy */
+@import "./styles/stage-palette.css";
+
+/*
+ * Themes: light, dark and navy (see src/lib/theme.ts). The `dark` class on <html> turns on every dark:
+ * style; data-theme="navy" swaps the dark palette for a navy-blue one.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Surfaces that change with the theme: use bg-panel, bg-shell, bg-canvas instead of fixed hex colours */
+@theme {
+  --color-panel: #151521;
+  --color-shell: #0b0b14;
+  --color-canvas: #0a0a14;
+}
+
+:root {
+  background-color: var(--color-slate-50);
+}
+
+:root.dark {
+  background-color: var(--color-slate-900);
+  /* Cards and raised surfaces on light-only screens, a step lighter than the page */
+  --sb-surface: color-mix(in oklab, var(--color-slate-900), white 6%);
+  --sb-surface-2: color-mix(in oklab, var(--color-slate-900), white 3%);
+}
+
+/* ---------- Navy: dark mode on a deep navy-blue palette ---------- */
+:root[data-theme="navy"] {
+  --color-slate-50: #f3f6fc;
+  --color-slate-100: #e6ecf8;
+  --color-slate-200: #cdd8ee;
+  --color-slate-300: #a9bbde;
+  --color-slate-400: #8399c6;
+  --color-slate-500: #637ca9;
+  --color-slate-600: #4a628e;
+  --color-slate-700: #344c77;
+  --color-slate-800: #213a64;
+  --color-slate-900: #12264c;
+  --color-slate-950: #0b1a38;
+
+  /* Every neutral grey follows the navy scale */
+  --color-gray-50: var(--color-slate-50);
+  --color-gray-100: var(--color-slate-100);
+  --color-gray-200: var(--color-slate-200);
+  --color-gray-300: var(--color-slate-300);
+  --color-gray-400: var(--color-slate-400);
+  --color-gray-500: var(--color-slate-500);
+  --color-gray-600: var(--color-slate-600);
+  --color-gray-700: var(--color-slate-700);
+  --color-gray-800: var(--color-slate-800);
+  --color-gray-900: var(--color-slate-900);
+  --color-gray-950: var(--color-slate-950);
+  --color-zinc-400: var(--color-slate-400);
+  --color-zinc-500: var(--color-slate-500);
+  --color-zinc-700: var(--color-slate-700);
+  --color-zinc-800: var(--color-slate-800);
+  --color-zinc-900: var(--color-slate-900);
+  --color-zinc-950: var(--color-slate-950);
+
+  --color-panel: #183058;
+  --color-shell: #0d1f42;
+  --color-canvas: #0f2247;
+}

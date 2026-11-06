@@ -57,7 +57,7 @@ export const CallRecap: React.FC<{
   };
 
   const stat = (label: string, value: string) => (
-    <div className="rounded-2xl border px-4 py-3 text-center" style={{ borderColor: COLORS.border, background: "rgba(28,20,48,0.6)" }}>
+    <div className="rounded-2xl border px-4 py-3 text-center" style={{ borderColor: COLORS.border, background: "var(--sx-bg-28-20-48-600)" }}>
       <p className="text-xl font-semibold tabular-nums" style={{ color: COLORS.textPrimary }}>
         {value}
       </p>
@@ -89,7 +89,7 @@ export const CallRecap: React.FC<{
         <p
           className="mt-4 flex items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold"
           role="status"
-          style={{ borderColor: `${COLORS.spotlight}55`, background: COLORS.spotlightDim, color: COLORS.spotlight }}
+          style={{ borderColor: `color-mix(in srgb, ${COLORS.spotlight} 33.3%, transparent)`, background: COLORS.spotlightDim, color: COLORS.spotlight }}
         >
           <Sparkles className="h-4 w-4" />+{ended.xp} XP for speaking today
         </p>
@@ -160,7 +160,7 @@ export const CallRecap: React.FC<{
             className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border p-3 text-sm"
             style={{ borderColor: keep ? COLORS.spotlight : COLORS.border, background: keep ? COLORS.spotlightDim : "transparent" }}
           >
-            <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} className="mt-0.5 accent-[#F5A623]" />
+            <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} className="mt-0.5 accent-[var(--sx-bg-f5a623)]" />
             <span>
               <span className="flex items-center gap-1.5 font-medium" style={{ color: COLORS.textPrimary }}>
                 <Handshake className="h-4 w-4" style={{ color: COLORS.spotlight }} />
@@ -189,7 +189,7 @@ export const CallRecap: React.FC<{
         <p
           className="mt-6 flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm"
           role="status"
-          style={{ borderColor: `${COLORS.live}55`, background: COLORS.liveDim, color: COLORS.live }}
+          style={{ borderColor: `color-mix(in srgb, ${COLORS.live} 33.3%, transparent)`, background: COLORS.liveDim, color: COLORS.live }}
         >
           <Check className="h-4 w-4" />
           {result.mutualFriend

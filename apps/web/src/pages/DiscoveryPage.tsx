@@ -89,38 +89,38 @@ import { formatDistanceToNow } from "date-fns";
 // ============================================================
 
 const THEME = {
-  void: "#0A0A12",
-  surface: "#141425",
-  surfaceRaised: "#1E1E38",
-  surfaceHover: "#2A2A4A",
-  border: "#2A2A4A",
-  borderGlow: "rgba(120, 80, 255, 0.2)",
+  void: "var(--sx-bg-page-0a0a12)",
+  surface: "var(--sx-bg-card-141425)",
+  surfaceRaised: "var(--sx-bg-raised-1e1e38)",
+  surfaceHover: "var(--sx-bg-hover-2a2a4a)",
+  border: "var(--sx-border-2a2a4a)",
+  borderGlow: "var(--sx-accent-120-80-255-200)",
   aurora: {
-    primary: "#7C6AFF",
-    secondary: "#A78BFA",
-    tertiary: "#6EE7B7",
-    quaternary: "#FCD34D",
-    pink: "#F472B6",
-    cyan: "#67E8F9",
-    purple: "#8B5CF6",
+    primary: "var(--sx-accent-7c6aff)",
+    secondary: "var(--sx-accent-a78bfa)",
+    tertiary: "var(--sx-accent-6ee7b7)",
+    quaternary: "var(--sx-accent-fcd34d)",
+    pink: "var(--sx-accent-f472b6)",
+    cyan: "var(--sx-accent-67e8f9)",
+    purple: "var(--sx-accent-8b5cf6)",
   },
   gradient: {
-    from: "rgba(124, 106, 255, 0.15)",
-    to: "rgba(167, 139, 250, 0.05)",
+    from: "var(--sx-bg-124-106-255-150)",
+    to: "var(--sx-bg-167-139-250-50)",
   },
   text: {
-    primary: "#F8F7FF",
-    secondary: "#B8B0D8",
-    muted: "#7A72A0",
-    accent: "#A78BFA",
+    primary: "var(--sx-text-f8f7ff)",
+    secondary: "var(--sx-text-b8b0d8)",
+    muted: "var(--sx-text-7a72a0)",
+    accent: "var(--sx-text-a78bfa)",
   },
   status: {
-    live: "#6EE7B7",
-    liveGlow: "rgba(110, 231, 183, 0.3)",
-    speaking: "#A78BFA",
-    speakingGlow: "rgba(167, 139, 250, 0.4)",
-    waiting: "#FCD34D",
-    waitingGlow: "rgba(252, 211, 77, 0.3)",
+    live: "var(--sx-accent-6ee7b7)",
+    liveGlow: "var(--sx-accent-110-231-183-300)",
+    speaking: "var(--sx-accent-a78bfa)",
+    speakingGlow: "var(--sx-accent-167-139-250-400)",
+    waiting: "var(--sx-accent-fcd34d)",
+    waitingGlow: "var(--sx-accent-252-211-77-300)",
   },
 } as const;
 
@@ -416,7 +416,7 @@ const CapacityBar: React.FC<{
   return (
     <div
  className="h-1 overflow-hidden rounded-full"
-      style={{ background: "rgba(255,255,255,0.06)" }}
+      style={{ background: "var(--sx-bg-255-255-255-60)" }}
     >
       <motion.div
         className={`h-full rounded-full bg-gradient-to-r ${color}`}
@@ -550,7 +550,7 @@ const RoomCard: React.FC<{
       onClick={() => navigate(`/voice/${room.id}`)}
       className="group relative rounded-2xl border cursor-pointer overflow-hidden transition-all"
       style={{
-        background: "rgba(20, 20, 37, 0.8)",
+        background: "var(--sx-bg-20-20-37-800)",
         backdropFilter: "blur(12px)",
         borderColor: THEME.border,
         transform: !reduced && !isListView
@@ -673,7 +673,7 @@ const RoomCard: React.FC<{
               key={tag}
               className="px-2 py-0.5 rounded-full text-[9px]"
               style={{
-                background: "rgba(255,255,255,0.05)",
+                background: "var(--sx-bg-255-255-255-50)",
                 color: THEME.text.muted,
               }}
             >
@@ -735,7 +735,7 @@ const RoomCard: React.FC<{
                 className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
                 style={{
                   background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-                  color: "#fff",
+                  color: "var(--sx-text-ffffff)",
                 }}
               >
                 {room.creator?.name?.charAt(0).toUpperCase() || "U"}
@@ -784,7 +784,7 @@ const RoomCard: React.FC<{
               }`}
               style={{
                 background: `linear-gradient(135deg, ${catStyle.glow.replace("0.35", "1").replace("rgba", "rgb").replace(", 0.35", "")}, ${THEME.aurora.secondary})`,
-                color: "#fff",
+                color: "var(--sx-text-ffffff)",
                 opacity: isFull ? 0.5 : 1,
                 cursor: isFull ? "not-allowed" : "pointer",
               }}
@@ -830,7 +830,7 @@ const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="relative overflow-hidden rounded-3xl border"
       style={{
-        background: "rgba(20, 20, 37, 0.8)",
+        background: "var(--sx-bg-20-20-37-800)",
         borderColor: THEME.border,
         backdropFilter: "blur(16px)",
       }}
@@ -876,7 +876,7 @@ const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
               <span
                 className="text-[10px] font-medium px-2 py-0.5 rounded-full"
                 style={{
-                  background: "rgba(255,255,255,0.05)",
+                  background: "var(--sx-bg-255-255-255-50)",
                   color: THEME.text.secondary,
                 }}
               >
@@ -1019,7 +1019,7 @@ const RecommendedCarousel: React.FC<{ rooms: any[] }> = ({ rooms }) => {
             onClick={() => scroll("left")}
             className="p-1.5 rounded-lg transition-all hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60"
             style={{
-              background: "rgba(255,255,255,0.03)",
+              background: "var(--sx-bg-255-255-255-30)",
               color: THEME.text.muted,
               border: `1px solid ${THEME.border}`,
             }}
@@ -1031,7 +1031,7 @@ const RecommendedCarousel: React.FC<{ rooms: any[] }> = ({ rooms }) => {
             onClick={() => scroll("right")}
             className="p-1.5 rounded-lg transition-all hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60"
             style={{
-              background: "rgba(255,255,255,0.03)",
+              background: "var(--sx-bg-255-255-255-30)",
               color: THEME.text.muted,
               border: `1px solid ${THEME.border}`,
             }}
@@ -1250,8 +1250,8 @@ export const DiscoveryPage: React.FC = () => {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-sm transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
             style={{
               background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-              color: "#fff",
-              boxShadow: `0 0 30px ${THEME.aurora.primary}33`,
+              color: "var(--sx-text-ffffff)",
+              boxShadow: `0 0 30px color-mix(in srgb, ${THEME.aurora.primary} 20%, transparent)`,
             }}
           >
             <Plus className="w-4 h-4" />
@@ -1292,7 +1292,7 @@ export const DiscoveryPage: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-12 pr-20 py-3.5 rounded-2xl border outline-none text-sm transition-all focus:border-purple-500 focus-visible:ring-2 focus-visible:ring-purple-400/30"
               style={{
-                background: "rgba(20, 20, 37, 0.8)",
+                background: "var(--sx-bg-20-20-37-800)",
                 backdropFilter: "blur(12px)",
                 borderColor: THEME.border,
                 color: THEME.text.primary,
@@ -1305,7 +1305,7 @@ export const DiscoveryPage: React.FC = () => {
                 style={{
                   borderColor: THEME.border,
                   color: THEME.text.muted,
-                  background: "rgba(255,255,255,0.03)",
+                  background: "var(--sx-bg-255-255-255-30)",
                 }}
               >
                 /
@@ -1329,7 +1329,7 @@ export const DiscoveryPage: React.FC = () => {
             style={{
               background: showFilters
                 ? "rgba(124, 106, 255, 0.15)"
-                : "rgba(20, 20, 37, 0.8)",
+                : "var(--sx-bg-20-20-37-800)",
               borderColor: showFilters
                 ? THEME.aurora.primary
                 : THEME.border,
@@ -1345,7 +1345,7 @@ export const DiscoveryPage: React.FC = () => {
                 className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold"
                 style={{
                   background: THEME.aurora.primary,
-                  color: "#fff",
+                  color: "var(--sx-text-ffffff)",
                 }}
               >
                 {activeFilterCount}
@@ -1360,7 +1360,7 @@ export const DiscoveryPage: React.FC = () => {
           <div
             className="flex items-center rounded-2xl border p-1 shrink-0"
             style={{
-              background: "rgba(20, 20, 37, 0.8)",
+              background: "var(--sx-bg-20-20-37-800)",
               borderColor: THEME.border,
             }}
           >
@@ -1433,7 +1433,7 @@ export const DiscoveryPage: React.FC = () => {
               <div
                 className="p-5 rounded-2xl border backdrop-blur-xl"
                 style={{
-                  background: "rgba(20, 20, 37, 0.8)",
+                  background: "var(--sx-bg-20-20-37-800)",
                   borderColor: THEME.border,
                 }}
               >
@@ -1460,7 +1460,7 @@ export const DiscoveryPage: React.FC = () => {
                             background:
                               languageFilter === lang
                                 ? THEME.aurora.primary
-                                : "rgba(255,255,255,0.04)",
+                                : "var(--sx-bg-255-255-255-40)",
                             color:
                               languageFilter === lang
                                 ? "#fff"
@@ -1569,7 +1569,7 @@ export const DiscoveryPage: React.FC = () => {
                   background:
                     selectedCategory === null
                       ? `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`
-                      : "rgba(255,255,255,0.04)",
+                      : "var(--sx-bg-255-255-255-40)",
                   color:
                     selectedCategory === null
                       ? "#fff"
@@ -1590,8 +1590,8 @@ export const DiscoveryPage: React.FC = () => {
                     style={{
                       background: isSelected
                         ? `linear-gradient(135deg, ${style.glow.replace("0.35", "1").replace("rgba", "rgb").replace(", 0.35", "")}, ${THEME.aurora.secondary})`
-                        : "rgba(255,255,255,0.04)",
-                      color: isSelected ? "#fff" : THEME.text.muted,
+                        : "var(--sx-bg-255-255-255-40)",
+                      color: isSelected ? "var(--sx-text-ffffff)" : THEME.text.muted,
                       border: `1px solid ${isSelected ? "transparent" : THEME.border}`,
                     }}
                   >
@@ -1619,7 +1619,7 @@ export const DiscoveryPage: React.FC = () => {
           </span>
           <div
             className="relative flex gap-1 rounded-xl p-1"
-            style={{ background: "rgba(255,255,255,0.04)" }}
+            style={{ background: "var(--sx-bg-255-255-255-40)" }}
           >
             {sortOptions.map(({ value, label, icon: Icon }) => {
               const isSelected = sortType === value;
@@ -1629,7 +1629,7 @@ export const DiscoveryPage: React.FC = () => {
                   onClick={() => setSortType(value)}
                   className="relative px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60"
                   style={{
-                    color: isSelected ? "#fff" : THEME.text.muted,
+                    color: isSelected ? "var(--sx-text-ffffff)" : THEME.text.muted,
                   }}
                 >
                   {isSelected && (
@@ -1638,7 +1638,7 @@ export const DiscoveryPage: React.FC = () => {
                       className="absolute inset-0 rounded-lg"
                       style={{
                         background: THEME.aurora.primary,
-                        boxShadow: `0 2px 8px ${THEME.aurora.primary}40`,
+                        boxShadow: `0 2px 8px color-mix(in srgb, ${THEME.aurora.primary} 25.1%, transparent)`,
                       }}
                       transition={
                         reduced
@@ -1674,7 +1674,7 @@ export const DiscoveryPage: React.FC = () => {
                   key={i}
                   className="rounded-2xl p-5"
                   style={{
-                    background: "rgba(20, 20, 37, 0.8)",
+                    background: "var(--sx-bg-20-20-37-800)",
                     border: `1px solid ${THEME.border}`,
                   }}
                 >
@@ -1722,8 +1722,8 @@ export const DiscoveryPage: React.FC = () => {
                 transition={{ type: "spring", stiffness: 200, damping: 18 }}
                 className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4"
                 style={{
-                  background: `radial-gradient(circle, ${THEME.aurora.primary}22, transparent 70%)`,
-                  border: `1px solid ${THEME.aurora.primary}33`,
+                  background: `radial-gradient(circle, color-mix(in srgb, ${THEME.aurora.primary} 13.3%, transparent), transparent 70%)`,
+                  border: `1px solid color-mix(in srgb, ${THEME.aurora.primary} 20%, transparent)`,
                 }}
               >
                 <Compass
@@ -1753,7 +1753,7 @@ export const DiscoveryPage: React.FC = () => {
                   className="px-6 py-2.5 rounded-full font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                   style={{
                     background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-                    color: "#fff",
+                    color: "var(--sx-text-ffffff)",
                   }}
                 >
                   Create a Room
@@ -1788,7 +1788,7 @@ export const DiscoveryPage: React.FC = () => {
                 disabled={searchResults.pagination.page === 1}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60"
                 style={{
-                  background: "rgba(255,255,255,0.04)",
+                  background: "var(--sx-bg-255-255-255-40)",
                   color: THEME.text.muted,
                 }}
                 aria-label="Previous page"
@@ -1808,7 +1808,7 @@ export const DiscoveryPage: React.FC = () => {
                     background:
                       searchResults.pagination.page === page
                         ? THEME.aurora.primary
-                        : "rgba(255,255,255,0.04)",
+                        : "var(--sx-bg-255-255-255-40)",
                     color:
                       searchResults.pagination.page === page
                         ? "#fff"
@@ -1825,7 +1825,7 @@ export const DiscoveryPage: React.FC = () => {
                 }
                 className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60"
                 style={{
-                  background: "rgba(255,255,255,0.04)",
+                  background: "var(--sx-bg-255-255-255-40)",
                   color: THEME.text.muted,
                 }}
                 aria-label="Next page"
@@ -1841,7 +1841,7 @@ export const DiscoveryPage: React.FC = () => {
         className="fixed bottom-4 right-4 z-20 hidden md:flex items-center gap-2 text-[9px] px-3 py-1.5 rounded-full border pointer-events-none"
         style={{
           color: THEME.text.muted,
-          background: "rgba(10,10,18,0.75)",
+          background: "var(--sx-bg-10-10-18-750)",
           borderColor: THEME.border,
           backdropFilter: "blur(10px)",
         }}

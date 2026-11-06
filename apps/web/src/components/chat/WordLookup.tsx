@@ -148,7 +148,7 @@ export const WordLookup: React.FC<{ selection: WordSelection; onClose: () => voi
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.14 }}
-      className="fixed left-0 top-0 z-[90] overflow-y-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#151521] shadow-2xl p-3.5"
+      className="fixed left-0 top-0 z-[90] overflow-y-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-panel shadow-2xl p-3.5"
       // Hidden until it has been measured and placed
       style={{ visibility: "hidden", width: 340 }}
       role="dialog"

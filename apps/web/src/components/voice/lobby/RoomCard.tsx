@@ -96,14 +96,14 @@ export const RoomCard: React.FC<RoomCardProps> = ({
         isList ? "flex items-stretch" : ""
       }`}
       style={{
-        background: `linear-gradient(160deg, ${COLORS.surface} 0%, rgba(28,20,48,0.72) 100%)`,
-        borderColor: isUserInRoom ? `${COLORS.live}66` : COLORS.border,
-        ["--card-glow" as string]: `${accent}55`,
+        background: `linear-gradient(160deg, ${COLORS.surface} 0%, var(--sx-bg-28-20-48-720) 100%)`,
+        borderColor: isUserInRoom ? `color-mix(in srgb, ${COLORS.live} 40%, transparent)` : COLORS.border,
+        ["--card-glow" as string]: `color-mix(in srgb, ${accent} 33.3%, transparent)`,
       }}
     >
       <div
         className={isList ? "w-1 shrink-0" : "h-1"}
-        style={{ background: `linear-gradient(90deg, ${accent}, ${accent}55)` }}
+        style={{ background: `linear-gradient(90deg, ${accent}, color-mix(in srgb, ${accent} 33.3%, transparent))` }}
       />
 
       <div className={`p-5 ${isList ? "flex-1 min-w-0 flex flex-wrap items-center gap-x-6 gap-y-3" : ""}`}>
@@ -171,7 +171,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               </button>
               <span
                 className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded-full"
-                style={{ background: `${accent}22`, color: accent }}
+                style={{ background: `color-mix(in srgb, ${accent} 13.3%, transparent)`, color: accent }}
               >
                 <TypeIcon className="w-3 h-3" />
                 {typeConfig.label}
@@ -184,7 +184,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               {room.language && (
                 <span
                   className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(255,255,255,0.06)", color: COLORS.textMuted }}
+                  style={{ background: "var(--sx-bg-255-255-255-60)", color: COLORS.textMuted }}
                 >
                   <Globe className="w-3 h-3" />
                   {room.language}
@@ -194,7 +194,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 <span
                   key={topic}
                   className="text-[10px] px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(255,255,255,0.06)", color: COLORS.textMuted }}
+                  style={{ background: "var(--sx-bg-255-255-255-60)", color: COLORS.textMuted }}
                 >
                   {topic}
                 </span>
@@ -244,7 +244,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             </span>
             <span
               className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full"
-              style={{ background: `${status.color}22`, color: status.color }}
+              style={{ background: `color-mix(in srgb, ${status.color} 13.3%, transparent)`, color: status.color }}
             >
               <StatusIcon className="w-3 h-3" />
               {status.label}
@@ -254,7 +254,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           {!isList && (
             <div
               className="h-1 rounded-full mt-3 overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.06)" }}
+              style={{ background: "var(--sx-bg-255-255-255-60)" }}
               role="progressbar"
               aria-valuenow={count}
               aria-valuemin={0}

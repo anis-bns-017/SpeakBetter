@@ -128,7 +128,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
       transition={{ duration: 0.15, ease: "easeOut" }}
       className="absolute top-full right-0 mt-2 w-[min(92vw,360px)] rounded-2xl border p-4 shadow-2xl backdrop-blur-2xl z-[65]"
       style={{
-        background: "rgba(10, 10, 18, 0.98)",
+        background: "var(--sx-bg-10-10-18-980)",
         borderColor: THEME.colors.border.primary,
       }}
       onClick={(e) => e.stopPropagation()}
@@ -166,7 +166,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
               style={{
                 background: isActive
                   ? "rgba(99,102,241,0.12)"
-                  : "rgba(255,255,255,0.02)",
+                  : "var(--sx-bg-255-255-255-20)",
                 borderColor: isActive
                   ? "rgba(99,102,241,0.35)"
                   : THEME.colors.border.primary,

@@ -120,11 +120,11 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
     <div
       className={cn("rounded-2xl border overflow-hidden shadow-2xl", className)}
       style={{
-        background: "rgba(10, 10, 20, 0.98)",
+        background: "var(--sx-bg-10-10-20-980)",
         borderColor: "rgba(129,140,248,0.25)",
         backdropFilter: "blur(20px)",
         boxShadow:
-          "0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(129,140,248,0.08)",
+          "0 12px 40px var(--sx-bg-0-0-0-500), 0 0 0 1px rgba(129,140,248,0.08)",
       }}
     >
       {/* Header */}
@@ -258,7 +258,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                 <div className="text-center py-6">
                   <div
                     className="w-11 h-11 mx-auto rounded-full flex items-center justify-center mb-2"
-                    style={{ background: "rgba(255,255,255,0.04)" }}
+                    style={{ background: "var(--sx-bg-255-255-255-40)" }}
                   >
                     <Clock
                       className="w-5 h-5"
@@ -298,7 +298,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                           ? "rgba(52,211,153,0.08)"
                           : isMe
                             ? "rgba(129,140,248,0.08)"
-                            : "rgba(255,255,255,0.02)",
+                            : "var(--sx-bg-255-255-255-20)",
                         borderColor: isMe
                           ? "rgba(129,140,248,0.35)"
                           : "transparent",
@@ -312,7 +312,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                         style={{
                           background: item.isSpeaking
                             ? "rgba(52,211,153,0.15)"
-                            : "rgba(255,255,255,0.06)",
+                            : "var(--sx-bg-255-255-255-60)",
                           color: item.isSpeaking
                             ? THEME.colors.accent.success
                             : THEME.colors.text.muted,

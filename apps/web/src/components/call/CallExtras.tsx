@@ -13,7 +13,7 @@ import {
 export const ReactionBar: React.FC<{ onReact: (emoji: string) => void }> = ({ onReact }) => (
   <div
     className="flex items-center justify-center gap-1 rounded-full border px-2 py-1"
-    style={{ borderColor: COLORS.border, background: "rgba(28,20,48,0.6)" }}
+    style={{ borderColor: COLORS.border, background: "var(--sx-bg-28-20-48-600)" }}
     role="group"
     aria-label="Send a reaction"
   >
@@ -104,7 +104,7 @@ export const CaptionsPanel: React.FC<{
   <section
     aria-label="Live captions"
     className="rounded-3xl border px-4 py-3"
-    style={{ borderColor: COLORS.border, background: "rgba(28,20,48,0.6)" }}
+    style={{ borderColor: COLORS.border, background: "var(--sx-bg-28-20-48-600)" }}
   >
     <div className="flex items-center justify-between gap-3">
       <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.textMuted }}>
@@ -264,7 +264,7 @@ export const TipsInbox: React.FC<{
         exit={{ opacity: 0, height: 0 }}
         role="status"
         className="flex items-start gap-3 rounded-2xl border px-4 py-3"
-        style={{ borderColor: `${COLORS.spotlight}55`, background: COLORS.spotlightDim }}
+        style={{ borderColor: `color-mix(in srgb, ${COLORS.spotlight} 33.3%, transparent)`, background: COLORS.spotlightDim }}
       >
         <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" style={{ color: COLORS.spotlight }} />
         <p className="min-w-0 flex-1 text-sm" style={{ color: COLORS.textPrimary }}>

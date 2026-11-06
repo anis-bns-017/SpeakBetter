@@ -61,7 +61,7 @@ export const ConfirmationModal: React.FC<{
         <div className="text-center">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{ background: `${confirmColor}22` }}
+            style={{ background: `color-mix(in srgb, ${confirmColor} 13.3%, transparent)` }}
           >
             <AlertCircle className="w-8 h-8" style={{ color: confirmColor }} />
           </div>
@@ -88,7 +88,7 @@ export const ConfirmationModal: React.FC<{
                 onClose();
               }}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors hover:opacity-80"
-              style={{ background: confirmColor, color: "#fff" }}
+              style={{ background: confirmColor, color: "var(--sx-text-ffffff)" }}
             >
               {confirmText}
             </button>
@@ -115,9 +115,9 @@ export const FloatingMiniRoom: React.FC<{
       transition={{ type: "spring", damping: 25, stiffness: 300 }}
       className="fixed bottom-6 right-6 z-50 w-72 rounded-2xl border shadow-2xl backdrop-blur-xl overflow-hidden"
       style={{
-        background: "rgba(20, 20, 37, 0.95)",
+        background: "var(--sx-bg-20-20-37-950)",
         borderColor: COLORS.border,
-        boxShadow: "0 20px 60px rgba(0,0,0,0.8)",
+        boxShadow: "0 20px 60px var(--sx-shadow-0-0-0-800)",
       }}
       drag
       dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
@@ -197,7 +197,7 @@ export const FloatingMiniRoom: React.FC<{
           className="w-full py-2 rounded-full text-sm font-semibold transition-all hover:scale-105 active:scale-95"
           style={{
             background: `linear-gradient(135deg, ${TYPE_ACCENTS[room.type] || COLORS.spotlight}, ${COLORS.purple})`,
-            color: "#fff",
+            color: "var(--sx-text-ffffff)",
           }}
         >
           Open Room
@@ -302,7 +302,7 @@ export const JoinPasswordModal: React.FC<{
         </button>
       </div>
       {error ? (
-        <p className="text-xs mb-3" style={{ color: "#F87171" }}>
+        <p className="text-xs mb-3" style={{ color: "var(--sx-text-f87171)" }}>
           {error}
         </p>
       ) : (

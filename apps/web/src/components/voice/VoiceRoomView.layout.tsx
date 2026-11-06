@@ -27,9 +27,9 @@ import { THEME } from "./VoiceRoomView.theme";
 // ------------------------------------------------------------
 
 const ROOM_SURFACE = {
-  background: "linear-gradient(180deg, rgba(22,22,38,0.78) 0%, rgba(12,12,22,0.82) 100%)",
-  border: "1px solid rgba(255,255,255,0.07)",
-  boxShadow: "0 30px 80px -40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.05)",
+  background: "linear-gradient(180deg, var(--sx-bg-22-22-38-780) 0%, var(--sx-bg-12-12-22-820) 100%)",
+  border: "1px solid var(--sx-border-255-255-255-70)",
+  boxShadow: "0 30px 80px -40px var(--sx-shadow-0-0-0-900), inset 0 1px 0 var(--sx-bg-255-255-255-50)",
   backdropFilter: "blur(18px)",
 } as const;
 
@@ -62,7 +62,7 @@ export const RoomBackdrop: React.FC<{ intensity?: "calm" | "bright" }> = ({ inte
       <div
         className="absolute inset-0 opacity-[0.35]"
         style={{
-          backgroundImage: "radial-gradient(rgba(255,255,255,0.09) 1px, transparent 1px)",
+          backgroundImage: "radial-gradient(var(--sx-bg-255-255-255-90) 1px, transparent 1px)",
           backgroundSize: "22px 22px",
           maskImage: "radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%)",
           WebkitMaskImage: "radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%)",
@@ -122,12 +122,12 @@ const ToolButton: React.FC<{ tool: RoomTool }> = ({ tool }) => {
         </span>
       )}
       {tool.dot && !tool.active && !showBadge && (
-        <span className="absolute right-1 top-1 h-2 w-2 rounded-full ring-2 ring-[#12121f]" style={{ background: THEME.colors.accent.warning }} />
+        <span className="absolute right-1 top-1 h-2 w-2 rounded-full ring-2 ring-[var(--sx-border-12121f)]" style={{ background: THEME.colors.accent.warning }} />
       )}
       <span
         role="tooltip"
         className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium opacity-0 shadow-xl transition-opacity delay-150 group-hover/tool:opacity-100 group-focus-visible/tool:opacity-100"
-        style={{ background: "#1c1c2e", color: THEME.colors.text.primary, border: "1px solid rgba(255,255,255,0.08)" }}
+        style={{ background: "var(--sx-bg-1c1c2e)", color: THEME.colors.text.primary, border: "1px solid var(--sx-border-255-255-255-80)" }}
       >
         {tool.label}
       </span>
@@ -142,10 +142,10 @@ export const RoomToolbar: React.FC<{ groups: RoomToolGroup[] }> = ({ groups }) =
     .filter((g) => g.tools.length > 0);
   if (!visible.length) return null;
   return (
-    <div role="toolbar" aria-label="Room tools" className="flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl p-1 md:overflow-visible" style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.06)" }}>
+    <div role="toolbar" aria-label="Room tools" className="flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl p-1 md:overflow-visible" style={{ background: "var(--sx-bg-255-255-255-35)", border: "1px solid var(--sx-border-255-255-255-60)" }}>
       {visible.map((group, i) => (
         <React.Fragment key={group.id}>
-          {i > 0 && <span aria-hidden className="mx-0.5 h-5 w-px shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />}
+          {i > 0 && <span aria-hidden className="mx-0.5 h-5 w-px shrink-0" style={{ background: "var(--sx-bg-255-255-255-80)" }} />}
           <div role="group" aria-label={group.label} className="flex items-center gap-0.5">
             {group.tools.map((tool) => (
               <ToolButton key={tool.id} tool={tool} />
@@ -178,8 +178,8 @@ const StatChip: React.FC<{ stat: StageStat }> = ({ stat }) => {
     <span
       className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs"
       style={{
-        background: stat.live ? `${color}1f` : "rgba(255,255,255,0.04)",
-        border: `1px solid ${stat.live ? `${color}55` : "rgba(255,255,255,0.06)"}`,
+        background: stat.live ? `color-mix(in srgb, ${color} 12.2%, transparent)` : "var(--sx-bg-255-255-255-40)",
+        border: `1px solid ${stat.live ? `color-mix(in srgb, ${color} 33.3%, transparent)` : "var(--sx-bg-255-255-255-60)"}`,
         color: stat.live ? color : THEME.colors.text.secondary,
       }}
       title={stat.label}
@@ -195,9 +195,9 @@ const StatChip: React.FC<{ stat: StageStat }> = ({ stat }) => {
 };
 
 export const LiveBadge: React.FC<{ label?: string; tone?: "live" | "idle" }> = ({ label = "Live", tone = "live" }) => {
-  const color = tone === "live" ? "#f43f5e" : THEME.colors.text.muted;
+  const color = tone === "live" ? "var(--sx-bg-f43f5e)" : THEME.colors.text.muted;
   return (
-    <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full pl-2 pr-2.5 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ background: `${color}1a`, color, border: `1px solid ${color}40` }}>
+    <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full pl-2 pr-2.5 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ background: `color-mix(in srgb, ${color} 10.2%, transparent)`, color, border: `1px solid color-mix(in srgb, ${color} 25.1%, transparent)` }}>
       <span className="relative flex h-2 w-2">
         {tone === "live" && <span className="absolute inset-0 animate-ping rounded-full opacity-70" style={{ background: color }} />}
         <span className="relative h-2 w-2 rounded-full" style={{ background: color }} />
@@ -221,7 +221,7 @@ export const RoomCard: React.FC<React.HTMLAttributes<HTMLDivElement> & { as?: "s
 };
 
 export const DockKey: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border px-1 font-mono text-[10px] font-semibold" style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: THEME.colors.text.secondary }}>
+  <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border px-1 font-mono text-[10px] font-semibold" style={{ borderColor: "var(--sx-border-255-255-255-100)", background: "var(--sx-bg-255-255-255-40)", color: THEME.colors.text.secondary }}>
     {children}
   </kbd>
 );
@@ -277,7 +277,7 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
   shortcutHint,
   children,
 }) => (
-  <div className="relative flex h-dvh flex-col overflow-hidden" style={{ background: "#07070d", color: THEME.colors.text.primary }}>
+  <div className="relative flex h-dvh flex-col overflow-hidden" style={{ background: "var(--sx-bg-07070d)", color: THEME.colors.text.primary }}>
     <RoomBackdrop />
 
     <div className="relative z-30">{header}</div>
@@ -313,7 +313,7 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
         </div>
 
         {stageFooter && (
-          <div className="relative z-20 flex shrink-0 items-center justify-start gap-3 overflow-x-auto border-t px-3 py-2.5 md:justify-center" style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(8,8,16,0.35)", scrollbarWidth: "none" }}>
+          <div className="relative z-20 flex shrink-0 items-center justify-start gap-3 overflow-x-auto border-t px-3 py-2.5 md:justify-center" style={{ borderColor: "var(--sx-border-255-255-255-60)", background: "var(--sx-bg-8-8-16-350)", scrollbarWidth: "none" }}>
             {stageFooter}
           </div>
         )}
@@ -349,7 +349,7 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
             type="button"
             onClick={onShowShortcuts}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
-            style={{ color: THEME.colors.text.secondary, border: "1px solid rgba(255,255,255,0.07)" }}
+            style={{ color: THEME.colors.text.secondary, border: "1px solid var(--sx-border-255-255-255-70)" }}
             aria-label="Keyboard shortcuts"
             title="Keyboard shortcuts (?)"
           >
@@ -394,8 +394,8 @@ export const RoomPhoneDock: React.FC<{ actions: PhoneDockAction[] }> = ({ action
           aria-pressed={a.state === "on" || a.state === "off" ? on : undefined}
           className="relative flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[10px] font-medium transition-transform active:scale-95"
           style={{
-            background: danger ? "rgba(239,68,68,0.9)" : on ? tone.bg : "rgba(255,255,255,0.04)",
-            color: danger ? "#fff" : on ? tone.fg : THEME.colors.text.secondary,
+            background: danger ? "rgba(239,68,68,0.9)" : on ? tone.bg : "var(--sx-bg-255-255-255-40)",
+            color: danger ? "var(--sx-text-ffffff)" : on ? tone.fg : THEME.colors.text.secondary,
             boxShadow: on ? `inset 0 0 0 1px ${tone.ring}` : undefined,
           }}
         >
@@ -417,7 +417,7 @@ export const RoomPhoneDock: React.FC<{ actions: PhoneDockAction[] }> = ({ action
 // ------------------------------------------------------------
 
 export const RoomStatusScreen: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="relative flex h-dvh items-center justify-center overflow-hidden px-6" style={{ background: "#07070d" }}>
+  <div className="relative flex h-dvh items-center justify-center overflow-hidden px-6" style={{ background: "var(--sx-bg-07070d)" }}>
     <RoomBackdrop intensity="bright" />
     <div className="relative">{children}</div>
   </div>
@@ -441,7 +441,7 @@ export const RoomStatusCard: React.FC<{
       className="w-full max-w-sm rounded-[28px] p-7 text-center"
       style={ROOM_SURFACE}
     >
-      <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl" style={{ background: `${accent}1a`, border: `1px solid ${accent}40` }}>
+      <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl" style={{ background: `color-mix(in srgb, ${accent} 10.2%, transparent)`, border: `1px solid color-mix(in srgb, ${accent} 25.1%, transparent)` }}>
         <Icon className="h-7 w-7" style={{ color: accent }} />
       </div>
       <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
@@ -457,8 +457,8 @@ export const RoomButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> 
     className={`inline-flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 ${variant === "primary" ? "text-white hover:brightness-110 active:scale-[0.98]" : "hover:bg-white/[0.06]"} ${className}`}
     style={{
       ...(variant === "primary"
-        ? { background: "linear-gradient(135deg, #6366f1, #8b5cf6)", boxShadow: "0 12px 30px -12px rgba(99,102,241,0.9)" }
-        : { border: "1px solid rgba(255,255,255,0.1)", color: THEME.colors.text.secondary }),
+        ? { background: "linear-gradient(135deg, var(--sx-bg-6366f1), var(--sx-bg-8b5cf6))", boxShadow: "0 12px 30px -12px var(--sx-shadow-99-102-241-900)" }
+        : { border: "1px solid var(--sx-border-255-255-255-100)", color: THEME.colors.text.secondary }),
       ...style,
     }}
     {...rest}
@@ -481,7 +481,7 @@ export const RoomJoiningIndicator: React.FC<{ label: string; icon: LucideIcon; o
           transition={{ duration: 2.4, repeat: Infinity, delay: i * 0.8, ease: "easeOut" }}
         />
       ))}
-      <div className="absolute inset-[30%] grid place-items-center rounded-2xl" style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", boxShadow: "0 16px 40px -10px rgba(99,102,241,0.9)" }}>
+      <div className="absolute inset-[30%] grid place-items-center rounded-2xl" style={{ background: "linear-gradient(135deg, var(--sx-bg-6366f1), var(--sx-bg-8b5cf6))", boxShadow: "0 16px 40px -10px var(--sx-shadow-99-102-241-900)" }}>
         <Icon className="h-6 w-6 text-white" />
       </div>
     </div>

@@ -206,7 +206,7 @@ export const AttachmentPreviewModal: React.FC<
                 <div
                   className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                   style={{
-                    background: `${colorForKind(kind)}22`,
+                    background: `color-mix(in srgb, ${colorForKind(kind)} 13.3%, transparent)`,
                   }}
                 >
                   {kindIcon(kind, colorForKind(kind))}
@@ -242,7 +242,7 @@ export const AttachmentPreviewModal: React.FC<
             {/* Preview area */}
             <div
               className="relative"
-              style={{ background: "rgba(0,0,0,0.35)" }}
+              style={{ background: "var(--sx-bg-0-0-0-350)" }}
             >
               {/* Image */}
               {kind === "image" && previewUrl && (
@@ -277,7 +277,7 @@ export const AttachmentPreviewModal: React.FC<
                       className="w-14 h-14 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
                       style={{
                         background: `linear-gradient(135deg, ${THEME.colors.accent.primary}, ${THEME.colors.accent.secondary})`,
-                        color: "#fff",
+                        color: "var(--sx-text-ffffff)",
                       }}
                       aria-label={isPlaying ? "Pause" : "Play"}
                     >
@@ -418,7 +418,7 @@ export const AttachmentPreviewModal: React.FC<
                   >
                     <div
                       className="h-1.5 rounded-full overflow-hidden"
-                      style={{ background: "rgba(255,255,255,0.08)" }}
+                      style={{ background: "var(--sx-bg-255-255-255-80)" }}
                     >
                       <motion.div
                         className="h-full rounded-full"
@@ -487,8 +487,8 @@ export const AttachmentPreviewModal: React.FC<
                   className="px-5 py-2.5 rounded-full font-semibold text-sm flex items-center gap-2 transition-all hover:scale-[1.03] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     background: `linear-gradient(135deg, ${THEME.colors.accent.primary}, ${THEME.colors.accent.secondary})`,
-                    color: "#fff",
-                    boxShadow: `0 6px 20px ${THEME.colors.accent.primary}44`,
+                    color: "var(--sx-text-ffffff)",
+                    boxShadow: `0 6px 20px color-mix(in srgb, ${THEME.colors.accent.primary} 26.7%, transparent)`,
                   }}
                 >
                   {isSending ? (

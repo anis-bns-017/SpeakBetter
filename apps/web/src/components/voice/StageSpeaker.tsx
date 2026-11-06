@@ -76,38 +76,38 @@ interface Listener {
 
 // ---- Theme ----
 const THEME = {
-  void: "#0A0A12",
-  surface: "#141425",
-  surfaceRaised: "#1E1E38",
-  surfaceHover: "#2A2A4A",
-  border: "#2A2A4A",
-  borderGlow: "rgba(120, 80, 255, 0.2)",
+  void: "var(--sx-bg-page-0a0a12)",
+  surface: "var(--sx-bg-card-141425)",
+  surfaceRaised: "var(--sx-bg-raised-1e1e38)",
+  surfaceHover: "var(--sx-bg-hover-2a2a4a)",
+  border: "var(--sx-border-2a2a4a)",
+  borderGlow: "var(--sx-accent-120-80-255-200)",
   aurora: {
-    primary: "#7C6AFF",
-    secondary: "#A78BFA",
-    tertiary: "#6EE7B7",
-    quaternary: "#FCD34D",
-    pink: "#F472B6",
-    cyan: "#67E8F9",
-    purple: "#8B5CF6",
+    primary: "var(--sx-accent-7c6aff)",
+    secondary: "var(--sx-accent-a78bfa)",
+    tertiary: "var(--sx-accent-6ee7b7)",
+    quaternary: "var(--sx-accent-fcd34d)",
+    pink: "var(--sx-accent-f472b6)",
+    cyan: "var(--sx-accent-67e8f9)",
+    purple: "var(--sx-accent-8b5cf6)",
   },
   gradient: {
-    from: "rgba(124, 106, 255, 0.15)",
-    to: "rgba(167, 139, 250, 0.05)",
+    from: "var(--sx-bg-124-106-255-150)",
+    to: "var(--sx-bg-167-139-250-50)",
   },
   text: {
-    primary: "#F8F7FF",
-    secondary: "#B8B0D8",
-    muted: "#7A72A0",
-    accent: "#A78BFA",
+    primary: "var(--sx-text-f8f7ff)",
+    secondary: "var(--sx-text-b8b0d8)",
+    muted: "var(--sx-text-7a72a0)",
+    accent: "var(--sx-text-a78bfa)",
   },
   status: {
-    live: "#6EE7B7",
-    liveGlow: "rgba(110, 231, 183, 0.3)",
-    speaking: "#A78BFA",
-    speakingGlow: "rgba(167, 139, 250, 0.4)",
-    waiting: "#FCD34D",
-    waitingGlow: "rgba(252, 211, 77, 0.3)",
+    live: "var(--sx-accent-6ee7b7)",
+    liveGlow: "var(--sx-accent-110-231-183-300)",
+    speaking: "var(--sx-accent-a78bfa)",
+    speakingGlow: "var(--sx-accent-167-139-250-400)",
+    waiting: "var(--sx-accent-fcd34d)",
+    waitingGlow: "var(--sx-accent-252-211-77-300)",
   },
 };
 
@@ -276,7 +276,7 @@ const StageSpotlight: React.FC<{ isActive: boolean }> = ({ isActive }) => {
       }}
       transition={{ duration: 0.8 }}
       style={{
-        background: `radial-gradient(ellipse 60% 40% at 50% 30%, ${THEME.aurora.primary}11, transparent 70%)`,
+        background: `radial-gradient(ellipse 60% 40% at 50% 30%, color-mix(in srgb, ${THEME.aurora.primary} 6.7%, transparent), transparent 70%)`,
       }}
     />
   );
@@ -339,7 +339,7 @@ const SpeakerAvatar: React.FC<{
               ease: "easeInOut",
             }}
             style={{
-              background: `radial-gradient(circle, ${THEME.aurora.primary}44, transparent 70%)`,
+              background: `radial-gradient(circle, color-mix(in srgb, ${THEME.aurora.primary} 26.7%, transparent), transparent 70%)`,
               filter: "blur(8px)",
             }}
           />
@@ -371,7 +371,7 @@ const SpeakerAvatar: React.FC<{
             background: `hsl(${hue}, 50%, 22%)`,
             borderColor: isLive ? THEME.aurora.primary : THEME.border,
             color: THEME.text.primary,
-            boxShadow: isLive ? `0 0 40px ${THEME.aurora.primary}33` : "none",
+            boxShadow: isLive ? `0 0 40px color-mix(in srgb, ${THEME.aurora.primary} 20%, transparent)` : "none",
             fontSize: size / 3,
             filter: isMuted ? "grayscale(0.5)" : "none",
             opacity: isMuted ? 0.6 : 1,
@@ -403,7 +403,7 @@ const SpeakerAvatar: React.FC<{
                 borderColor: THEME.surface,
               }}
             >
-              <MicOff className="w-2.5 h-2.5" style={{ color: "#9CA3AF" }} />
+              <MicOff className="w-2.5 h-2.5" style={{ color: "var(--sx-text-9ca3af)" }} />
             </div>
           )}
         </motion.div>
@@ -427,7 +427,7 @@ const SpeakerAvatar: React.FC<{
             className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[8px] font-medium whitespace-nowrap"
             style={{
               background: "rgba(167, 139, 250, 0.9)",
-              color: "#fff",
+              color: "var(--sx-text-ffffff)",
             }}
           >
             {Math.floor(speakingTime / 60)}m {speakingTime % 60}s
@@ -544,7 +544,7 @@ const ListenerCard: React.FC<{
       style={{
         background: hasRaisedHand
           ? "rgba(252, 211, 77, 0.05)"
-          : "rgba(255,255,255,0.02)",
+          : "var(--sx-bg-255-255-255-20)",
       }}
     >
       {/* Avatar */}
@@ -611,7 +611,7 @@ const ListenerCard: React.FC<{
               className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all disabled:opacity-40"
               style={{
                 background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-                color: "#fff",
+                color: "var(--sx-text-ffffff)",
               }}
             >
               {isPending ? (
@@ -746,7 +746,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
             <button
               onClick={onLeave}
               className="mt-6 px-6 py-3 rounded-full font-semibold text-sm transition-all hover:scale-105"
-              style={{ background: THEME.aurora.primary, color: "#fff" }}
+              style={{ background: THEME.aurora.primary, color: "var(--sx-text-ffffff)" }}
             >
               Back to Rooms
             </button>
@@ -908,7 +908,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
       <header
         className="relative z-10 flex items-center justify-between px-6 py-4 border-b shrink-0 backdrop-blur-xl"
         style={{
-          background: "rgba(10, 10, 18, 0.8)",
+          background: "var(--sx-bg-10-10-18-800)",
           borderColor: THEME.border,
         }}
       >
@@ -960,7 +960,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                   className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
                   style={{
                     background: "rgba(252, 211, 77, 0.15)",
-                    color: "#FCD34D",
+                    color: "var(--sx-text-fcd34d)",
                   }}
                 >
                   <ShieldCheck className="w-3 h-3" /> Moderator
@@ -971,7 +971,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                   className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
                   style={{
                     background: "rgba(251, 191, 36, 0.15)",
-                    color: "#FBBF24",
+                    color: "var(--sx-text-fbbf24)",
                   }}
                 >
                   <CrownIcon className="w-3 h-3" /> Host
@@ -1018,7 +1018,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
               className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-full"
               style={{
                 background: "rgba(252, 211, 77, 0.15)",
-                color: "#FCD34D",
+                color: "var(--sx-text-fcd34d)",
                 border: "1px solid rgba(252, 211, 77, 0.2)",
               }}
             >
@@ -1086,7 +1086,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                 className="mt-6 px-6 py-3 rounded-full font-semibold text-sm transition-all"
                 style={{
                   background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-                  color: "#fff",
+                  color: "var(--sx-text-ffffff)",
                 }}
               >
                 <UserPlus className="w-4 h-4 inline mr-2" />
@@ -1222,7 +1222,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                 placeholder="Search audience..."
                 className="pl-8 pr-3 py-1.5 rounded-full text-xs outline-none border transition-all focus:border-purple-500"
                 style={{
-                  background: "rgba(255,255,255,0.05)",
+                  background: "var(--sx-bg-255-255-255-50)",
                   borderColor: THEME.border,
                   color: THEME.text.primary,
                 }}
@@ -1237,7 +1237,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                   ? "bg-amber-500/20 text-amber-400"
                   : "hover:bg-white/5",
               )}
-              style={{ color: filterRaised ? "#FCD34D" : THEME.text.muted }}
+              style={{ color: filterRaised ? "var(--sx-text-fcd34d)" : THEME.text.muted }}
               title="Filter by raised hand"
             >
               <Filter className="w-4 h-4" />
@@ -1282,7 +1282,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
       <footer
         className="relative z-10 px-6 py-4 border-t flex justify-center gap-3 shrink-0 backdrop-blur-xl flex-wrap"
         style={{
-          background: "rgba(10, 10, 18, 0.8)",
+          background: "var(--sx-bg-10-10-18-800)",
           borderColor: THEME.border,
         }}
       >
@@ -1295,8 +1295,8 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
             className="inline-flex items-center gap-2 px-8 py-3 rounded-full font-semibold text-sm transition-all disabled:opacity-50"
             style={{
               background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-              color: "#fff",
-              boxShadow: `0 0 40px ${THEME.aurora.primary}33`,
+              color: "var(--sx-text-ffffff)",
+              boxShadow: `0 0 40px color-mix(in srgb, ${THEME.aurora.primary} 20%, transparent)`,
             }}
           >
             {isRaisingHand ? (
@@ -1372,7 +1372,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
               className="inline-flex items-center gap-2 px-8 py-3 rounded-full font-semibold text-sm border transition-all"
               style={{
                 borderColor: "rgba(239, 68, 68, 0.3)",
-                color: "#EF4444",
+                color: "var(--sx-text-ef4444)",
               }}
             >
               <UserX className="w-4 h-4" />

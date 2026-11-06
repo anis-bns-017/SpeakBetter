@@ -48,42 +48,42 @@ const CATEGORIES: {
     key: "grammar",
     label: "Grammar",
     icon: BookOpen,
-    color: "#22d3ee",
+    color: "var(--sx-text-22d3ee)",
     hint: "Word order, tenses, agreement",
   },
   {
     key: "vocabulary",
     label: "Vocabulary",
     icon: Sparkles,
-    color: "#a78bfa",
+    color: "var(--sx-text-a78bfa)",
     hint: "A better word for this context",
   },
   {
     key: "pronunciation",
     label: "Pronunciation",
     icon: Mic2,
-    color: "#fbbf24",
+    color: "var(--sx-text-fbbf24)",
     hint: "Sound or stress issue",
   },
   {
     key: "word-choice",
     label: "Word choice",
     icon: MessageSquare,
-    color: "#34d399",
+    color: "var(--sx-text-34d399)",
     hint: "More natural phrasing",
   },
   {
     key: "spelling",
     label: "Spelling",
     icon: SpellCheck,
-    color: "#f472b6",
+    color: "var(--sx-text-f472b6)",
     hint: "Written form",
   },
   {
     key: "other",
     label: "Other",
     icon: Sparkles,
-    color: "#94a3b8",
+    color: "var(--sx-text-94a3b8)",
     hint: "Anything else",
   },
 ];
@@ -231,10 +231,10 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                         className="flex flex-col items-center gap-1 py-2.5 rounded-xl border transition-all hover:-translate-y-0.5"
                         style={{
                           background: active
-                            ? `${c.color}22`
-                            : "rgba(255,255,255,0.02)",
+                            ? `color-mix(in srgb, ${c.color} 13.3%, transparent)`
+                            : "var(--sx-bg-255-255-255-20)",
                           borderColor: active
-                            ? `${c.color}66`
+                            ? `color-mix(in srgb, ${c.color} 40%, transparent)`
                             : THEME.colors.border.primary,
                         }}
                         title={c.hint}
@@ -430,8 +430,8 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                   className="px-5 py-2.5 rounded-full font-semibold text-sm flex items-center gap-2 transition-all hover:scale-[1.03] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     background: `linear-gradient(135deg, ${THEME.colors.accent.success}, ${THEME.colors.accent.cyan})`,
-                    color: "#fff",
-                    boxShadow: `0 6px 20px ${THEME.colors.accent.success}44`,
+                    color: "var(--sx-text-ffffff)",
+                    boxShadow: `0 6px 20px color-mix(in srgb, ${THEME.colors.accent.success} 26.7%, transparent)`,
                   }}
                 >
                   {isSubmitting ? (

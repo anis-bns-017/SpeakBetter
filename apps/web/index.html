@@ -13,6 +13,23 @@
     <meta name="apple-mobile-web-app-title" content="SpeakBetter" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>SpeakBetter</title>
+    <script>
+      // Apply the saved theme before the first paint, so dark and navy never flash white.
+      // Keep in step with applyTheme in src/lib/theme.ts.
+      (function () {
+        var pref = "system";
+        try { pref = localStorage.getItem("speakbetter-theme") || "system"; } catch (e) {}
+        var dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var theme = pref === "light" || pref === "dark" || pref === "navy" ? pref : dark ? "dark" : "light";
+        var root = document.documentElement;
+        if (theme !== "light") root.classList.add("dark");
+        root.setAttribute("data-theme", theme);
+        root.style.colorScheme = theme === "light" ? "light" : "dark";
+        var bar = { light: "#4f46e5", dark: "#0b0b14", navy: "#0b1631" }[theme];
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", bar);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

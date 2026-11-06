@@ -265,7 +265,7 @@ const XpByDay: React.FC<{ days: ProgressInsights["days"] }> = ({ days }) => {
                   <span
                     key={i}
                     // A 2px surface-coloured gap between stacked pieces keeps them apart
-                    className="block border-t-2 border-white dark:border-[#0f172a] first:border-t-0 last:rounded-t-[4px]"
+                    className="block border-t-2 border-white dark:border-slate-900 first:border-t-0 last:rounded-t-[4px]"
                     style={{ height: (value / max) * height, background: SLOT[i] }}
                   />
                 ) : null,
@@ -422,7 +422,7 @@ const MistakesByWeek: React.FC<{ mistakes: ProgressInsights["mistakes"] }> = ({ 
                       value > 0 ? (
                         <span
                           key={i}
-                          className="block border-t-2 border-white dark:border-[#0f172a] first:border-t-0 last:rounded-t-[4px]"
+                          className="block border-t-2 border-white dark:border-slate-900 first:border-t-0 last:rounded-t-[4px]"
                           style={{ height: (value / max) * height, background: i < parts.length ? SLOT[i] : "rgb(148 163 184)" }}
                         />
                       ) : null,

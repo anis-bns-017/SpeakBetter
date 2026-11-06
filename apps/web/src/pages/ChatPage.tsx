@@ -32,6 +32,8 @@
  *   - Better empty states with category-specific illustrations.
  */
 
+import { useTheme } from "../contexts/ThemeContext";
+import { useChooseTheme } from "../hooks/useChooseTheme";
 import React, {
   useState,
   useEffect,
@@ -104,43 +106,7 @@ const ACTION_STYLES: Record<
   },
 };
 
-// ============================================================
-// Theme hook — persists to localStorage, respects system pref
-// ============================================================
-
-type Theme = "light" | "dark";
-
-function useTheme(): [Theme, () => void] {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light";
-    try {
-      const saved = localStorage.getItem("speakbetter-theme");
-      if (saved === "dark" || saved === "light") return saved;
-      return window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-    } catch {
-      return "light";
-    }
-  });
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") root.classList.add("dark");
-    else root.classList.remove("dark");
-    try {
-      localStorage.setItem("speakbetter-theme", theme);
-    } catch {
-      /* ignore */
-    }
-  }, [theme]);
-
-  const toggle = useCallback(() => {
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
-  }, []);
-
-  return [theme, toggle];
-}
+// The theme is app-wide (contexts/ThemeContext); the toggle in the header flips between light and dark
 
 // ============================================================
 // Shimmer skeleton — gradient sweep loader
@@ -205,7 +171,9 @@ export const ChatPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const reduced = useReducedMotion();
-  const [theme, toggleTheme] = useTheme();
+  const { resolved: theme } = useTheme();
+  const chooseTheme = useChooseTheme();
+  const toggleTheme = () => chooseTheme(theme === "light" ? "dark" : "light");
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(
@@ -515,7 +483,7 @@ export const ChatPage: React.FC = () => {
     <motion.div
       initial={reduced ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-slate-50 via-slate-50/80 to-indigo-50/30 p-3 sm:p-4 lg:p-6 dark:from-[#0a0a14] dark:via-[#0a0a14] dark:to-indigo-950/20"
+      className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-slate-50 via-slate-50/80 to-indigo-50/30 p-3 sm:p-4 lg:p-6 dark:from-canvas dark:via-canvas dark:to-indigo-950/20"
     >
       <div className="max-w-7xl mx-auto h-[calc(100vh-80px)] min-h-[500px] bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl shadow-indigo-500/5 overflow-hidden flex flex-col md:flex-row dark:bg-white/5 dark:border-white/10 dark:shadow-black/40">
         {/* =================================================
@@ -549,7 +517,7 @@ export const ChatPage: React.FC = () => {
                       repeat: Infinity,
                       ease: "easeInOut",
                     }}
-                    className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#0a0a14]"
+                    className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-canvas"
                   />
                 )}
               </div>
@@ -764,7 +732,7 @@ export const ChatPage: React.FC = () => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -4, scale: 0.96 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-full mt-1 w-40 rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 overflow-hidden z-30 dark:border-white/10 dark:bg-[#1a1a2e] dark:shadow-black/40"
+                    className="absolute right-0 top-full mt-1 w-40 rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 overflow-hidden z-30 dark:border-white/10 dark:bg-panel dark:shadow-black/40"
                   >
                     {SORT_OPTIONS.map((option) => (
                       <button
@@ -895,7 +863,7 @@ export const ChatPage: React.FC = () => {
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-indigo-500/20">
                   {user?.name?.charAt(0)?.toUpperCase() || "U"}
                 </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#0a0a14]" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-canvas" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-slate-700 truncate dark:text-slate-200">
@@ -915,9 +883,9 @@ export const ChatPage: React.FC = () => {
                 type="button"
                 onClick={toggleTheme}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors dark:hover:text-indigo-400 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                title={theme === "dark" ? "Switch to light" : "Switch to dark"}
+                title={theme !== "light" ? "Switch to light" : "Switch to dark"}
               >
-                {theme === "dark" ? (
+                {theme !== "light" ? (
                   <Sun className="w-4 h-4" />
                 ) : (
                   <Moon className="w-4 h-4" />
@@ -1041,7 +1009,7 @@ export const ChatPage: React.FC = () => {
                       : { scale: [1, 1.1, 1] }
                   }
                   transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-emerald-500 border-2 border-white shadow-lg dark:border-[#0a0a14]"
+                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-emerald-500 border-2 border-white shadow-lg dark:border-canvas"
                 />
               </motion.div>
 
@@ -1114,7 +1082,7 @@ export const ChatPage: React.FC = () => {
       </div>
 
       {/* Keyboard shortcuts hint */}
-      <div className="fixed bottom-3 right-4 z-20 hidden md:flex items-center gap-2 text-[9px] px-3 py-1.5 rounded-full border pointer-events-none bg-white/80 backdrop-blur border-slate-200/60 text-slate-400 dark:bg-[#0a0a14]/80 dark:border-white/10 dark:text-slate-500">
+      <div className="fixed bottom-3 right-4 z-20 hidden md:flex items-center gap-2 text-[9px] px-3 py-1.5 rounded-full border pointer-events-none bg-white/80 backdrop-blur border-slate-200/60 text-slate-400 dark:bg-canvas/80 dark:border-white/10 dark:text-slate-500">
         <kbd className="font-mono">⌘K</kbd> search ·
         <kbd className="font-mono">N</kbd> new ·
         <kbd className="font-mono">[</kbd>
@@ -1130,7 +1098,7 @@ export const ChatPage: React.FC = () => {
 // ============================================================
 
 const ChatPageSkeleton: React.FC = () => (
-  <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-slate-50 via-slate-50/80 to-indigo-50/30 p-3 sm:p-4 lg:p-6 dark:from-[#0a0a14] dark:via-[#0a0a14] dark:to-indigo-950/20">
+  <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-slate-50 via-slate-50/80 to-indigo-50/30 p-3 sm:p-4 lg:p-6 dark:from-canvas dark:via-canvas dark:to-indigo-950/20">
     <div className="max-w-7xl mx-auto h-[calc(100vh-80px)] min-h-[500px] bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl shadow-indigo-500/5 overflow-hidden flex dark:bg-white/5 dark:border-white/10">
       <div className="w-full md:w-80 lg:w-96 border-r border-slate-200/50 bg-white/50 backdrop-blur-sm p-5 space-y-4 dark:border-white/5 dark:bg-white/[0.02]">
         {/* Header */}

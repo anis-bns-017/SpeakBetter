@@ -43,12 +43,12 @@ const PRESET_META: Record<
   keyof typeof PRESETS,
   { label: string; icon: typeof Sparkles; color: string }
 > = {
-  clean: { label: "Clean", icon: Volume2, color: "#94a3b8" },
-  bass: { label: "Bass", icon: Waves, color: "#22d3ee" },
-  radio: { label: "Radio", icon: Radio, color: "#fbbf24" },
-  cave: { label: "Cave", icon: Music, color: "#a78bfa" },
-  cathedral: { label: "Hall", icon: Waveform, color: "#818cf8" },
-  robot: { label: "Robot", icon: Bot, color: "#f472b6" },
+  clean: { label: "Clean", icon: Volume2, color: "var(--sx-text-94a3b8)" },
+  bass: { label: "Bass", icon: Waves, color: "var(--sx-text-22d3ee)" },
+  radio: { label: "Radio", icon: Radio, color: "var(--sx-text-fbbf24)" },
+  cave: { label: "Cave", icon: Music, color: "var(--sx-text-a78bfa)" },
+  cathedral: { label: "Hall", icon: Waveform, color: "var(--sx-text-818cf8)" },
+  robot: { label: "Robot", icon: Bot, color: "var(--sx-text-f472b6)" },
 };
 
 export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
@@ -73,7 +73,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
           transition={{ duration: 0.16 }}
           className="fixed top-16 right-4 w-[min(92vw,340px)] rounded-2xl border shadow-2xl backdrop-blur-2xl z-[80]"
           style={{
-            background: "rgba(10, 10, 18, 0.97)",
+            background: "var(--sx-bg-10-10-18-970)",
             borderColor: THEME.colors.border.primary,
           }}
           onClick={(e) => e.stopPropagation()}
@@ -158,7 +158,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
               className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border transition-all hover:-translate-y-0.5"
               style={{
                 background: state.bypass
-                  ? "rgba(255,255,255,0.02)"
+                  ? "var(--sx-bg-255-255-255-20)"
                   : "rgba(34,211,238,0.08)",
                 borderColor: state.bypass
                   ? THEME.colors.border.primary
@@ -192,7 +192,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                 className="w-9 h-5 rounded-full p-0.5 transition-colors"
                 style={{
                   background: state.bypass
-                    ? "rgba(255,255,255,0.1)"
+                    ? "var(--sx-bg-255-255-255-100)"
                     : THEME.colors.accent.cyan,
                 }}
               >
@@ -238,10 +238,10 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                       className="flex flex-col items-center gap-1 py-2.5 rounded-xl border transition-all hover:-translate-y-0.5"
                       style={{
                         background: isSelected
-                          ? `${meta.color}22`
-                          : "rgba(255,255,255,0.02)",
+                          ? `color-mix(in srgb, ${meta.color} 13.3%, transparent)`
+                          : "var(--sx-bg-255-255-255-20)",
                         borderColor: isSelected
-                          ? `${meta.color}66`
+                          ? `color-mix(in srgb, ${meta.color} 40%, transparent)`
                           : THEME.colors.border.primary,
                       }}
                     >
@@ -375,7 +375,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                 </span>
                 <span
                   className="w-9 h-5 rounded-full p-0.5 transition-colors shrink-0"
-                  style={{ background: noiseSuppression ? THEME.colors.accent.primary : "rgba(255,255,255,0.12)" }}
+                  style={{ background: noiseSuppression ? THEME.colors.accent.primary : "var(--sx-bg-255-255-255-120)" }}
                 >
                   <span className={`block w-4 h-4 rounded-full bg-white transition-transform ${noiseSuppression ? "translate-x-4" : "translate-x-0"}`} />
                 </span>
@@ -430,7 +430,7 @@ const Knob: React.FC<{
           disabled={disabled}
           className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
           style={{
-            background: `linear-gradient(90deg, ${THEME.colors.accent.primary} ${pct * 100}%, rgba(255,255,255,0.1) ${pct * 100}%)`,
+            background: `linear-gradient(90deg, ${THEME.colors.accent.primary} ${pct * 100}%, var(--sx-bg-255-255-255-100) ${pct * 100}%)`,
             accentColor: THEME.colors.accent.primary,
           }}
         />

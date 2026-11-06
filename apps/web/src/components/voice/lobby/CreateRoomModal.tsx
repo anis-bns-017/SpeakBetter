@@ -551,7 +551,7 @@ export const CreateRoomModal: React.FC<{
                 <div className="p-5 flex items-start gap-4">
                   <div
                     className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: `${accent}22` }}
+                    style={{ background: `color-mix(in srgb, ${accent} 13.3%, transparent)` }}
                   >
                     <Mic className="w-7 h-7" style={{ color: accent }} />
                   </div>

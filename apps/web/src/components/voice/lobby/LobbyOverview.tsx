@@ -23,11 +23,11 @@ export const StatsStrip: React.FC<{
         <div
           key={label}
           className="flex items-center gap-3 rounded-2xl border px-4 py-3"
-          style={{ background: "rgba(28,20,48,0.6)", borderColor: COLORS.border }}
+          style={{ background: "var(--sx-bg-28-20-48-600)", borderColor: COLORS.border }}
         >
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: `${color}1f`, color }}
+            style={{ background: `color-mix(in srgb, ${color} 12.2%, transparent)`, color }}
           >
             <Icon className="w-4 h-4" />
           </div>

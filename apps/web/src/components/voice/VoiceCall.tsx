@@ -63,34 +63,34 @@ interface CallParticipant {
 
 // ---- Theme ----
 const THEME = {
-  void: "#0A0A12",
-  surface: "#141425",
-  surfaceRaised: "#1E1E38",
-  surfaceHover: "#2A2A4A",
-  border: "#2A2A4A",
-  borderGlow: "rgba(120, 80, 255, 0.2)",
+  void: "var(--sx-bg-page-0a0a12)",
+  surface: "var(--sx-bg-card-141425)",
+  surfaceRaised: "var(--sx-bg-raised-1e1e38)",
+  surfaceHover: "var(--sx-bg-hover-2a2a4a)",
+  border: "var(--sx-border-2a2a4a)",
+  borderGlow: "var(--sx-accent-120-80-255-200)",
   aurora: {
-    primary: "#7C6AFF",
-    secondary: "#A78BFA",
-    tertiary: "#6EE7B7",
-    quaternary: "#FCD34D",
-    pink: "#F472B6",
-    cyan: "#67E8F9",
-    purple: "#8B5CF6",
+    primary: "var(--sx-accent-7c6aff)",
+    secondary: "var(--sx-accent-a78bfa)",
+    tertiary: "var(--sx-accent-6ee7b7)",
+    quaternary: "var(--sx-accent-fcd34d)",
+    pink: "var(--sx-accent-f472b6)",
+    cyan: "var(--sx-accent-67e8f9)",
+    purple: "var(--sx-accent-8b5cf6)",
   },
   text: {
-    primary: "#F8F7FF",
-    secondary: "#B8B0D8",
-    muted: "#7A72A0",
-    accent: "#A78BFA",
+    primary: "var(--sx-text-f8f7ff)",
+    secondary: "var(--sx-text-b8b0d8)",
+    muted: "var(--sx-text-7a72a0)",
+    accent: "var(--sx-text-a78bfa)",
   },
   status: {
-    live: "#6EE7B7",
-    liveGlow: "rgba(110, 231, 183, 0.3)",
-    speaking: "#A78BFA",
-    speakingGlow: "rgba(167, 139, 250, 0.4)",
-    danger: "#EF4444",
-    warning: "#FCD34D",
+    live: "var(--sx-accent-6ee7b7)",
+    liveGlow: "var(--sx-accent-110-231-183-300)",
+    speaking: "var(--sx-accent-a78bfa)",
+    speakingGlow: "var(--sx-accent-167-139-250-400)",
+    danger: "var(--sx-accent-ef4444)",
+    warning: "var(--sx-accent-fcd34d)",
   },
 };
 
@@ -177,7 +177,7 @@ const VideoTile: React.FC<{
       )}
       style={{
         background: `linear-gradient(135deg, hsl(${hue}, 30%, 15%), hsl(${hue}, 30%, 8%))`,
-        boxShadow: isSpeaking ? `0 0 30px ${THEME.aurora.primary}33` : "none",
+        boxShadow: isSpeaking ? `0 0 30px color-mix(in srgb, ${THEME.aurora.primary} 20%, transparent)` : "none",
       }}
     >
       {/* Video placeholder / avatar */}
@@ -232,7 +232,7 @@ const VideoTile: React.FC<{
         {participant.isVideoOn && (
           <span
             className="text-[8px] px-1.5 py-0.5 rounded-full"
-            style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
+            style={{ background: "var(--sx-bg-0-0-0-600)", color: "var(--sx-text-ffffff)" }}
           >
             📷
           </span>
@@ -240,7 +240,7 @@ const VideoTile: React.FC<{
         {participant.isScreenSharing && (
           <span
             className="text-[8px] px-1.5 py-0.5 rounded-full"
-            style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
+            style={{ background: "var(--sx-bg-0-0-0-600)", color: "var(--sx-text-ffffff)" }}
           >
             🖥️
           </span>
@@ -255,7 +255,7 @@ const VideoTile: React.FC<{
           transition={{ duration: 1.5, repeat: Infinity }}
           style={{
             border: `2px solid ${THEME.aurora.secondary}`,
-            boxShadow: `0 0 40px ${THEME.aurora.secondary}44`,
+            boxShadow: `0 0 40px color-mix(in srgb, ${THEME.aurora.secondary} 26.7%, transparent)`,
           }}
         />
       )}
@@ -527,7 +527,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
           <button
             onClick={onEnd}
             className="mt-3 px-4 py-2 rounded-full text-sm font-medium"
-            style={{ background: THEME.aurora.primary, color: "#fff" }}
+            style={{ background: THEME.aurora.primary, color: "var(--sx-text-ffffff)" }}
           >
             Go Back
           </button>
@@ -552,7 +552,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
           className="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold mx-auto mb-4"
           style={{
             background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
-            color: "#fff",
+            color: "var(--sx-text-ffffff)",
           }}
           animate={{ scale: [1, 1.05, 1] }}
           transition={{ duration: 1.5, repeat: Infinity }}
@@ -598,7 +598,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
             className="p-4 rounded-full"
             style={{
               background: `linear-gradient(135deg, ${THEME.aurora.tertiary}, ${THEME.aurora.cyan})`,
-              color: "#fff",
+              color: "var(--sx-text-ffffff)",
             }}
           >
             <Phone className="w-6 h-6" />
@@ -625,7 +625,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: `radial-gradient(ellipse at 50% 30%, ${THEME.aurora.primary}08, transparent 70%)`,
+          background: `radial-gradient(ellipse at 50% 30%, color-mix(in srgb, ${THEME.aurora.primary} 3.1%, transparent), transparent 70%)`,
         }}
       />
 
@@ -634,7 +634,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
         className="relative z-10 px-4 py-3 border-b flex items-center justify-between shrink-0"
         style={{
           borderColor: THEME.border,
-          background: `rgba(10, 10, 18, 0.8)`,
+          background: `var(--sx-bg-10-10-18-800)`,
           backdropFilter: "blur(20px)",
         }}
       >
@@ -690,7 +690,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
             {participants.length > 0 && (
               <span
                 className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 text-[7px] rounded-full flex items-center justify-center px-1 font-bold"
-                style={{ background: THEME.aurora.primary, color: "#fff" }}
+                style={{ background: THEME.aurora.primary, color: "var(--sx-text-ffffff)" }}
               >
                 {participants.length}
               </span>
@@ -819,7 +819,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
         className="relative z-10 px-4 py-3 border-t flex items-center justify-center gap-3 shrink-0 flex-wrap"
         style={{
           borderColor: THEME.border,
-          background: `rgba(10, 10, 18, 0.9)`,
+          background: `var(--sx-bg-10-10-18-900)`,
           backdropFilter: "blur(20px)",
         }}
       >

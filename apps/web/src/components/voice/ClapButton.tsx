@@ -309,7 +309,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
             <motion.div
               className="absolute inset-0 rounded-full"
               style={{
-                background: `${THEME.colors.accent.warning}40`,
+                background: `color-mix(in srgb, ${THEME.colors.accent.warning} 25.1%, transparent)`,
               }}
               animate={{ scale: [1, 1.5, 1], opacity: [0.6, 0, 0.6] }}
               transition={{
@@ -353,8 +353,8 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
             style={{
-              boxShadow: `0 0 30px 8px ${THEME.colors.accent.warning}55`,
-              background: `${THEME.colors.accent.warning}22`,
+              boxShadow: `0 0 30px 8px color-mix(in srgb, ${THEME.colors.accent.warning} 33.3%, transparent)`,
+              background: `color-mix(in srgb, ${THEME.colors.accent.warning} 13.3%, transparent)`,
             }}
           />
         )}
@@ -385,12 +385,12 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
         }
         style={{
           background: isMaxed
-            ? "rgba(255,255,255,0.06)"
-            : `linear-gradient(135deg, ${THEME.colors.accent.warning}, #f97316)`,
-          color: isMaxed ? THEME.colors.text.muted : "#fff",
+            ? "var(--sx-bg-255-255-255-60)"
+            : `linear-gradient(135deg, ${THEME.colors.accent.warning}, var(--sx-bg-f97316))`,
+          color: isMaxed ? THEME.colors.text.muted : "var(--sx-text-ffffff)",
           boxShadow: isMaxed
             ? "none"
-            : `0 6px 20px ${THEME.colors.accent.warning}55`,
+            : `0 6px 20px color-mix(in srgb, ${THEME.colors.accent.warning} 33.3%, transparent)`,
         }}
         title={isMaxed ? "Clap limit reached" : "Clap for the speaker"}
       >
@@ -404,9 +404,9 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
             }
             style={{
               background: isMaxed
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(255,255,255,0.22)",
-              color: isMaxed ? THEME.colors.text.muted : "#fff",
+                ? "var(--sx-bg-255-255-255-60)"
+                : "var(--sx-bg-255-255-255-220)",
+              color: isMaxed ? THEME.colors.text.muted : "var(--sx-text-ffffff)",
             }}
           >
             {userClaps}
