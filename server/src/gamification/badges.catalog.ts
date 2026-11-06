@@ -62,6 +62,10 @@ export interface LearnerStats {
   questWeeks: number;
   /** Days a streak freeze covered */
   freezesUsed: number;
+  /** Finished pieces in the Writing studio */
+  piecesWritten: number;
+  /** Finished pieces of 80+ words that scored 95 or more */
+  polishedPieces: number;
 }
 
 export interface BadgeDef {
@@ -131,6 +135,9 @@ export const BADGES: BadgeDef[] = [
   { key: 'quest-4', name: 'Month of quests', description: 'Finish your weekly quests in 4 different weeks', category: 'STREAK', tier: 'SILVER', icon: 'Gift', measure: at('questWeeks'), target: 4 },
   { key: 'quest-12', name: 'Quest master', description: 'Finish your weekly quests in 12 different weeks', category: 'STREAK', tier: 'GOLD', icon: 'Gift', measure: at('questWeeks'), target: 12 },
   { key: 'freeze-1', name: 'Saved by the ice', description: 'A streak freeze kept your streak alive', category: 'STREAK', tier: 'BRONZE', icon: 'Snowflake', measure: at('freezesUsed'), target: 1 },
+  { key: 'write-1', name: 'First draft', description: 'Finish a piece in the Writing studio', category: 'LEARNING', tier: 'BRONZE', icon: 'PenLine', measure: at('piecesWritten'), target: 1 },
+  { key: 'write-10', name: 'Wordsmith', description: 'Finish 10 pieces of writing', category: 'LEARNING', tier: 'SILVER', icon: 'PenLine', measure: at('piecesWritten'), target: 10 },
+  { key: 'write-polished', name: 'Polished', description: 'Score 95 or more on a piece of at least 80 words', category: 'LEARNING', tier: 'GOLD', icon: 'Sparkles', measure: at('polishedPieces'), target: 1 },
 
   // Words and review
   { key: 'review-50', name: 'Memory builder', description: 'Review 50 cards', category: 'VOCABULARY', tier: 'BRONZE', icon: 'Layers', measure: at('reviews'), target: 50 },

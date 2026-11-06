@@ -33,6 +33,7 @@ import { RoleplayModule } from './roleplay/roleplay.module';
 import { ShadowingModule } from './shadowing/shadowing.module';
 import { FriendChallengesModule } from './friend-challenges/friend-challenges.module';
 import { QuestsModule } from './quests/quests.module';
+import { WritingModule } from './writing/writing.module';
 import { BillingModule } from './billing/billing.module';
 
 @Module({
@@ -67,6 +68,7 @@ import { BillingModule } from './billing/billing.module';
     ShadowingModule,
     FriendChallengesModule,
     QuestsModule,
+    WritingModule,
     BillingModule,
     CommunitiesModule,
   ],

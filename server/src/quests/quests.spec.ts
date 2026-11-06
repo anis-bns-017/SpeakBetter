@@ -166,6 +166,7 @@ describe('QuestsService', () => {
       challengeEntry: { count: jest.fn(async () => v.CHALLENGE ?? 0) },
       libraryProgress: { count: jest.fn(async () => v.READ ?? 0) },
       dailyPlan: { count: jest.fn(async () => v.PLAN ?? 0) },
+      writingPiece: { count: jest.fn(async () => v.WRITE ?? 0) },
       streak: {
         findUnique: jest.fn(async () => state.streak),
         updateMany: jest.fn(async ({ where, data }) => {
@@ -196,7 +197,7 @@ describe('QuestsService', () => {
   });
 
   it('pays each quest once, then opens the chest with bonus XP and a freeze', async () => {
-    const all = { XP: 10_000, REVIEW: 999, READ: 99, CHALLENGE: 9, PRONUNCIATION: 999, PLAN: 9 };
+    const all = { XP: 10_000, REVIEW: 999, READ: 99, WRITE: 9, CHALLENGE: 9, PRONUNCIATION: 999, PLAN: 9 };
     const { service, activity, badges, state } = setup({ values: all, streak: { freezes: 0, xpSpent: 0, currentStreak: 3 } });
     const result = await service.get('u1', monday);
     expect(result.done).toBe(3);

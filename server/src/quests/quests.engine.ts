@@ -4,7 +4,7 @@
  * and a streak freeze. Pure functions, so the rules are easy to test.
  */
 
-export type QuestKind = 'XP' | 'DAYS' | 'PLAN' | 'SPEAK' | 'REVIEW' | 'READ' | 'CHALLENGE' | 'PRONUNCIATION' | 'CORRECTION';
+export type QuestKind = 'XP' | 'DAYS' | 'PLAN' | 'SPEAK' | 'REVIEW' | 'READ' | 'WRITE' | 'CHALLENGE' | 'PRONUNCIATION' | 'CORRECTION';
 
 export interface Quest {
   id: string;
@@ -25,7 +25,7 @@ export const FREEZE_PRICE = 200;
 /** Habit quests reward showing up; one of these is always in the week */
 const HABIT: QuestKind[] = ['XP', 'DAYS', 'PLAN'];
 /** Activity quests point at a part of the app; two of these each week */
-const ACTIVITY: QuestKind[] = ['SPEAK', 'REVIEW', 'READ', 'CHALLENGE', 'PRONUNCIATION', 'CORRECTION'];
+const ACTIVITY: QuestKind[] = ['SPEAK', 'REVIEW', 'READ', 'WRITE', 'CHALLENGE', 'PRONUNCIATION', 'CORRECTION'];
 /** These can only go up by one a day, so they never ask for more than the days left */
 const ONCE_A_DAY = new Set<QuestKind>(['DAYS', 'PLAN', 'CHALLENGE']);
 
@@ -37,6 +37,7 @@ const TARGETS: Record<QuestKind, [number, number, number]> = {
   SPEAK: [10, 20, 40],
   REVIEW: [20, 50, 100],
   READ: [2, 3, 5],
+  WRITE: [1, 2, 4],
   CHALLENGE: [2, 4, 6],
   PRONUNCIATION: [10, 20, 40],
   CORRECTION: [3, 6, 10],
@@ -126,6 +127,8 @@ export function questText(kind: QuestKind, target: number): { title: string; to:
       return { title: `Review ${plural(target, 'card')}`, to: '/flashcards' };
     case 'READ':
       return { title: `Read ${plural(target, 'text')} in the library`, to: '/library' };
+    case 'WRITE':
+      return { title: `Finish ${plural(target, 'piece')} in the Writing studio`, to: '/writing' };
     case 'CHALLENGE':
       return { title: `Answer ${plural(target, 'daily challenge')}`, to: '/challenge' };
     case 'PRONUNCIATION':

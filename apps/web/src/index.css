@@ -65,3 +65,55 @@
   --color-shell: #0d1f42;
   --color-canvas: #0f2247;
 }
+
+/* ---------- Sidebar motion (all of it stops when the system asks for reduced motion) ---------- */
+@keyframes sb-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(22px, 28px, 0) scale(1.1); }
+  66% { transform: translate3d(-16px, 12px, 0) scale(0.92); }
+}
+@keyframes sb-beam {
+  0% { top: -10rem; }
+  65%, 100% { top: 100%; }
+}
+@keyframes sb-pan {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes sb-shimmer {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  40%, 100% { transform: translateX(420%) skewX(-20deg); }
+}
+@keyframes sb-eq {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+@keyframes sb-flicker {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.08) rotate(-4deg); }
+  50% { transform: scale(0.96) rotate(3deg); }
+  75% { transform: scale(1.05) rotate(-2deg); }
+}
+@keyframes sb-gloss {
+  0% { transform: translateX(-120%); }
+  55%, 100% { transform: translateX(320%); }
+}
+@keyframes sb-glow {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.sb-drift { animation: sb-drift 24s ease-in-out infinite; will-change: transform; }
+.sb-drift-slow { animation: sb-drift 34s ease-in-out infinite reverse; will-change: transform; }
+.sb-beam { animation: sb-beam 9s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.sb-pan { background-size: 250% 100%; animation: sb-pan 8s ease-in-out infinite; }
+.sb-shimmer { animation: sb-shimmer 4.5s ease-in-out infinite; }
+.sb-eq { animation: sb-eq 0.9s ease-in-out infinite; }
+.sb-flicker { animation: sb-flicker 2.4s ease-in-out infinite; transform-origin: 50% 80%; }
+.sb-gloss { animation: sb-gloss 3.4s ease-in-out infinite; animation-delay: 1.2s; }
+.sb-glow { animation: sb-glow 4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-drift, .sb-drift-slow, .sb-pan, .sb-eq, .sb-flicker, .sb-glow { animation: none; }
+  .sb-beam, .sb-shimmer, .sb-gloss { display: none; }
+}

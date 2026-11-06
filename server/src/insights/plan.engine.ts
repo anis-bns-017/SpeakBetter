@@ -6,7 +6,7 @@
 export const GOAL_OPTIONS = [5, 10, 20, 30] as const;
 export const DEFAULT_GOAL_MINUTES = 10;
 
-export type PlanTaskKind = 'LEVEL' | 'REVIEW' | 'PRONUNCIATION' | 'SPEAK' | 'CHALLENGE' | 'READ' | 'CORRECTION' | 'WORDS' | 'EXERCISE';
+export type PlanTaskKind = 'LEVEL' | 'REVIEW' | 'PRONUNCIATION' | 'SPEAK' | 'CHALLENGE' | 'READ' | 'WRITE' | 'CORRECTION' | 'WORDS' | 'EXERCISE';
 
 export interface PlanTask {
   id: string;
@@ -17,7 +17,7 @@ export interface PlanTask {
   to: string;
   /** How much counts as done, in `unit` */
   target: number;
-  unit: 'test' | 'cards' | 'tries' | 'minutes' | 'answers' | 'texts' | 'corrections' | 'words' | 'exercises';
+  unit: 'test' | 'cards' | 'tries' | 'minutes' | 'answers' | 'texts' | 'pieces' | 'corrections' | 'words' | 'exercises';
   /** Estimated time */
   minutes: number;
 }
@@ -140,6 +140,16 @@ export function buildPlan(s: PlanSignals): PlanTask[] {
       target: 1,
       unit: 'texts',
       minutes: 3,
+    },
+    {
+      id: 'write',
+      kind: 'WRITE',
+      title: 'Write a short piece',
+      detail: "Today's writing task, with grammar and spelling checked as you go",
+      to: '/writing',
+      target: 1,
+      unit: 'pieces',
+      minutes: 6,
     },
   ];
   if (s.correctionsGivenThisWeek === 0) {

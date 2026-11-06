@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api/client';
 
-export type QuestKind = 'XP' | 'DAYS' | 'PLAN' | 'SPEAK' | 'REVIEW' | 'READ' | 'CHALLENGE' | 'PRONUNCIATION' | 'CORRECTION';
+export type QuestKind = 'XP' | 'DAYS' | 'PLAN' | 'SPEAK' | 'REVIEW' | 'READ' | 'WRITE' | 'CHALLENGE' | 'PRONUNCIATION' | 'CORRECTION';
 
 export interface Quest {
   id: string;

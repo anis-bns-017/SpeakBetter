@@ -12,9 +12,9 @@
  * pads content by exactly the sidebar width.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
   Compass,
@@ -48,6 +48,7 @@ import {
   Trophy,
   Megaphone,
   Library,
+  PenLine,
   GraduationCap,
   Package,
   Headphones,
@@ -113,6 +114,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Learn",
     items: [
       { label: "Library", to: "/library", icon: Library, keywords: "reading listening stories dialogues articles read listen comprehension" },
+      { label: "Writing", to: "/writing", icon: PenLine, keywords: "writing write essay email grammar spelling check compose" },
       { label: "Vocabulary", to: "/vocabulary", icon: BookOpen, keywords: "words" },
       { label: "Dictation", to: "/dictation", icon: Headphones, keywords: "listening dictation listen type hear spelling ears" },
       { label: "Word packs", to: "/packs", icon: Package, keywords: "vocabulary packs themed words travel work food idioms phrasal verbs ielts quiz" },
@@ -127,6 +129,38 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
 ];
+
+/** Each section has its own colour: the active item's icon tile, the hover tint and the dot by the title */
+interface Accent {
+  tile: string;
+  glow: string;
+  hover: string;
+  dot: string;
+}
+
+const ACCENTS: Record<string, Accent> = {
+  Home: {
+    tile: "from-indigo-500 to-violet-500",
+    glow: "shadow-indigo-500/40",
+    hover: "group-hover:text-indigo-500 dark:group-hover:text-indigo-300",
+    dot: "bg-indigo-500",
+  },
+  Speak: {
+    tile: "from-rose-500 to-orange-400",
+    glow: "shadow-rose-500/40",
+    hover: "group-hover:text-rose-500 dark:group-hover:text-rose-300",
+    dot: "bg-rose-500",
+  },
+  Learn: {
+    tile: "from-emerald-500 to-teal-400",
+    glow: "shadow-emerald-500/40",
+    hover: "group-hover:text-emerald-600 dark:group-hover:text-emerald-300",
+    dot: "bg-emerald-500",
+  },
+};
+
+/** The menu slides in item by item once per page load, not on every navigation */
+let introPlayed = false;
 
 const ACCOUNT_ITEMS: NavItem[] = [
   { label: "Profile", to: "/profile", icon: User, keywords: "me account" },
@@ -232,9 +266,17 @@ const LevelRing: React.FC<{ progress: number; level: number; children: React.Rea
   const stroke = 3;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
+  const gradientId = `level-ring-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="absolute inset-0 -rotate-90" aria-hidden>
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#6366f1" />
+            <stop offset="55%" stopColor="#a855f7" />
+            <stop offset="100%" stopColor="#ec4899" />
+          </linearGradient>
+        </defs>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-slate-200 dark:stroke-white/10" />
         <circle
           cx={size / 2}
@@ -245,7 +287,8 @@ const LevelRing: React.FC<{ progress: number; level: number; children: React.Rea
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - progress / 100)}
-          className="stroke-indigo-500 transition-[stroke-dashoffset] duration-700"
+          stroke={`url(#${gradientId})`}
+          className="transition-[stroke-dashoffset] duration-700"
         />
       </svg>
       <div className="absolute inset-[5px] flex">{children}</div>
@@ -265,7 +308,7 @@ const Badge: React.FC<{ count?: number; live?: boolean; compact?: boolean }> = (
         <span className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-60" />
       </span>
     ) : (
-      <span className="ml-auto flex items-center gap-1 h-5 px-1.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-bold tabular-nums">
+      <span className="relative ml-auto flex items-center gap-1 h-5 px-1.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-bold tabular-nums">
         <span className="relative w-1.5 h-1.5 rounded-full bg-rose-500">
           <span className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-70" />
         </span>
@@ -278,11 +321,26 @@ const Badge: React.FC<{ count?: number; live?: boolean; compact?: boolean }> = (
       {text}
     </span>
   ) : (
-    <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold tabular-nums flex items-center justify-center">
+    <motion.span
+      key={text}
+      initial={{ scale: 0.4, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 600, damping: 16 }}
+      className="relative ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 text-white text-[10px] font-bold tabular-nums flex items-center justify-center shadow-sm shadow-rose-500/40"
+    >
       {text}
-    </span>
+    </motion.span>
   );
 };
+
+/** Three bars that bounce like a voice meter */
+const Equalizer: React.FC = () => (
+  <span aria-hidden className="flex items-end gap-[2px] h-3">
+    {[0, 0.3, 0.6].map((delay) => (
+      <span key={delay} className="sb-eq w-[2px] h-full rounded-full bg-white/85 dark:bg-white/85 origin-bottom" style={{ animationDelay: `-${delay}s` }} />
+    ))}
+  </span>
+);
 
 const Tooltip: React.FC<{ label: string; hint?: string }> = ({ label, hint }) => (
   <span
@@ -304,33 +362,85 @@ const Kbd: React.FC<{ children: React.ReactNode; className?: string }> = ({ chil
 // Desktop nav item
 // ============================================================
 
-const SidebarLink: React.FC<{ item: NavItem; collapsed: boolean; active: boolean; badge: { count?: number; live?: boolean } }> = ({ item, collapsed, active, badge }) => {
+/**
+ * One nav item. Two shared highlights glide between items: a raised pill under the current page and a
+ * soft one under the pointer. The current page's icon sits in a tile of its section's colour.
+ */
+const SidebarLink: React.FC<{
+  item: NavItem;
+  collapsed: boolean;
+  active: boolean;
+  badge: { count?: number; live?: boolean };
+  accent: Accent;
+  hovered: boolean;
+  onHover: (to: string) => void;
+  intro: boolean;
+  index: number;
+}> = ({ item, collapsed, active, badge, accent, hovered, onHover, intro, index }) => {
   const Icon = item.icon;
   return (
-    <NavLink
-      to={item.to}
-      aria-label={collapsed ? item.label : undefined}
-      className={`group relative flex items-center rounded-xl h-10 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${
-        collapsed ? "justify-center w-full" : "gap-3 px-3"
-      } ${
-        active
-          ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
-          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100"
-      }`}
+    <motion.div
+      initial={intro ? { opacity: 0, x: -14 } : false}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.12 + index * 0.028, type: "spring", stiffness: 420, damping: 32 }}
     >
-      {active && (
-        <motion.span
-          layoutId="sidebar-active-indicator"
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-indigo-600 dark:bg-indigo-400"
-          transition={{ type: "spring", stiffness: 500, damping: 35 }}
-        />
-      )}
-      <Icon className={`w-[18px] h-[18px] shrink-0 ${active ? "" : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-200"}`} strokeWidth={active ? 2.2 : 1.9} />
-      {!collapsed && <span className={`text-[13.5px] truncate ${active ? "font-semibold" : "font-medium"}`}>{item.label}</span>}
-      {!collapsed && <Badge {...badge} />}
-      {collapsed && <Badge {...badge} compact />}
-      {collapsed && <Tooltip label={item.label} hint={badge.count ? (badge.live ? `${badge.count} live` : `${badge.count} unread`) : undefined} />}
-    </NavLink>
+      <NavLink
+        to={item.to}
+        aria-label={collapsed ? item.label : undefined}
+        onMouseEnter={() => onHover(item.to)}
+        onFocus={() => onHover(item.to)}
+        className={`group relative flex items-center rounded-xl h-10 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${
+          collapsed ? "justify-center w-full" : "gap-2.5 pl-1.5 pr-2.5"
+        } ${active ? "text-slate-900 dark:text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"}`}
+      >
+        {active && (
+          <motion.span
+            layoutId="sidebar-active-pill"
+            className="absolute inset-0 rounded-xl bg-white dark:bg-white/[0.07] ring-1 ring-slate-200/70 dark:ring-white/[0.08] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_6px_16px_-6px_rgba(79,70,229,0.25)] dark:shadow-[0_6px_20px_-8px_rgba(129,140,248,0.45)]"
+            transition={{ type: "spring", stiffness: 480, damping: 36 }}
+          />
+        )}
+        <AnimatePresence>
+          {hovered && !active && (
+            <motion.span
+              layoutId="sidebar-hover-pill"
+              className="absolute inset-0 rounded-xl bg-slate-200/60 dark:bg-white/[0.05]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: "spring", stiffness: 520, damping: 40, opacity: { duration: 0.12 } }}
+            />
+          )}
+        </AnimatePresence>
+
+        <span className={`relative shrink-0 flex items-center justify-center rounded-lg ${collapsed ? "w-9 h-9" : "w-7 h-7"}`}>
+          {active && (
+            <motion.span
+              className={`absolute inset-0 rounded-lg bg-gradient-to-br ${accent.tile} shadow-md ${accent.glow}`}
+              initial={{ scale: 0.4, opacity: 0, rotate: -25 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 520, damping: 20 }}
+            />
+          )}
+          <Icon
+            className={`relative w-[17px] h-[17px] motion-safe:transition-transform motion-safe:duration-300 ${
+              active
+                ? "text-white"
+                : `text-slate-400 dark:text-slate-500 ${accent.hover} motion-safe:group-hover:scale-115 motion-safe:group-hover:-rotate-[8deg]`
+            }`}
+            strokeWidth={active ? 2.3 : 1.9}
+          />
+        </span>
+        {!collapsed && (
+          <span className={`relative text-[13.5px] truncate motion-safe:transition-transform motion-safe:duration-200 ${active ? "font-semibold" : "font-medium motion-safe:group-hover:translate-x-0.5"}`}>
+            {item.label}
+          </span>
+        )}
+        {!collapsed && <Badge {...badge} />}
+        {collapsed && <Badge {...badge} compact />}
+        {collapsed && <Tooltip label={item.label} hint={badge.count ? (badge.live ? `${badge.count} live` : `${badge.count} unread`) : undefined} />}
+      </NavLink>
+    </motion.div>
   );
 };
 
@@ -490,15 +600,20 @@ const CommandPalette: React.FC<{
 const StreakCard: React.FC<{ data: SidebarData; onOpen: () => void }> = ({ data, onOpen }) => {
   const reduced = useReducedMotion();
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onOpen}
-      className="w-full text-left relative overflow-hidden rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-white/[0.04] p-3.5 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      className="group w-full text-left relative overflow-hidden rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-white/[0.04] backdrop-blur-sm p-3.5 transition-shadow hover:shadow-lg hover:shadow-orange-500/10 dark:hover:shadow-black/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
     >
-      <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-amber-200/40 dark:bg-amber-500/10 blur-2xl pointer-events-none" />
+      <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-amber-200/50 dark:bg-amber-500/15 blur-2xl pointer-events-none ${data.streak > 0 ? "sb-glow" : ""}`} />
       <div className="relative flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${data.streak > 0 ? "bg-gradient-to-br from-amber-400 to-orange-500 shadow-md shadow-orange-500/30" : "bg-slate-100 dark:bg-white/5"}`}>
-          <Flame className={`w-5 h-5 ${data.streak > 0 ? "text-white fill-white/30" : "text-slate-400"}`} />
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${data.streak > 0 ? "bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 shadow-md shadow-orange-500/40" : "bg-slate-100 dark:bg-white/5"}`}>
+          <span className={`inline-flex ${data.streak > 0 ? "sb-flicker" : ""}`}>
+            <Flame className={`w-5 h-5 ${data.streak > 0 ? "text-white fill-white/40" : "text-slate-400"}`} />
+          </span>
         </div>
         <div className="min-w-0">
           <p className="text-[15px] font-bold text-slate-900 dark:text-slate-100 leading-tight tabular-nums">
@@ -528,17 +643,19 @@ const StreakCard: React.FC<{ data: SidebarData; onOpen: () => void }> = ({ data,
         </div>
         <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
+            className="relative h-full rounded-full overflow-hidden bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500"
             initial={{ width: 0 }}
             animate={{ width: `${data.levelProgress}%` }}
-            transition={reduced ? { duration: 0 } : { duration: 0.8, ease: "easeOut" }}
-          />
+            transition={reduced ? { duration: 0 } : { duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
+          >
+            <span aria-hidden className="sb-gloss absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/70 dark:via-white/70 to-transparent" />
+          </motion.div>
         </div>
         <p className="mt-1.5 text-[10.5px] text-slate-400 dark:text-slate-500 tabular-nums">
           {data.xpToNext > 0 ? `${data.xpToNext.toLocaleString()} XP to Level ${data.level + 1}` : "Max level reached 🎉"}
         </p>
       </div>
-    </button>
+    </motion.button>
   );
 };
 
@@ -600,6 +717,13 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const reduced = useReducedMotion();
+  const [intro] = useState(() => !introPlayed && !reduced);
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  useEffect(() => {
+    introPlayed = true;
+  }, []);
 
   const isActive = useCallback(
     (item: NavItem) =>
@@ -707,11 +831,25 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
       className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-[#F8F9FC] dark:bg-shell border-r border-slate-200/80 dark:border-white/[0.06] transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${className ?? ""}`}
       style={{ width: collapsed ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded }}
     >
+      {/* Slowly drifting colour behind everything */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="sb-drift absolute -top-28 -left-20 w-72 h-72 rounded-full bg-indigo-300/30 dark:bg-indigo-500/[0.14] blur-3xl" />
+        <div className="sb-drift-slow absolute top-[38%] -right-28 w-60 h-60 rounded-full bg-fuchsia-300/20 dark:bg-fuchsia-500/[0.08] blur-3xl" />
+        <div className="sb-drift absolute -bottom-24 -left-12 w-64 h-64 rounded-full bg-sky-300/25 dark:bg-sky-500/[0.08] blur-3xl" style={{ animationDelay: "-11s" }} />
+      </div>
+      {/* A light that runs down the edge now and then */}
+      <span aria-hidden className="pointer-events-none absolute top-0 bottom-0 -right-px w-px overflow-hidden">
+        <span className="sb-beam absolute left-0 w-px h-40 bg-gradient-to-b from-transparent via-indigo-500/80 to-transparent dark:via-indigo-300/80" />
+      </span>
+
       {/* Logo + collapse */}
       <div className={`h-16 shrink-0 flex items-center ${collapsed ? "justify-center px-3" : "justify-between pl-4 pr-3"}`}>
-        <button
+        <motion.button
           type="button"
           onClick={() => navigate("/dashboard")}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{ type: "spring", stiffness: 500, damping: 22 }}
           className="group flex items-center min-w-0 rounded-xl p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
           aria-label="SpeakBetter home"
         >
@@ -720,7 +858,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
           ) : (
             <SpeakBetterLogo />
           )}
-        </button>
+        </motion.button>
         {!collapsed && (
           <div className="flex items-center gap-1">
             <NotificationBell variant="sidebar" />
@@ -757,37 +895,77 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
           {collapsed && <Tooltip label="Search" hint={`${MOD_KEY} K`} />}
         </button>
 
-        <button
+        <motion.button
           type="button"
           onClick={() => navigate("/voice")}
-          className={`group relative w-full h-10 flex items-center justify-center gap-2 rounded-xl text-white font-semibold text-[13.5px] bg-gradient-to-r from-indigo-600 to-violet-600 shadow-md shadow-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/30 hover:brightness-110 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300`}
+          whileHover={{ y: -1.5 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ type: "spring", stiffness: 500, damping: 24 }}
+          className="sb-pan group relative overflow-visible w-full h-10 flex items-center justify-center gap-2 rounded-xl text-white font-semibold text-[13.5px] bg-[linear-gradient(110deg,#4f46e5,#7c3aed,#c026d3,#7c3aed,#4f46e5)] shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
           aria-label="Start speaking"
         >
-          <Mic className="w-4 h-4" />
-          {!collapsed && <span>Start speaking</span>}
+          {/* Shine that sweeps across every few seconds */}
+          <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl overflow-hidden">
+            <span className="sb-shimmer absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/40 dark:via-white/40 to-transparent" />
+          </span>
+          <Mic className="relative w-4 h-4 motion-safe:transition-transform motion-safe:group-hover:scale-110" />
+          {!collapsed && <span className="relative">Start speaking</span>}
+          {!collapsed && <span className="relative"><Equalizer /></span>}
           {collapsed && <Tooltip label="Start speaking" />}
-        </button>
+        </motion.button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-4 pb-3 space-y-5" style={{ scrollbarWidth: "thin" }}>
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.title}>
-            {collapsed ? (
-              <div className="mx-2 mb-2 border-t border-slate-200/70 dark:border-white/[0.06] first:hidden" />
-            ) : (
-              <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500">{section.title}</p>
-            )}
-            <div className="space-y-0.5">
-              {section.items.map((item) => (
-                <SidebarLink key={item.to} item={item} collapsed={collapsed} active={isActive(item)} badge={badgeFor(item, data)} />
-              ))}
+      <motion.nav
+        layoutScroll
+        className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-4 pb-3 space-y-5"
+        style={{ scrollbarWidth: "thin" }}
+        onMouseLeave={() => setHovered(null)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHovered(null);
+        }}
+      >
+        {NAV_SECTIONS.map((section, sectionIndex) => {
+          const accent = ACCENTS[section.title] ?? ACCENTS.Home;
+          const offset = NAV_SECTIONS.slice(0, sectionIndex).reduce((n, s) => n + s.items.length, 0);
+          return (
+            <div key={section.title}>
+              {collapsed ? (
+                <div className="mx-2 mb-2 border-t border-slate-200/70 dark:border-white/[0.06] first:hidden" />
+              ) : (
+                <motion.p
+                  initial={intro ? { opacity: 0 } : false}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.08 + offset * 0.028 }}
+                  className="px-3 mb-1.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
+                  {section.title}
+                  <span className="flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-white/[0.08] to-transparent" />
+                </motion.p>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map((item, i) => (
+                  <SidebarLink
+                    key={item.to}
+                    item={item}
+                    collapsed={collapsed}
+                    active={isActive(item)}
+                    badge={badgeFor(item, data)}
+                    accent={accent}
+                    hovered={hovered === item.to}
+                    onHover={setHovered}
+                    intro={intro}
+                    index={offset + i}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {!collapsed && <LiveNowList data={data} onJoin={(id) => navigate(`/voice/${id}`)} />}
-      </nav>
+      </motion.nav>
 
       {/* Streak / XP */}
       {!collapsed && (
@@ -897,17 +1075,29 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
           const Icon = tab.icon;
           const content = (
             <>
-              <span className="relative">
-                <Icon className="w-[22px] h-[22px]" strokeWidth={tab.active ? 2.3 : 1.9} />
-                {tab.badge && <Badge {...tab.badge} compact />}
+              <span className="relative flex items-center justify-center w-14 h-8">
+                {tab.active && (
+                  <motion.span
+                    layoutId="mobile-tab-pill"
+                    className="absolute inset-0 rounded-full bg-gradient-to-br from-indigo-500/15 to-violet-500/15 dark:from-indigo-400/20 dark:to-violet-400/20"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <motion.span
+                  key={String(tab.active)}
+                  initial={tab.active ? { scale: 0.6, y: 4 } : false}
+                  animate={{ scale: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 600, damping: 16 }}
+                  className="relative"
+                >
+                  <Icon className="w-[22px] h-[22px]" strokeWidth={tab.active ? 2.3 : 1.9} />
+                  {tab.badge && <Badge {...tab.badge} compact />}
+                </motion.span>
               </span>
               <span className={`text-[10.5px] ${tab.active ? "font-semibold" : "font-medium"}`}>{tab.label}</span>
-              {tab.active && (
-                <motion.span layoutId="mobile-tab-indicator" className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-b-full bg-indigo-600 dark:bg-indigo-400" />
-              )}
             </>
           );
-          const cls = `relative flex flex-col items-center justify-center gap-1 transition-colors ${tab.active ? "text-indigo-600 dark:text-indigo-300" : "text-slate-500 dark:text-slate-400"}`;
+          const cls = `relative flex flex-col items-center justify-center gap-0.5 transition-colors ${tab.active ? "text-indigo-600 dark:text-indigo-300" : "text-slate-500 dark:text-slate-400"}`;
           return tab.to ? (
             <NavLink key={tab.label} to={tab.to} className={cls} aria-label={tab.label}>{content}</NavLink>
           ) : (
@@ -968,36 +1158,47 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
               </div>
             )}
 
-            {[...NAV_SECTIONS, { title: "Account", items: ACCOUNT_ITEMS }].map((section) => (
-              <div key={section.title} className="mb-4">
-                <p className="px-1 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">{section.title}</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {section.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(item);
-                    const badge = badgeFor(item, data);
-                    return (
-                      <button
-                        key={item.to}
-                        type="button"
-                        onClick={() => go(item.to)}
-                        className={`relative flex flex-col items-center justify-center gap-1.5 h-20 rounded-2xl border transition-colors ${
-                          active
-                            ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-300"
-                            : "bg-white border-slate-200/80 text-slate-700 dark:bg-white/[0.03] dark:border-white/10 dark:text-slate-300"
-                        }`}
-                      >
-                        <span className="relative">
-                          <Icon className="w-5 h-5" />
-                          <Badge {...badge} compact />
-                        </span>
-                        <span className="text-xs font-medium">{item.label}</span>
-                      </button>
-                    );
-                  })}
+            {[...NAV_SECTIONS, { title: "Account", items: ACCOUNT_ITEMS }].map((section, sectionIndex, all) => {
+              const accent = ACCENTS[section.title] ?? ACCENTS.Home;
+              const offset = all.slice(0, sectionIndex).reduce((n, s) => n + s.items.length, 0);
+              return (
+                <div key={section.title} className="mb-4">
+                  <p className="px-1 mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
+                    <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
+                    {section.title}
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {section.items.map((item, i) => {
+                      const Icon = item.icon;
+                      const active = isActive(item);
+                      const badge = badgeFor(item, data);
+                      return (
+                        <motion.button
+                          key={item.to}
+                          type="button"
+                          onClick={() => go(item.to)}
+                          initial={{ opacity: 0, y: 12, scale: 0.94 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          whileTap={{ scale: 0.95 }}
+                          transition={{ delay: 0.06 + (offset + i) * 0.015, type: "spring", stiffness: 450, damping: 30 }}
+                          className={`relative flex flex-col items-center justify-center gap-1.5 h-20 rounded-2xl border transition-colors ${
+                            active
+                              ? "bg-white border-indigo-200 text-slate-900 shadow-md shadow-indigo-500/10 dark:bg-white/[0.07] dark:border-indigo-400/30 dark:text-white"
+                              : "bg-white border-slate-200/80 text-slate-700 dark:bg-white/[0.03] dark:border-white/10 dark:text-slate-300"
+                          }`}
+                        >
+                          <span className={`relative flex items-center justify-center w-8 h-8 rounded-xl ${active ? `bg-gradient-to-br ${accent.tile} text-white shadow-md ${accent.glow}` : ""}`}>
+                            <Icon className="w-5 h-5" />
+                            <Badge {...badge} compact />
+                          </span>
+                          <span className="text-xs font-medium">{item.label}</span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             <div className="mb-4">
               <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Theme</p>
@@ -1017,14 +1218,15 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
     </AnimatePresence>
   );
 
+  // reducedMotion="user": springs and slides become instant fades for people who ask for less motion
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       {desktop}
       {mobile}
       {sheet}
       {/* Re-keyed on open so every opening starts with an empty search */}
       <CommandPalette key={String(isPaletteOpen)} open={isPaletteOpen} onClose={closePalette} entries={paletteEntries} />
-    </>
+    </MotionConfig>
   );
 };
 

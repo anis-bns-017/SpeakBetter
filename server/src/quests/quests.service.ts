@@ -131,7 +131,7 @@ export class QuestsService {
   /** How far each kind of quest got since the week started, from what the learner did anywhere in the app */
   private async measure(userId: string, kinds: QuestKind[], since: Date): Promise<number[]> {
     const has = (k: QuestKind) => kinds.includes(k);
-    const [xp, cardReviews, wordReviews, attempts, challenges, texts, plans] = await Promise.all([
+    const [xp, cardReviews, wordReviews, attempts, challenges, texts, plans, pieces] = await Promise.all([
       this.prisma.xpTransaction.findMany({
         // Quest XP itself does not count towards the XP quest
         where: { userId, createdAt: { gte: since }, reason: { not: 'QUEST_COMPLETED' } },
@@ -143,6 +143,7 @@ export class QuestsService {
       has('CHALLENGE') ? this.prisma.challengeEntry.count({ where: { userId, createdAt: { gte: since } } }) : 0,
       has('READ') ? this.prisma.libraryProgress.count({ where: { userId, updatedAt: { gte: since } } }) : 0,
       has('PLAN') ? this.prisma.dailyPlan.count({ where: { userId, completedAt: { gte: since } } }) : 0,
+      has('WRITE') ? this.prisma.writingPiece.count({ where: { userId, submittedAt: { gte: since } } }) : 0,
     ]);
 
     const sum = (reason?: string) => xp.filter((t) => !reason || t.reason === reason).reduce((s, t) => s + t.amount, 0);
@@ -163,6 +164,8 @@ export class QuestsService {
           return cardReviews + wordReviews;
         case 'READ':
           return texts;
+        case 'WRITE':
+          return pieces;
         case 'CHALLENGE':
           return challenges;
         case 'PRONUNCIATION':

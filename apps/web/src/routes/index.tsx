@@ -40,6 +40,8 @@ import { LeaguesPage } from "../pages/LeaguesPage";
 import { ChallengePage } from "../pages/ChallengePage";
 import { LibraryPage } from "../pages/LibraryPage";
 import { LibraryReaderPage } from "../pages/LibraryReaderPage";
+import { WritingPage } from "../pages/WritingPage";
+import { WritingEditorPage } from "../pages/WritingEditorPage";
 import { PremiumPage } from "../pages/PremiumPage";
 import { CheckoutPage } from "../pages/CheckoutPage";
 import { ProfilePage } from "../pages/ProfilePage";
@@ -188,6 +190,8 @@ const AppRoutes = () => {
           <Route path="/challenge" element={<ChallengePage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/library/:textId" element={<LibraryReaderPage />} />
+          <Route path="/writing" element={<WritingPage />} />
+          <Route path="/writing/:pieceId" element={<WritingEditorPage />} />
           <Route path="/premium" element={<PremiumPage />} />
           <Route path="/billing/checkout/:paymentId" element={<CheckoutPage />} />
 

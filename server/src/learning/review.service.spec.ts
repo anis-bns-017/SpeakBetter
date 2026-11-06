@@ -30,6 +30,8 @@ function setup() {
     },
     voiceCorrection: { findMany: jest.fn(async () => []) },
     message: { findMany: jest.fn(async () => []) },
+    settings: { findUnique: jest.fn(async () => null), upsert: jest.fn(async () => ({})) },
+    reviewLog: { create: jest.fn(async () => ({})), findMany: jest.fn(async () => []) },
   };
   const activity: any = { recordCappedActivity: jest.fn(async () => undefined) };
   return { service: new ReviewService(prisma, activity), prisma, activity };
@@ -116,6 +118,9 @@ describe('getQueue', () => {
     interval: 0,
     reviewCount: 0,
     lapses: 0,
+    stability: null,
+    difficulty: null,
+    lastReviewedAt: null,
     dueAt: new Date(Date.now() - 1000),
     flashcard: { kind: 'correction', front: 'I have car', back: 'I have a car', note: 'Add an article.', pattern: 'ARTICLE' },
     ...over,
@@ -148,7 +153,8 @@ describe('getQueue', () => {
       patternLabel: 'Articles (a, an, the)',
       isNew: true,
     });
-    expect(items[0].preview).toEqual({ again: 10, hard: 1440, good: 2880, easy: 5760 });
+    expect(items[0].preview).toEqual({ again: 10, hard: 1440, good: 4 * 1440, easy: 14 * 1440 });
+    expect(items[0].recall).toBeNull();
     expect(due).toEqual({ corrections: 3, words: 6, total: 9 });
     expect(prisma.flashcardReview.findMany.mock.calls[0][0].where.dueAt).toBeDefined();
   });
@@ -162,8 +168,10 @@ describe('getQueue', () => {
     const { items } = await service.getQueue('u1');
     expect(items.map((i) => i.key)).toEqual(['word:w1', 'card:f1']);
     expect(items[0]).toMatchObject({ type: 'word', kind: 'word', front: 'lovely', back: 'very nice', isNew: false });
-    expect(items[0].preview.again).toBe(1440);
-    expect(items[0].preview.good).toBe(4 * 1440);
+    // A word from the old boxes: back in minutes when forgotten, and a longer gap than its 2-day box when known
+    expect(items[0].preview.again).toBe(10);
+    expect(items[0].preview.good).toBeGreaterThan(2 * 1440);
+    expect(items[0].recall).toBeGreaterThan(80);
   });
 
   it('narrows to one mistake pattern or to corrections without saved words', async () => {
@@ -203,29 +211,60 @@ describe('getQueue', () => {
 });
 
 describe('answer', () => {
-  const state = { id: 'r1', easeFactor: 2.5, interval: 10, reviewCount: 3, lapses: 0 };
+  // A card the old scheduler had put on a 10-day gap, reviewed right on time
+  const state = () => ({
+    id: 'r1',
+    easeFactor: 2.5,
+    interval: 10,
+    reviewCount: 3,
+    lapses: 0,
+    stability: null,
+    difficulty: null,
+    lastReviewedAt: new Date(Date.now() - 10 * DAY),
+  });
 
-  it('schedules a card from the answer and awards capped XP', async () => {
+  it('moves an old card to FSRS, schedules it, logs the review and awards capped XP', async () => {
     const { service, prisma, activity } = setup();
-    prisma.flashcardReview.findFirst.mockResolvedValue(state);
+    prisma.flashcardReview.findFirst.mockResolvedValue(state());
     const r = await service.answer('u1', { type: 'card', id: 'f1', rating: 'good' });
-    expect(prisma.flashcardReview.update.mock.calls[0][0].data).toMatchObject({ interval: 25, reviewCount: 4, lapses: 0 });
-    expect(r.intervalDays).toBe(25);
+    const data = prisma.flashcardReview.update.mock.calls[0][0].data;
+    expect(data).toMatchObject({ reviewCount: 4, lapses: 0 });
+    // Stability grows from 10 to about 34 days (the FSRS recall formula), and the gap follows
+    expect(data.stability).toBeCloseTo(34.4, 0);
+    expect(data.interval).toBe(34);
+    expect(r.intervalDays).toBe(34);
+    const log = prisma.reviewLog.create.mock.calls[0][0].data;
+    expect(log).toMatchObject({ userId: 'u1', itemType: 'card', itemId: 'f1', rating: 'good' });
+    expect(log.elapsedDays).toBeCloseTo(10, 1);
+    expect(log.retrievability).toBeCloseTo(0.9, 2);
     expect(activity.recordCappedActivity).toHaveBeenCalledWith('u1', 2, 'FLASHCARD_REVIEW', REVIEW_XP_DAILY_CAP);
+  });
+
+  it('uses the learner\'s retention target', async () => {
+    const { service, prisma } = setup();
+    prisma.settings.findUnique.mockResolvedValue({ desiredRetention: 0.95 });
+    prisma.flashcardReview.findFirst.mockResolvedValue(state());
+    await service.answer('u1', { type: 'card', id: 'f1', rating: 'good' });
+    expect(prisma.flashcardReview.update.mock.calls[0][0].data.interval).toBeLessThan(34);
   });
 
   it('sends a forgotten card back to minutes, counts a lapse, and gives no XP', async () => {
     const { service, prisma, activity } = setup();
-    prisma.flashcardReview.findFirst.mockResolvedValue(state);
+    prisma.flashcardReview.findFirst.mockResolvedValue(state());
     await service.answer('u1', { type: 'card', id: 'f1', rating: 'again' });
-    expect(prisma.flashcardReview.update.mock.calls[0][0].data).toMatchObject({ interval: 0, lapses: 1 });
+    const data = prisma.flashcardReview.update.mock.calls[0][0].data;
+    expect(data).toMatchObject({ interval: 0, lapses: 1 });
+    expect(data.stability).toBeLessThan(10);
+    expect(data.dueAt.getTime()).toBeLessThan(Date.now() + 15 * 60_000);
     expect(activity.recordCappedActivity).not.toHaveBeenCalled();
   });
 
   it('starts a review for a card that has none yet', async () => {
     const { service, prisma } = setup();
     await service.answer('u1', { type: 'card', id: 'f1', rating: 'easy' });
-    expect(prisma.flashcardReview.create.mock.calls[0][0].data).toMatchObject({ flashcardId: 'f1', userId: 'u1', interval: 4, reviewCount: 1 });
+    const data = prisma.flashcardReview.create.mock.calls[0][0].data;
+    expect(data).toMatchObject({ flashcardId: 'f1', userId: 'u1', interval: 14, reviewCount: 1 });
+    expect(data.stability).toBeCloseTo(13.82, 1);
   });
 
   it('only answers cards and words that belong to the learner', async () => {
@@ -236,18 +275,55 @@ describe('answer', () => {
     await expect(service.answer('u1', { type: 'word', id: 'x', rating: 'good' })).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('moves a saved word up a box when remembered and back to the start when forgotten', async () => {
+  it('schedules saved words with FSRS too, keeping the old box in step', async () => {
     const { service, prisma, activity } = setup();
-    prisma.voiceSavedWord.findFirst.mockResolvedValue({ id: 'w1', box: 2 });
+    // Reviewed three times under the boxes: box 2 is a 4-day gap
+    prisma.voiceSavedWord.findFirst.mockResolvedValue({ id: 'w1', box: 2, reviewCount: 3, dueAt: new Date(), lapses: 0, interval: 0, stability: null, difficulty: null, lastReviewedAt: null });
     const knew = await service.answer('u1', { type: 'word', id: 'w1', rating: 'good' });
-    expect(prisma.voiceSavedWord.update.mock.calls[0][0].data.box).toBe(3);
-    expect(knew.intervalDays).toBe(8);
+    const data = prisma.voiceSavedWord.update.mock.calls[0][0].data;
+    expect(data.box).toBe(3);
+    expect(data.stability).toBeGreaterThan(4);
+    expect(knew.intervalDays).toBeGreaterThan(8);
     expect(activity.recordCappedActivity).toHaveBeenCalledTimes(1);
 
     const forgot = await service.answer('u1', { type: 'word', id: 'w1', rating: 'again' });
     expect(prisma.voiceSavedWord.update.mock.calls[1][0].data.box).toBe(0);
-    expect(forgot.intervalDays).toBe(1);
+    expect(forgot.intervalDays).toBe(0);
     expect(activity.recordCappedActivity).toHaveBeenCalledTimes(1);
+    expect(prisma.reviewLog.create).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('memory stats and retention', () => {
+  it('counts cards by stage, averages recall, forecasts two weeks and measures real retention', async () => {
+    const { service, prisma } = setup();
+    const now = new Date('2026-11-06T10:00:00');
+    prisma.flashcardReview.findMany.mockResolvedValue([
+      { stability: null, difficulty: null, easeFactor: 2.5, interval: 0, reviewCount: 0, lapses: 0, lastReviewedAt: null, dueAt: new Date(now.getTime() - 1000) },
+      { stability: 10, difficulty: 5, easeFactor: 2.5, interval: 10, reviewCount: 3, lapses: 0, lastReviewedAt: new Date(now.getTime() - 10 * DAY), dueAt: new Date(now.getTime() + 3 * DAY) },
+      { stability: 1, difficulty: 7, easeFactor: 2.5, interval: 0, reviewCount: 2, lapses: 1, lastReviewedAt: new Date(now.getTime() - 60_000), dueAt: new Date(now.getTime() + 9 * 60_000) },
+    ]);
+    prisma.reviewLog.findMany.mockResolvedValue([{ rating: 'good' }, { rating: 'easy' }, { rating: 'again' }, { rating: 'hard' }]);
+    const stats = await service.getStats('u1', now);
+    expect(stats.counts).toEqual({ total: 3, new: 1, learning: 1, review: 1 });
+    expect(stats.dueNow).toBe(1);
+    expect(stats.forecast).toHaveLength(14);
+    expect(stats.forecast[0].due).toBe(2);
+    expect(stats.forecast[3].due).toBe(1);
+    expect(stats.forecast[0].day).toBe('2026-11-06');
+    expect(stats.forecast[13].day).toBe('2026-11-19');
+    expect(stats.averageRecall).toBeGreaterThan(90);
+    expect(stats.last30).toEqual({ reviews: 4, remembered: 3, retention: 75 });
+    expect(stats.retention).toBe(0.9);
+    // Only reviews at least a day apart count as real retention
+    expect(prisma.reviewLog.findMany.mock.calls[0][0].where.elapsedDays).toEqual({ gte: 1 });
+  });
+
+  it('saves a retention target from the offered choices only', async () => {
+    const { service, prisma } = setup();
+    await service.setRetention('u1', 0.85);
+    expect(prisma.settings.upsert.mock.calls[0][0]).toMatchObject({ where: { userId: 'u1' }, update: { desiredRetention: 0.85 } });
+    await expect(service.setRetention('u1', 0.5)).rejects.toThrow(/Choose one of/);
   });
 });
 

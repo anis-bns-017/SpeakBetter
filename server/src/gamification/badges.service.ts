@@ -85,6 +85,8 @@ export class BadgesService implements OnModuleInit {
       shadowingLessons,
       questWeeks,
       freezesUsed,
+      piecesWritten,
+      polishedPieces,
     ] = await Promise.all([
       this.prisma.xpTransaction.aggregate({ where: { userId }, _sum: { amount: true } }),
       this.prisma.xpTransaction.groupBy({
@@ -121,6 +123,8 @@ export class BadgesService implements OnModuleInit {
       this.prisma.shadowingProgress.count({ where: { userId } }),
       this.prisma.questWeek.count({ where: { userId, completedAt: { not: null } } }),
       this.prisma.streakFreezeUse.count({ where: { userId } }),
+      this.prisma.writingPiece.count({ where: { userId, submittedAt: { not: null } } }),
+      this.prisma.writingPiece.count({ where: { userId, submittedAt: { not: null }, wordCount: { gte: 80 }, score: { gte: 95 } } }),
     ]);
 
     const reason = (r: string) => xpByReason.find((x) => x.reason === r);
@@ -159,6 +163,8 @@ export class BadgesService implements OnModuleInit {
       perfectLessons: grammar.filter((g) => g.total > 0 && g.bestScore === g.total).length,
       questWeeks,
       freezesUsed,
+      piecesWritten,
+      polishedPieces,
     };
   }
 

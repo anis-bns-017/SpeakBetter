@@ -37,6 +37,7 @@ function badgesSetup(stats: Partial<Record<string, number>> = {}) {
     shadowingProgress: { count: jest.fn().mockResolvedValue(0) },
     questWeek: { count: jest.fn().mockResolvedValue(0) },
     streakFreezeUse: { count: jest.fn().mockResolvedValue(0) },
+    writingPiece: { count: jest.fn().mockResolvedValue(0) },
     userBadge: {
       findMany: jest.fn(async () => owned.map((badgeId) => ({ badgeId, earnedAt: new Date() }))),
       create: jest.fn(async ({ data }) => {

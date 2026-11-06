@@ -9,7 +9,8 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { recapTip } from './recap';
-import { ActivityService, XP_REWARDS } from '../../learning/activity.service';
+import { ActivityService } from '../../learning/activity.service';
+import { ReviewService } from '../../learning/review.service';
 import {
   MISSION_POINTS,
   MISSION_SPEED_BONUS,
@@ -24,10 +25,8 @@ import {
   buildAirtime,
   cleanNote,
   coachTip,
-  dueAfter,
   matchesMissionWord,
   missionPoints,
-  nextBox,
   normalizeLevel,
   normalizeSavedWord,
   pickMissionWord,
@@ -147,6 +146,7 @@ export class CoachService {
   constructor(
     private prisma: PrismaService,
     private activity: ActivityService,
+    private review: ReviewService,
   ) {}
 
   /** The gateway registers here to announce rounds that end by timer */
@@ -671,14 +671,9 @@ export class CoachService {
     const word = await this.prisma.voiceSavedWord.findFirst({ where: { id, userId } });
     if (!word) throw new NotFoundException('Word not found');
 
-    const box = nextBox(word.box, knew);
-    const updated = await this.prisma.voiceSavedWord.update({
-      where: { id },
-      data: { box, dueAt: dueAfter(box), reviewCount: { increment: 1 } },
-    });
-    // Remembering earns a little XP; capped so reviewing stays about learning
-    if (knew) await this.activity.recordCappedActivity(userId, XP_REWARDS.flashcardReview, 'FLASHCARD_REVIEW', 20);
-    return updated;
+    // The same FSRS schedule (and XP and review log) as the review page
+    const result = await this.review.answer(userId, { type: 'word', id: word.id, rating: knew ? 'good' : 'again' });
+    return result.word;
   }
 
   async deleteWord(userId: string, id: string) {

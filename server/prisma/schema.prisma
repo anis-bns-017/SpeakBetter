@@ -175,6 +175,7 @@ enum XpReason {
   PRONUNCIATION_PRACTICE
   DAILY_PLAN
   QUEST_COMPLETED
+  WRITING_PRACTICE
 }
 
 enum BadgeCategory {
@@ -635,6 +636,8 @@ model User {
   challengesReceived       FriendChallenge[]        @relation("ChallengesReceived")
   questWeeks               QuestWeek[]
   streakFreezeUses         StreakFreezeUse[]
+  writingPieces            WritingPiece[]
+  reviewLogs               ReviewLog[]
 }
 
 // One row per refresh token. A login starts a "family"; every refresh rotation
@@ -742,6 +745,8 @@ model Settings {
   chatLockPinHash          String?
   /// Minutes a day the learner wants to practise; the daily plan fits into it
   dailyGoalMinutes         Int      @default(10)
+  /// FSRS target: the share of review cards to remember when they come back (0.8-0.95)
+  desiredRetention         Float    @default(0.9)
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }
@@ -1393,6 +1398,10 @@ model FlashcardReview {
   reviewCount    Int         @default(0)
   /// Times it was forgotten after being learned
   lapses         Int         @default(0)
+  /// FSRS memory: days until recall falls to 90% (null = new, or scheduled before FSRS)
+  stability      Float?
+  /// FSRS difficulty, 1 (easy for you) to 10
+  difficulty     Float?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -2408,10 +2417,17 @@ model VoiceSavedWord {
   meaning     String?
   speakerName String?
   roomName    String?
-  /// 0 = new/forgotten; higher boxes come back less often
+  /// 0 = new/forgotten; higher boxes come back less often (the schedule before FSRS)
   box         Int      @default(0)
   dueAt       DateTime @default(now())
   reviewCount Int      @default(0)
+  /// FSRS memory, as on FlashcardReview (null = new, or scheduled by boxes)
+  stability      Float?
+  difficulty     Float?
+  lastReviewedAt DateTime?
+  /// Days of the last gap; 0 while being learned
+  interval       Int       @default(0)
+  lapses         Int       @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -2684,6 +2700,57 @@ model ChallengeReaction {
 }
 
 /// How far someone got with one text in the reading and listening library
+/// A piece of writing in the Writing studio: a draft while open, finished once submitted
+model WritingPiece {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// A task id from writing.prompts.ts, or "free"
+  promptId    String
+  level       String
+  title       String
+  text        String    @default("")
+  wordCount   Int       @default(0)
+  /// en-GB or en-US spelling
+  variant     String    @default("en-GB")
+  /// Issues in the latest check of the current text
+  issues      Json?
+  /// The first check and the text it saw: the learner's own mistakes, used for review cards
+  firstIssues Json?
+  firstText   String?
+  checks      Int       @default(0)
+  /// 0-100 when finished and checked
+  score       Int?
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, updatedAt])
+  @@index([userId, submittedAt])
+  @@index([userId, promptId])
+}
+
+/// Every review answer, for real retention stats (and, later, fitting FSRS to each learner)
+model ReviewLog {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// card (FlashcardReview) or word (VoiceSavedWord)
+  itemType       String
+  itemId         String
+  rating         String
+  /// Days since the previous review (null for the first)
+  elapsedDays    Float?
+  /// The chance of remembering at the moment of the review (null for the first)
+  retrievability Float?
+  stability      Float
+  difficulty     Float
+  reviewedAt     DateTime @default(now())
+
+  @@index([userId, reviewedAt])
+  @@index([itemType, itemId])
+}
+
 model LibraryProgress {
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)

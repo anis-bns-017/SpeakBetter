@@ -8,7 +8,7 @@
 .dark .bg-amber-100:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--color-amber-500) 16%, transparent); }
 .dark .bg-amber-100\/60:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, color-mix(in oklab, var(--color-amber-500) 16%, transparent) 60%, transparent); }
 .dark .bg-amber-200:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--color-amber-500) 24%, transparent); }
-.dark .bg-amber-200\/40:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, color-mix(in oklab, var(--color-amber-500) 24%, transparent) 40%, transparent); }
+.dark .bg-amber-200\/50:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, color-mix(in oklab, var(--color-amber-500) 24%, transparent) 50%, transparent); }
 .dark .bg-amber-50:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--color-amber-500) 10%, transparent); }
 .dark .bg-amber-50\/60:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, color-mix(in oklab, var(--color-amber-500) 10%, transparent) 60%, transparent); }
 .dark .bg-amber-50\/70:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, color-mix(in oklab, var(--color-amber-500) 10%, transparent) 70%, transparent); }
@@ -55,12 +55,14 @@
 .dark .bg-slate-100:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, white 6%, transparent); }
 .dark .bg-slate-100\/80:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, color-mix(in oklab, white 6%, transparent) 80%, transparent); }
 .dark .bg-slate-200:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, white 10%, transparent); }
+.dark .bg-slate-200\/60:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, color-mix(in oklab, white 10%, transparent) 60%, transparent); }
 .dark .bg-slate-200\/70:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, color-mix(in oklab, white 10%, transparent) 70%, transparent); }
 .dark .bg-slate-200\/80:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, color-mix(in oklab, white 10%, transparent) 80%, transparent); }
 .dark .bg-slate-300:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, white 16%, transparent); }
 .dark .bg-slate-50:not([class*="dark:bg-"]) { background-color: var(--sb-surface-2); }
 .dark .bg-slate-50\/40:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface-2) 40%, transparent); }
 .dark .bg-slate-50\/50:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface-2) 50%, transparent); }
+.dark .bg-slate-50\/60:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface-2) 60%, transparent); }
 .dark .bg-slate-50\/70:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface-2) 70%, transparent); }
 .dark .bg-slate-50\/80:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface-2) 80%, transparent); }
 .dark .bg-violet-100:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--color-violet-500) 16%, transparent); }
@@ -77,6 +79,7 @@
 .dark .bg-white\/50:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface) 50%, transparent); }
 .dark .bg-white\/70:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface) 70%, transparent); }
 .dark .bg-white\/80:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface) 80%, transparent); }
+.dark .bg-white\/85:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface) 85%, transparent); }
 .dark .bg-white\/90:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface) 90%, transparent); }
 .dark .bg-white\/95:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--sb-surface) 95%, transparent); }
 .dark .bg-yellow-100:not([class*="dark:bg-"]) { background-color: color-mix(in oklab, var(--color-yellow-500) 16%, transparent); }
@@ -133,6 +136,7 @@
 .dark .divide-gray-100:not([class*="dark:divide-"]) > :not(:last-child) { border-color: color-mix(in oklab, white 6%, transparent); }
 .dark .divide-slate-100:not([class*="dark:divide-"]) > :not(:last-child) { border-color: color-mix(in oklab, white 6%, transparent); }
 .dark .focus\:bg-white:focus:not([class*="dark:focus:bg-"]) { background-color: var(--sb-surface); }
+.dark .focus\:border-indigo-300:focus:not([class*="dark:focus:border-"]) { border-color: color-mix(in oklab, var(--color-indigo-500) 36%, transparent); }
 .dark .focus\:border-indigo-300\/60:focus:not([class*="dark:focus:border-"]) { border-color: color-mix(in oklab, color-mix(in oklab, var(--color-indigo-500) 36%, transparent) 60%, transparent); }
 .dark .focus\:border-red-300\/50:focus:not([class*="dark:focus:border-"]) { border-color: color-mix(in oklab, color-mix(in oklab, var(--color-red-500) 36%, transparent) 50%, transparent); }
 .dark .focus\:ring-gray-300:focus:not([class*="dark:focus:ring-"]) { --tw-ring-color: color-mix(in oklab, white 16%, transparent); }
@@ -228,6 +232,7 @@
 .dark .ring-indigo-200:not([class*="dark:ring-"]) { --tw-ring-color: color-mix(in oklab, var(--color-indigo-500) 36%, transparent); }
 .dark .ring-slate-200\/50:not([class*="dark:ring-"]) { --tw-ring-color: color-mix(in oklab, color-mix(in oklab, white 10%, transparent) 50%, transparent); }
 .dark .ring-slate-200\/60:not([class*="dark:ring-"]) { --tw-ring-color: color-mix(in oklab, color-mix(in oklab, white 10%, transparent) 60%, transparent); }
+.dark .ring-slate-200\/70:not([class*="dark:ring-"]) { --tw-ring-color: color-mix(in oklab, color-mix(in oklab, white 10%, transparent) 70%, transparent); }
 .dark .ring-white:not([class*="dark:ring-"]) { --tw-ring-color: var(--sb-surface); }
 .dark .ring-white\/20:not([class*="dark:ring-"]) { --tw-ring-color: color-mix(in oklab, white 4%, transparent); }
 .dark .ring-white\/50:not([class*="dark:ring-"]) { --tw-ring-color: color-mix(in oklab, white 10%, transparent); }
@@ -306,6 +311,8 @@
 .dark .to-violet-50\/80:not([class*="dark:to-"]) { --tw-gradient-to: color-mix(in oklab, color-mix(in oklab, var(--color-violet-500) 10%, transparent) 80%, transparent); }
 .dark .via-slate-50\/80:not([class*="dark:via-"]) { --tw-gradient-via: color-mix(in oklab, var(--sb-surface-2) 80%, transparent); }
 .dark .via-white:not([class*="dark:via-"]) { --tw-gradient-via: var(--sb-surface); }
+.dark .via-white\/40:not([class*="dark:via-"]) { --tw-gradient-via: color-mix(in oklab, var(--sb-surface) 40%, transparent); }
+.dark .via-white\/70:not([class*="dark:via-"]) { --tw-gradient-via: color-mix(in oklab, var(--sb-surface) 70%, transparent); }
 
 /* Light theme on the dark-designed stage screens */
 :root:not(.dark) [style*="--sx-"] .bg-white\/0 { background-color: color-mix(in oklab, #0f172a 0%, transparent); }

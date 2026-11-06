@@ -32,7 +32,41 @@ export interface ReviewItem {
   dueAt: string;
   /** Minutes until the card returns for each answer */
   preview: Record<ReviewRating, number>;
+  /** The chance (0-100) of remembering it right now; null for a card never reviewed */
+  recall: number | null;
 }
+
+export interface ReviewStats {
+  /** Share of cards to remember when they come back (0.8-0.95) */
+  retention: number;
+  retentionOptions: number[];
+  counts: { total: number; new: number; learning: number; review: number };
+  dueNow: number;
+  /** Average chance (0-100) of remembering the cards you have reviewed, right now */
+  averageRecall: number | null;
+  /** Reviews due each day for the next two weeks; today includes anything overdue */
+  forecast: Array<{ day: string; due: number }>;
+  /** Reviews at least a day apart in the last 30 days, and how many you remembered */
+  last30: { reviews: number; remembered: number; retention: number | null };
+}
+
+export const useReviewStats = () =>
+  useQuery({
+    queryKey: ['review-stats'],
+    queryFn: async () => (await apiClient.get<ReviewStats>('/review/stats')).data,
+    staleTime: 30_000,
+  });
+
+export const useSetRetention = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (retention: number) => (await apiClient.put<ReviewStats>('/review/settings', { retention })).data,
+    onSuccess: (stats) => {
+      queryClient.setQueryData(['review-stats'], stats);
+      queryClient.invalidateQueries({ queryKey: ['review-queue'] });
+    },
+  });
+};
 
 export interface ReviewQueue {
   items: ReviewItem[];
@@ -76,6 +110,7 @@ export const useAnswerReview = () => {
       queryClient.invalidateQueries({ queryKey: ['quests'] });
       queryClient.invalidateQueries({ queryKey: ['streak'] });
       queryClient.invalidateQueries({ queryKey: ['review-mistakes'] });
+      queryClient.invalidateQueries({ queryKey: ['review-stats'] });
     },
   });
 };

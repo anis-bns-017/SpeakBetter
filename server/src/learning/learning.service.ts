@@ -7,15 +7,17 @@ import {
 import { CreateVocabularyDto, ReviewVocabularyDto } from './dto/vocabulary.dto';
 import { CreateFlashcardDto, ReviewFlashcardDto } from './dto/flashcard.dto';
 import { SubmitExerciseDto } from './dto/exercise.dto';
-import { NEW_CARD, isRating, schedule, type Rating } from './srs';
+import { NEW_CARD, isRating, type Rating } from './srs';
+import { ReviewService } from './review.service';
 import { PrismaService } from '../prisma.service';
-import { ActivityService, DAILY_XP_GOAL, XP_REWARDS } from './activity.service';
+import { ActivityService, DAILY_XP_GOAL } from './activity.service';
 
 @Injectable()
 export class LearningService {
   constructor(
     private prisma: PrismaService,
     private activity: ActivityService,
+    private review: ReviewService,
   ) {}
 
   // ============ VOCABULARY ============
@@ -195,33 +197,9 @@ export class LearningService {
     const rating: Rating | undefined = isRating(data.rating) ? data.rating : legacy[data.difficulty as keyof typeof legacy];
     if (!rating) throw new BadRequestException('Say how well you knew the card');
 
-    // Every review counts toward XP and today's streak
-    await this.activity.recordActivity(userId, XP_REWARDS.flashcardReview, 'FLASHCARD_REVIEW');
-
-    const existingReview = await this.prisma.flashcardReview.findFirst({
-      where: { flashcardId: data.flashcardId, userId },
-    });
-    const next = schedule(
-      existingReview
-        ? { easeFactor: existingReview.easeFactor, interval: existingReview.interval, reviewCount: existingReview.reviewCount, lapses: existingReview.lapses }
-        : NEW_CARD,
-      rating,
-    );
-    const fields = {
-      easeFactor: next.easeFactor,
-      interval: next.interval,
-      reviewCount: next.reviewCount,
-      lapses: next.lapses,
-      lastReviewedAt: new Date(),
-      dueAt: next.dueAt,
-    };
-
-    if (existingReview) {
-      return this.prisma.flashcardReview.update({ where: { id: existingReview.id }, data: fields });
-    }
-    return this.prisma.flashcardReview.create({
-      data: { ...fields, flashcardId: data.flashcardId, userId },
-    });
+    // One scheduler for every way of reviewing (FSRS, with XP and the review log)
+    const result = await this.review.answer(userId, { type: 'card', id: flashcard.id, rating });
+    return result.review;
   }
 
   // ============ GRAMMAR ============

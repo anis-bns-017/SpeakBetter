@@ -69,7 +69,7 @@ describe('CoachService.getRecap', () => {
       },
       voiceSavedWord: { findMany: jest.fn().mockResolvedValue([{ word: 'comfortable', meaning: 'feeling relaxed', sentence: null }]) },
     };
-    return { service: new CoachService(prisma, {} as any), prisma };
+    return { service: new CoachService(prisma, {} as any, {} as any), prisma };
   }
 
   it('gathers the report, corrections, saved words, people and a tip', async () => {

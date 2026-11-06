@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api/client';
 
-export type PlanTaskKind = 'LEVEL' | 'REVIEW' | 'PRONUNCIATION' | 'SPEAK' | 'CHALLENGE' | 'READ' | 'CORRECTION' | 'WORDS' | 'EXERCISE';
+export type PlanTaskKind = 'LEVEL' | 'REVIEW' | 'PRONUNCIATION' | 'SPEAK' | 'CHALLENGE' | 'READ' | 'WRITE' | 'CORRECTION' | 'WORDS' | 'EXERCISE';
 
 export interface PlanTask {
   id: string;
@@ -10,7 +10,7 @@ export interface PlanTask {
   detail: string;
   to: string;
   target: number;
-  unit: 'test' | 'cards' | 'tries' | 'minutes' | 'answers' | 'texts' | 'corrections' | 'words' | 'exercises';
+  unit: 'test' | 'cards' | 'tries' | 'minutes' | 'answers' | 'texts' | 'pieces' | 'corrections' | 'words' | 'exercises';
   minutes: number;
   progress: number;
   done: boolean;

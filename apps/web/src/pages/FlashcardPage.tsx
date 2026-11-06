@@ -37,6 +37,7 @@ import {
   type ReviewRating,
 } from "../hooks/useReview";
 import { diffWords } from "../lib/textDiff";
+import { MemoryView } from "../components/review/MemoryView";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 
 const card =
@@ -84,6 +85,20 @@ const CardFace: React.FC<{ item: ReviewItem; flipped: boolean }> = ({ item, flip
         )}
         {item.isNew && (
           <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300">New</span>
+        )}
+        {item.recall !== null && (
+          <span
+            title="Your chance of remembering this card right now (FSRS)"
+            className={`px-3 py-1 rounded-full text-[11px] font-semibold tabular-nums ${
+              item.recall >= 85
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                : item.recall >= 65
+                  ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                  : "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+            }`}
+          >
+            {item.recall}% recall
+          </span>
         )}
       </div>
 
@@ -442,12 +457,13 @@ const MistakesView: React.FC<{ onPractise: (pattern: string) => void }> = ({ onP
 // Page
 // ============================================================
 
-type Tab = "review" | "mistakes";
+type Tab = "review" | "mistakes" | "memory";
 type KindFilter = "" | "correction" | "word";
 
 export const FlashcardPage: React.FC = () => {
   const [search, setSearch] = useSearchParams();
-  const tab: Tab = search.get("tab") === "mistakes" ? "mistakes" : "review";
+  const tabParam = search.get("tab");
+  const tab: Tab = tabParam === "mistakes" || tabParam === "memory" ? tabParam : "review";
   const pattern = search.get("pattern") ?? "";
   const [kind, setKind] = useState<KindFilter>("");
   const [language, setLanguage] = useState("");
@@ -470,8 +486,8 @@ export const FlashcardPage: React.FC = () => {
 
   const setTab = (next: Tab) => {
     const params = new URLSearchParams(search);
-    if (next === "mistakes") params.set("tab", "mistakes");
-    else params.delete("tab");
+    if (next === "review") params.delete("tab");
+    else params.set("tab", next);
     setSearch(params, { replace: true });
   };
 
@@ -522,7 +538,7 @@ export const FlashcardPage: React.FC = () => {
       </header>
 
       <div className="flex gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-white/[0.05] w-fit" role="tablist">
-        {(["review", "mistakes"] as const).map((t) => (
+        {(["review", "mistakes", "memory"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -533,12 +549,14 @@ export const FlashcardPage: React.FC = () => {
               tab === t ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
-            {t === "review" ? "Review" : "My mistakes"}
+            {t === "review" ? "Review" : t === "mistakes" ? "My mistakes" : "Memory"}
           </button>
         ))}
       </div>
 
-      {tab === "mistakes" ? (
+      {tab === "memory" ? (
+        <MemoryView />
+      ) : tab === "mistakes" ? (
         <MistakesView
           onPractise={(p) => {
             practise(p);

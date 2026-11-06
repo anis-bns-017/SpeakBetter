@@ -1,3 +1,4 @@
+import { ReviewService, REVIEW_XP_DAILY_CAP } from '../../learning/review.service';
 import { CoachService } from './coach.service';
 import { MISSION_WORDS } from './coach.data';
 
@@ -22,15 +23,18 @@ const makeService = () => {
       findUnique: jest.fn().mockResolvedValue(null),
       count: jest.fn().mockResolvedValue(0),
       upsert: jest.fn().mockImplementation(({ create }) => Promise.resolve({ id: 'w1', ...create })),
-      findFirst: jest.fn().mockResolvedValue({ id: 'w1', userId: 'u1', box: 2 }),
+      // Reviewed three times under the old boxes (box 2 = a 4-day gap), not yet under FSRS
+      findFirst: jest.fn().mockResolvedValue({ id: 'w1', userId: 'u1', box: 2, reviewCount: 3, dueAt: new Date(), lapses: 0, interval: 0, stability: null, difficulty: null, lastReviewedAt: null }),
       update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'w1', ...data })),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       findMany: jest.fn().mockResolvedValue([]),
     },
     voiceSessionReport: { upsert: jest.fn().mockImplementation(({ create }) => Promise.resolve(create)) },
+    settings: { findUnique: jest.fn().mockResolvedValue(null) },
+    reviewLog: { create: jest.fn().mockResolvedValue({}) },
   };
   const activity: any = { recordCappedActivity: jest.fn().mockResolvedValue(undefined) };
-  const service = new CoachService(prisma, activity);
+  const service = new CoachService(prisma, activity, new ReviewService(prisma, activity));
   people.forEach((p) => service.join('r1', p.userId, p.name));
   return { service, prisma, activity };
 };
@@ -285,7 +289,9 @@ describe('CoachService word bank', () => {
     const up: any = await service.reviewWord('u1', 'w1', true);
     expect(up.box).toBe(3);
     expect(up.dueAt.getTime()).toBeGreaterThan(Date.now() + 7 * 86400000);
-    expect(activity.recordCappedActivity).toHaveBeenCalledWith('u1', 2, 'FLASHCARD_REVIEW', 20);
+    expect(activity.recordCappedActivity).toHaveBeenCalledWith('u1', 2, 'FLASHCARD_REVIEW', REVIEW_XP_DAILY_CAP);
+    expect(up.stability).toBeGreaterThan(4);
+    expect(prisma.reviewLog.create).toHaveBeenCalled();
 
     activity.recordCappedActivity.mockClear();
     const down: any = await service.reviewWord('u1', 'w1', false);

@@ -34,6 +34,8 @@ const zero: LearnerStats = {
   hardTextsPerfect: 0,
   questWeeks: 0,
   freezesUsed: 0,
+  piecesWritten: 0,
+  polishedPieces: 0,
 };
 
 describe('badges', () => {

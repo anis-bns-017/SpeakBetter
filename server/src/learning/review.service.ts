@@ -1,10 +1,11 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { ActivityService, XP_REWARDS } from './activity.service';
 import { MISTAKE_PATTERNS, isPattern, patternFor, type MistakePattern } from './mistakes';
-import { NEW_CARD, previewMinutes, schedule, type CardState, type Rating } from './srs';
-import { dueAfter, nextBox } from '../voice/coach/coach.engine';
+import { NEW_CARD, type Rating } from './srs';
+import { DEFAULT_RETENTION, isRetention, previewAll, recallNow, retrievability, review as fsrsReview, RETENTION_OPTIONS, type ReviewState } from './fsrs';
+import { cardState, cardUpdate, wordState, wordUpdate } from './review.memory';
 
 /** Corrections that arrive faster than this in a day stop making cards, so one chatty room can't bury the deck */
 export const AUTO_CARDS_PER_DAY = 30;
@@ -19,7 +20,7 @@ const SYNC_THROTTLE_MS = 10 * 60 * 1000;
 const LEARNED_AFTER_DAYS = 21;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type CorrectionSource = 'voice' | 'chat' | 'ai' | 'pronunciation' | 'grammar' | 'dictation';
+export type CorrectionSource = 'voice' | 'chat' | 'ai' | 'pronunciation' | 'grammar' | 'dictation' | 'writing';
 
 export interface CorrectionInput {
   source: CorrectionSource;
@@ -52,7 +53,12 @@ export interface ReviewItem {
   dueAt: Date;
   /** Minutes until the card returns for each answer, to label the buttons */
   preview: Record<Rating, number>;
+  /** The chance (0-100) of remembering it right now; null for a card never reviewed */
+  recall: number | null;
 }
+
+/** Days in the review forecast */
+export const FORECAST_DAYS = 14;
 
 const startOfDay = (d: Date) => {
   const x = new Date(d);
@@ -229,6 +235,11 @@ export class ReviewService {
     const now = new Date();
     const limit = Math.min(Math.max(Math.floor(options.limit ?? QUEUE_DEFAULT) || QUEUE_DEFAULT, 1), QUEUE_MAX);
     await this.ensureReviews(userId);
+    const retention = await this.getRetention(userId);
+    const percent = (state: ReviewState) => {
+      const r = recallNow(state, now);
+      return r === null ? null : Math.round(r * 100);
+    };
 
     const cardFilter: Prisma.FlashcardWhereInput = {
       userId,
@@ -259,6 +270,7 @@ export class ReviewService {
     const items: ReviewItem[] = [
       ...reviews.map((r): ReviewItem => {
         const pattern = isPattern(r.flashcard.pattern) ? r.flashcard.pattern : null;
+        const state = cardState(r);
         return {
           key: `card:${r.flashcardId}`,
           type: 'card',
@@ -271,13 +283,12 @@ export class ReviewService {
           patternLabel: pattern ? MISTAKE_PATTERNS[pattern].label : null,
           isNew: r.reviewCount === 0,
           dueAt: r.dueAt,
-          preview: previewMinutes(this.stateOf(r)),
+          preview: previewAll(state, now, retention),
+          recall: percent(state),
         };
       }),
       ...words.map((w): ReviewItem => {
-        const knew = dueAfter(nextBox(w.box, true), now).getTime() - now.getTime();
-        const forgot = dueAfter(0, now).getTime() - now.getTime();
-        const toMinutes = (ms: number) => Math.round(ms / 60_000);
+        const state = wordState(w);
         return {
           key: `word:${w.id}`,
           type: 'word',
@@ -290,7 +301,8 @@ export class ReviewService {
           patternLabel: null,
           isNew: w.reviewCount === 0,
           dueAt: w.dueAt,
-          preview: { again: toMinutes(forgot), hard: toMinutes(knew), good: toMinutes(knew), easy: toMinutes(knew) },
+          preview: previewAll(state, now, retention),
+          recall: percent(state),
         };
       }),
     ]
@@ -317,49 +329,136 @@ export class ReviewService {
     });
   }
 
-  private stateOf(review: { easeFactor: number; interval: number; reviewCount: number; lapses: number }): CardState {
-    return { easeFactor: review.easeFactor, interval: review.interval, reviewCount: review.reviewCount, lapses: review.lapses };
+  // ---------------- memory settings and stats ----------------
+
+  /** The share of cards the learner wants to remember when they come back */
+  async getRetention(userId: string): Promise<number> {
+    const settings = await this.prisma.settings.findUnique({ where: { userId }, select: { desiredRetention: true } });
+    const value = settings?.desiredRetention;
+    return isRetention(value) ? Number(value) : DEFAULT_RETENTION;
+  }
+
+  async setRetention(userId: string, value: unknown) {
+    if (!isRetention(value)) throw new BadRequestException(`Choose one of ${RETENTION_OPTIONS.map((r) => `${r * 100}%`).join(', ')}`);
+    const desiredRetention = Number(value);
+    await this.prisma.settings.upsert({ where: { userId }, create: { userId, desiredRetention }, update: { desiredRetention } });
+    return this.getStats(userId);
+  }
+
+  /**
+   * How the deck is doing: cards by stage, the average chance of remembering what you have learned, reviews due
+   * each day for the next two weeks, and how much you really remembered over the last 30 days.
+   */
+  async getStats(userId: string, now = new Date()) {
+    await this.ensureReviews(userId);
+    const since = new Date(now.getTime() - 30 * DAY_MS);
+    const [retention, cards, words, logs] = await Promise.all([
+      this.getRetention(userId),
+      this.prisma.flashcardReview.findMany({
+        where: { userId, flashcard: { userId } },
+        select: { stability: true, difficulty: true, easeFactor: true, interval: true, reviewCount: true, lapses: true, lastReviewedAt: true, dueAt: true },
+      }),
+      this.prisma.voiceSavedWord.findMany({
+        where: { userId },
+        select: { stability: true, difficulty: true, box: true, dueAt: true, reviewCount: true, lapses: true, interval: true, lastReviewedAt: true },
+      }),
+      // Same-day repeats (relearning a card a few minutes later) say little about long-term memory
+      this.prisma.reviewLog.findMany({
+        where: { userId, reviewedAt: { gte: since }, elapsedDays: { gte: 1 } },
+        select: { rating: true },
+      }),
+    ]);
+
+    const items = [...cards.map((c) => ({ state: cardState(c), dueAt: c.dueAt })), ...words.map((w) => ({ state: wordState(w), dueAt: w.dueAt }))];
+    const counts = { total: items.length, new: 0, learning: 0, review: 0 };
+    const recalls: number[] = [];
+    const today = startOfDay(now).getTime();
+    // Local calendar dates (toISOString would give yesterday's date east of UTC)
+    const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const forecast = Array.from({ length: FORECAST_DAYS }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      return { day: localDay(d), due: 0 };
+    });
+    let dueNow = 0;
+    for (const { state, dueAt } of items) {
+      if (state.reviewCount === 0) counts.new++;
+      else if (state.interval <= 0) counts.learning++;
+      else counts.review++;
+      const r = recallNow(state, now);
+      if (r !== null) recalls.push(r);
+      if (dueAt.getTime() <= now.getTime()) dueNow++;
+      // Anything overdue counts on day one
+      const index = Math.max(0, Math.floor((startOfDay(dueAt).getTime() - today) / DAY_MS));
+      if (index < FORECAST_DAYS) forecast[index].due++;
+    }
+    const remembered = logs.filter((l) => l.rating !== 'again').length;
+
+    return {
+      retention,
+      retentionOptions: RETENTION_OPTIONS,
+      counts,
+      dueNow,
+      averageRecall: recalls.length ? Math.round((recalls.reduce((a, b) => a + b, 0) / recalls.length) * 100) : null,
+      forecast,
+      last30: { reviews: logs.length, remembered, retention: logs.length ? Math.round((remembered / logs.length) * 100) : null },
+    };
+  }
+
+  /** One line per answer: what the memory was and became */
+  private async logReview(
+    userId: string,
+    itemType: 'card' | 'word',
+    itemId: string,
+    rating: Rating,
+    before: ReviewState,
+    after: { stability: number; difficulty: number },
+    now: Date,
+  ) {
+    const elapsedDays = before.lastReviewedAt ? (now.getTime() - before.lastReviewedAt.getTime()) / DAY_MS : null;
+    const r = before.memory && elapsedDays !== null ? retrievability(elapsedDays, before.memory.stability) : null;
+    try {
+      await this.prisma.reviewLog.create({
+        data: { userId, itemType, itemId, rating, elapsedDays, retrievability: r, stability: after.stability, difficulty: after.difficulty, reviewedAt: now },
+      });
+    } catch (error) {
+      this.logger.warn(`Could not log a review for ${userId}: ${(error as Error)?.message}`);
+    }
   }
 
   // ---------------- answering ----------------
 
   async answer(userId: string, input: { type: 'card' | 'word'; id: string; rating: Rating }) {
     const now = new Date();
+    const retention = await this.getRetention(userId);
 
     if (input.type === 'word') {
       const word = await this.prisma.voiceSavedWord.findFirst({ where: { id: input.id, userId } });
       if (!word) throw new NotFoundException('Word not found');
-      const knew = input.rating !== 'again';
-      const box = nextBox(word.box, knew);
-      const dueAt = dueAfter(box, now);
-      await this.prisma.voiceSavedWord.update({
-        where: { id: word.id },
-        data: { box, dueAt, reviewCount: { increment: 1 } },
-      });
-      if (knew) await this.activity.recordCappedActivity(userId, XP_REWARDS.flashcardReview, 'FLASHCARD_REVIEW', REVIEW_XP_DAILY_CAP);
-      return { key: `word:${word.id}`, dueAt, intervalDays: Math.round((dueAt.getTime() - now.getTime()) / DAY_MS) };
+      const before = wordState(word);
+      const next = fsrsReview(before, input.rating, now, retention);
+      const updated = await this.prisma.voiceSavedWord.update({ where: { id: word.id }, data: wordUpdate(next, now, input.rating, word.box) });
+      await this.logReview(userId, 'word', word.id, input.rating, before, next.memory, now);
+      if (input.rating !== 'again') await this.activity.recordCappedActivity(userId, XP_REWARDS.flashcardReview, 'FLASHCARD_REVIEW', REVIEW_XP_DAILY_CAP);
+      return { key: `word:${word.id}`, dueAt: next.dueAt, intervalDays: next.interval, stability: next.memory.stability, word: updated };
     }
 
     const card = await this.prisma.flashcard.findFirst({ where: { id: input.id, userId }, select: { id: true } });
     if (!card) throw new NotFoundException('Card not found');
     const review = await this.prisma.flashcardReview.findFirst({ where: { flashcardId: card.id, userId } });
 
-    const next = schedule(review ? this.stateOf(review) : NEW_CARD, input.rating, now);
-    const data = {
-      easeFactor: next.easeFactor,
-      interval: next.interval,
-      reviewCount: next.reviewCount,
-      lapses: next.lapses,
-      lastReviewedAt: now,
-      dueAt: next.dueAt,
-    };
-    if (review) await this.prisma.flashcardReview.update({ where: { id: review.id }, data });
-    else await this.prisma.flashcardReview.create({ data: { ...data, flashcardId: card.id, userId } });
+    const before: ReviewState = review ? cardState(review) : { memory: null, lastReviewedAt: null, reviewCount: 0, lapses: 0, interval: 0 };
+    const next = fsrsReview(before, input.rating, now, retention);
+    const data = cardUpdate(next, now);
+    const saved = review
+      ? await this.prisma.flashcardReview.update({ where: { id: review.id }, data })
+      : await this.prisma.flashcardReview.create({ data: { ...data, easeFactor: NEW_CARD.easeFactor, flashcardId: card.id, userId } });
+    await this.logReview(userId, 'card', card.id, input.rating, before, next.memory, now);
 
     if (input.rating !== 'again') {
       await this.activity.recordCappedActivity(userId, XP_REWARDS.flashcardReview, 'FLASHCARD_REVIEW', REVIEW_XP_DAILY_CAP);
     }
-    return { key: `card:${card.id}`, dueAt: next.dueAt, intervalDays: next.interval };
+    return { key: `card:${card.id}`, dueAt: next.dueAt, intervalDays: next.interval, stability: next.memory.stability, review: saved };
   }
 
   // ---------------- the mistakes report ----------------
