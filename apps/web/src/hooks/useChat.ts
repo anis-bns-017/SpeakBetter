@@ -291,8 +291,9 @@ export const chatApi = {
     apiClient.post<{ url: string; type: string }>(`/chat/messages/${messageId}/view-once`),
   transcribe: (messageId: string) =>
     apiClient.post<{ text: string; language?: string | null }>(`/chat/messages/${messageId}/transcribe`),
-  translateTranscript: (messageId: string) =>
-    apiClient.post<{ text: string; language: string }>(`/chat/messages/${messageId}/translate-transcript`),
+  /** `text`: a transcript made on this device (the server doesn't have it); `target`: the language to translate into */
+  translateTranscript: (messageId: string, body: { text?: string; target?: string } = {}) =>
+    apiClient.post<{ text: string; language: string }>(`/chat/messages/${messageId}/translate-transcript`, body),
 };
 
 /** Server error text from an axios error, for toasts */

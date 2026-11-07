@@ -21,7 +21,6 @@ import { SocialModule } from '../social/social.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 // Import new services
-import { TranscriptionService } from './services/transcription.service';
 import { TranslationService } from './services/translation.service';
 import { ClapService } from './services/clap.service';
 import { SpeakerQueueService } from './services/queue.service';
@@ -30,7 +29,6 @@ import { CoachService } from './coach/coach.service';
 import { CoachController } from './coach/coach.controller';
 
 // Import new controllers
-import { TranscriptionController } from './controllers/transcription.controller';
 import { ClapController } from './controllers/clap.controller';
 import { QueueController } from './controllers/queue.controller';
 import { InviteController } from './controllers/invite.controller';
@@ -58,7 +56,6 @@ import { AnalyticsController } from './controllers/analytics.controller';
   ],
   controllers: [
     VoiceController,
-    TranscriptionController,
     ClapController,
     QueueController,
     InviteController,
@@ -78,7 +75,6 @@ import { AnalyticsController } from './controllers/analytics.controller';
     VoiceCoachSession,
     LiveKitService,
     PrismaService,
-    TranscriptionService,
     TranslationService,
     ClapService,
     SpeakerQueueService,
@@ -88,7 +84,6 @@ import { AnalyticsController } from './controllers/analytics.controller';
   exports: [
     VoiceService,
     LiveKitService,
-    TranscriptionService,
     TranslationService,
     ClapService,
     SpeakerQueueService,

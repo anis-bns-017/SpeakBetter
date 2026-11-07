@@ -53,7 +53,14 @@ async function bootstrap() {
     }
 
     // ✅ Serve static files
-    app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+    // Uploads are public files; the app also reads them from its own origin (to transcribe voice messages
+    // in the browser), so they carry an open CORS header
+    app.use(
+      '/uploads',
+      express.static(join(process.cwd(), 'uploads'), {
+        setHeaders: (res) => res.setHeader('Access-Control-Allow-Origin', '*'),
+      }),
+    );
 
     app.useGlobalPipes(
       new ValidationPipe({
@@ -138,10 +145,11 @@ async function bootstrap() {
   } catch (error) {
     if (error.code === 'EADDRINUSE') {
       const logger = new Logger('Bootstrap');
-      logger.error(`❌ Port 3000 is already in use!`);
+      const busyPort = error.port ?? process.env.PORT ?? 3001;
+      logger.error(`❌ Port ${busyPort} is already in use! Another copy of the server may already be running.`);
       logger.error(`💡 To fix this:`);
       logger.error(
-        `   1. Find the process: lsof -i :3000 (Mac/Linux) or netstat -ano | findstr :3000 (Windows)`,
+        `   1. Find the process: lsof -i :${busyPort} (Mac/Linux) or netstat -ano | findstr :${busyPort} (Windows)`,
       );
       logger.error(
         `   2. Kill the process: kill -9 <PID> (Mac/Linux) or taskkill /PID <PID> /F (Windows)`,

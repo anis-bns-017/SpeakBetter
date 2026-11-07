@@ -27,6 +27,11 @@ interface Options {
   language?: string;
 }
 
+/** Lines kept for the room transcript (older ones drop off, so a long room stays light) */
+export const TRANSCRIPT_MAX_LINES = 400;
+const keepRecent = (list: VoiceTranscription[]) =>
+  list.length > TRANSCRIPT_MAX_LINES ? list.slice(-TRANSCRIPT_MAX_LINES) : list;
+
 export const useVoiceTranscription = ({
   roomId,
   userId,
@@ -69,7 +74,7 @@ export const useVoiceTranscription = ({
           ? prev.filter((t) => t.isFinal || t.userId !== userId)
           : prev.filter((t) => t.isFinal || t.userId !== userId);
 
-        return [
+        return keepRecent([
           ...cleaned,
           {
             id,
@@ -82,7 +87,7 @@ export const useVoiceTranscription = ({
             timestamp: new Date(),
             language: language.split("-")[0],
           },
-        ];
+        ]);
       });
 
       socket.emit("voice:transcription", {
@@ -240,7 +245,7 @@ export const useVoiceTranscription = ({
           ? prev.filter((t) => t.isFinal || t.userId !== data.userId)
           : prev.filter((t) => t.isFinal || t.userId !== data.userId);
 
-        return [
+        return keepRecent([
           ...cleaned,
           {
             id: data.id,
@@ -253,7 +258,7 @@ export const useVoiceTranscription = ({
             timestamp: new Date(data.createdAt ?? Date.now()),
             language: data.language,
           },
-        ];
+        ]);
       });
     };
 

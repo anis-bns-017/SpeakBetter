@@ -19,16 +19,6 @@ export const voiceApi = {
   unban: (roomId: string, userId: string) =>
     apiClient.delete(`/voice/rooms/${roomId}/bans/${userId}`),
 
-  // Transcription
-  startTranscription: (roomId: string) => apiClient.post(`/voice/transcription/start/${roomId}`),
-  stopTranscription: (roomId: string) => apiClient.post(`/voice/transcription/stop/${roomId}`),
-  getTranscriptions: (roomId: string, limit?: number) => 
-    apiClient.get(`/voice/transcription/${roomId}`, { params: { limit } }),
-  translateTranscription: (transcriptionId: string, targetLanguage: string) =>
-    apiClient.post(`/voice/transcription/translate/${transcriptionId}`, { targetLanguage }),
-  getTranslatedTranscriptions: (roomId: string, targetLanguage: string) =>
-    apiClient.get(`/voice/transcription/translate/${roomId}/${targetLanguage}`),
-
   // Claps
   addClap: (roomId: string, targetUserId?: string) =>
     apiClient.post(`/voice/claps/${roomId}`, { targetUserId }),

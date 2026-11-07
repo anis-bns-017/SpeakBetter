@@ -10,6 +10,7 @@ import { ChatRealtimeState } from './realtime/chat-realtime-state';
 import { ChatBroadcaster } from './realtime/chat-broadcaster';
 import { PrismaService } from '../prisma.service';
 import { LearningModule } from '../learning/learning.module';
+import { TranslateModule } from '../translate/translate.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ChatFeaturesController } from './chat-features.controller';
@@ -29,6 +30,7 @@ import { ChatSchedulerService } from './chat-scheduler.service';
     }),
     // ActivityService: XP for giving and accepting corrections
     LearningModule,
+    TranslateModule,
     // AuthService: session-aware socket authentication
     AuthModule,
     // Tells people when their message is corrected

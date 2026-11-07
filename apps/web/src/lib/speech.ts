@@ -5,9 +5,15 @@ export const canSpeak = (): boolean =>
   typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 
 /** Prefer natural-sounding English voices (Google/Microsoft "Natural"), then any en-US/en-GB */
-function pickEnglishVoice(): SpeechSynthesisVoice | undefined {
+function pickEnglishVoice(accent?: "en-US" | "en-GB"): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis.getVoices();
   const english = voices.filter((v) => /^en[-_]/i.test(v.lang));
+  if (accent) {
+    const want = new RegExp(`^${accent.replace("-", "[-_]")}`, "i");
+    const match = english.filter((v) => want.test(v.lang));
+    const best = match.find((v) => /natural|neural|google/i.test(v.name)) ?? match[0];
+    if (best) return best;
+  }
   return (
     english.find((v) => /natural|neural|google/i.test(v.name) && /en[-_](US|GB)/i.test(v.lang)) ??
     english.find((v) => /en[-_]US/i.test(v.lang)) ??
@@ -23,14 +29,14 @@ if (canSpeak()) {
 }
 
 /** Speaks `text` (stopping anything already playing). Resolves when finished or stopped. */
-export function speak(text: string, options: { rate?: number } = {}): Promise<void> {
+export function speak(text: string, options: { rate?: number; accent?: "en-US" | "en-GB" } = {}): Promise<void> {
   if (!canSpeak() || !text.trim()) return Promise.resolve();
   window.speechSynthesis.cancel();
   return new Promise((resolve) => {
     const utterance = new SpeechSynthesisUtterance(text);
-    const voice = pickEnglishVoice();
+    const voice = pickEnglishVoice(options.accent);
     if (voice) utterance.voice = voice;
-    utterance.lang = voice?.lang ?? "en-US";
+    utterance.lang = voice?.lang ?? options.accent ?? "en-US";
     utterance.rate = options.rate ?? 0.95;
     utterance.onend = () => resolve();
     utterance.onerror = () => resolve();

@@ -251,7 +251,7 @@ const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon
   { to: "/discover", title: "Discover", desc: "Trending rooms", icon: Compass, tone: "text-amber-500 bg-amber-500/10" },
   { to: "/library", title: "Library", desc: "Read & listen", icon: Library, tone: "text-teal-500 bg-teal-500/10" },
   { to: "/writing", title: "Writing", desc: "Write & get it checked", icon: PenLine, tone: "text-indigo-500 bg-indigo-500/10" },
-  { to: "/vocabulary", title: "Vocabulary", desc: "Your word bank", icon: BookOpen, tone: "text-emerald-500 bg-emerald-500/10" },
+  { to: "/words", title: "My words", desc: "Your word bank", icon: BookOpen, tone: "text-emerald-500 bg-emerald-500/10" },
   { to: "/packs", title: "Word packs", desc: "Themed word sets", icon: Package, tone: "text-amber-500 bg-amber-500/10" },
   { to: "/dictation", title: "Dictation", desc: "Listen and type", icon: Headphones, tone: "text-sky-500 bg-sky-500/10" },
   { to: "/shadowing", title: "Shadowing", desc: "Listen and repeat", icon: Repeat2, tone: "text-fuchsia-500 bg-fuchsia-500/10" },
@@ -331,7 +331,15 @@ const DashboardPage: React.FC = () => {
   const goalDone = data.xp.today >= data.xp.dailyGoal;
   const cefr = placement?.level && isCefr(placement.level) ? (placement.level.toUpperCase() as CefrCode) : null;
   const isNewLearner = data.xp.total === 0 && data.voice.roomsJoined === 0;
-  const learning = data.profile.learningLanguages[0] ?? "English";
+  // Profiles store codes ("en"); show the language's name ("English")
+  const learningCode = data.profile.learningLanguages[0] ?? "en";
+  const learning = (() => {
+    try {
+      return /^[a-z]{2,3}(-[a-z]{2,4})?$/i.test(learningCode) ? (new Intl.DisplayNames(["en"], { type: "language" }).of(learningCode) ?? learningCode) : learningCode;
+    } catch {
+      return learningCode;
+    }
+  })();
 
   const statusLine = goalDone
     ? "Daily goal complete — brilliant work today! 🎉"
@@ -347,7 +355,7 @@ const DashboardPage: React.FC = () => {
     { label: "Minutes spoken", value: String(data.voice.speakingMinutes), sub: `${data.voice.speakingMinutesThisWeek} this week`, icon: Mic, tone: "bg-indigo-500/10 text-indigo-500", to: "/voice" },
     { label: "Rooms joined", value: String(data.voice.roomsJoined), sub: `${data.voice.roomsThisWeek} this week`, icon: Users, tone: "bg-sky-500/10 text-sky-500", to: "/voice" },
     { label: "Corrections learned", value: String(data.corrections.accepted), sub: `${data.corrections.given} given to others`, icon: Wand2, tone: "bg-fuchsia-500/10 text-fuchsia-500", to: "/progress" },
-    { label: "Words saved", value: data.words.total.toLocaleString(), sub: `${data.words.thisWeek} this week`, icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-500", to: "/vocabulary" },
+    { label: "Words saved", value: data.words.total.toLocaleString(), sub: `${data.words.thisWeek} this week`, icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-500", to: "/words" },
   ];
 
   return (

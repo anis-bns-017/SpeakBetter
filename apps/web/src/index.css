@@ -15,10 +15,102 @@
   --color-panel: #151521;
   --color-shell: #0b0b14;
   --color-canvas: #0a0a14;
+
+  /* ---------- Design system tokens (design-system/speakbetter/MASTER.md) ---------- */
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-display: "Outfit", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Semantic colours for new code (they match the indigo the app already uses) */
+  --color-primary: var(--color-indigo-600);
+  --color-primary-hover: var(--color-indigo-700);
+  --color-on-primary: #ffffff;
+  --color-success: var(--color-green-600);
+  --color-warning: var(--color-amber-600);
+  --color-danger: var(--color-red-600);
+
+  /* Elevation: soft, layered, slightly cool. Every shadow-* in the app uses these. */
+  --shadow-2xs: 0 1px 0 rgb(15 23 42 / 0.04);
+  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.04), 0 2px 6px -1px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 2px 4px -1px rgb(15 23 42 / 0.05), 0 8px 18px -6px rgb(15 23 42 / 0.12);
+  --shadow-lg: 0 4px 8px -2px rgb(15 23 42 / 0.05), 0 18px 36px -10px rgb(15 23 42 / 0.16);
+  --shadow-xl: 0 8px 16px -4px rgb(15 23 42 / 0.07), 0 28px 56px -14px rgb(15 23 42 / 0.22);
+  --shadow-2xl: 0 12px 24px -6px rgb(15 23 42 / 0.1), 0 40px 80px -20px rgb(15 23 42 / 0.3);
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --default-transition-duration: 180ms;
+  --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 :root {
-  background-color: var(--color-slate-50);
+  /* A slightly cool page background, so white cards lift off it */
+  background-color: #f6f7fb;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  /* Every clickable thing shows a pointer (Tailwind 4 resets buttons to the default arrow) */
+  :where(button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], summary, label[for], select):not(:disabled, [aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  /* A visible focus ring everywhere a component has not drawn its own */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-indigo-500);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-indigo-500) 24%, transparent);
+  }
+
+  /* Quiet, thin scrollbars that follow the theme */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-slate-400) 55%, transparent) transparent;
+  }
+}
+
+/* Page backgrounds written as bg-slate-50 follow the cool page colour too */
+:root:not(.dark) .min-h-screen.bg-slate-50 {
+  background-color: #f6f7fb;
+}
+
+/* Dark mode: shadows go deeper and borders carry more of the separation */
+:root.dark {
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px -1px rgb(0 0 0 / 0.25);
+  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.3), 0 10px 22px -8px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 4px 8px -2px rgb(0 0 0 / 0.3), 0 20px 40px -12px rgb(0 0 0 / 0.55);
+  --shadow-xl: 0 8px 16px -4px rgb(0 0 0 / 0.35), 0 30px 60px -16px rgb(0 0 0 / 0.6);
+  --color-primary: var(--color-indigo-400);
+  --color-primary-hover: var(--color-indigo-300);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Loading spinners keep turning: they say "still working", which matters more than the motion */
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 :root.dark {

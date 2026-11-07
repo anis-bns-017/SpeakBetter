@@ -18,7 +18,6 @@ export { SpeakerQueue } from './SpeakerQueue';
 export { StageSpeaker } from './StageSpeaker';
 
 // Export transcription display
-export { TranscriptionDisplay } from './TranscriptionDisplay';
 
 // Export voice call
 export { VoiceCall } from './VoiceCall';

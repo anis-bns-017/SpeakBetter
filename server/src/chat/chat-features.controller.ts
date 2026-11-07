@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RateLimit, RateLimitGuard } from '../common/rate-limit.guard';
 import { ChatFeaturesService } from './chat-features.service';
 import { ChatPrivacyService } from './chat-privacy.service';
 import { ChatBroadcaster } from './realtime/chat-broadcaster';
@@ -188,7 +189,13 @@ export class ChatFeaturesController {
 
   @Post('messages/:messageId/translate-transcript')
   @HttpCode(HttpStatus.OK)
-  translateTranscript(@Request() req, @Param('messageId') messageId: string) {
-    return this.features.translateTranscript(req.user.id, messageId);
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'transcript-translate', limit: 20, windowMs: 60_000 })
+  translateTranscript(
+    @Request() req,
+    @Param('messageId') messageId: string,
+    @Body() body: { text?: string; target?: string },
+  ) {
+    return this.features.translateTranscript(req.user.id, messageId, body ?? {});
   }
 }

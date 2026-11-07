@@ -465,7 +465,9 @@ export const FlashcardPage: React.FC = () => {
   const tabParam = search.get("tab");
   const tab: Tab = tabParam === "mistakes" || tabParam === "memory" ? tabParam : "review";
   const pattern = search.get("pattern") ?? "";
-  const [kind, setKind] = useState<KindFilter>("");
+  // ?kind=word (from My words) or ?kind=correction opens the deck already filtered
+  const kindParam = search.get("kind");
+  const [kind, setKind] = useState<KindFilter>(kindParam === "word" || kindParam === "correction" ? kindParam : "");
   const [language, setLanguage] = useState("");
   const [all, setAll] = useState(false);
   // Bumped to start a new session (the old one keeps its own list of cards)

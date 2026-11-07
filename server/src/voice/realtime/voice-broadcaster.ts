@@ -55,13 +55,6 @@ export class VoiceBroadcaster {
     });
   }
 
-  broadcastTranscription(roomId: string, data: any) {
-    this.server.to(`voice:${roomId}`).emit('transcription', {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
   broadcastClap(roomId: string, data: any) {
     this.server.to(`voice:${roomId}`).emit('clap-received', {
       ...data,

@@ -55,6 +55,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { apiErrorMessage, chatApi } from "../../hooks/useChat";
+import { cachedTranscript, rememberTranscript, transcribeOnDevice } from "../../lib/transcribe/onDevice";
 
 const formatBytes = (bytes: number) =>
   bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -142,7 +143,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   /** View-once media URL while it's open (it's deleted after) */
   const [viewOnceMedia, setViewOnceMedia] = useState<{ url: string; type: string } | null>(null);
   const [openingViewOnce, setOpeningViewOnce] = useState(false);
-  const [transcript, setTranscript] = useState<string | null>(message.metadata?.transcript?.text ?? null);
+  // A transcript made on this device (when the server has no speech-to-text) is remembered here, not on the server
+  const [transcript, setTranscript] = useState<string | null>(() => message.metadata?.transcript?.text ?? cachedTranscript(message.id));
+  /** What on-device transcription is doing: "Downloading speech model 40%", "Listening…" */
+  const [transcribeStatus, setTranscribeStatus] = useState<string | null>(null);
   const [transcriptTranslation, setTranscriptTranslation] = useState<string | null>(null);
   const [transcribing, setTranscribing] = useState<"transcribe" | "translate" | null>(null);
   const mentionsMe = !isOwn && !!user?.id && !!message.metadata?.mentions?.includes(user.id);
@@ -532,23 +536,50 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       const { data } = await chatApi.transcribe(message.id);
       setTranscript(data.text);
     } catch (error) {
-      toast.error(apiErrorMessage(error, "Couldn't transcribe this voice message"));
+      if ((error as { response?: { data?: { code?: string } } })?.response?.data?.code !== "TRANSCRIBE_ON_DEVICE") {
+        toast.error(apiErrorMessage(error, "Couldn't transcribe this voice message"));
+        return;
+      }
+      // No paid speech-to-text on the server: Whisper runs right here in the browser, free
+      try {
+        const text = await transcribeOnDevice(mediaSrc, (s) =>
+          setTranscribeStatus(
+            s.stage === "audio" ? "Getting the audio…" : s.stage === "download" ? `Downloading speech model: ${s.loadedMb} of ${s.totalMb} MB (only once)` : "Listening…",
+          ),
+        );
+        if (!text) {
+          toast.error("Couldn't hear any words in this voice message");
+          return;
+        }
+        rememberTranscript(message.id, text);
+        setTranscript(text);
+      } catch (deviceError) {
+        toast.error((deviceError as Error)?.message || "Couldn't transcribe this voice message");
+      }
     } finally {
       setTranscribing(null);
+      setTranscribeStatus(null);
     }
-  }, [message.id]);
+  }, [message.id, mediaSrc]);
 
   const runTranslateTranscript = useCallback(async () => {
     setTranscribing("translate");
     try {
-      const { data } = await chatApi.translateTranscript(message.id);
+      let target: string | undefined;
+      try {
+        // The language picked in word lookups, if any
+        target = localStorage.getItem("sb.lookup.lang") || undefined;
+      } catch {
+        target = undefined;
+      }
+      const { data } = await chatApi.translateTranscript(message.id, { text: transcript ?? undefined, target });
       setTranscriptTranslation(data.text);
     } catch (error) {
       toast.error(apiErrorMessage(error, "Couldn't translate the transcript"));
     } finally {
       setTranscribing(null);
     }
-  }, [message.id]);
+  }, [message.id, transcript]);
 
   const handleZoomIn = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1312,7 +1343,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   {!transcript && (
                     <button type="button" onClick={runTranscribe} disabled={!!transcribing} className="flex items-center gap-1 hover:underline disabled:opacity-60">
                       {transcribing === "transcribe" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Captions className="h-3 w-3" />}
-                      Transcribe
+                      {transcribeStatus ?? (transcribing === "transcribe" ? "Transcribing…" : "Transcribe")}
                     </button>
                   )}
                   {transcript && !transcriptTranslation && (

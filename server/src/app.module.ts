@@ -34,6 +34,8 @@ import { ShadowingModule } from './shadowing/shadowing.module';
 import { FriendChallengesModule } from './friend-challenges/friend-challenges.module';
 import { QuestsModule } from './quests/quests.module';
 import { WritingModule } from './writing/writing.module';
+import { WordsModule } from './words/words.module';
+import { DictionaryModule } from './dictionary/dictionary.module';
 import { BillingModule } from './billing/billing.module';
 
 @Module({
@@ -69,6 +71,8 @@ import { BillingModule } from './billing/billing.module';
     FriendChallengesModule,
     QuestsModule,
     WritingModule,
+    WordsModule,
+    DictionaryModule,
     BillingModule,
     CommunitiesModule,
   ],

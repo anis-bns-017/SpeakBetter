@@ -5,6 +5,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DeepgramClient } from '@deepgram/sdk';
@@ -17,6 +19,8 @@ import { LinkPreviewService, firstUrl } from './link-preview.service';
 import { MESSAGE_INCLUDE, metaOf, presentMessage, visibleMessagesWhere } from './chat.presenter';
 import { destroyCloudinaryUrl } from './cloudinary-assets';
 import { ScheduleMessageDto, UpdateChatStateDto } from './dto/chat-features.dto';
+import { LookupProvider } from '../translate/lookup.provider';
+import { ON_DEVICE_CODE, cleanTranscript, splitForTranslation, translationTarget } from './transcript.helpers';
 
 const DISAPPEARING_LABELS: Record<number, string> = {
   [24 * 3600]: '24 hours',
@@ -48,6 +52,8 @@ export class ChatFeaturesService {
     private privacy: ChatPrivacyService,
     private linkPreviews: LinkPreviewService,
     private config: ConfigService,
+    /** Free translation (MyMemory), used for transcripts when no OpenAI key is set */
+    @Optional() private lookup?: LookupProvider,
   ) {}
 
   // ============ HELPERS ============
@@ -548,6 +554,14 @@ export class ChatFeaturesService {
     if (!message.mediaUrl) throw new GoneException('The audio for this message is no longer available');
 
     const deepgram = this.getDeepgram();
+    if (!deepgram) {
+      // No speech-to-text on the server: the app transcribes on the listener's device instead (free)
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        code: ON_DEVICE_CODE,
+        message: 'Transcribe this voice message on your device',
+      });
+    }
     const response: any = await deepgram.listen.v1.media.transcribeUrl({
       url: message.mediaUrl,
       model: 'nova-2',
@@ -566,47 +580,79 @@ export class ChatFeaturesService {
     return { messageId, ...transcript };
   }
 
-  /** Translates a voice message's transcript into the user's native language */
-  async translateTranscript(userId: string, messageId: string) {
+  /**
+   * Translates a voice message's transcript. A transcript made on the device is not stored on the server, so the
+   * app sends its text along. The language is the learner's pick in word lookups, else their profile's.
+   */
+  async translateTranscript(userId: string, messageId: string, body: { text?: unknown; target?: unknown } = {}) {
     const message = await this.accessibleMessage(userId, messageId);
     const meta = metaOf(message);
-    if (!meta.transcript?.text) throw new BadRequestException('Transcribe the voice message first');
+    const saved = typeof meta.transcript?.text === 'string' ? meta.transcript.text : '';
+    const source = saved || cleanTranscript(body.text);
+    if (!source) throw new BadRequestException('Transcribe the voice message first');
 
     const profile = await this.prisma.profile.findUnique({
       where: { userId },
       select: { nativeLanguage: true },
     });
-    const language = profile?.nativeLanguage || 'English';
-    const cached = meta.transcriptTranslations?.[language];
+    const target = translationTarget(body.target, profile?.nativeLanguage);
+    if (!target) {
+      throw new BadRequestException('Choose your language first: set your native language in your profile');
+    }
+    const language = target.name;
+    const cached = saved ? meta.transcriptTranslations?.[language] : undefined;
     if (cached) return { messageId, language, text: cached };
 
-    const openai = this.getOpenAI();
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.2,
-      messages: [
-        { role: 'system', content: `Translate the user's text into ${language}. Reply with the translation only.` },
-        { role: 'user', content: meta.transcript.text },
-      ],
-    });
-    const text = completion.choices[0]?.message?.content?.trim() || '';
-    if (!text) throw new BadRequestException('Translation failed');
+    const text = await this.translateText(source, target.code, language);
+    if (!text) throw new BadRequestException("Couldn't translate it right now. Try again in a minute.");
 
-    await this.prisma.message.update({
-      where: { id: messageId },
-      data: {
-        metadata: { ...meta, transcriptTranslations: { ...(meta.transcriptTranslations ?? {}), [language]: text } },
-      },
-    });
+    // Only a transcript stored on the server keeps its translations there
+    if (saved) {
+      await this.prisma.message.update({
+        where: { id: messageId },
+        data: {
+          metadata: { ...meta, transcriptTranslations: { ...(meta.transcriptTranslations ?? {}), [language]: text } },
+        },
+      });
+    }
     return { messageId, language, text };
+  }
+
+  /** OpenAI when a key is set, otherwise the free translator, sentence by sentence */
+  private async translateText(text: string, code: string, language: string): Promise<string> {
+    if (this.config.get<string>('OPENAI_API_KEY')) {
+      const completion = await this.getOpenAI().chat.completions.create({
+        model: 'gpt-4o-mini',
+        temperature: 0.2,
+        messages: [
+          { role: 'system', content: `Translate the user's text into ${language}. Reply with the translation only.` },
+          { role: 'user', content: text },
+        ],
+      });
+      return completion.choices[0]?.message?.content?.trim() || '';
+    }
+    if (!this.lookup) return '';
+    const parts: string[] = [];
+    for (const piece of splitForTranslation(text)) {
+      // The free service sometimes has a slow moment, so each piece gets a second try
+      let translated: string | null = null;
+      for (let attempt = 0; attempt < 2 && !translated; attempt++) {
+        try {
+          translated = await this.lookup.translate(piece, code);
+        } catch (error) {
+          this.logger.warn(`Free translation failed (try ${attempt + 1}): ${(error as Error)?.message}`);
+        }
+      }
+      if (!translated) return '';
+      parts.push(translated);
+    }
+    return parts.join(' ').trim();
   }
 
   private getDeepgram() {
     if (this.deepgram) return this.deepgram;
     const apiKey = this.config.get<string>('DEEPGRAM_API_KEY');
-    if (!apiKey) {
-      throw new BadRequestException('Voice transcription is not set up yet (add DEEPGRAM_API_KEY to server/.env).');
-    }
+    if (!apiKey) return null;
     this.deepgram = new DeepgramClient({ apiKey });
     return this.deepgram;
   }

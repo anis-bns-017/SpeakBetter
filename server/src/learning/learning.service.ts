@@ -270,6 +270,16 @@ export class LearningService {
   // ============ DASHBOARD ============
 
   /** Everything the dashboard shows, from real activity, in one request */
+  /** Words in My words, optionally only those saved since a date */
+  private async countWords(userId: string, since?: Date): Promise<number> {
+    const created = since ? { createdAt: { gte: since } } : {};
+    const [cards, saved] = await Promise.all([
+      this.prisma.flashcard.count({ where: { userId, kind: 'word', ...created } }),
+      this.prisma.voiceSavedWord.count({ where: { userId, ...created } }),
+    ]);
+    return cards + saved;
+  }
+
   async getDashboard(userId: string) {
     const DAY = 24 * 60 * 60 * 1000;
     const now = new Date();
@@ -308,8 +318,9 @@ export class LearningService {
         where: { userId },
         select: { nativeLanguage: true, learningLanguages: true, level: true, goals: true },
       }),
-      this.prisma.vocabulary.count({ where: { userId } }),
-      this.prisma.vocabulary.count({ where: { userId, createdAt: { gte: weekStart } } }),
+      // My words: word cards (packs, word of the day, your own) and words saved in rooms
+      this.countWords(userId),
+      this.countWords(userId, weekStart),
       this.prisma.flashcard.count({ where: { userId } }),
       this.prisma.flashcardReview.count({ where: { userId, dueAt: { lte: now } } }),
       this.prisma.flashcard.count({ where: { userId, reviews: { none: { userId } } } }),

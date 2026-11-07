@@ -1,4 +1,13 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"],
+  // Dev watch (nest start --watch). This PC records a "last opened" time on every file read, which the default
+  // file-event watcher reports as a change: each build then set off the next one, for ever. Polling compares the
+  // modified time instead, so only real edits rebuild. Packages are not watched: restart after installing one.
+  "watchOptions": {
+    "watchFile": "dynamicPriorityPolling",
+    "watchDirectory": "dynamicPriorityPolling",
+    "fallbackPolling": "dynamicPriority",
+    "excludeDirectories": ["**/node_modules", "../node_modules", "dist", "uploads"]
+  }
 }

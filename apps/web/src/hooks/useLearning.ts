@@ -71,56 +71,6 @@ export interface UserProgress {
   totalXP: number;
 }
 
-// ---------- Vocabulary ----------
-export const useVocabulary = (params: {
-  language?: string;
-  difficulty?: string;
-  search?: string;
-  limit?: number;
-  offset?: number;
-}) => {
-  return useQuery({
-    queryKey: ['vocabulary', params],
-    queryFn: async () => {
-      const response = await apiClient.get<{
-        items: Vocabulary[];
-        total: number;
-        limit: number;
-        offset: number;
-      }>('/learning/vocabulary', { params });
-      return response.data;
-    },
-  });
-};
-
-export const useCreateVocabulary = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiClient.post('/learning/vocabulary', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vocabulary'] });
-    },
-  });
-};
-
-export const useReviewVocabulary = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: { vocabularyId: string; difficulty: 'easy' | 'medium' | 'hard' }) => {
-      const response = await apiClient.post('/learning/vocabulary/review', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vocabulary'] });
-      queryClient.invalidateQueries({ queryKey: ['flashcards'] });
-      queryClient.invalidateQueries({ queryKey: ['progress'] });
-    },
-  });
-};
-
 // ---------- Flashcards ----------
 export const useFlashcards = (params: { language?: string; dueOnly?: boolean }) => {
   return useQuery({

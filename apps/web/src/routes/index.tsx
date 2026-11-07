@@ -13,7 +13,9 @@ import { OfflineBanner } from "../components/OfflineBanner";
 // Main Pages
 import DashboardPage from "../pages/DashboardPage";
 import { DiscoveryPage } from "../pages/DiscoveryPage";
-import { VocabularyPage } from "../pages/VocabularyPage";
+import { MyWordsPage } from "../pages/MyWordsPage";
+import { DictionaryPage } from "../pages/DictionaryPage";
+import { DictionaryWordPage } from "../pages/DictionaryWordPage";
 import { FlashcardPage } from "../pages/FlashcardPage";
 import { GrammarPage } from "../pages/GrammarPage";
 import { PacksPage } from "../pages/PacksPage";
@@ -169,7 +171,11 @@ const AppRoutes = () => {
           {/* Main Pages */}
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/discover" element={<DiscoveryPage />} />
-          <Route path="/vocabulary" element={<VocabularyPage />} />
+          <Route path="/words" element={<MyWordsPage />} />
+          <Route path="/dictionary" element={<DictionaryPage />} />
+          <Route path="/dictionary/:wordId" element={<DictionaryWordPage />} />
+          {/* The old Vocabulary page became My words */}
+          <Route path="/vocabulary" element={<Navigate to="/words" replace />} />
           <Route path="/flashcards" element={<FlashcardPage />} />
           <Route path="/grammar" element={<GrammarCoursePage />} />
           <Route path="/grammar/rules" element={<GrammarPage />} />

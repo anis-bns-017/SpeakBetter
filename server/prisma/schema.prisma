@@ -176,6 +176,7 @@ enum XpReason {
   DAILY_PLAN
   QUEST_COMPLETED
   WRITING_PRACTICE
+  VOCAB_TEST
 }
 
 enum BadgeCategory {
@@ -637,6 +638,8 @@ model User {
   questWeeks               QuestWeek[]
   streakFreezeUses         StreakFreezeUse[]
   writingPieces            WritingPiece[]
+  knownWords               KnownWord[]
+  vocabSizeTests           VocabSizeTest[]
   reviewLogs               ReviewLog[]
 }
 
@@ -2894,4 +2897,36 @@ model ShadowingProgress {
   updatedAt   DateTime @updatedAt
 
   @@id([userId, lessonId])
+}
+
+/// A word from the 10,000-word dictionary (server/data/dictionary.json.gz) the learner already knows
+model KnownWord {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The dictionary word id ("abandon", "ice-cream")
+  wordId    String
+  /// marked: the learner said so; test: answered right in a vocabulary size test
+  source    String   @default("marked")
+  createdAt DateTime @default(now())
+
+  @@id([userId, wordId])
+  @@index([userId])
+}
+
+/// A vocabulary size test: which words were shown, and the estimate it gave
+model VocabSizeTest {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The questions, kept so the answers can be marked on the server
+  items      Json
+  /// Estimated number of the 10,000 words the learner knows
+  estimate   Int?
+  level      String?
+  /// How much of each 1,000-word band they know (0-1)
+  bands      Json?
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([userId, createdAt])
 }

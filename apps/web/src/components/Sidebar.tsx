@@ -56,6 +56,7 @@ import {
   Drama,
   History,
   Crown,
+  BookA,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -115,7 +116,8 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Library", to: "/library", icon: Library, keywords: "reading listening stories dialogues articles read listen comprehension" },
       { label: "Writing", to: "/writing", icon: PenLine, keywords: "writing write essay email grammar spelling check compose" },
-      { label: "Vocabulary", to: "/vocabulary", icon: BookOpen, keywords: "words" },
+      { label: "Dictionary", to: "/dictionary", icon: BookA, keywords: "dictionary 10000 words meanings definitions pronunciation vocabulary size test word map level a1 b2 c1 synonyms" },
+      { label: "My words", to: "/words", icon: BookOpen, keywords: "vocabulary words saved word bank meanings my words", matches: ["/vocabulary"] },
       { label: "Dictation", to: "/dictation", icon: Headphones, keywords: "listening dictation listen type hear spelling ears" },
       { label: "Word packs", to: "/packs", icon: Package, keywords: "vocabulary packs themed words travel work food idioms phrasal verbs ielts quiz" },
       { label: "Flashcards", to: "/flashcards", icon: Layers, keywords: "review cards spaced repetition" },
@@ -1060,7 +1062,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
     { label: "Home", icon: LayoutDashboard, to: "/dashboard", active: isActive(NAV_SECTIONS[0].items[0]) },
     { label: "Speak", icon: AudioLines, to: "/voice", active: location.pathname.startsWith("/voice"), badge: badgeFor(NAV_SECTIONS[1].items[0], data) },
     { label: "Chat", icon: MessageCircle, to: "/chat", active: location.pathname.startsWith("/chat"), badge: badgeFor(NAV_SECTIONS[1].items[1], data) },
-    { label: "Learn", icon: BookOpen, to: "/vocabulary", active: learnPaths.some(isActive) },
+    { label: "Learn", icon: BookOpen, to: "/words", active: learnPaths.some(isActive) },
     { label: "More", icon: Menu, active: isMobileMenuOpen, onClick: () => setMobileMenuOpen(true) },
   ];
 
