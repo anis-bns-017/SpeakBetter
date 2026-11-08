@@ -13,6 +13,12 @@ Every source is free to use in a commercial app with credit (the app shows these
 
 Usage (downloads go in their own folder; nothing in it is executed):
   python -I scripts/build-dictionary.py <folder with the downloads>
+  python -I scripts/build-dictionary.py <folder with the downloads> --extend
+
+--extend keeps the existing 10,000 words exactly as they are and adds EXTRA more advanced words (C1/C2) after them,
+ranked 10,001 and up: first the C1/C2 words from the CEFR lists that did not fit in the 10,000, then the most common
+remaining real words (their level is estimated from how common they are). Running it again replaces that extension.
+Needs the same folder, but no internet: grammar words are skipped.
 
 The folder must hold: cefrj.csv, octanove.csv, oewn.zip (english-wordnet-2025-json.zip), ipa_us.txt, ipa_uk.txt,
 freq50k.txt, tatoeba.tsv.bz2. Grammar-word meanings are fetched once and cached in that folder (dictapi_cache.json).
@@ -34,6 +40,9 @@ from collections import defaultdict
 from pathlib import Path
 
 TARGET = 10_000
+# --extend: advanced words added after the first TARGET, and a few extra picked because some are dropped (no usable meaning)
+EXTRA = 3_000
+EXTRA_TOP_UP = EXTRA + 900
 # A few words are dropped later (no usable meaning), so the top-up picks a few extra
 TOP_UP = TARGET + 300
 LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
@@ -68,9 +77,20 @@ TOPIC = {
     "verb.stative": "Being & having", "adj.all": "Describing words", "adj.ppl": "Describing words",
 }
 
+# --extend picks advanced words, not everyday objects: words whose main meaning is one of these concrete kinds
+# (animals, plants, food, materials, places, things, body parts, shapes) are left out, and so are scientific definitions
+CONCRETE = {"noun.animal", "noun.plant", "noun.food", "noun.substance", "noun.location", "noun.artifact", "noun.object",
+            "noun.body", "noun.shape"}
+TECHNICAL = re.compile(r"\b(genus|species|taxonomic|chemical|metallic|alkali|enzyme|syndrome|gland|plural of|past tense|"
+                       r"participle of|variant of|alternative|abbreviation|symbol for|unit of)\b", re.I)
+
+# Words that are real but make poor C1/C2 study words (abbreviations, units, spoken fillers, brand-like names)
+LOW_VALUE = set("""tesla etcetera soph detox kremlin bolo hmmm ahem yadda gonna wanna gotta kinda sorta""".split())
+
 # Offensive words that subtitles are full of; they are left out of the frequency top-up
 BLOCK = set("""fuck fucking fucker shit bitch bastard asshole dick cock pussy cunt whore slut nigger fag faggot
-retard twat wanker bollocks crap damn goddamn piss tits boob boobs bullshit motherfucker jerk""".split())
+retard twat wanker bollocks crap damn goddamn piss tits boob boobs bullshit motherfucker jerk
+cretin spastic midget gypsy hooker bimbo mongoloid dyke queer tranny""".split())
 
 # Irregular verbs: base -> (past, past participle). WordNet lists irregular forms but not which is which.
 IRREGULAR = {}
@@ -246,9 +266,22 @@ def first_text(value):
     return ""
 
 
-def main(folder):
+def main(folder, extend=False):
     folder = Path(folder)
     out = Path(__file__).resolve().parent.parent / "data" / "dictionary.json.gz"
+
+    # --extend: the words already in the dictionary (the first TARGET) stay untouched
+    core = None
+    existing = set()
+    if extend:
+        with gzip.open(out, "rb") as f:
+            core = json.loads(f.read().decode("utf-8"))
+        core["words"] = [w for w in core["words"] if w["r"] <= TARGET]
+        for w in core["words"]:
+            existing.add(w["w"].lower())
+            existing.update(a.lower() for a in w.get("alt", []))
+            existing.update(x.lower() for v in w.get("f", {}).values() for x in v.split(" / "))
+        log("existing words kept:", len(core["words"]))
 
     # ---------- levels ----------
     words = {}  # key -> info
@@ -278,6 +311,15 @@ def main(folder):
         tie = ["verb", "noun", "adjective", "adverb"]
         info["pos"].sort(key=lambda p: (info["posLevel"].get(p, 9), tie.index(p) if p in tie else len(tie)))
     log("levelled words:", len(words))
+    if extend:
+        # Only C1/C2 words that are not in the dictionary yet (under any spelling), and no grammar words
+        words = {
+            k: i for k, i in words.items()
+            if i["level"] in ("C1", "C2") and k not in existing
+            and not any(v.lower() in existing for v in i["variants"])
+            and not any(p in FUNCTION_POS for p in i["pos"])
+        }
+        log("C1/C2 words not in the dictionary yet:", len(words))
 
     # ---------- WordNet ----------
     z = zipfile.ZipFile(folder / "oewn.zip")
@@ -315,15 +357,19 @@ def main(folder):
             if w.endswith(suffix) and len(w) > len(suffix) + 2:
                 stem = w[: -len(suffix)]
                 for b in base_options:
-                    if stem + b in words or (len(stem) > 2 and stem[-1] == stem[-2] and stem[:-1] in words):
+                    if stem + b in words or stem + b in existing or (len(stem) > 2 and stem[-1] == stem[-2] and (stem[:-1] in words or stem[:-1] in existing)):
                         return suffix != "ly"
         return False
 
     irregular_forms = {f for p, pp in IRREGULAR.values() for f in (p.split(" / ") + pp.split(" / "))}
+    official_extra = len(words) if extend else 0
+    top_up = EXTRA_TOP_UP if extend else TOP_UP
     for w, rank in sorted(freq.items(), key=lambda x: x[1]):
-        if len(words) >= TOP_UP:
+        if len(words) >= (official_extra + top_up if extend else top_up):
             break
-        if w in words or w in BLOCK or not re.fullmatch(r"[a-z]{3,}", w) or w not in lower_lemmas:
+        if w in words or w in BLOCK or not re.fullmatch(r"[a-z]{4,}" if extend else r"[a-z]{3,}", w) or w not in lower_lemmas:
+            continue
+        if extend and w in existing:
             continue
         if w in irregular_forms or is_inflection(w):
             continue
@@ -331,6 +377,19 @@ def main(folder):
         poses = [POS_NAME[p] for p in by_pos if p in POS_NAME]
         if not poses:
             continue
+        if extend:
+            # The main meaning of each word type: at least one must be abstract (ideas, feelings, actions, qualities,
+            # people), and none of them a technical or scientific definition
+            lexes, defs = [], []
+            for p, entry in by_pos.items():
+                syns = [synsets[x["synset"]] for x in entry.get("sense", []) if x["synset"] in synsets]
+                if syns:
+                    lexes.append(syns[0]["lex"])
+                    defs.extend((syn.get("definition") or [""])[0] for syn in syns[:3])
+            if not lexes or all(l in CONCRETE for l in lexes) or any(TECHNICAL.search(d) or RUDE.search(d) for d in defs):
+                continue
+            if w in LOW_VALUE:
+                continue
         words[w] = {"word": w, "variants": [], "level": "C1" if rank <= 12000 else "C2", "pos": list(dict.fromkeys(poses)), "official": False}
     log("after top-up:", len(words))
 
@@ -353,6 +412,8 @@ def main(folder):
     cache = {k: v for k, v in cache.items() if v is not None}
 
     def free_dictionary(word):
+        if extend:
+            return None
         if word in cache:
             return cache[word]
         url = "https://api.dictionaryapi.dev/api/v2/entries/en/" + urllib.parse.quote(word)
@@ -501,45 +562,90 @@ def main(folder):
             n += 1
         seen.add(e["id"])
 
-    # Rank: most common first (subtitle frequency), words the frequency list lacks go after, easier levels first
-    built.sort(key=lambda e: (e["_freq"], e["_lvl"], e["w"].lower()))
-    for i, e in enumerate(built):
-        e["r"] = i + 1
-    built = built[:TARGET]
-
     # ---------- real example sentences (Tatoeba) ----------
-    form_to_ids = defaultdict(set)
-    for e in built:
-        w = e["w"].lower()
-        if " " in w:
-            continue
-        for f in {w, *(x for v in e.get("f", {}).values() for x in v.split(" / ")), w + "s"}:
-            form_to_ids[f].add(e["id"])
-    examples = defaultdict(list)
-    openings = defaultdict(set)
-    good = re.compile(r"^[A-Z][A-Za-z ,'’\-]*[a-z][.?!]$")
-    with bz2.open(folder / "tatoeba.tsv.bz2", "rt", encoding="utf-8") as f:
-        for line in f:
-            parts = line.rstrip("\n").split("\t")
-            if len(parts) != 3:
+    def attach_examples(entries_list):
+        form_to_ids = defaultdict(set)
+        for e in entries_list:
+            w = e["w"].lower()
+            if " " in w:
                 continue
-            sid, _, text = parts
-            if not (24 <= len(text) <= 90) or not good.match(text) or RUDE.search(text):
-                continue
-            tokens = re.findall(r"[a-z']+", text.lower())
-            if not (5 <= len(tokens) <= 14):
-                continue
-            opening = " ".join(tokens[:3])
-            for t in set(tokens):
-                for wid in form_to_ids.get(t, ()):
-                    if len(examples[wid]) < MAX_EXAMPLES and opening not in openings[wid]:
-                        examples[wid].append([text, int(sid)])
-                        openings[wid].add(opening)
-    for e in built:
-        if examples.get(e["id"]):
-            e["ex"] = examples[e["id"]]
-        e.pop("_freq", None)
-        e.pop("_lvl", None)
+            for f in {w, *(x for v in e.get("f", {}).values() for x in v.split(" / ")), w + "s"}:
+                form_to_ids[f].add(e["id"])
+        examples = defaultdict(list)
+        openings = defaultdict(set)
+        good = re.compile(r"^[A-Z][A-Za-z ,'’\-]*[a-z][.?!]$")
+        with bz2.open(folder / "tatoeba.tsv.bz2", "rt", encoding="utf-8") as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) != 3:
+                    continue
+                sid, _, text = parts
+                if not (24 <= len(text) <= 90) or not good.match(text) or RUDE.search(text):
+                    continue
+                tokens = re.findall(r"[a-z']+", text.lower())
+                if not (5 <= len(tokens) <= 14):
+                    continue
+                opening = " ".join(tokens[:3])
+                for t in set(tokens):
+                    for wid in form_to_ids.get(t, ()):
+                        if len(examples[wid]) < MAX_EXAMPLES and opening not in openings[wid]:
+                            examples[wid].append([text, int(sid)])
+                            openings[wid].add(opening)
+        for e in entries_list:
+            if examples.get(e["id"]):
+                e["ex"] = examples[e["id"]]
+
+    if extend:
+        # Every C1/C2 word from the lists first, then the most common of the rest, up to EXTRA words.
+        # Words with no example sentence at all (neither WordNet's nor Tatoeba's) are not worth learning from.
+        attach_examples(built)
+        has_example = lambda e: bool(e.get("ex")) or any(x.get("x") for x in e["s"])
+        official = [e for e in built if "est" not in e]
+        rest = sorted((e for e in built if "est" in e and has_example(e)), key=lambda e: (e["_freq"], e["w"].lower()))
+        rest = rest[: max(0, EXTRA - len(official))]
+        # Their level is an estimate from how common they are: the more common half is C1, the rest C2
+        if rest:
+            cut = rest[len(rest) // 2]["_freq"]
+            for e in rest:
+                e["lv"] = "C1" if e["_freq"] < cut else "C2"
+                e["_lvl"] = LEVELS.index(e["lv"])
+        built = official + rest
+        built = built[:EXTRA]
+        taken = {e["id"] for e in core["words"]}
+        for e in built:
+            base, n = e["id"], 2
+            while e["id"] in taken:
+                e["id"] = f"{base}-{n}"
+                n += 1
+            taken.add(e["id"])
+        built.sort(key=lambda e: (e["_freq"], e["_lvl"], e["w"].lower()))
+        for i, e in enumerate(built):
+            e["r"] = TARGET + i + 1
+            e.pop("_freq", None)
+            e.pop("_lvl", None)
+    else:
+        # Rank: most common first (subtitle frequency), words the frequency list lacks go after, easier levels first
+        built.sort(key=lambda e: (e["_freq"], e["_lvl"], e["w"].lower()))
+        for i, e in enumerate(built):
+            e["r"] = i + 1
+        built = built[:TARGET]
+        attach_examples(built)
+        for e in built:
+            e.pop("_freq", None)
+            e.pop("_lvl", None)
+
+    if extend:
+        core["words"] = core["words"] + built
+        core["count"] = len(core["words"])
+        out.parent.mkdir(parents=True, exist_ok=True)
+        raw = json.dumps(core, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        with gzip.open(out, "wb", compresslevel=9) as f:
+            f.write(raw)
+        by_level = {lv: sum(1 for e in built if e["lv"] == lv) for lv in LEVELS if any(e["lv"] == lv for e in built)}
+        log(f"wrote {out} ({len(raw) / 1e6:.1f} MB raw) added={len(built)} total={core['count']} levels={by_level} "
+            f"official={sum(1 for e in built if 'est' not in e)} examples={sum(1 for e in built if e.get('ex'))} "
+            f"ipa={sum(1 for e in built if e.get('ipa'))}")
+        return
 
     # ---------- made-up words for the size test (spotting guesses) ----------
     rng = random.Random(7)
@@ -583,7 +689,8 @@ def main(folder):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    args = [a for a in sys.argv[1:] if a != "--extend"]
+    if len(args) != 1:
         sys.exit(__doc__)
     sys.stdout.reconfigure(encoding="utf-8")
-    main(sys.argv[1])
+    main(args[0], extend="--extend" in sys.argv[1:])

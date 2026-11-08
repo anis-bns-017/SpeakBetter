@@ -109,7 +109,7 @@ export class VoiceController {
       await this.voiceService.assertNotBanned(roomId, userId);
 
       // Check LiveKit availability
-      if (!this.liveKitService.isAvailable()) {
+      if (!(await this.liveKitService.refreshAvailability())) {
         this.logger.warn(
           `⚠️ LiveKit unavailable, returning mock token for ${userId}`,
         );
@@ -518,7 +518,7 @@ export class VoiceController {
   @HttpCode(HttpStatus.OK)
   async startRecording(@Request() req, @Param('roomId') roomId: string) {
     try {
-      if (!this.liveKitService.isAvailable()) {
+      if (!(await this.liveKitService.refreshAvailability())) {
         throw new HttpException(
           {
             success: false,

@@ -1,0 +1,29 @@
+# Cambridge C1/C2 vocabulary written for this app (not any publisher's list).
+## Cambridge C1: Feelings and attitudes | C1 | Crown | Precise words for emotions and opinions.
+elated overjoyed thrilled content jubilant exasperated infuriated resentful indignant mortified humiliated sheepish remorseful apprehensive uneasy wary nervous tense edgy petrified horrified appalled dismayed disillusioned despondent heartbroken devastated bewildered baffled perplexed flustered unfazed unperturbed composed nonchalant apathetic sceptical cynical sanguine
+## Cambridge C1: Character and behaviour | C1 | Crown | Words for personality and conduct.
+ambitious assertive astute conscientious considerate courteous resourceful reliable versatile eccentric impulsive reckless stubborn pedantic petty vindictive manipulative devious shrewd gullible naive arrogant humble modest tactful blunt abrupt outspoken reserved withdrawn sociable genial aloof mischievous
+## Cambridge C1: Society and issues | C1 | Crown | Words for discussion of social topics.
+affluence deprivation inequality discrimination prejudice stereotype integration exclusion marginalise welfare benefits entitlement legislation regulation enforcement campaign activism advocacy lobbying protest demonstration strike boycott petition referendum coalition opposition dissent consensus compromise reform austerity privatisation
+## Cambridge C1: Work and the economy | C1 | Crown | Words for career and business topics.
+workforce recruit redundancy dismissal resignation retirement promotion appraisal incentive remuneration commission freelance contract tenure negotiation delegation deadline workload stakeholder shareholder turnover revenue expenditure deficit surplus liquidity bankruptcy merger acquisition monopoly cartel consumer sustainability
+## Cambridge C1: Science and technology | C1 | Crown | Words for discussion of progress.
+breakthrough prototype innovation obsolete automation algorithm genome clone ethical dilemma consent surveillance encryption bandwidth interface hardware malfunction glitch upgrade sustainable renewable nuclear synthetic laboratory simulation empirical
+## Cambridge C1: Formal register verbs | C1 | Crown | Verbs for formal writing.
+acquire allocate ascertain augment bestow compile comply concur constitute curtail deduce diminish disclose elicit enact endorse enumerate envisage exempt facilitate forfeit implement incur induce instigate intervene mandate negotiate obtain oversee pertain preclude pursue rectify reiterate relinquish remedy scrutinise solicit stipulate supersede undertake withhold
+## Cambridge C1: Word formation: nouns from verbs | C1 | Crown | Nouns made from verbs, tested in Use of English.
+achievement advancement arrangement assessment commitment development disagreement employment enforcement enrolment entitlement establishment fulfilment improvement management measurement requirement replacement settlement agreement amazement amusement announcement appointment argument attachment
+## Cambridge C1: Word formation: adjectives | C1 | Crown | Adjectives with typical endings.
+adjustable affordable comprehensible considerable dependable desirable disposable enjoyable fashionable favourable forgettable inevitable knowledgeable miserable noticeable reasonable reliable respectable suitable unbelievable valuable vulnerable adventurous ambitious cautious courageous dangerous glamorous humorous mountainous nervous
+## Cambridge C2: Sophisticated adjectives | C2 | Crown | Elegant words for writing and speaking at C2.
+ubiquitous ephemeral egregious esoteric fastidious gregarious ineffable insidious laconic lucid meticulous nebulous ostensible pernicious pragmatic quixotic reclusive sagacious sardonic sporadic tenacious tenuous unassailable unfathomable vexatious voracious whimsical zealous
+## Cambridge C2: Sophisticated verbs | C2 | Crown | Precise verbs for advanced users.
+abate alleviate ameliorate appease assuage attenuate bolster circumvent coalesce cultivate decipher disseminate elucidate encapsulate engender epitomise exacerbate expedite extrapolate galvanise hamper instigate juxtapose mitigate obfuscate perpetuate pervade proliferate propagate reconcile relegate reverberate substantiate transcend underpin vindicate
+## Cambridge C2: Sophisticated nouns | C2 | Crown | Abstract nouns for advanced writing.
+acumen adversity ambivalence anomaly apathy aptitude catharsis complacency conundrum credence dichotomy discrepancy dissonance equanimity facade hubris idiosyncrasy impetus inertia juncture kinship malaise nuance paradigm paradox predicament prerogative propensity quandary rapport repertoire resilience scrutiny serendipity solace trepidation vestige
+## Cambridge: Dependent prepositions: adjectives | C1 | Crown | Adjectives that need a particular preposition.
+accustomed addicted afraid ashamed aware capable conscious dependent envious fond guilty immune indifferent innocent jealous keen proud prone reliant responsible sensitive sick suspicious tolerant typical used
+## Cambridge: Collocations with make and do | C1 | Crown | Words that go with make or do.
+amends arrangements concessions contribution effort fortune headway impression mistake progress profit sacrifice allowances damage favour harm homework housework justice research business duty exercise
+## Cambridge C1: Idioms with body parts | C1 | Sparkles | Expressions that use parts of the body.
+cold_feet keep_an_eye_on pull_someone's_leg get_cold_feet by_heart head_over_heels at_arm's_length tongue-in-cheek on_the_tip_of_my_tongue break_a_leg cost_an_arm_and_a_leg see_eye_to_eye turn_a_blind_eye

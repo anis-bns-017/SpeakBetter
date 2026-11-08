@@ -126,7 +126,7 @@ export const BADGES: BadgeDef[] = [
   { key: 'pack-1', name: 'Word collector', description: 'Pass a vocabulary pack quiz', category: 'VOCABULARY', tier: 'BRONZE', icon: 'BookOpen', measure: at('packsPassed'), target: 1 },
   { key: 'pack-5', name: 'Wordsmith', description: 'Pass 5 vocabulary pack quizzes', category: 'VOCABULARY', tier: 'SILVER', icon: 'BookOpen', measure: at('packsPassed'), target: 5 },
   { key: 'pack-words-50', name: 'Word garden', description: 'Add 50 words from packs to your review', category: 'VOCABULARY', tier: 'SILVER', icon: 'Layers', measure: at('packWordsSaved'), target: 50 },
-  { key: 'pack-all', name: 'Lexicon', description: 'Pass every vocabulary pack quiz', category: 'VOCABULARY', tier: 'GOLD', icon: 'Layers', measure: at('packsPassed'), target: PACKS.length },
+  { key: 'pack-all', name: 'Lexicon', description: 'Pass 100 vocabulary pack quizzes', category: 'VOCABULARY', tier: 'GOLD', icon: 'Layers', measure: at('packsPassed'), target: Math.min(100, PACKS.length) },
   { key: 'grammar-1', name: 'Rule learner', description: 'Pass a grammar lesson', category: 'LEARNING', tier: 'BRONZE', icon: 'GraduationCap', measure: at('lessonsPassed'), target: 1 },
   { key: 'grammar-6', name: 'Grammar fan', description: 'Pass 6 grammar lessons', category: 'LEARNING', tier: 'SILVER', icon: 'GraduationCap', measure: at('lessonsPassed'), target: 6 },
   { key: 'grammar-perfect', name: 'Spot on', description: 'Get every exercise right in a grammar lesson', category: 'LEARNING', tier: 'SILVER', icon: 'Target', measure: at('perfectLessons'), target: 1 },

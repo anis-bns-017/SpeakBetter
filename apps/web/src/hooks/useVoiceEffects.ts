@@ -339,7 +339,7 @@ export const useVoiceEffects = ({ localTrack }: UseVoiceEffectsOptions) => {
   useEffect(() => {
     if (!localTrack || noiseSuppression) return;
     localTrack
-      .restartTrack({ noiseSuppression: false, autoGainControl: false, echoCancellation: true })
+      .restartTrack({ noiseSuppression: false, autoGainControl: false, echoCancellation: true, channelCount: 1 })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on a new track
   }, [localTrack]);
@@ -381,6 +381,7 @@ export const useVoiceEffects = ({ localTrack }: UseVoiceEffectsOptions) => {
           noiseSuppression: on,
           autoGainControl: on,
           echoCancellation: true,
+          channelCount: 1,
         });
         toast.success(on ? "Noise suppression on" : "Studio mode — natural sound, no noise filtering");
       } catch {

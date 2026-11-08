@@ -16,6 +16,7 @@ import type { VoiceTranscription } from "../../../hooks/useVoiceTranscription";
 import { meaningFrom, useLookupState } from "../../../hooks/useLookup";
 import { useFindDictWord } from "../../../hooks/useDictionary";
 import { LookupBody } from "../../lookup/LookupBody";
+import type { CaptionsStatus } from "./CoachDock";
 
 interface LiveCaptionsProps {
   transcriptions: VoiceTranscription[];
@@ -28,7 +29,23 @@ interface LiveCaptionsProps {
     speakerName: string;
     meaning?: string;
   }) => Promise<unknown> | void;
+  /** Whether your own speech can be captioned right now, and if not, why */
+  status?: CaptionsStatus;
+  /** The browser's speech recognition is running */
+  listening?: boolean;
+  /** Start captions again (after allowing the microphone) */
+  onRetry?: () => void;
 }
+
+/** What to tell you when there are no lines to show */
+const STATUS_HINT: Record<CaptionsStatus, string> = {
+  listening: "Listening… start speaking and your words appear here.",
+  muted: "Turn your microphone on to caption what you say.",
+  unsupported: "This browser can't caption speech. Open the room in Chrome or Edge to caption yourself; you can still read everyone else's captions.",
+  blocked: "Captions can't use your microphone. Allow the microphone for this site (the icon in the address bar), then try again.",
+  network: "Captions can't reach the browser's speech service. Chrome needs an internet connection, and Brave blocks this service. Trying again…",
+  "no-mic": "No microphone was found for captions. Plug one in, then try again.",
+};
 
 const STORAGE_KEY = "sb.captions.on";
 /** How long a finished line stays on screen */
@@ -123,6 +140,9 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
   userId,
   savedWords,
   onSave,
+  status = "listening",
+  listening = false,
+  onRetry,
 }) => {
   const [enabled, setEnabled] = useState(readEnabled);
   const [showTranscript, setShowTranscript] = useState(false);
@@ -382,6 +402,32 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Nothing to show yet: say whether we are listening, or why not */}
+      {enabled && !showTranscript && lines.length === 0 && (status !== "listening" || listening) && (
+        <div
+          className="pointer-events-auto max-w-[min(94%,560px)] rounded-xl border px-3 py-2 text-xs flex items-center gap-2 backdrop-blur-xl"
+          style={{
+            background: "var(--sx-bg-14-14-26-800)",
+            borderColor: status === "listening" ? THEME.colors.border.primary : THEME.colors.border.accent,
+            color: THEME.colors.text.secondary,
+          }}
+          role="status"
+        >
+          {status === "listening" && (
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ background: THEME.colors.accent.success }} />
+              <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: THEME.colors.accent.success }} />
+            </span>
+          )}
+          <span>{STATUS_HINT[status]}</span>
+          {(status === "blocked" || status === "no-mic") && onRetry && (
+            <button type="button" onClick={onRetry} className="shrink-0 rounded-lg px-2 py-1 font-semibold hover:bg-white/10" style={{ color: THEME.colors.accent.primaryLight }}>
+              Try again
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="pointer-events-auto flex items-center gap-2">
         <button

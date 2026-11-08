@@ -70,13 +70,16 @@ export const NotificationsLive: React.FC = () => {
 
   useEffect(() => {
     if (!user?.id) return;
-    const token = getStoredToken();
     const socket = io(`${SOCKET_URL}/notifications`, {
       withCredentials: true,
       transports: ["polling", "websocket"],
-      // An expired access cookie is refreshed before each (re)connect, like the chat socket
+      // An expired access cookie is refreshed before each (re)connect, like the chat socket.
+      // The token is read at connect time, so a reconnect never sends an old one.
       auth: (cb) => {
-        void ensureFreshSession().finally(() => cb(token ? { token } : {}));
+        void ensureFreshSession().finally(() => {
+          const token = getStoredToken();
+          cb(token ? { token } : {});
+        });
       },
       reconnection: true,
       reconnectionDelay: 1000,
@@ -131,8 +134,11 @@ export const NotificationsLive: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY });
     });
     socket.on("notification:unread", ({ unread }: { unread: number }) => {
-      queryClient.setQueryData<NotificationPage>(NOTIFICATIONS_KEY, (page) => (page ? { ...page, unread } : page));
+      const page = queryClient.getQueryData<NotificationPage>(NOTIFICATIONS_KEY);
+      // The server counts more unread than the list shows: something arrived while the socket was down
+      if (!page || page.unread !== unread) queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY });
     });
+    socket.on("connect_error", (error) => console.warn("Notifications socket could not connect:", error.message));
 
     return () => {
       socket.disconnect();

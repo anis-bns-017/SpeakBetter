@@ -1,5 +1,5 @@
 // server/src/dictionary/dictionary.data.ts
-// The 10,000-word dictionary, built by scripts/build-dictionary.py into data/dictionary.json.gz and loaded once.
+// The 13,000-word dictionary (the 10,000 most common words, then 3,000 advanced C1/C2 words), built by scripts/build-dictionary.py into data/dictionary.json.gz and loaded once.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';

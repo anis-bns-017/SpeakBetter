@@ -27,7 +27,7 @@ export class DictionaryController {
   @Get()
   @ApiOperation({
     summary:
-      'The 10,000-word dictionary: levels, topics, your progress, latest size test, next words',
+      'The 13,000-word dictionary (10,000 most common + 3,000 advanced C1/C2): levels, topics, your progress, latest size test, next words',
   })
   overview(@Req() req: AuthedRequest) {
     return this.dictionary.overview(req.user.id);
@@ -101,7 +101,7 @@ export class DictionaryController {
   @Get('map')
   @ApiOperation({
     summary:
-      'Word map: the 10,000 words in cells of 100, by band and level, and your next words',
+      'Word map: all the words in cells of 100, by band and level, and your next words',
   })
   map(@Req() req: AuthedRequest) {
     return this.dictionary.map(req.user.id);

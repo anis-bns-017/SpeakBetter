@@ -52,7 +52,8 @@ export function buildQuiz(pack: VocabPack, seed: string, size = QUIZ_SIZE): Quiz
     .slice(0, count)
     .map((i) => pack.words[i]);
   return picked.map((word, position) => {
-    const gap = gapSentence(word.example, word.word);
+    // Phrasal verbs and idioms change shape in a sentence, so the blank is the phrase as written there
+    const gap = gapSentence(word.example, word.form ?? word.word);
     // Gap questions need the word in its example; fall back to the meaning question when it is not
     const kind: QuizKind = position % 2 === 1 && gap ? 'gap' : 'meaning';
     const id = `${word.id}:${kind}`;

@@ -38,12 +38,13 @@ export class FollowService {
 
     void this.notifications.notify([targetId], {
       type: 'NEW_FOLLOWER',
-      title: `${me?.name ?? 'Someone'} followed you`,
-      message: "You'll show up in their feed when you go live or schedule a room.",
-      actionUrl: '/friends',
+      title: `${me?.name ?? 'Someone'} started following you`,
+      message: "They'll hear when you go live or schedule a room. Tap to see their profile.",
+      actionUrl: `/u/${userId}`,
       data: { actor: me },
-      // Following again after unfollowing does not notify twice
+      // One entry per follower: following again after an unfollow brings it back as new instead of staying silent
       dedupeKey: `follow:${userId}`,
+      replace: true,
       preference: 'newFollowers',
     });
     return this.status(userId, targetId);

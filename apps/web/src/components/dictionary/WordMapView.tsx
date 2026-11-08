@@ -1,6 +1,6 @@
 // apps/web/src/components/dictionary/WordMapView.tsx
 /**
- * The word map: all 10,000 words as 100 squares of 100 words (most common first), shaded by how many you know;
+ * The word map: all the words as squares of 100 words (most common first), shaded by how many you know;
  * the same per 1,000-word band as bars (known and saved, with the size test's estimate); and your next words.
  */
 
@@ -67,10 +67,10 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
       <div className="space-y-4 min-w-0">
-        {/* The 10,000 words */}
+        {/* All the words */}
         <section className={`${card} p-5`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your 10,000 words</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your {total.toLocaleString()} words</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
               {known.toLocaleString()} of {total.toLocaleString()} known · each square is 100 words, most common first
             </p>

@@ -44,23 +44,94 @@ const Example: React.FC<{ sentence: string; word: string }> = ({ sentence, word 
   );
 };
 
-const WordCard: React.FC<{ word: PackWord; onSave: () => void; saving: boolean }> = ({ word, onSave, saving }) => (
+const FORM_LABEL: Record<string, string> = {
+  third: "he/she",
+  past: "past",
+  pastParticiple: "past participle",
+  ing: "-ing",
+  plural: "plural",
+  comparative: "comparative",
+  superlative: "superlative",
+};
+
+const FREQUENCY: Record<NonNullable<PackWord["freq"]>, { label: string; tone: string }> = {
+  common: { label: "Common", tone: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" },
+  uncommon: { label: "Uncommon", tone: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" },
+  rare: { label: "Rare", tone: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300" },
+};
+
+/** One labelled line of related words, such as synonyms */
+const Detail: React.FC<{ label: string; items: string[] }> = ({ label, items }) =>
+  items.length ? (
+    <p className="text-xs text-slate-500">
+      <span className="font-semibold text-slate-400 uppercase tracking-wide text-[10px] mr-1.5">{label}</span>
+      {items.join(", ")}
+    </p>
+  ) : null;
+
+const WordCard: React.FC<{ word: PackWord; onSave: () => void; saving: boolean }> = ({ word, onSave, saving }) => {
+  const forms = Object.entries(word.forms ?? {})
+    .filter(([key]) => FORM_LABEL[key])
+    .map(([key, value]) => `${FORM_LABEL[key]}: ${value}`);
+  const freq = word.freq ? FREQUENCY[word.freq] : null;
+  return (
   <li className={`${card} p-4`}>
     <div className="flex items-start gap-3">
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2">
           <span className="text-lg font-bold text-slate-900 dark:text-white">{word.word}</span>
           <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-slate-100 dark:bg-white/[0.07] text-slate-500">{word.pos}</span>
+          {word.lv && <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">{word.lv}</span>}
+          {freq && <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${freq.tone}`}>{freq.label}</span>}
+          {word.tags?.map((tag) => (
+            <span key={tag} className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-slate-100 dark:bg-white/[0.07] text-slate-500">{tag}</span>
+          ))}
           {canSpeak() && (
             <button type="button" onClick={() => void speak(word.word, { rate: 0.85 })} aria-label={`Listen to ${word.word}`} className="text-slate-400 hover:text-indigo-600">
               <Volume2 className="w-4 h-4" />
             </button>
           )}
         </p>
+        {word.ipa && <p className="text-xs text-slate-400 font-mono mt-0.5">{word.ipa}</p>}
         <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{word.meaning}</p>
-        <p className="mt-2 text-sm text-slate-500 italic">
-          “<Example sentence={word.example} word={word.word} />”
-        </p>
+        {word.example && (
+          <p className="mt-2 text-sm text-slate-500 italic">
+            “<Example sentence={word.example} word={word.form ?? word.word} />”
+          </p>
+        )}
+        {!!word.examples?.length && (
+          <details className="mt-1 text-sm text-slate-500">
+            <summary className="cursor-pointer text-xs font-semibold text-indigo-600 dark:text-indigo-400 select-none">
+              {word.examples.length} more {word.examples.length === 1 ? "example" : "examples"}
+            </summary>
+            <ul className="mt-1 space-y-1 italic">
+              {word.examples.map((sentence) => (
+                <li key={sentence}>
+                  “<Example sentence={sentence} word={word.form ?? word.word} />”
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {!!word.senses?.length && (
+          <ul className="mt-2 space-y-1.5 border-l-2 border-slate-100 dark:border-white/[0.07] pl-3">
+            {word.senses.map((sense, i) => (
+              <li key={i} className="text-sm text-slate-600 dark:text-slate-300">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mr-1.5">Also</span>
+                {sense.meaning}
+                {sense.example && <span className="block text-slate-500 italic">“{sense.example}”</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {(word.syn?.length || word.ant?.length || word.fam?.length || forms.length > 0) && (
+          <div className="mt-2 space-y-0.5">
+            <Detail label="Similar" items={word.syn ?? []} />
+            <Detail label="Opposite" items={word.ant ?? []} />
+            <Detail label="Word family" items={word.fam ?? []} />
+            <Detail label="Forms" items={forms} />
+          </div>
+        )}
       </div>
       <button
         type="button"
@@ -78,7 +149,8 @@ const WordCard: React.FC<{ word: PackWord; onSave: () => void; saving: boolean }
       </button>
     </div>
   </li>
-);
+  );
+};
 
 type Tab = "words" | "quiz";
 type QuizStep = "intro" | "running" | "result";

@@ -15,6 +15,7 @@ import {
   Participant,
   ConnectionQuality,
   DisconnectReason,
+  AudioPresets,
 } from "livekit-client";
 
 // ---------- Environment Variables ----------
@@ -1746,27 +1747,66 @@ export const useLiveKitRoom = (
 
     let livekitRoom: Room | null = null;
     let localLevelInterval: ReturnType<typeof setInterval> | null = null;
-    const attachedAudioElements = new Map<string, HTMLMediaElement[]>();
+    /**
+     * One <audio> element per remote audio track, keyed by track. A removed element keeps playing
+     * (audio plays without being in the page), so every element must be silenced before it is
+     * dropped — otherwise the same voice plays twice a few ms apart and sounds like a long echo.
+     */
+    const attachedAudio = new Map<
+      string,
+      { identity: string; track: RemoteAudioTrack; element: HTMLMediaElement }
+    >();
+
+    const silenceElement = (element: HTMLMediaElement) => {
+      try {
+        element.pause();
+        element.srcObject = null;
+        element.remove();
+      } catch {
+        // ignore
+      }
+    };
+
+    const trackKey = (track: RemoteAudioTrack, identity: string) =>
+      track.sid ?? `${identity}:${track.mediaStreamTrack?.id ?? "audio"}`;
+
+    const releaseAudio = (key: string) => {
+      const entry = attachedAudio.get(key);
+      if (!entry) return;
+      try {
+        // Detaches (and silences) every element LiveKit has handed out for this track
+        entry.track.detach().forEach((el) => silenceElement(el));
+      } catch {
+        // ignore
+      }
+      silenceElement(entry.element);
+      attachedAudio.delete(key);
+    };
 
     const attachRemoteAudio = (
       track: RemoteAudioTrack,
       participantIdentity: string,
     ) => {
       try {
-        const existingElements = document.querySelectorAll(
-          `[data-livekit-audio="${CSS.escape(participantIdentity)}"]`,
-        );
-
-        if (existingElements.length > 0) {
-          existingElements.forEach((el) => el.remove());
+        const key = trackKey(track, participantIdentity);
+        const current = attachedAudio.get(key);
+        // Already playing this exact track (TrackSubscribed + the initial scan both fire)
+        if (current && current.track === track && current.element.isConnected) {
+          return;
         }
+        releaseAudio(key);
 
         const audioElement = track.attach();
         audioElement.autoplay = true;
         audioElement.setAttribute("data-livekit-audio", participantIdentity);
+        audioElement.setAttribute("data-livekit-track", key);
         audioElement.style.display = "none";
         document.body.appendChild(audioElement);
-        attachedAudioElements.set(participantIdentity, [audioElement]);
+        attachedAudio.set(key, {
+          identity: participantIdentity,
+          track,
+          element: audioElement,
+        });
       } catch (error) {
         console.error("❌ Failed to attach remote audio:", error);
       }
@@ -1776,22 +1816,18 @@ export const useLiveKitRoom = (
       if (track.kind !== Track.Kind.Audio) return;
       const identity = participant.identity;
 
+      releaseAudio(trackKey(track as RemoteAudioTrack, identity));
       try {
-        const elements = track.detach();
-        elements.forEach((element: HTMLElement) => element.remove());
+        track.detach().forEach((element: HTMLMediaElement) => silenceElement(element));
       } catch (error) {
         console.warn("⚠️ Failed to detach audio:", error);
       }
 
-      const stored = attachedAudioElements.get(identity);
-      stored?.forEach((element) => {
-        try {
-          element.remove();
-        } catch {
-          // ignore
-        }
-      });
-      attachedAudioElements.delete(identity);
+      // Only clear the participant's "has audio" state when none of their audio is left
+      const stillHasAudio = Array.from(attachedAudio.values()).some(
+        (entry) => entry.identity === identity,
+      );
+      if (stillHasAudio) return;
 
       setRemoteTracks((previous) => {
         const next = { ...previous };
@@ -1823,10 +1859,18 @@ export const useLiveKitRoom = (
         livekitRoom = new Room({
           adaptiveStream: true,
           dynacast: true,
+          // Echo cancellation must stay on and the mic must be mono: the browser's echo canceller
+          // is tuned for a single voice channel, and stereo capture lets room echo through
           audioCaptureDefaults: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
+            channelCount: 1,
+          },
+          // Speech preset (mono, ~24 kbps) + silence suppression: cleaner than the default "music" preset
+          publishDefaults: {
+            audioPreset: AudioPresets.speech,
+            dtx: true,
           },
         });
 
@@ -2118,16 +2162,11 @@ export const useLiveKitRoom = (
 
       if (localLevelInterval) clearInterval(localLevelInterval);
 
-      attachedAudioElements.forEach((elements) => {
-        elements.forEach((element) => {
-          try {
-            element.remove();
-          } catch {
-            // ignore
-          }
-        });
-      });
-      attachedAudioElements.clear();
+      Array.from(attachedAudio.keys()).forEach(releaseAudio);
+      // Anything left from an earlier room instance must not keep playing under the new one
+      document
+        .querySelectorAll<HTMLMediaElement>("[data-livekit-audio]")
+        .forEach(silenceElement);
 
       if (livekitRoom) {
         try {

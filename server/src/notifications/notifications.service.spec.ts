@@ -24,6 +24,12 @@ function setup(options: { optedOut?: string[] } = {}) {
         rows.forEach((r) => (r.isRead = true));
         return { count: rows.length };
       }),
+      deleteMany: jest.fn(async ({ where }) => {
+        const keep = rows.filter((r) => !(where.userId.in.includes(r.userId) && r.dedupeKey === where.dedupeKey));
+        const removed = rows.length - keep.length;
+        rows.splice(0, rows.length, ...keep);
+        return { count: removed };
+      }),
     },
   };
   const service = new NotificationsService(prisma);
@@ -66,6 +72,17 @@ describe('NotificationsService', () => {
       ['u2', 'notification:new'],
     ]);
     expect(emitted[0][2]).toMatchObject({ title: 'Sam is live now', actionUrl: '/voice/r1', isRead: false });
+  });
+
+  it('with replace, the same event notifies again as a fresh unread one, still only once in the list', async () => {
+    const { service, rows, emitted } = setup();
+    const follow = { ...input, type: 'NEW_FOLLOWER' as const, dedupeKey: 'follow:a', replace: true };
+    expect(await service.notify(['u1'], follow)).toBe(1);
+    rows[0].isRead = true;
+    expect(await service.notify(['u1'], follow)).toBe(1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].isRead).toBe(false);
+    expect(emitted.filter(([, event]) => event === 'notification:new')).toHaveLength(2);
   });
 
   it('never sends the same event to someone twice', async () => {

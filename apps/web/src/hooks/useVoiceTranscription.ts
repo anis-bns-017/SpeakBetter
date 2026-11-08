@@ -2,6 +2,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 
+/**
+ * Why captions are not listening, when the browser's speech recognition stops:
+ * blocked = microphone permission refused for speech; network = the browser's speech service cannot be reached
+ * (Chrome sends audio to Google; Brave and some other Chromium browsers block it); no-mic = no microphone found.
+ */
+export type CaptionProblem = "blocked" | "network" | "no-mic" | null;
+
 export interface VoiceTranscription {
   id: string;
   text: string;
@@ -43,6 +50,9 @@ export const useVoiceTranscription = ({
 }: Options) => {
   const [transcriptions, setTranscriptions] = useState<VoiceTranscription[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [problem, setProblem] = useState<CaptionProblem>(null);
+  /** Network failures in a row, to back off instead of hammering the speech service */
+  const failuresRef = useRef(0);
   const [isSupported, setIsSupported] = useState(false);
 
   const recognitionRef = useRef<any>(null);
@@ -61,7 +71,7 @@ export const useVoiceTranscription = ({
   // -----------------------------------------------------------
   const emitTranscription = useCallback(
     (text: string, isFinal: boolean, confidence: number) => {
-      if (!socket || !isConnected || !text.trim()) return;
+      if (!text.trim()) return;
 
       const id = `${userId}-${Date.now()}-${Math.random()
         .toString(36)
@@ -90,6 +100,8 @@ export const useVoiceTranscription = ({
         ]);
       });
 
+      // Others see it once the room connection is up; your own caption shows either way
+      if (!socket || !isConnected) return;
       socket.emit("voice:transcription", {
         roomId,
         id,
@@ -143,6 +155,8 @@ export const useVoiceTranscription = ({
     };
 
     recognition.onresult = (event: any) => {
+      failuresRef.current = 0;
+      setProblem(null);
       let interim = "";
       let finalText = "";
       let finalConfidence = 0;
@@ -172,12 +186,25 @@ export const useVoiceTranscription = ({
       if (event.error === "no-speech" || event.error === "aborted") return;
       console.warn("Speech recognition error:", event.error);
       setIsRecording(false);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        // Permission refused: retrying would fail the same way, so stop until the user acts
+        shouldRunRef.current = false;
+        setProblem("blocked");
+      } else if (event.error === "audio-capture") {
+        shouldRunRef.current = false;
+        setProblem("no-mic");
+      } else if (event.error === "network") {
+        failuresRef.current += 1;
+        setProblem("network");
+      }
     };
 
     recognition.onend = () => {
       setIsRecording(false);
       // Auto-restart if we're supposed to be running (Chrome kills it after silence)
       if (shouldRunRef.current) {
+        // After network failures wait longer each time (up to 30 s) instead of retrying every 300 ms
+        const delay = failuresRef.current ? Math.min(30_000, 2_000 * 2 ** (failuresRef.current - 1)) : 300;
         setTimeout(() => {
           if (shouldRunRef.current) {
             try {
@@ -186,7 +213,7 @@ export const useVoiceTranscription = ({
               /* ignore */
             }
           }
-        }, 300);
+        }, delay);
       }
     };
 
@@ -275,6 +302,8 @@ export const useVoiceTranscription = ({
 
   const start = useCallback(() => {
     shouldRunRef.current = true;
+    failuresRef.current = 0;
+    setProblem(null);
     startRecognition();
   }, [startRecognition]);
 
@@ -285,6 +314,7 @@ export const useVoiceTranscription = ({
   return {
     transcriptions,
     isRecording,
+    problem,
     isSupported,
     start,
     stop,

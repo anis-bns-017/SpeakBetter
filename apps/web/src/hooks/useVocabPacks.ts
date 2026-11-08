@@ -13,7 +13,9 @@ export type PackCategory =
   | 'cambridge'
   | 'academic'
   | 'business'
-  | 'expressions';
+  | 'expressions'
+  | 'phrasal'
+  | 'idioms';
 
 export interface PackCategoryInfo {
   id: PackCategory;
@@ -55,8 +57,25 @@ export interface PackWord {
   word: string;
   pos: string;
   meaning: string;
+  /** May be empty when the word has no good sentence yet */
   example: string;
   saved: boolean;
+  /** Learning details, present on the large packs */
+  ipa?: string;
+  examples?: string[];
+  syn?: string[];
+  ant?: string[];
+  fam?: string[];
+  forms?: Record<string, string>;
+  topic?: string;
+  freq?: 'common' | 'uncommon' | 'rare';
+  lv?: string;
+  /** Phrasal verbs and idioms: the phrase as it appears in `example` (for example "gave up") */
+  form?: string;
+  /** Other meanings of the phrase */
+  senses?: Array<{ meaning: string; example?: string }>;
+  /** Usage labels such as informal or figurative */
+  tags?: string[];
 }
 
 export interface PackQuestion {

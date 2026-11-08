@@ -16,7 +16,7 @@ import type {
   MissionPublic,
 } from "../../../hooks/useRoomCoach";
 
-export type CaptionsStatus = "unsupported" | "muted" | "listening";
+export type CaptionsStatus = "unsupported" | "muted" | "listening" | "blocked" | "network" | "no-mic";
 export type CoachTab = "me" | "mission" | "room" | "words";
 
 interface CoachDockProps {
@@ -52,6 +52,9 @@ const CAPTION_HINT: Record<CaptionsStatus, string> = {
   listening: "🎙 Captions are listening to you",
   muted: "🔇 Unmute to start captions",
   unsupported: "Captions need Chrome or Edge",
+  blocked: "Allow the microphone for captions",
+  network: "Captions can't reach the speech service",
+  "no-mic": "No microphone found for captions",
 };
 
 const Tile: React.FC<{

@@ -154,6 +154,8 @@ describe('browsing and searching', () => {
     expect(commonness(5)).toMatch(/1,000/);
     expect(commonness(4200)).toMatch(/5,000/);
     expect(commonness(9000)).toMatch(/10,000/);
+    expect(commonness(10_000)).toMatch(/10,000 most common/);
+    expect(commonness(10_001)).toMatch(/advanced/);
   });
 });
 
@@ -171,6 +173,40 @@ describe('vocabulary size test', () => {
     expect(bandOf(BAND_SIZE)).toBe(0);
     expect(bandOf(BAND_SIZE + 1)).toBe(1);
     expect(bandOf(10_000)).toBe(9);
+    expect(bandOf(10_001)).toBe(10);
+  });
+
+  it('never asks about the advanced words ranked after the 10,000 most common', () => {
+    const advanced: DictWord[] = Array.from({ length: 300 }, (_, i) => ({
+      id: `adv${i + 1}`,
+      w: `advanced${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`,
+      lv: i % 2 ? 'C2' : 'C1',
+      r: 10_001 + i,
+      pos: ['adjective'],
+      s: [{ p: 'adjective', d: `advanced meaning ${i + 1}` }],
+    }));
+    const extended = indexDictionary({
+      ...dict,
+      count: dict.words.length + advanced.length,
+      words: [...dict.words, ...advanced],
+    });
+    for (let run = 0; run < 5; run++) {
+      const items = buildTest(extended, seq());
+      expect(items).toHaveLength(10 * TEST_WORDS_PER_BAND + TEST_NONWORDS);
+      expect(items.filter((i) => i.wordId?.startsWith('adv'))).toHaveLength(0);
+      expect(items.filter((i) => i.band === 9)).toHaveLength(
+        TEST_WORDS_PER_BAND,
+      );
+    }
+    // A test that says the 10,000 most common words are well known leads on to the advanced ones
+    const known = new Set(dict.words.map((w) => w.id));
+    const next = nextWords(
+      extended,
+      { known, saved: new Set(), learned: new Set() },
+      Array(10).fill(0.9),
+      3,
+    );
+    expect(next.map((w) => w.id)).toEqual(['adv1', 'adv2', 'adv3']);
   });
 
   it('checks meanings of words said to be known, with the right meaning among 4', () => {

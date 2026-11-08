@@ -1,0 +1,24 @@
+## Business: Companies and organisations | B2 | Briefcase | Types of business and how they are organised.
+company corporation enterprise firm partnership proprietorship conglomerate multinational subsidiary affiliate franchise cooperative nonprofit charity foundation association union consortium syndicate startup incorporation headquarters branch outlet department division unit team committee board council secretariat workforce personnel staff
+## Business: Production and operations | B2 | Package | Making and delivering products.
+manufacture assemble fabricate produce process refine package label inspect quality assurance defect recall batch output capacity throughput bottleneck efficiency productivity automation maintenance machinery equipment plant factory workshop warehouse assembly_line prototype specification tolerance standard compliance certification safety
+## Business: Strategy and planning | B2 | Compass | Deciding where a company is heading.
+strategy objective target mission vision priority initiative roadmap benchmark forecast projection scenario contingency risk opportunity threat strength weakness competitive_advantage differentiation positioning diversify consolidate expand retrench restructure innovate disrupt anticipate allocate resource budget timeline
+## Business: Accounting terms | B2 | Coins | Financial records and reports.
+ledger journal entry debit credit balance reconcile audit auditor accrual depreciation amortisation provision reserve asset liability equity revenue expense income statement cash_flow invoice voucher receipt payroll tax_return fiscal_year turnover margin overheads variance
+## Business: Retail and e-commerce | B2 | ShoppingBag | Selling to the public.
+retailer outlet franchise chain boutique showroom storefront merchandise stock inventory shelf display promotion markdown clearance loyalty checkout till basket payment gateway courier shipping returns refund dropship marketplace platform storefront conversion cart abandonment
+## Business: Recruitment and careers | B2 | Users | Finding and keeping staff.
+vacancy advertise headhunt shortlist applicant candidate interview aptitude assessment reference offer contract probation induction onboarding mentor appraisal promotion transfer secondment resign dismiss redundancy retire pension talent_pool skillset qualification competency
+## Business: Leadership qualities | B2 | Handshake | Words that describe good and bad managers.
+decisive visionary inspiring approachable supportive fair authoritative autocratic democratic delegating micromanaging demanding flexible accountable transparent ethical charismatic persuasive reliable resilient proactive reactive indecisive disorganised unapproachable overbearing
+## Business: Workplace communication | B2 | MessagesSquare | Words for office talk.
+brief debrief liaise consult inform notify update remind request instruct clarify confirm acknowledge approve authorise endorse veto object complain suggest recommend advise warn emphasise summarise outline elaborate present propose negotiate persuade
+## Business: Economy and markets vocabulary | B2 | TrendingUp | Macro words for business news.
+inflation deflation recession recovery stagflation growth contraction boom slump bubble crash rally correction volatility confidence sentiment unemployment employment wages productivity trade exports imports deficit surplus subsidy tariff sanctions embargo austerity stimulus
+## Business: Insurance and risk | B2 | Scale | Protection against loss.
+insurance insurer policyholder premium claim coverage excess deductible liability indemnity underwrite assess hazard peril fraud loss damage theft fire flood accident compensation settlement renewal lapse cancel exclusion clause
+## Business: Advertising and media | B2 | Megaphone | How companies reach people.
+advertise advert commercial slogan jingle billboard poster leaflet flyer banner pop-up sponsor endorse influencer testimonial campaign target audience reach impression click conversion engagement viral buzz press_release publicity coverage media_kit
+## Business: Technology at work | B2 | Cpu | Digital tools and systems.
+software hardware database spreadsheet template workflow platform dashboard analytics automation cloud server backup firewall encryption password login access permission upgrade install update troubleshoot helpdesk bandwidth network intranet videoconference screen_sharing collaborate

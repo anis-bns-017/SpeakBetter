@@ -1860,7 +1860,13 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         ? "good"
         : "poor";
 
-  const { transcriptions, isSupported: captionsSupported } = useVoiceTranscription({
+  const {
+    transcriptions,
+    isSupported: captionsSupported,
+    isRecording: captionsRecording,
+    problem: captionsProblem,
+    start: retryCaptions,
+  } = useVoiceTranscription({
     roomId,
     userId: user?.id || "",
     userName,
@@ -3361,7 +3367,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         <CoachDock
           canManage={isModerator}
           captions={
-            !captionsSupported ? "unsupported" : isMuted ? "muted" : "listening"
+            !captionsSupported ? "unsupported" : captionsProblem ?? (isMuted ? "muted" : "listening")
           }
           live={coach.live}
           mission={coach.mission}
@@ -3429,6 +3435,9 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             userId={user?.id || ""}
             savedWords={wordBank.savedSet}
             onSave={(input) => wordBank.save({ ...input, roomId })}
+            status={!captionsSupported ? "unsupported" : captionsProblem ?? (isMuted ? "muted" : "listening")}
+            listening={captionsRecording}
+            onRetry={retryCaptions}
           />
           <div className="pointer-events-none absolute right-3 top-3 z-30 hidden w-[min(88vw,300px)] md:block">
             <div className="pointer-events-auto">

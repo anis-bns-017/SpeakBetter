@@ -1344,7 +1344,7 @@ export class VoiceService {
       );
     }
 
-    if (!this.liveKitService.isAvailable()) {
+    if (!(await this.liveKitService.refreshAvailability())) {
       throw new HttpException(
         {
           message: 'Recording service is currently unavailable',

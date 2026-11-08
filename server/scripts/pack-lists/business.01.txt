@@ -1,0 +1,29 @@
+# Business English vocabulary written for this app (not any publisher's list).
+## Business: Meetings and teamwork | B2 | Briefcase | Running and joining meetings.
+agenda minutes chair attendee quorum proposal motion resolution objective deadline milestone deliverable action_item follow_up brainstorm consensus delegate collaborate liaise coordinate mediate facilitate moderate summarise clarify elaborate interrupt postpone reschedule adjourn conclude
+## Business: Management and leadership | B2 | Briefcase | Leading people and projects.
+manager supervisor executive director chairman chief_executive board stakeholder shareholder hierarchy delegate supervise oversee appoint recruit mentor coach motivate empower appraise evaluate reprimand dismiss promote demote restructure streamline downsize strategy vision mission initiative
+## Business: Marketing and sales | B2 | Megaphone | Selling products and building brands.
+marketing campaign brand logo slogan advertisement promotion discount coupon endorsement sponsorship target_audience demographic market_research survey focus_group segment niche prospect lead customer client consumer loyalty retention sales revenue turnover commission quota pitch negotiate upsell cross-sell merchandise packaging launch rebrand
+## Business: Finance and accounting | B2 | Coins | Money inside companies.
+revenue income expenditure expense overhead profit loss margin turnover asset liability equity capital cash_flow budget forecast audit invoice receipt payable receivable depreciation dividend interest loan mortgage debt creditor debtor tax levy deficit surplus balance_sheet fiscal quarter annual
+## Business: Banking and investment | B2 | Coins | Words for banks, markets and investing.
+deposit withdrawal overdraft credit debit interest_rate mortgage loan collateral guarantor portfolio shares stock bond dividend broker commodity futures hedge fund asset_management venture_capital equity capital_gain bull_market bear_market volatility liquidity insolvency solvency bailout
+## Business: Trade and logistics | B2 | Package | Moving goods around the world.
+export import tariff quota customs duty embargo shipment cargo freight consignment container warehouse inventory stock supplier vendor distributor wholesaler retailer logistics procurement tender contract delivery dispatch backorder lead_time supply_chain outsource offshore
+## Business: Contracts and law | B2 | Gavel | Agreements and legal terms.
+contract clause term condition agreement signatory party breach liability indemnity warranty guarantee penalty arbitration litigation lawsuit plaintiff defendant copyright trademark patent licence royalty confidentiality compliance regulation statute jurisdiction negotiate amend terminate void
+## Business: Starting and growing a company | B2 | Rocket | Entrepreneurship words.
+entrepreneur startup venture founder incubator investor funding seed_capital crowdfunding business_plan prototype launch scale expand diversify franchise merger acquisition takeover joint_venture partnership subsidiary headquarters branch competitor niche innovate disrupt pivot
+## Business: Human resources | B2 | Users | Hiring, rewards and rights.
+recruit candidate applicant shortlist interview reference vacancy induction probation salary wage bonus benefits pension holiday_pay overtime appraisal training promotion redundancy severance grievance disciplinary resignation notice_period turnover retention diversity inclusion
+## Business: Emails and writing | B2 | Mail | Formal workplace writing.
+enquire attach attachment forward reply recipient sender cc subject_line regards sincerely apologise acknowledge confirm enclose request inform advise remind notify respond follow_up proofread draft revise memo report proposal summary
+## Business: Negotiation and persuasion | B2 | Handshake | Reaching a deal.
+negotiate bargain compromise concession counteroffer proposal terms deadlock stalemate leverage persuade convince influence incentive offer accept decline reject withdraw settle finalise sign deal agreement mutual win-win
+## Business: Presentations and reports | B2 | Newspaper | Explaining data to others.
+presentation slide handout chart graph diagram figure statistic trend forecast projection overview summary highlight outline illustrate emphasise conclude recommend appendix executive_summary findings objective methodology
+## Business: Customer service | B2 | Smile | Looking after clients.
+customer client complaint feedback inquiry refund exchange warranty guarantee apology compensation satisfaction courteous responsive helpful patient resolve escalate hotline helpdesk after-sales loyalty retention review testimonial
+## Business: Office and workplace | B2 | Briefcase | Everyday office language.
+office cubicle desk stationery photocopier printer scanner projector laptop filing_cabinet reception intercom lobby canteen break_room colleague superior subordinate intern trainee commute remote hybrid flexitime timesheet payslip

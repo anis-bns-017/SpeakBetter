@@ -1,7 +1,8 @@
 // apps/web/src/pages/PacksPage.tsx
 /**
- * Word packs by category: everyday English, exam preparation (IELTS, TOEFL, GRE), academic writing, business
- * English and advanced expressions. Each pack has 12 words in context, a quiz, and saves to flashcard review.
+ * Word packs by category: everyday English, exam preparation (IELTS, TOEFL, GRE, SAT, Cambridge), academic
+ * writing, business English and advanced expressions. Each pack has its words in context with pronunciation,
+ * examples, synonyms and word family, a quiz, and saves to flashcard review.
  */
 
 import React, { useMemo, useState } from "react";
@@ -18,6 +19,8 @@ const chip = (active: boolean) =>
       ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white"
       : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
   }`;
+
+const PAGE = 24;
 
 const PackCard: React.FC<{ p: PackItem }> = ({ p }) => {
   const Icon = packIcon(p.icon);
@@ -56,6 +59,8 @@ export const PacksPage: React.FC = () => {
   const [category, setCategory] = useState<PackCategory | null>(null);
   const [level, setLevel] = useState<PackLevel | null>(null);
   const [query, setQuery] = useState("");
+  // A category can hold over a hundred packs, so they are shown a page at a time
+  const [visible, setVisible] = useState(PAGE);
 
   const searching = query.trim().length > 0;
   const matches = useMemo(() => {
@@ -87,6 +92,7 @@ export const PacksPage: React.FC = () => {
     setCategory(id);
     setLevel(null);
     setQuery("");
+    setVisible(PAGE);
   };
 
   return (
@@ -97,11 +103,11 @@ export const PacksPage: React.FC = () => {
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Word packs</h1>
-          <p className="text-sm text-slate-500">From everyday words to IELTS, TOEFL, GRE, academic and business English, every word in context.</p>
+          <p className="text-sm text-slate-500">From everyday words to GRE, IELTS, TOEFL, SAT, academic and business English: thousands of words in sections, each with pronunciation, meaning, examples and related words.</p>
         </div>
         <div className="hidden sm:block text-right text-xs text-slate-500 tabular-nums shrink-0">
           <p>{data.done} of {data.packs.length} packs passed</p>
-          <p>{data.wordsSaved} of {totalWords} words saved</p>
+          <p>{data.wordsSaved.toLocaleString()} of {totalWords.toLocaleString()} words saved</p>
         </div>
       </header>
 
@@ -163,11 +169,11 @@ export const PacksPage: React.FC = () => {
           </div>
           {levelsHere.length > 1 && (
             <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Level">
-              <button type="button" role="tab" aria-selected={level === null} onClick={() => setLevel(null)} className={chip(level === null)}>
+              <button type="button" role="tab" aria-selected={level === null} onClick={() => { setLevel(null); setVisible(PAGE); }} className={chip(level === null)}>
                 All levels
               </button>
               {levelsHere.map((lv) => (
-                <button key={lv} type="button" role="tab" aria-selected={level === lv} onClick={() => setLevel(lv)} className={chip(level === lv)}>
+                <button key={lv} type="button" role="tab" aria-selected={level === lv} onClick={() => { setLevel(lv); setVisible(PAGE); }} className={chip(level === lv)}>
                   {lv}
                   {lv === data.level && <span className="opacity-70">· you</span>}
                 </button>
@@ -175,10 +181,29 @@ export const PacksPage: React.FC = () => {
             </div>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {shown.map((p) => (
+            {shown.slice(0, visible).map((p) => (
               <PackCard key={p.id} p={p} />
             ))}
           </div>
+          {(current.id === "phrasal" || current.id === "idioms") && (
+            <p className="text-[11px] text-slate-400 text-center">
+              Meanings and examples from{" "}
+              <a href="https://en.wiktionary.org/" target="_blank" rel="noreferrer" className="underline">
+                Wiktionary
+              </a>{" "}
+              (CC BY-SA).
+            </p>
+          )}
+          {shown.length > visible && (
+            <div className="flex flex-col items-center gap-1 pt-1">
+              <p className="text-xs text-slate-400">
+                Showing {visible} of {shown.length} packs
+              </p>
+              <button type="button" onClick={() => setVisible((n) => n + PAGE)} className={chip(false)}>
+                Show {Math.min(PAGE, shown.length - visible)} more
+              </button>
+            </div>
+          )}
         </section>
       ) : (
         <>

@@ -139,7 +139,8 @@ export function commonness(rank: number): string {
   if (rank <= 1000) return 'One of the 1,000 most common words';
   if (rank <= 3000) return 'One of the 3,000 most common words';
   if (rank <= 5000) return 'One of the 5,000 most common words';
-  return 'One of the 10,000 most common words';
+  if (rank <= CORE_SIZE) return 'One of the 10,000 most common words';
+  return 'An advanced word, beyond the 10,000 most common';
 }
 
 /** Words the entry mentions (synonyms, opposites, family) that have their own page */
@@ -164,8 +165,9 @@ export function linkedWords(
 // ============================================================
 
 export const BANDS = 10;
-export const bandOf = (rank: number) =>
-  Math.min(BANDS - 1, Math.floor((rank - 1) / BAND_SIZE));
+/** The most common words; the size test and its estimate cover these. Words ranked after them are advanced extras. */
+export const CORE_SIZE = BANDS * BAND_SIZE;
+export const bandOf = (rank: number) => Math.floor((rank - 1) / BAND_SIZE);
 
 export interface TestItem {
   /** Opaque key the app sends back */
@@ -212,7 +214,9 @@ export function buildTest(
 ): TestItem[] {
   const items: TestItem[] = [];
   for (let band = 0; band < BANDS; band++) {
-    const pool = dict.words.filter((w) => bandOf(w.r) === band && testable(w));
+    const pool = dict.words.filter(
+      (w) => w.r <= CORE_SIZE && bandOf(w.r) === band && testable(w),
+    );
     for (const w of shuffle(pool, rand).slice(0, TEST_WORDS_PER_BAND))
       items.push({ key: '', text: w.w.toLowerCase(), wordId: w.id, band });
   }
@@ -355,7 +359,7 @@ export interface MapCell {
 }
 
 /**
- * The 10,000 words in 100 cells of 100 (most common first), with how many you know and have saved; and the same
+ * All the words in cells of 100 (most common first), with how many you know and have saved; and the same
  * per 1,000-word band, with the latest test's estimate for the band.
  */
 export function wordMap(

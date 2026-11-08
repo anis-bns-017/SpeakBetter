@@ -3,12 +3,15 @@ import { CATEGORIES, PACKS, PACK_LEVELS } from './packs.content';
 import { PACK_XP, QUIZ_SIZE, buildQuiz, gapSentence, judge, passMark, quizSeed, shownOrder } from './packs.engine';
 import { VocabPacksService, cardSourceId } from './packs.service';
 
+const CURATED = PACKS.filter((p) => !p.bulk);
+const BULK = PACKS.filter((p) => p.bulk);
+
 describe('vocabulary pack content', () => {
-  it('has unique pack ids, a pack at every level and 12 words in each', () => {
+  it('has unique pack ids, a pack at every level and 12 words in each hand-written pack', () => {
     const ids = PACKS.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const level of PACK_LEVELS) expect(PACKS.some((p) => p.level === level)).toBe(true);
-    for (const p of PACKS) {
+    for (const p of CURATED) {
       expect(p.id.startsWith(p.level.toLowerCase() + '-')).toBe(true);
       expect(p.words).toHaveLength(12);
       expect(new Set(p.words.map((w) => w.id)).size).toBe(12);
@@ -16,10 +19,40 @@ describe('vocabulary pack content', () => {
     }
   });
 
+  it('has large packs of 8 to 50 words, each word with its learning details', () => {
+    expect(BULK.length).toBeGreaterThan(300);
+    const count = (category: string) => BULK.filter((p) => p.category === category).reduce((n, p) => n + p.words.length, 0);
+    // The big exam lists: GRE 4,000+ and IELTS 3,000+ words in themed sections
+    expect(count('gre')).toBeGreaterThanOrEqual(4000);
+    expect(count('ielts')).toBeGreaterThanOrEqual(3000);
+    for (const p of BULK) {
+      expect(p.id.startsWith(p.level.toLowerCase() + '-')).toBe(true);
+      expect(p.words.length).toBeGreaterThanOrEqual(8);
+      expect(p.words.length).toBeLessThanOrEqual(50);
+      expect(new Set(p.words.map((w) => w.id)).size).toBe(p.words.length);
+      expect(new Set(p.words.map((w) => w.word.toLowerCase())).size).toBe(p.words.length);
+    }
+    // Phrasal verbs and idioms: thousands of each, with the exact form a quiz can blank out
+    expect(count('phrasal')).toBeGreaterThanOrEqual(3500);
+    expect(count('idioms')).toBeGreaterThanOrEqual(6000);
+    const phrases = BULK.filter((p) => p.category === 'phrasal' || p.category === 'idioms').flatMap((p) => p.words);
+    expect(phrases.filter((w) => w.pos === 'phrasal verb').length).toBeGreaterThan(3500);
+    expect(phrases.filter((w) => w.pos === 'proverb').length).toBeGreaterThan(300);
+    for (const w of phrases) if (w.form) expect(gapSentence(w.example, w.form)).not.toBeNull();
+    const words = BULK.flatMap((p) => p.words);
+    const learningWords = BULK.filter((p) => p.category !== 'phrasal' && p.category !== 'idioms').flatMap((p) => p.words);
+    const share = (has: (w: (typeof words)[number]) => boolean, of = learningWords) => of.filter(has).length / of.length;
+    expect(share((w) => !!w.ipa)).toBeGreaterThan(0.9);
+    expect(share((w) => !!w.example)).toBeGreaterThan(0.9);
+    expect(share((w) => !!w.syn?.length)).toBeGreaterThan(0.5);
+    expect(share((w) => !!w.freq, words)).toBe(1);
+    expect(share((w) => !!w.example, phrases)).toBeGreaterThan(0.4);
+  });
+
   it('puts every pack in a known category, with several packs in each exam and advanced category', () => {
     const ids = new Set(CATEGORIES.map((c) => c.id));
     for (const p of PACKS) expect(ids.has(p.category)).toBe(true);
-    for (const c of ['ielts', 'toefl', 'gre', 'sat', 'cambridge', 'academic', 'business', 'expressions'] as const) {
+    for (const c of ['ielts', 'toefl', 'gre', 'sat', 'cambridge', 'academic', 'business', 'expressions', 'phrasal', 'idioms'] as const) {
       expect(PACKS.filter((p) => p.category === c).length).toBeGreaterThanOrEqual(4);
     }
     // every category on the page has packs in it
@@ -43,9 +76,11 @@ describe('vocabulary pack content', () => {
   });
 
   it('writes every example with the word exactly as listed, so a quiz can blank it out', () => {
-    const missing = PACKS.flatMap((p) => p.words.filter((w) => gapSentence(w.example, w.word) === null).map((w) => `${p.id}/${w.word}: ${w.example}`));
+    const missing = CURATED.flatMap((p) => p.words.filter((w) => gapSentence(w.example, w.word) === null).map((w) => `${p.id}/${w.word}: ${w.example}`));
     expect(missing).toEqual([]);
     for (const p of PACKS) for (const w of p.words) expect(w.meaning.length).toBeGreaterThan(4);
+    // In the large packs an example may be missing, but when there is one it is a real sentence
+    for (const p of BULK) for (const w of p.words) if (w.example) expect(w.example.split(' ').length).toBeGreaterThanOrEqual(3);
   });
 
   it('never gives the word away in its own meaning', () => {
@@ -53,6 +88,30 @@ describe('vocabulary pack content', () => {
       p.words.filter((w) => gapSentence(w.meaning, w.word) !== null).map((w) => `${p.id}/${w.word}: ${w.meaning}`),
     );
     expect(giveaways).toEqual([]);
+  });
+});
+
+describe('phrasal verbs and idioms in the quiz', () => {
+  const phrases = ['give up', 'put off', 'look after', 'turn down', 'take over'].map((phrase, i) => ({
+    id: `w${i + 1}`,
+    word: phrase,
+    pos: 'phrasal verb' as const,
+    meaning: `meaning number ${i + 1}`,
+    example: i === 0 ? 'He gave up smoking last year.' : `We ${phrase} every day.`,
+    ...(i === 0 ? { form: 'gave up' } : {}),
+  }));
+  const pack = { id: 'b1-phrasal-test', level: 'B1' as const, category: 'phrasal' as const, title: 'Test', topic: 'Test', icon: 'Link2', summary: '', words: phrases };
+
+  it('blanks out the phrase as it appears in the sentence, while the answer stays in the base form', () => {
+    const quiz = buildQuiz(pack, 'seed', 5);
+    const gap = quiz.find((q) => q.kind === 'gap' && q.wordId === 'w1');
+    // Whether or not this seed asks the gap question for "give up", a gap question for it uses the written form
+    if (gap) {
+      expect(gap.prompt).toBe('He _____ smoking last year.');
+      expect(gap.options[0]).toBe('give up');
+    }
+    expect(gapSentence('He gave up smoking last year.', 'gave up')).toBe('He _____ smoking last year.');
+    expect(gapSentence('He gave up smoking last year.', 'give up')).toBeNull();
   });
 });
 

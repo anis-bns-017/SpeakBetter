@@ -116,7 +116,9 @@ export type PackCategory =
   | "cambridge"
   | "academic"
   | "business"
-  | "expressions";
+  | "expressions"
+  | "phrasal"
+  | "idioms";
 
 /** One colour per category, so packs are easy to tell apart at a glance */
 export const categoryTone = (category: PackCategory | string): string => {
@@ -137,6 +139,10 @@ export const categoryTone = (category: PackCategory | string): string => {
       return "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400";
     case "business":
       return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+    case "phrasal":
+      return "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400";
+    case "idioms":
+      return "bg-pink-500/10 text-pink-600 dark:text-pink-400";
     default:
       return "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400";
   }

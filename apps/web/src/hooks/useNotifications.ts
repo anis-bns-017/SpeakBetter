@@ -34,6 +34,9 @@ export const useNotifications = () =>
     queryKey: NOTIFICATIONS_KEY,
     queryFn: async () => (await apiClient.get<NotificationPage>('/notifications', { params: { limit: 30 } })).data,
     staleTime: 30_000,
+    // Safety net if the live connection is blocked: coming back to the tab or waiting a minute still shows new ones
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
   });
 
 /** Marks some (or all) notifications read; the list and the badge update straight away */

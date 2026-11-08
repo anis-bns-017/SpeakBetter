@@ -10,6 +10,7 @@
 import { w, type PackCategory, type VocabPack } from './packs.types';
 import { ADVANCED_PACKS } from './packs.advanced';
 import { MORE_PACKS } from './packs.more';
+import { loadBulkPacks } from './packs.bulk';
 
 export * from './packs.types';
 
@@ -240,8 +241,28 @@ const EVERYDAY_PACKS: Array<Omit<VocabPack, 'category'>> = [
 /** Everyday packs that belong with the advanced groups */
 const MOVED: Record<string, PackCategory> = { 'b2-academic': 'academic', 'c1-idioms': 'expressions', 'b1-phrasal-verbs': 'expressions' };
 
-/** Every pack: the everyday ones first, then exam prep, academic, business and expressions */
-export const PACKS: VocabPack[] = [...EVERYDAY_PACKS.map((p) => ({ ...p, category: MOVED[p.id] ?? ('everyday' as const) })), ...ADVANCED_PACKS, ...MORE_PACKS];
+/** The hand-written packs: the everyday ones first, then exam prep, academic, business and expressions */
+const CURATED_PACKS: VocabPack[] = [...EVERYDAY_PACKS.map((p) => ({ ...p, category: MOVED[p.id] ?? ('everyday' as const) })), ...ADVANCED_PACKS, ...MORE_PACKS];
+
+/**
+ * The large packs follow the hand-written ones. A word that a hand-written pack already teaches in the same
+ * category is left out of the large pack, so no word is taught twice, and a pack left with too few words for a
+ * quiz is dropped.
+ */
+const MIN_BULK_PACK = 8;
+function bulkPacks(curated: VocabPack[]): VocabPack[] {
+  const taught = new Map<string, Set<string>>();
+  for (const p of curated) {
+    if (!taught.has(p.category)) taught.set(p.category, new Set());
+    for (const w of p.words) taught.get(p.category)!.add(w.word.toLowerCase());
+  }
+  return loadBulkPacks()
+    .map((p) => ({ ...p, words: p.words.filter((w) => !taught.get(p.category)?.has(w.word.toLowerCase())) }))
+    .filter((p) => p.words.length >= MIN_BULK_PACK);
+}
+
+/** Every pack: the hand-written ones, then the large packs */
+export const PACKS: VocabPack[] = [...CURATED_PACKS, ...bulkPacks(CURATED_PACKS)];
 
 export const PACK_BY_ID = new Map(PACKS.map((p) => [p.id, p]));
 export const TOTAL_PACK_WORDS = PACKS.reduce((n, p) => n + p.words.length, 0);

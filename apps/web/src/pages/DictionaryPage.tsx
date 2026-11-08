@@ -1,7 +1,7 @@
 // apps/web/src/pages/DictionaryPage.tsx
 /**
- * Dictionary: 10,000 English words, from the most common up, each with its CEFR level, pronunciation, meanings,
- * examples, forms and family. Three tabs: Browse (search and filter), Word map (what you know of the 10,000) and
+ * Dictionary: 13,000 English words, the 10,000 most common and then 3,000 advanced C1/C2 words, each with its CEFR level, pronunciation, meanings,
+ * examples, forms and family. Three tabs: Browse (search and filter), Word map (what you know of the 13,000) and
  * Size test (how many words you know).
  */
 
@@ -156,7 +156,7 @@ const Browse: React.FC = () => {
               setQ(e.target.value);
               if (page !== 1) set("page", null);
             }}
-            placeholder="Search 10,000 words, or a meaning (“happy”, “to be afraid”)…"
+            placeholder={`Search ${overview.data ? overview.data.count.toLocaleString() : "13,000"} words, or a meaning (“happy”, “to be afraid”)…`}
             className={`${input} pl-10`}
             aria-label="Search the dictionary"
           />
@@ -285,7 +285,7 @@ export const DictionaryPage: React.FC = () => {
           <div className="min-w-[13rem] flex-1">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dictionary</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              The {overview.data ? overview.data.count.toLocaleString() : "10,000"} most useful English words, A1 to C2, with pronunciation, meanings, examples and word families.
+              The {overview.data ? overview.data.count.toLocaleString() : "13,000"} useful English words, A1 to C2 (the 10,000 most common, then 3,000 advanced C1 and C2 words), with pronunciation, meanings, examples and word families.
             </p>
           </div>
           {overview.data && (

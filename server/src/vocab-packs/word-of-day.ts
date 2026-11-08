@@ -23,7 +23,8 @@ export interface DailyWord {
 export function poolFor(level: PackLevel): DailyWord[] {
   const at = Math.max(0, PACK_LEVELS.indexOf(level));
   const levels = new Set<PackLevel>([PACK_LEVELS[at], PACK_LEVELS[Math.max(0, at - 1)]]);
-  return PACKS.filter((p) => levels.has(p.level)).flatMap((p) =>
+  // The large packs are for studying, not for the daily word: only hand-written packs are drawn from
+  return PACKS.filter((p) => !p.bulk && levels.has(p.level)).flatMap((p) =>
     p.words.map((w) => ({
       packId: p.id,
       packTitle: p.title,

@@ -3,6 +3,7 @@
 import {
   Injectable,
   Logger,
+  OnModuleDestroy,
   OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -16,13 +17,23 @@ import {
   TrackSource,
 } from 'livekit-server-sdk';
 
+/** A failed check is retried at most this often when someone joins a room */
+const RECHECK_ON_DEMAND_MS = 10_000;
+/** While LiveKit is unreachable, it is checked again in the background this often */
+const RECHECK_BACKGROUND_MS = 30_000;
+/** How long one check may take (the server and LiveKit can be slow to start on a busy PC) */
+const CHECK_TIMEOUT_MS = 8_000;
+
 @Injectable()
-export class LiveKitService implements OnModuleInit {
+export class LiveKitService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(LiveKitService.name);
 
   private roomService!: RoomServiceClient;
 
   private isLiveKitAvailable = false;
+  private lastCheckAt = 0;
+  private checking: Promise<boolean> | null = null;
+  private retryTimer: ReturnType<typeof setInterval> | null = null;
 
   private livekitHttpUrl = '';
   private livekitWsUrl = '';
@@ -52,45 +63,103 @@ export class LiveKitService implements OnModuleInit {
       return;
     }
 
-    try {
-      this.roomService = new RoomServiceClient(
-        this.livekitHttpUrl,
-        this.apiKey,
-        this.apiSecret,
-      );
+    this.roomService = new RoomServiceClient(
+      this.livekitHttpUrl,
+      this.apiKey,
+      this.apiSecret,
+    );
 
-      this.logger.log('🔄 Testing LiveKit server connection...');
+    this.logger.log('🔄 Testing LiveKit server connection...');
+    if (await this.checkConnection()) return;
 
-      const rooms = await Promise.race([
-        this.roomService.listRooms(),
-        new Promise<Room[]>((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('LiveKit connection timeout after 5 seconds'));
-          }, 5000);
-        }),
-      ]);
+    this.logger.error(
+      '⚠️ Real-time voice will not work until LiveKit is reachable. ' +
+        `Checking again every ${RECHECK_BACKGROUND_MS / 1000}s, and whenever someone joins a room.`,
+    );
+    this.logger.error(
+      'Check LIVEKIT_HTTP_URL, LIVEKIT_WS_URL, API credentials, ' +
+        'and LiveKit WebRTC ports/firewall configuration.',
+    );
+    this.startRetrying();
+  }
 
-      this.isLiveKitAvailable = true;
+  onModuleDestroy(): void {
+    this.stopRetrying();
+  }
 
-      this.logger.log(
-        `✅ LiveKit connected successfully. Rooms: ${rooms?.length ?? 0}`,
-      );
-    } catch (error) {
-      this.isLiveKitAvailable = false;
+  /**
+   * Asks LiveKit for its rooms to see whether it answers. One check runs at a time; the result is kept in
+   * isLiveKitAvailable. Before this was only done once at startup, so a LiveKit that started a little late
+   * (or a slow first answer) left every room in demo mode until the API server restarted.
+   */
+  private checkConnection(): Promise<boolean> {
+    if (!this.roomService) return Promise.resolve(false);
+    if (this.checking) return this.checking;
+    this.checking = (async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const rooms = await Promise.race([
+          this.roomService.listRooms(),
+          new Promise<Room[]>((_, reject) => {
+            timer = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `LiveKit did not answer within ${CHECK_TIMEOUT_MS / 1000} seconds`,
+                  ),
+                ),
+              CHECK_TIMEOUT_MS,
+            );
+          }),
+        ]);
+        const wasDown = !this.isLiveKitAvailable;
+        this.isLiveKitAvailable = true;
+        this.stopRetrying();
+        if (wasDown)
+          this.logger.log(
+            `✅ LiveKit connected successfully. Rooms: ${rooms?.length ?? 0}`,
+          );
+        return true;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (this.isLiveKitAvailable || !this.lastCheckAt)
+          this.logger.error(`❌ LiveKit connection failed: ${message}`);
+        this.isLiveKitAvailable = false;
+        this.startRetrying();
+        return false;
+      } finally {
+        if (timer) clearTimeout(timer);
+        this.lastCheckAt = Date.now();
+        this.checking = null;
+      }
+    })();
+    return this.checking;
+  }
 
-      const message = error instanceof Error ? error.message : String(error);
+  private startRetrying(): void {
+    if (this.retryTimer) return;
+    this.retryTimer = setInterval(
+      () => void this.checkConnection(),
+      RECHECK_BACKGROUND_MS,
+    );
+    this.retryTimer.unref?.();
+  }
 
-      this.logger.error(`❌ LiveKit connection failed: ${message}`);
+  private stopRetrying(): void {
+    if (this.retryTimer) clearInterval(this.retryTimer);
+    this.retryTimer = null;
+  }
 
-      this.logger.error(
-        '⚠️ Real-time voice will NOT work until LiveKit is reachable.',
-      );
-
-      this.logger.error(
-        'Check LIVEKIT_HTTP_URL, LIVEKIT_WS_URL, API credentials, ' +
-          'and LiveKit WebRTC ports/firewall configuration.',
-      );
-    }
+  /**
+   * Whether LiveKit can be used right now. When the last check failed, checks again first (at most every
+   * few seconds), so a room joins for real as soon as LiveKit is back instead of falling back to demo mode.
+   */
+  async refreshAvailability(): Promise<boolean> {
+    if (this.isLiveKitAvailable) return true;
+    if (!this.apiKey || !this.apiSecret || !this.roomService) return false;
+    if (!this.checking && Date.now() - this.lastCheckAt < RECHECK_ON_DEMAND_MS)
+      return false;
+    return this.checkConnection();
   }
 
   // ============================================================
@@ -457,7 +526,10 @@ export class LiveKitService implements OnModuleInit {
     this.ensureAvailable();
 
     try {
-      const trackSid = await this.getMicrophoneTrackSid(roomName, participantId);
+      const trackSid = await this.getMicrophoneTrackSid(
+        roomName,
+        participantId,
+      );
       if (!trackSid) {
         this.logger.log(
           `🔇 No microphone published by ${participantId}; nothing to mute`,
@@ -492,7 +564,10 @@ export class LiveKitService implements OnModuleInit {
 
     try {
       // Note: LiveKit only allows remote unmute when enable_remote_unmute is on
-      const trackSid = await this.getMicrophoneTrackSid(roomName, participantId);
+      const trackSid = await this.getMicrophoneTrackSid(
+        roomName,
+        participantId,
+      );
       if (!trackSid) return;
 
       await this.roomService.mutePublishedTrack(

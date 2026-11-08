@@ -16,6 +16,11 @@ export interface NotifyInput {
   data?: Record<string, unknown>;
   /** The same key never notifies the same person twice ("live:<roomId>") */
   dedupeKey?: string;
+  /**
+   * With a dedupeKey: instead of staying silent when the same event happens again, the earlier notification
+   * is replaced by a fresh, unread one (a new follow after an unfollow shows up again, never twice in the list)
+   */
+  replace?: boolean;
   /** The setting a person can switch this off with */
   preference?: PreferenceKey;
 }
@@ -92,6 +97,10 @@ export class NotificationsService {
         });
         const off = new Set(optedOut.map((p) => p.userId));
         recipients = recipients.filter((id) => !off.has(id));
+      }
+
+      if (input.replace && input.dedupeKey) {
+        await this.prisma.notification.deleteMany({ where: { userId: { in: recipients }, dedupeKey: input.dedupeKey } });
       }
 
       let sent = 0;
