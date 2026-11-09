@@ -10,7 +10,7 @@ import { ArrowRight, CheckCircle2, GraduationCap, Loader2, Sparkles } from "luci
 import { useGrammarLessons, type GrammarLevel } from "../hooks/useGrammar";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 export const GrammarCoursePage: React.FC = () => {
   const { data, isLoading, isError } = useGrammarLessons();
@@ -38,7 +38,7 @@ export const GrammarCoursePage: React.FC = () => {
           <GraduationCap className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Grammar</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Grammar</h1>
           <p className="text-sm text-slate-500">Learn the rule, then practise it. Mistakes come back later as flashcards.</p>
         </div>
         <span className="text-xs text-slate-500 tabular-nums shrink-0">{data.done} of {data.lessons.length} passed</span>
@@ -47,7 +47,7 @@ export const GrammarCoursePage: React.FC = () => {
       {recommended && (
         <Link
           to={`/grammar/${recommended.id}`}
-          className="block rounded-3xl p-5 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-500/20 hover:-translate-y-0.5 transition-transform"
+          className="block rounded-3xl p-5 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-md shadow-indigo-500/15 hover:-translate-y-0.5 transition-transform"
         >
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/70 inline-flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5" /> {data.recommended!.reason}

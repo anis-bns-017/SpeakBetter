@@ -124,7 +124,7 @@ export const CallSetup: React.FC<{
         }}
       >
         <span
-          className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest"
+          className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 font-mono text-[11px] uppercase tracking-widest"
           style={{ background: COLORS.liveDim, color: COLORS.live }}
         >
           <Equalizer color={COLORS.live} bars={3} height={12} />

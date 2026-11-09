@@ -153,7 +153,7 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
 
           {/* Stats row */}
           <div
-            className="flex items-center gap-2 text-[10px]"
+            className="flex items-center gap-2 text-[11px]"
             style={{ color: THEME.colors.text.muted }}
           >
             <span className="flex items-center gap-1">

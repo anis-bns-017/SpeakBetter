@@ -22,7 +22,7 @@ import {
 import { useShadowingOverview, type ShadowLevel } from "../hooks/useShadowing";
 import { card, scoreTone, trackIcon } from "../components/shadowing/shadowingUi";
 
-const levelChip = "text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-slate-600 dark:text-slate-300";
+const levelChip = "text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-slate-600 dark:text-slate-300";
 
 const MODES = [
   { icon: Repeat2, title: "Repeat", desc: "Hear a line, then say it back." },
@@ -76,7 +76,7 @@ export const ShadowingPage: React.FC = () => {
           <Repeat2 className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Shadowing</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Shadowing</h1>
           <p className="text-sm text-slate-500">Listen to a native-like voice and say it back the same way: rhythm, stress, linking and tune.</p>
         </div>
       </header>
@@ -104,7 +104,7 @@ export const ShadowingPage: React.FC = () => {
         {data.next ? (
           <Link
             to={`/shadowing/${data.next.id}`}
-            className="group rounded-3xl p-5 bg-gradient-to-br from-fuchsia-600 to-violet-600 text-white shadow-lg shadow-fuchsia-500/20 hover:shadow-fuchsia-500/30 transition-shadow"
+            className="group rounded-3xl p-5 bg-gradient-to-br from-fuchsia-600 to-violet-600 text-white shadow-md shadow-fuchsia-500/15 hover:shadow-fuchsia-500/30 transition-shadow"
           >
             <p className="text-[11px] font-bold uppercase tracking-wider opacity-80 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" /> Up next · {data.next.level}

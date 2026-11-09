@@ -164,7 +164,7 @@ export const ProfilePage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50/70 px-4 py-10">
+      <div className="min-h-screen bg-page px-4 py-10">
         <div className="mx-auto flex min-h-[70vh] max-w-5xl flex-col items-center justify-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-100 bg-white shadow-sm">
             <Loader2 className="h-7 w-7 animate-spin text-indigo-600" />
@@ -184,7 +184,7 @@ export const ProfilePage: React.FC = () => {
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen bg-slate-50/70 px-4 py-10">
+      <div className="min-h-screen bg-page px-4 py-10">
         <div className="mx-auto flex min-h-[70vh] max-w-md items-center justify-center">
           <div className="w-full rounded-3xl border border-rose-100 bg-white p-7 text-center shadow-sm">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
@@ -251,7 +251,7 @@ export const ProfilePage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50/70 px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
+    <div className="min-h-screen bg-page px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-5 sm:space-y-6">
         {/* Page heading */}
         <header className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -267,7 +267,7 @@ export const ProfilePage: React.FC = () => {
                 </h1>
 
                 {profile.isVerified && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-black text-indigo-700">
                     <CheckCircle2 className="h-3 w-3" />
                     Verified
                   </span>
@@ -282,7 +282,7 @@ export const ProfilePage: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <div className="hidden rounded-xl bg-slate-50 px-3 py-2 text-right sm:block">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
                 Level
               </p>
               <p className="text-xs font-black text-slate-800">
@@ -403,7 +403,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     <div className="mt-5">
-                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
                         Native language
                       </p>
                       <p className="mt-1 text-sm font-bold text-slate-800">
@@ -412,7 +412,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     <div className="mt-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
                         Learning
                       </p>
 
@@ -484,7 +484,7 @@ export const ProfilePage: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <Trophy className="h-5 w-5 text-amber-500" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-600">
+                    <span className="text-[11px] font-black uppercase tracking-[0.16em] text-amber-600">
                       Learning journey
                     </span>
                   </div>
@@ -500,7 +500,7 @@ export const ProfilePage: React.FC = () => {
                 </div>
 
                 <div className="shrink-0 rounded-2xl bg-slate-50 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
                     Current level
                   </p>
                   <p className="mt-1 text-lg font-black text-slate-900">
@@ -627,7 +627,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
                         Location
                       </p>
                       <p className="mt-1 truncate text-xs font-bold text-slate-700">
@@ -641,7 +641,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3">
                     <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
                         Member since
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-700">
@@ -653,7 +653,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3">
                     <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
                         Social
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-700">
@@ -666,7 +666,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3">
                     <Shield className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
                         Verification
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-700">

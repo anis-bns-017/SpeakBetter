@@ -122,7 +122,7 @@ const Meter: React.FC<{
         style={{ width: `${value ?? 0}%`, background: color }}
       />
     </div>
-    <div className="text-[10px] mt-1" style={{ color: THEME.colors.text.muted }}>
+    <div className="text-[11px] mt-1" style={{ color: THEME.colors.text.muted }}>
       {hint}
     </div>
   </div>
@@ -238,7 +238,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 <h3 className="text-sm font-bold" style={{ color: THEME.colors.text.primary }}>
                   Room coach
                 </h3>
-                <p className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+                <p className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
                   Private feedback · games · fair airtime
                 </p>
               </div>
@@ -321,7 +321,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                   <>
                     <div className="flex items-end justify-between">
                       <div>
-                        <div className="text-[10px] uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>
+                        <div className="text-[11px] uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>
                           Fluency
                         </div>
                         <div className="text-3xl font-bold" style={{ color: THEME.colors.text.primary }}>
@@ -371,7 +371,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
 
                     {live.richWords.length > 0 && (
                       <div>
-                        <div className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
+                        <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
                           Strong words you used
                         </div>
                         <div className="flex flex-wrap gap-1.5">
@@ -392,7 +392,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
 
                 {reports.length > 0 && (
                   <div>
-                    <div className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
+                    <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
                       Recent sessions
                     </div>
                     <ul className="space-y-1">
@@ -438,7 +438,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                           borderColor: myMission.completed ? "rgba(52,211,153,0.3)" : "rgba(99,102,241,0.3)",
                         }}
                       >
-                        <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: THEME.colors.text.muted }}>
+                        <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: THEME.colors.text.muted }}>
                           {myMission.completed ? "Completed" : "Your secret word — use it naturally"}
                         </div>
                         <div className="text-2xl font-bold mb-1" style={{ color: THEME.colors.text.primary }}>
@@ -554,7 +554,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                     {canManage ? (
                       <div className="space-y-3 p-3 rounded-xl" style={{ background: "var(--sx-bg-255-255-255-30)" }}>
                         <div>
-                          <div className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
+                          <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
                             Level
                           </div>
                           <div className="flex gap-1.5">
@@ -575,7 +575,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                           </div>
                         </div>
                         <div>
-                          <div className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
+                          <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
                             Length
                           </div>
                           <div className="flex gap-1.5">
@@ -637,7 +637,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                       }}
                     />
                   </div>
-                  <p className="text-[10px] mt-1" style={{ color: THEME.colors.text.muted }}>
+                  <p className="text-[11px] mt-1" style={{ color: THEME.colors.text.muted }}>
                     {airtime?.balance == null
                       ? "Shows once the room has talked for a minute"
                       : airtime.balance >= 70
@@ -682,7 +682,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
 
                 {canManage && (
                   <div className="space-y-2 p-3 rounded-xl" style={{ background: "var(--sx-bg-255-255-255-30)" }}>
-                    <div className="text-[10px] uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>
+                    <div className="text-[11px] uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>
                       Host tools
                     </div>
                     <button
@@ -700,7 +700,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                     >
                       <Megaphone className="w-3.5 h-3.5" /> Topic card for everyone
                     </button>
-                    <p className="text-[10px] flex items-center gap-1" style={{ color: THEME.colors.text.muted }}>
+                    <p className="text-[11px] flex items-center gap-1" style={{ color: THEME.colors.text.muted }}>
                       <Flag className="w-3 h-3" /> Cards use the level chosen under Mission ({level}).
                     </p>
                   </div>
@@ -755,7 +755,7 @@ const WordsTab: React.FC<{
     <>
       {current ? (
         <div className="rounded-2xl border p-4" style={{ background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.3)" }}>
-          <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: THEME.colors.text.muted }}>
+          <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: THEME.colors.text.muted }}>
             Review · {dueWords.length} due
           </div>
           <div className="text-2xl font-bold mb-2" style={{ color: THEME.colors.text.primary }}>
@@ -773,7 +773,7 @@ const WordsTab: React.FC<{
                   “{current.sentence}”
                 </p>
               )}
-              <p className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+              <p className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
                 {[current.speakerName && `heard from ${current.speakerName}`, current.roomName && `in ${current.roomName}`]
                   .filter(Boolean)
                   .join(" ")}
@@ -818,7 +818,7 @@ const WordsTab: React.FC<{
       )}
 
       <div>
-        <div className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
+        <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
           Saved words · {words.length}
         </div>
         <ul className="space-y-1">
@@ -835,7 +835,7 @@ const WordsTab: React.FC<{
                 {w.meaning ? ` — ${w.meaning}` : ""}
               </span>
               <span className="shrink-0 flex items-center gap-2">
-                <span className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+                <span className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
                   box {w.box + 1}
                 </span>
                 <button

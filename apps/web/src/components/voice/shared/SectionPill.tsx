@@ -29,7 +29,7 @@ export const SectionPill: React.FC<SectionPillProps> = ({
       onClick={onClick}
       disabled={!clickable}
       className={
-        "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] transition-all " +
+        "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] transition-all " +
         (clickable
           ? "hover:-translate-y-0.5 cursor-pointer"
           : "cursor-default")

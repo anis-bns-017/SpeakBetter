@@ -396,7 +396,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
                 )}
               </p>
             ))}
-            <p className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+            <p className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
               Tap a word to see what it means and save it
             </p>
           </motion.div>

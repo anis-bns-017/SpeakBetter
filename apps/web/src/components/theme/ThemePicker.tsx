@@ -46,10 +46,10 @@ export const ThemeSwitch: React.FC<{ className?: string; size?: "sm" | "md" }> =
 
 /** What each theme looks like, as a tiny painted screen */
 const PREVIEW: Record<ThemePreference, { page: string; side: string; card: string; line: string; accent: string }> = {
-  light: { page: "#f8fafc", side: "#eef1f8", card: "#ffffff", line: "#cbd5e1", accent: "#4f46e5" },
-  dark: { page: "#0f172a", side: "#0b0b14", card: "#1b2133", line: "#334155", accent: "#818cf8" },
-  navy: { page: "#12264c", side: "#0d1f42", card: "#1d3560", line: "#344c77", accent: "#818cf8" },
-  system: { page: "#f8fafc", side: "#0b0b14", card: "#ffffff", line: "#cbd5e1", accent: "#6366f1" },
+  light: { page: "#f7f5f1", side: "#f1efea", card: "#ffffff", line: "#cbc7bd", accent: "#3b4fb2" },
+  dark: { page: "#0f172a", side: "#0b0b14", card: "#1b2133", line: "#334155", accent: "#8ea3e8" },
+  navy: { page: "#12264c", side: "#0d1f42", card: "#1d3560", line: "#344c77", accent: "#8ea3e8" },
+  system: { page: "#f7f5f1", side: "#0b0b14", card: "#ffffff", line: "#cbc7bd", accent: "#4f66c8" },
 };
 
 /** One little screen: sidebar, a header card with the accent dot, and two cards */

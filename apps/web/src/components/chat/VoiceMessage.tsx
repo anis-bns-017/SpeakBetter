@@ -169,7 +169,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
     default: {
       container: `${
         isOwn
-          ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/20"
+          ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md shadow-blue-500/15"
           : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-800 shadow-sm"
       }`,
       button: isOwn
@@ -193,7 +193,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
     expanded: {
       container: `${
         isOwn
-          ? "bg-gradient-to-br from-blue-700 to-blue-900 text-white shadow-2xl shadow-blue-500/30"
+          ? "bg-gradient-to-br from-blue-700 to-blue-900 text-white shadow-md shadow-blue-500/15"
           : "bg-gradient-to-br from-gray-100 to-gray-300 text-gray-800 shadow-lg"
       }`,
       button: isOwn
@@ -207,7 +207,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
     elegant: {
       container: `${
         isOwn
-          ? "bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow-xl shadow-purple-500/20"
+          ? "bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow-md shadow-purple-500/15"
           : "bg-white/80 backdrop-blur-sm text-gray-800 border border-gray-200/50 shadow-xl"
       }`,
       button: isOwn
@@ -500,7 +500,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute -top-1 -right-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[8px] px-2 py-0.5 rounded-full shadow-lg shadow-amber-500/30 flex items-center gap-1"
+            className="absolute -top-1 -right-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[8px] px-2 py-0.5 rounded-full shadow-md shadow-amber-500/15 flex items-center gap-1"
           >
             📌 Pinned
           </motion.div>
@@ -524,7 +524,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                   />
                 ) : (
                   <div
-                    className={`${config.avatar} rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-lg shadow-indigo-500/20`}
+                    className={`${config.avatar} rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-md shadow-indigo-500/15`}
                   >
                     {senderName.charAt(0).toUpperCase()}
                   </div>
@@ -616,7 +616,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                         initial={{ opacity: 0, y: -8, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.9 }}
-                        className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-[10px] px-2.5 py-1 rounded-lg shadow-xl"
+                        className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-[11px] px-2.5 py-1 rounded-lg shadow-xl"
                       >
                         {formatTime(currentTime)}
                       </motion.div>
@@ -662,7 +662,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                     : formatTime(effectiveDuration)}
                 </span>
                 {isPlaying && (
-                  <span className={`text-[10px] ${styles.text} opacity-60`}>
+                  <span className={`text-[11px] ${styles.text} opacity-60`}>
                     -{formatTime(remainingTime)}
                   </span>
                 )}

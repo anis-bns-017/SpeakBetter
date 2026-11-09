@@ -1150,7 +1150,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                 <button
                   type="button"
                   onClick={stopRecording}
-                  className="shrink-0 rounded-full bg-red-500 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-red-500/30 hover:bg-red-600 hover:shadow-red-500/50 active:scale-95 transition-all"
+                  className="shrink-0 rounded-full bg-red-500 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-red-500/15 hover:bg-red-600 hover:shadow-red-500/50 active:scale-95 transition-all"
                 >
                   Done
                 </button>
@@ -1269,7 +1269,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                     <button
                       type="button"
                       onClick={togglePlayback}
-                      className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center justify-center text-white shrink-0 transition-all active:scale-95"
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/15 hover:shadow-indigo-500/40 flex items-center justify-center text-white shrink-0 transition-all active:scale-95"
                     >
                       {isPlaying ? (
                         <Pause className="w-4 h-4" />
@@ -1454,7 +1454,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                 className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-slate-100/80 dark:hover:bg-white/5 transition-all w-[calc(33.333%-0.375rem)] ${item.bg}`}
               >
                 <item.icon className={`w-5 h-5 ${item.color}`} />
-                <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
                   {item.label}
                 </span>
               </button>
@@ -1597,7 +1597,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               onClick={toggleRecording}
               className={`p-2.5 rounded-xl transition-all relative ${
                 isRecording
-                  ? "bg-red-500 text-white shadow-lg shadow-red-500/30"
+                  ? "bg-red-500 text-white shadow-md shadow-red-500/15"
                   : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200"
               }`}
               title={isRecording ? "Stop recording" : "Voice message"}

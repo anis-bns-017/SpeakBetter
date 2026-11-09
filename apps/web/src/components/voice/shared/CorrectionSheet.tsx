@@ -214,7 +214,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
               {/* Category pills */}
               <div>
                 <span
-                  className="text-[10px] font-semibold uppercase tracking-wider block mb-2"
+                  className="text-[11px] font-semibold uppercase tracking-wider block mb-2"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   Category
@@ -248,7 +248,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                           }}
                         />
                         <span
-                          className="text-[10px] font-medium"
+                          className="text-[11px] font-medium"
                           style={{
                             color: active
                               ? c.color
@@ -267,7 +267,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span
-                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     What they said
@@ -314,7 +314,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span
-                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.accent.success }}
                   >
                     Better way
@@ -348,7 +348,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
               {/* Optional note */}
               <div>
                 <span
-                  className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5"
+                  className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   Why? (optional)
@@ -403,7 +403,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                   </p>
                   {note.trim() && (
                     <p
-                      className="text-[10px] italic"
+                      className="text-[11px] italic"
                       style={{ color: THEME.colors.text.muted }}
                     >
                       {note}

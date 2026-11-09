@@ -58,7 +58,7 @@ export const RoomDetailsPanel: React.FC<RoomDetailsPanelProps> = ({
         <SectionPill icon={<Clock className="w-3 h-3" />} label="Minutes" value={Math.floor(duration / 60)} />
         <SectionPill icon={<MessageCircle className="w-3 h-3" />} label="Messages" value={messages} />
       </div>
-      <div className="space-y-2 text-[10px] mt-3">
+      <div className="space-y-2 text-[11px] mt-3">
         <div className="flex justify-between">
           <span style={{ color: THEME.colors.text.muted }}>Languages</span>
           <span style={{ color: THEME.colors.text.secondary }}>
@@ -75,7 +75,7 @@ export const RoomDetailsPanel: React.FC<RoomDetailsPanelProps> = ({
         </div>
         <button
           onClick={onCopyLink}
-          className="w-full mt-2 py-2 rounded-xl border text-[10px] font-semibold hover:bg-white/5"
+          className="w-full mt-2 py-2 rounded-xl border text-[11px] font-semibold hover:bg-white/5"
           style={{ borderColor: THEME.colors.border.primary, color: THEME.colors.text.secondary }}
         >
           <Copy className="inline w-3 h-3 mr-1.5" /> Copy room link

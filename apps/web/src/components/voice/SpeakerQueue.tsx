@@ -147,7 +147,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
 
           {queue.length > 0 && (
             <span
-              className="text-[10px] px-1.5 py-0.5 rounded-full tabular-nums font-medium"
+              className="text-[11px] px-1.5 py-0.5 rounded-full tabular-nums font-medium"
               style={{
                 background: "rgba(129,140,248,0.15)",
                 color: THEME.colors.accent.primary,
@@ -159,7 +159,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
 
           {iAmInQueue && !iAmSpeaking && (
             <span
-              className="text-[10px] px-2 py-0.5 rounded-full font-semibold animate-pulse"
+              className="text-[11px] px-2 py-0.5 rounded-full font-semibold animate-pulse"
               style={{
                 background: "rgba(251,191,36,0.15)",
                 color: THEME.colors.accent.warning,
@@ -272,7 +272,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                     No one in the queue
                   </p>
                   <p
-                    className="text-[10px] mt-0.5"
+                    className="text-[11px] mt-0.5"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     Raise your hand to speak
@@ -450,7 +450,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
 
               {extraCount > 0 && (
                 <div
-                  className="text-center py-1.5 text-[10px]"
+                  className="text-center py-1.5 text-[11px]"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   +{extraCount} more waiting
@@ -465,7 +465,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                 style={{ borderColor: THEME.colors.border.primary }}
               >
                 <span
-                  className="text-[10px] tabular-nums"
+                  className="text-[11px] tabular-nums"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   {queue.length} waiting
@@ -480,7 +480,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                     }
                     handlePromote(next.userId);
                   }}
-                  className="text-[10px] px-2 py-1 rounded-lg font-medium transition-colors"
+                  className="text-[11px] px-2 py-1 rounded-lg font-medium transition-colors"
                   style={{
                     background: "rgba(129,140,248,0.18)",
                     color: THEME.colors.accent.primary,

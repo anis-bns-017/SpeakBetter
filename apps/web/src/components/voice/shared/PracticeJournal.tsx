@@ -304,7 +304,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                   {/* Mastery filter */}
                   <div className="flex items-center gap-2">
                     <span
-                      className="text-[10px] uppercase tracking-wider font-semibold"
+                      className="text-[11px] uppercase tracking-wider font-semibold"
                       style={{ color: THEME.colors.text.muted }}
                     >
                       Mastery
@@ -320,7 +320,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                             key={m}
                             type="button"
                             onClick={() => setFilterMastery(active ? null : m)}
-                            className="text-[10px] px-2 py-1 rounded-full border flex items-center gap-1 transition-colors"
+                            className="text-[11px] px-2 py-1 rounded-full border flex items-center gap-1 transition-colors"
                             style={{
                               background: active
                                 ? `color-mix(in srgb, ${meta.color} 13.3%, transparent)`
@@ -353,7 +353,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                             onClearAll();
                           }
                         }}
-                        className="text-[10px] flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors"
+                        className="text-[11px] flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors"
                         style={{ color: THEME.colors.accent.error }}
                       >
                         <Trash2 className="w-3 h-3" />
@@ -409,7 +409,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                   ) : currentReview ? (
                     <div className="max-w-md mx-auto space-y-5">
                       {/* Progress */}
-                      <div className="flex items-center justify-between text-[10px]">
+                      <div className="flex items-center justify-between text-[11px]">
                         <span style={{ color: THEME.colors.text.muted }}>
                           Card {reviewIndex + 1} of {reviewQueue.length}
                         </span>
@@ -433,7 +433,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                         }}
                       >
                         <p
-                          className="text-[10px] uppercase tracking-wider font-semibold mb-3"
+                          className="text-[11px] uppercase tracking-wider font-semibold mb-3"
                           style={{ color: THEME.colors.text.muted }}
                         >
                           What you said
@@ -457,7 +457,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                               }}
                             >
                               <p
-                                className="text-[10px] uppercase tracking-wider font-semibold mb-2"
+                                className="text-[11px] uppercase tracking-wider font-semibold mb-2"
                                 style={{ color: THEME.colors.accent.success }}
                               >
                                 Better way
@@ -582,7 +582,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                         mastered
                       </p>
                       <p
-                        className="text-[10px] mt-2 flex items-center gap-1"
+                        className="text-[11px] mt-2 flex items-center gap-1"
                         style={{ color: THEME.colors.accent.primary }}
                       >
                         <Calendar className="w-3 h-3" />
@@ -625,7 +625,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                                     {cat}
                                   </span>
                                   <span
-                                    className="text-[10px] tabular-nums"
+                                    className="text-[11px] tabular-nums"
                                     style={{ color: THEME.colors.text.muted }}
                                   >
                                     {count} · {pct}%
@@ -744,7 +744,7 @@ const EntryCard: React.FC<{
 
           {entry.note && (
             <p
-              className="text-[10px] italic leading-snug"
+              className="text-[11px] italic leading-snug"
               style={{ color: THEME.colors.text.muted }}
             >
               {entry.note}
@@ -815,7 +815,7 @@ const StatTile: React.FC<{
       {value}
     </p>
     <p
-      className="text-[10px] uppercase tracking-wider mt-0.5"
+      className="text-[11px] uppercase tracking-wider mt-0.5"
       style={{ color: THEME.colors.text.muted }}
     >
       {label}

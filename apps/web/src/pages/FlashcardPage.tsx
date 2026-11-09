@@ -41,7 +41,7 @@ import { MemoryView } from "../components/review/MemoryView";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const RATINGS: Array<{ rating: ReviewRating; label: string; tone: string }> = [
   { rating: "again", label: "Again", tone: "bg-rose-50 hover:bg-rose-100 border-rose-200/80 text-rose-700 dark:bg-rose-500/10 dark:border-rose-500/30 dark:text-rose-300" },
@@ -324,7 +324,7 @@ const Session: React.FC<{
               >
                 <span>{r.label}</span>
                 <span className="text-[11px] font-medium opacity-70">{formatInterval(current.preview[r.rating])}</span>
-                <span className="hidden sm:block text-[10px] font-normal opacity-50">key {i + 1}</span>
+                <span className="hidden sm:block text-[11px] font-normal opacity-50">key {i + 1}</span>
               </button>
             ))}
           </div>
@@ -528,7 +528,7 @@ export const FlashcardPage: React.FC = () => {
           <Layers className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Review</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Review</h1>
           <p className="text-sm text-slate-500">
             {data
               ? data.due.total > 0

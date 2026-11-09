@@ -52,7 +52,7 @@ export const GrammarPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header Section */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -61,7 +61,7 @@ export const GrammarPage = () => {
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Grammar Rules</h1>
+              <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Grammar Rules</h1>
               <p className="text-sm text-slate-500">
                 Master sentence structures, tenses, and usage patterns.
               </p>
@@ -137,7 +137,7 @@ export const GrammarPage = () => {
                           {rule.title}
                         </h3>
                         <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getLevelBadgeColor(
+                          className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${getLevelBadgeColor(
                             rule.level
                           )}`}
                         >

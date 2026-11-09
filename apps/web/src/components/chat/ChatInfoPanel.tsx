@@ -178,7 +178,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
       }`}
     >
       {icon}
-      <span className="text-[10px] font-medium text-slate-500">{label}</span>
+      <span className="text-[11px] font-medium text-slate-500">{label}</span>
     </motion.button>
   );
 
@@ -213,7 +213,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
         <div className="flex-1 space-y-6 overflow-y-auto p-5">
           {/* Identity */}
           <div className="text-center">
-            <div className="mx-auto mb-3 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-3xl font-bold text-white shadow-lg shadow-indigo-500/20">
+            <div className="mx-auto mb-3 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-3xl font-bold text-white shadow-md shadow-indigo-500/15">
               {chatAvatar ? <img src={chatAvatar} alt="" className="h-full w-full object-cover" /> : chatName.charAt(0).toUpperCase()}
             </div>
             <h4 className="text-xl font-semibold text-slate-900">{chatName}</h4>

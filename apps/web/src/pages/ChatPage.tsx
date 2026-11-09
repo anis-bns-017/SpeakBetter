@@ -502,7 +502,7 @@ export const ChatPage: React.FC = () => {
               className="flex items-center gap-3 min-w-0"
             >
               <div className="relative">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/15">
                   <MessageSquare className="w-5 h-5" />
                 </div>
                 {notificationsEnabled && (
@@ -567,7 +567,7 @@ export const ChatPage: React.FC = () => {
                 whileTap={reduced ? undefined : { scale: 0.9 }}
                 type="button"
                 onClick={handleCreateNewChat}
-                className="p-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+                className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/15 hover:shadow-indigo-500/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                 title="New Conversation (N)"
               >
                 <Plus className="w-4 h-4" />
@@ -605,7 +605,7 @@ export const ChatPage: React.FC = () => {
               {/* Keyboard shortcut hint */}
               {!searchQuery && (
                 <kbd
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-400 pointer-events-none dark:border-white/10 dark:bg-white/5 dark:text-slate-500"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-400 pointer-events-none dark:border-white/10 dark:bg-white/5 dark:text-slate-500"
                 >
                   ⌘K
                 </kbd>
@@ -653,7 +653,7 @@ export const ChatPage: React.FC = () => {
                     {isActive && (
                       <motion.div
                         layoutId="chat-filter-active"
-                        className="absolute inset-0 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 shadow-sm"
+                        className="absolute inset-0 rounded-lg bg-indigo-600 shadow-sm"
                         transition={
                           reduced
                             ? { duration: 0 }
@@ -769,10 +769,10 @@ export const ChatPage: React.FC = () => {
                   <div className="py-2">
                     <div className="px-4 py-1.5 flex items-center gap-2">
                       <Pin className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                         Pinned
                       </span>
-                      <span className="text-[10px] text-slate-300 dark:text-slate-600">
+                      <span className="text-[11px] text-slate-300 dark:text-slate-600">
                         {pinnedChats.length}
                       </span>
                     </div>
@@ -790,7 +790,7 @@ export const ChatPage: React.FC = () => {
                   <div className="py-2">
                     {pinnedChats.length > 0 && (
                       <div className="px-4 py-1.5 flex items-center gap-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                           Recent
                         </span>
                       </div>
@@ -837,7 +837,7 @@ export const ChatPage: React.FC = () => {
                     whileTap={reduced ? undefined : { scale: 0.95 }}
                     type="button"
                     onClick={handleCreateNewChat}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl shadow-md shadow-indigo-500/15 hover:shadow-indigo-500/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                   >
                     <Plus className="w-4 h-4" />
                     New Conversation
@@ -860,7 +860,7 @@ export const ChatPage: React.FC = () => {
           <div className="p-3 border-t border-slate-200/50 flex items-center justify-between dark:border-white/5">
             <div className="flex items-center gap-2 min-w-0">
               <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-indigo-500/20">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-indigo-500/15">
                   {user?.name?.charAt(0)?.toUpperCase() || "U"}
                 </div>
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-canvas" />
@@ -869,7 +869,7 @@ export const ChatPage: React.FC = () => {
                 <p className="text-xs font-semibold text-slate-700 truncate dark:text-slate-200">
                   {user?.name || "User"}
                 </p>
-                <p className="text-[10px] text-slate-400 flex items-center gap-1 dark:text-slate-500">
+                <p className="text-[11px] text-slate-400 flex items-center gap-1 dark:text-slate-500">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   Online
                 </p>
@@ -1014,7 +1014,7 @@ export const ChatPage: React.FC = () => {
               </motion.div>
 
               <div className="space-y-2 max-w-sm">
-                <h3 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-violet-400">
+                <h3 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
                   Welcome to Messages
                 </h3>
                 <p className="text-sm text-slate-500 leading-relaxed dark:text-slate-400">
@@ -1029,7 +1029,7 @@ export const ChatPage: React.FC = () => {
                   whileTap={reduced ? undefined : { scale: 0.95 }}
                   type="button"
                   onClick={handleCreateNewChat}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold rounded-2xl shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-2xl shadow-md shadow-indigo-500/15 hover:shadow-indigo-500/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                 >
                   <Plus className="w-4 h-4" />
                   New Conversation
@@ -1053,7 +1053,7 @@ export const ChatPage: React.FC = () => {
                   <p className="text-lg font-bold text-slate-800 dark:text-slate-100">
                     {sorted.length}
                   </p>
-                  <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                  <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
                     Chats
                   </p>
                 </div>
@@ -1062,7 +1062,7 @@ export const ChatPage: React.FC = () => {
                   <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
                     {onlineCount}
                   </p>
-                  <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                  <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
                     Online
                   </p>
                 </div>
@@ -1071,7 +1071,7 @@ export const ChatPage: React.FC = () => {
                   <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
                     {unreadCount}
                   </p>
-                  <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                  <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
                     Unread
                   </p>
                 </div>

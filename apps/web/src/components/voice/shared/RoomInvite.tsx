@@ -202,7 +202,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                     style={{ color: THEME.colors.accent.primary }}
                   />
                   <span
-                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     Room link
@@ -256,7 +256,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                     style={{ color: THEME.colors.accent.primary }}
                   />
                   <span
-                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     Share via
@@ -357,7 +357,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                         />
                       )}
                       <p
-                        className="text-[10px] text-center"
+                        className="text-[11px] text-center"
                         style={{ color: THEME.colors.text.muted }}
                       >
                         Scan with a phone camera to join
@@ -369,7 +369,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
 
               {/* Hint */}
               <p
-                className="text-[10px] text-center leading-relaxed"
+                className="text-[11px] text-center leading-relaxed"
                 style={{ color: THEME.colors.text.muted }}
               >
                 Anyone with the link can join the room.

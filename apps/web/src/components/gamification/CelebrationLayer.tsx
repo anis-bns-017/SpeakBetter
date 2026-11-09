@@ -252,7 +252,7 @@ const ChestOpen: React.FC<{ quests: WeeklyQuests; reduced: boolean; onClose: () 
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400">Weekly quests complete</p>
       {/* The box shakes, then bursts open */}
       <motion.div
-        className="mx-auto mt-5 w-28 h-28 rounded-[28px] bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-xl shadow-orange-500/30"
+        className="mx-auto mt-5 w-28 h-28 rounded-[28px] bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/15"
         initial={reduced ? false : { scale: 0.4, rotate: 0 }}
         animate={reduced ? undefined : { scale: [0.4, 1, 1, 1, 1, 1.12, 1], rotate: [0, 0, -10, 10, -8, 0, 0] }}
         transition={{ duration: 1.3, times: [0, 0.25, 0.4, 0.55, 0.7, 0.85, 1] }}
@@ -320,7 +320,7 @@ const StreakSaved: React.FC<{ status: StreakStatus; reduced: boolean; onClose: (
           </motion.div>
           {/* The ice settles over the flame and keeps it */}
           <motion.div
-            className="absolute -right-2 -bottom-2 w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/40 ring-4 ring-white dark:ring-panel"
+            className="absolute -right-2 -bottom-2 w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-md shadow-sky-500/15 ring-4 ring-white dark:ring-panel"
             initial={reduced ? false : { scale: 0, rotate: -40 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 240, damping: 12, delay: 0.4 }}

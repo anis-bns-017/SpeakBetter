@@ -48,7 +48,7 @@ import { NO_TRANSLATION, useLookupQuery } from "../hooks/useLookup";
 import { canSpeak, speak } from "../lib/speech";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 interface Item {
   target: string;
@@ -132,7 +132,7 @@ const DrillCard: React.FC<{ sounds: SoundSet[]; onStart: (s: Session) => void }>
     ? `Focus on ${focus}, the sounds you find hardest right now`
     : `Try ${focus}, two sounds you have not practised yet`;
   return (
-    <section className="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white p-5 shadow-lg shadow-indigo-500/20">
+    <section className="rounded-3xl bg-indigo-900 ring-1 ring-inset ring-white/10 text-white p-5 shadow-md shadow-indigo-500/15">
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
           <CalendarCheck className="w-5 h-5" />
@@ -841,7 +841,7 @@ export const PronunciationPage: React.FC = () => {
           <AudioLines className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Pronunciation</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Pronunciation</h1>
           <p className="text-sm text-slate-500">Say it, see which words came across, and fix the sounds that trip you up</p>
         </div>
       </header>

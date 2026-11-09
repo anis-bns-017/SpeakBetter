@@ -266,7 +266,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
           className="mt-5 flex flex-wrap items-center justify-center gap-1.5 max-w-[360px]"
         >
           <span
-            className="text-[10px] w-full mb-1"
+            className="text-[11px] w-full mb-1"
             style={{ color: THEME.colors.text.muted }}
           >
             Quick ideas
@@ -280,7 +280,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
                   navigator.clipboard.writeText(idea).catch(() => {});
                   toast.success("Copied — share it in chat");
                 }}
-                className="text-[10px] px-2.5 py-1 rounded-full border transition-all hover:-translate-y-0.5"
+                className="text-[11px] px-2.5 py-1 rounded-full border transition-all hover:-translate-y-0.5"
                 style={{
                   borderColor: THEME.colors.border.primary,
                   color: THEME.colors.text.secondary,
@@ -305,7 +305,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
           >
             <div className="text-left mb-2 flex items-center justify-between px-1">
               <span
-                className="text-[10px] font-semibold uppercase tracking-wider"
+                className="text-[11px] font-semibold uppercase tracking-wider"
                 style={{ color: THEME.colors.text.muted }}
               >
                 Icebreakers
@@ -313,7 +313,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
               <button
                 type="button"
                 onClick={() => setShowTopics(false)}
-                className="text-[10px]"
+                className="text-[11px]"
                 style={{ color: THEME.colors.text.muted }}
               >
                 Hide

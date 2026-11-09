@@ -112,7 +112,7 @@ export const Reactions: React.FC<ReactionsProps> = ({
 
             {/* User Names Tooltip */}
             {hoveredEmoji === emoji && (
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-900 text-white text-[10px] rounded shadow-md whitespace-nowrap z-40 pointer-events-none">
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-900 text-white text-[11px] rounded shadow-md whitespace-nowrap z-40 pointer-events-none">
                 {getTooltipText(emoji)}
               </div>
             )}

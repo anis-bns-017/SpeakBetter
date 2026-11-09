@@ -7,7 +7,7 @@ import { ArrowRight, History, Loader2, Mic } from "lucide-react";
 import { formatDuration, useMySessions } from "../hooks/useSessionRecap";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 export const SessionsPage: React.FC = () => {
   const { data, isLoading, isError } = useMySessions();
@@ -19,7 +19,7 @@ export const SessionsPage: React.FC = () => {
           <History className="w-6 h-6" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">My sessions</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">My sessions</h1>
           <p className="text-sm text-slate-500">Your time in voice rooms, with a recap of each one.</p>
         </div>
       </header>

@@ -46,19 +46,19 @@ export const ReadReceipts: React.FC<ReadReceiptsProps> = ({
         {isAllRead ? (
           <div className="flex items-center gap-1 text-blue-400">
             <CheckCheck className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-semibold tracking-tight">Read</span>
+            <span className="text-[11px] font-semibold tracking-tight">Read</span>
           </div>
         ) : readCount > 0 ? (
           <div className="flex items-center gap-1 text-white/80">
             <CheckCheck className="w-3.5 h-3.5 opacity-80" />
-            <span className="text-[10px] font-medium">
+            <span className="text-[11px] font-medium">
               {readCount}/{expectedReadersCount}
             </span>
           </div>
         ) : (
           <div className="flex items-center gap-1 text-white/60">
             <Check className="w-3.5 h-3.5" />
-            <span className="text-[10px]">Delivered</span>
+            <span className="text-[11px]">Delivered</span>
           </div>
         )}
       </button>
@@ -75,7 +75,7 @@ export const ReadReceipts: React.FC<ReadReceiptsProps> = ({
               )}
               <span>{isAllRead ? 'Read by everyone' : 'Message Status'}</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">
+            <span className="text-[11px] text-slate-400 font-mono">
               {readCount}/{expectedReadersCount}
             </span>
           </div>
@@ -104,7 +104,7 @@ export const ReadReceipts: React.FC<ReadReceiptsProps> = ({
                   </div>
 
                   {receipt.readAt && (
-                    <span className="text-[10px] text-slate-400 font-mono flex-shrink-0">
+                    <span className="text-[11px] text-slate-400 font-mono flex-shrink-0">
                       {formatReadTime(receipt.readAt)}
                     </span>
                   )}

@@ -15,7 +15,7 @@ import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { WordLookup, type WordSelection } from "../components/chat/WordLookup";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const scoreTone = (score: number) =>
   score >= 90 ? "text-emerald-600 dark:text-emerald-400" : score >= 70 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400";

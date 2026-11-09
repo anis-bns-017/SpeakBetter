@@ -27,7 +27,7 @@ import { useProgress } from "../hooks/useLearning";
 import { getXpLevel } from "../lib/xpLevels";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 /**
  * Chart colours as CSS variables, light and dark steps of the same hues (validated as a set). Slots are
@@ -491,13 +491,13 @@ export const ProgressPage: React.FC = () => {
           <TrendingUp className="w-6 h-6" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Your progress</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Your progress</h1>
           <p className="text-sm text-slate-500">How your practice is going, week by week</p>
         </div>
       </header>
 
       {data.summary.length > 0 && (
-        <section className="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white p-5 shadow-lg shadow-indigo-500/20">
+        <section className="rounded-3xl bg-indigo-900 ring-1 ring-inset ring-white/10 text-white p-5 shadow-md shadow-indigo-500/15">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5" /> This week
           </p>
@@ -613,7 +613,7 @@ export const ProgressPage: React.FC = () => {
                   {i > 0 && <span className="text-slate-300 dark:text-slate-600" aria-hidden>→</span>}
                   <span className="inline-flex flex-col items-center rounded-2xl border border-slate-200 dark:border-white/10 px-3 py-1.5">
                     <span className="text-base font-bold text-slate-900 dark:text-white">{l.level}</span>
-                    <span className="text-[10px] text-slate-500">{new Date(l.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>
+                    <span className="text-[11px] text-slate-500">{new Date(l.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>
                   </span>
                 </li>
               ))}

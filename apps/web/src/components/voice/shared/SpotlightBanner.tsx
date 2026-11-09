@@ -65,7 +65,7 @@ export const SpotlightBanner: React.FC<SpotlightBannerProps> = ({
                       : "Topic for everyone"}
                 </span>
                 <span
-                  className="px-1.5 py-0.5 rounded text-[10px]"
+                  className="px-1.5 py-0.5 rounded text-[11px]"
                   style={{ background: "var(--sx-bg-255-255-255-80)", color: THEME.colors.text.muted }}
                 >
                   {spotlight.card.level}

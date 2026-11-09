@@ -2,24 +2,9 @@ import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
-import {
-  Globe2,
-  User,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  Sparkles,
-  ArrowRight,
-  Loader2,
-  ShieldCheck,
-  Zap,
-  TrendingUp,
-  Users,
-  Brain,
-  Languages,
-  Check,
-} from "lucide-react";
+import { Eye, EyeOff, ArrowRight, ShieldCheck, Zap, TrendingUp, Users, Brain, Check } from "lucide-react";
+import { AuthShell } from "../components/common/AuthShell";
+import { Button, Card, Field, Input, Select } from "../components/ui";
 
 const LANGUAGES = [
   { code: "en", name: "English" },
@@ -58,9 +43,6 @@ const STATS = [
   { value: "25+", label: "Languages" },
   { value: "4.9", label: "Rating" },
 ];
-
-const inputClass =
-  "w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition";
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
@@ -117,7 +99,7 @@ export const RegisterPage = () => {
   const passwordStrength = [
     {
       label: "",
-      color: "bg-slate-700",
+      color: "bg-slate-300",
     },
     {
       label: "Weak",
@@ -129,7 +111,7 @@ export const RegisterPage = () => {
     },
     {
       label: "Good",
-      color: "bg-blue-500",
+      color: "bg-indigo-500",
     },
     {
       label: "Strong",
@@ -169,387 +151,181 @@ export const RegisterPage = () => {
       setIsLoading(false);
     }
   };
+  const passwordsMismatch = !!formData.confirmPassword && formData.password !== formData.confirmPassword;
+
+  const eyeToggle = (shown: boolean, toggle: () => void, label: string) => (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={shown ? `Hide ${label}` : `Show ${label}`}
+      aria-pressed={shown}
+      className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-400 dark:hover:text-white"
+    >
+      {shown ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+    </button>
+  );
+
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
-      {/* Background Effects */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-indigo-500/20 blur-[120px] animate-pulse" />
-        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-purple-500/20 blur-[120px] animate-pulse" />
-      </div>
+    <AuthShell
+      eyebrow="AI powered language learning"
+      title={
+        <>
+          Master any
+          <br />
+          language, <span className="italic text-amber-300">faster.</span>
+        </>
+      }
+      blurb="Learn speaking, vocabulary and pronunciation with personalised lessons designed around your learning style."
+      features={BENEFITS.map((b) => ({ icon: b.icon, title: b.title, text: b.description }))}
+      stats={STATS}
+    >
+      <Card className="p-7 sm:p-8">
+        <h1 className="text-[28px] leading-tight text-slate-900 dark:text-white">Join SpeakBetter</h1>
+        <p className="mt-1.5 mb-7 text-sm text-slate-600 dark:text-slate-400">Start your learning journey today.</p>
 
-      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-7xl">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* LEFT SIDE */}
-            <div className="space-y-8">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-400/30 text-indigo-300 text-sm font-medium">
-                <Sparkles className="w-4 h-4" />
-                AI Powered Language Learning
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Field label="Full name" htmlFor="reg-name">
+            <Input
+              id="reg-name"
+              type="text"
+              required
+              autoComplete="name"
+              value={formData.name}
+              onChange={(e) => updateField("name", e.target.value)}
+              placeholder="Your name"
+            />
+          </Field>
 
-              <div>
-                <h1 className="text-5xl xl:text-6xl font-black text-white leading-tight tracking-tight">
-                  Master Any
-                  <br />
-                  <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
-                    Language
-                  </span>
-                  <br />
-                  Faster
-                </h1>
+          <Field label="Email address" htmlFor="reg-email">
+            <Input
+              id="reg-email"
+              type="email"
+              required
+              autoComplete="email"
+              value={formData.email}
+              onChange={(e) => updateField("email", e.target.value)}
+              placeholder="you@example.com"
+            />
+          </Field>
 
-                <p className="mt-5 text-lg text-slate-300 max-w-lg leading-relaxed">
-                  Learn speaking, vocabulary, and pronunciation with
-                  personalized AI lessons designed around your learning style.
-                </p>
-              </div>
+          <Field label="Native language" htmlFor="reg-lang">
+            <Select id="reg-lang" value={formData.nativeLanguage} onChange={(e) => updateField("nativeLanguage", e.target.value)}>
+              {LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-              {/* AI Coach Card */}
-              <div className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 overflow-hidden">
-                <div className="absolute right-0 top-0 w-40 h-40 bg-indigo-500/20 blur-3xl" />
+          <Field label="Password" htmlFor="reg-password">
+            <div className="relative">
+              <Input
+                id="reg-password"
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="new-password"
+                value={formData.password}
+                onChange={(e) => updateField("password", e.target.value)}
+                placeholder="Create a password"
+                className="pr-12"
+              />
+              {eyeToggle(showPassword, () => setShowPassword(!showPassword), "password")}
+            </div>
 
-                <div className="flex items-center gap-5 relative">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-xl shadow-indigo-500/40">
-                    <Globe2 className="w-10 h-10 text-white" />
-                  </div>
-
-                  <div>
-                    <h3 className="text-xl font-bold text-white">
-                      Your AI Language Coach
-                    </h3>
-
-                    <p className="text-sm text-slate-400 mt-1">
-                      Practice anytime. Improve every day.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Benefits */}
-              <div className="grid sm:grid-cols-2 gap-4">
-                {BENEFITS.map((item, index) => {
-                  const Icon = item.icon;
-
-                  return (
+            {formData.password && (
+              <div className="mt-3 space-y-3">
+                <div className="flex gap-1" aria-hidden>
+                  {[1, 2, 3, 4].map((item) => (
                     <div
-                      key={index}
-                      className="rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center mb-3">
-                        <Icon className="w-5 h-5 text-indigo-300" />
-                      </div>
-
-                      <h3 className="text-white font-semibold">{item.title}</h3>
-
-                      <p className="text-xs text-slate-400 mt-1">
-                        {item.description}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Stats */}
-              <div className="flex gap-10 pt-5 border-t border-white/10">
-                {STATS.map((item, index) => (
-                  <div key={index}>
-                    <p className="text-3xl font-black text-white">
-                      {item.value}
-                    </p>
-
-                    <p className="text-xs text-slate-400">{item.label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* RIGHT SIDE */}
-            <div className="w-full max-w-md mx-auto">
-              <div className="relative">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 blur opacity-30" />
-
-                <div className="relative rounded-3xl border border-white/20 bg-white/[0.07] backdrop-blur-2xl p-8 shadow-2xl">
-                  {/* Header */}
-                  <div className="mb-8">
-                    <div className="flex items-center gap-2 text-indigo-300 text-sm font-medium mb-4">
-                      <Languages className="w-4 h-4" />
-                      Create your account
-                    </div>
-
-                    <h2 className="text-3xl font-black text-white">
-                      Join SpeakBetter
-                    </h2>
-
-                    <p className="text-slate-400 text-sm mt-2">
-                      Start your AI learning journey today
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleSubmit} className="space-y-5">
-                    {/* Name */}
-                    <div>
-                      <label className="text-xs uppercase tracking-wider font-bold text-slate-300">
-                        Full Name
-                      </label>
-
-                      <div className="relative mt-2">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-
-                        <input
-                          type="text"
-                          required
-                          value={formData.name}
-                          onChange={(e) => updateField("name", e.target.value)}
-                          placeholder="Your name"
-                          className={`${inputClass} pl-10`}
-                        />
-                      </div>
-                    </div>
-                    {/* Email */}
-                    <div>
-                      <label className="text-xs uppercase tracking-wider font-bold text-slate-300">
-                        Email Address
-                      </label>
-
-                      <div className="relative mt-2">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-
-                        <input
-                          type="email"
-                          required
-                          value={formData.email}
-                          onChange={(e) => updateField("email", e.target.value)}
-                          placeholder="you@example.com"
-                          className={`${inputClass} pl-10`}
-                        />
-                      </div>
-                    </div>
-                    {/* Language */}
-                    <div>
-                      <label className="text-xs uppercase tracking-wider font-bold text-slate-300">
-                        Native Language
-                      </label>
-
-                      <div className="relative mt-2">
-                        <Globe2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-
-                        <select
-                          value={formData.nativeLanguage}
-                          onChange={(e) =>
-                            updateField("nativeLanguage", e.target.value)
-                          }
-                          className={`${inputClass} pl-10`}
-                        >
-                          {LANGUAGES.map((lang) => (
-                            <option
-                              key={lang.code}
-                              value={lang.code}
-                              className="bg-slate-900"
-                            >
-                              {lang.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>{" "}
-                    {/* Password */}
-                    <div>
-                      <label className="text-xs uppercase tracking-wider font-bold text-slate-300">
-                        Password
-                      </label>
-
-                      <div className="relative mt-2">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          required
-                          value={formData.password}
-                          onChange={(e) =>
-                            updateField("password", e.target.value)
-                          }
-                          placeholder="Create password"
-                          className={`${inputClass} pl-10 pr-12`}
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                        >
-                          {showPassword ? (
-                            <EyeOff size={18} />
-                          ) : (
-                            <Eye size={18} />
-                          )}
-                        </button>
-                      </div>
-
-                      {formData.password && (
-                        <div className="mt-3 space-y-3">
-                          <div className="flex gap-1">
-                            {[1, 2, 3, 4].map((item) => (
-                              <div
-                                key={item}
-                                className={`h-1.5 flex-1 rounded-full ${
-                                  item <= passwordScore
-                                    ? passwordStrength.color
-                                    : "bg-slate-700"
-                                }`}
-                              />
-                            ))}
-                          </div>
-
-                          <p className="text-xs text-slate-400">
-                            Strength:
-                            <span className="ml-1 text-white font-semibold">
-                              {passwordStrength.label}
-                            </span>
-                          </p>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            {passwordRules.map((rule, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center gap-1 text-xs"
-                              >
-                                <Check
-                                  size={13}
-                                  className={
-                                    rule.valid
-                                      ? "text-emerald-400"
-                                      : "text-slate-600"
-                                  }
-                                />
-
-                                <span className="text-slate-400">
-                                  {rule.label}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {/* Confirm Password */}
-                    <div>
-                      <label className="text-xs uppercase tracking-wider font-bold text-slate-300">
-                        Confirm Password
-                      </label>
-
-                      <div className="relative mt-2">
-                        <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-
-                        <input
-                          type={showConfirmPassword ? "text" : "password"}
-                          required
-                          value={formData.confirmPassword}
-                          onChange={(e) =>
-                            updateField("confirmPassword", e.target.value)
-                          }
-                          placeholder="Confirm password"
-                          className={`${inputClass} pl-10 pr-12`}
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowConfirmPassword(!showConfirmPassword)
-                          }
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                        >
-                          {showConfirmPassword ? (
-                            <EyeOff size={18} />
-                          ) : (
-                            <Eye size={18} />
-                          )}
-                        </button>
-                      </div>
-
-                      {formData.confirmPassword &&
-                        formData.password !== formData.confirmPassword && (
-                          <p className="text-xs text-red-400 mt-2">
-                            Passwords do not match
-                          </p>
-                        )}
-                    </div>
-                    {/* Submit Button */}
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 size={18} className="animate-spin" />
-                          Creating Account...
-                        </>
-                      ) : (
-                        <>
-                          Create Account
-                          <ArrowRight size={18} />
-                        </>
-                      )}
-                    </button>
-                  </form>
-
-                  {/* Divider */}
-                  <div className="flex items-center gap-3 my-6">
-                    <div className="flex-1 h-px bg-white/10" />
-
-                    <span className="text-xs text-slate-500">OR</span>
-
-                    <div className="flex-1 h-px bg-white/10" />
-                  </div>
-
-                  {/* Social Login */}
-                  <div className="space-y-3">
-                    <button
-                      type="button"
-                      onClick={handleGoogleLogin}
-                      className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition flex items-center justify-center gap-2"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M21.35 11.1h-9.18v2.98h5.28c-.23 1.52-1.76 4.45-5.28 4.45-3.18 0-5.78-2.63-5.78-5.87s2.6-5.87 5.78-5.87c1.81 0 3.02.77 3.72 1.43l2.54-2.47C16.8 4.22 14.75 3.3 12.17 3.3 7.47 3.3 3.65 7.12 3.65 11.83s3.82 8.53 8.52 8.53c4.91 0 8.17-3.45 8.17-8.31 0-.56-.06-.95-.13-1.36z" />
-                      </svg>
-                      Continue with Google
-                    </button>
-
-                    <button
-                      type="button"
-                      className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition"
-                    >
-                      Continue with Apple
-                    </button>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="mt-6 pt-5 border-t border-white/10 text-center space-y-3">
-                    <p className="text-sm text-slate-400">
-                      Already have an account?
-                      <Link
-                        to="/login"
-                        className="ml-1 text-indigo-400 hover:text-indigo-300 font-bold"
-                      >
-                        Sign In
-                      </Link>
-                    </p>
-
-                    <p className="text-xs text-slate-500 flex items-center justify-center gap-1">
-                      <ShieldCheck size={14} />
-                      Your information is secure
-                    </p>
-                  </div>
+                      key={item}
+                      className={`h-1.5 flex-1 rounded-full ${item <= passwordScore ? passwordStrength.color : "bg-slate-200 dark:bg-white/10"}`}
+                    />
+                  ))}
                 </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-400" aria-live="polite">
+                  Strength:
+                  <span className="ml-1 font-semibold text-slate-900 dark:text-white">{passwordStrength.label}</span>
+                </p>
+
+                <ul className="grid grid-cols-2 gap-2">
+                  {passwordRules.map((rule) => (
+                    <li key={rule.label} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
+                      <Check size={14} aria-hidden className={rule.valid ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"} />
+                      {rule.label}
+                      <span className="sr-only">{rule.valid ? " (met)" : " (not met yet)"}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
+            )}
+          </Field>
+
+          <Field label="Confirm password" htmlFor="reg-confirm" error={passwordsMismatch ? "Passwords do not match" : undefined}>
+            <div className="relative">
+              <Input
+                id="reg-confirm"
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                autoComplete="new-password"
+                invalid={passwordsMismatch}
+                value={formData.confirmPassword}
+                onChange={(e) => updateField("confirmPassword", e.target.value)}
+                placeholder="Type it again"
+                className="pr-12"
+              />
+              {eyeToggle(showConfirmPassword, () => setShowConfirmPassword(!showConfirmPassword), "confirmation")}
             </div>
-          </div>
+          </Field>
+
+          <Button type="submit" size="lg" loading={isLoading} className="w-full">
+            {isLoading ? (
+              "Creating account…"
+            ) : (
+              <>
+                Create account <ArrowRight size={18} aria-hidden />
+              </>
+            )}
+          </Button>
+        </form>
+
+        <div className="my-6 flex items-center gap-4" role="separator" aria-label="or">
+          <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">or</span>
+          <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
         </div>
-      </div>
-    </div>
+
+        <div className="space-y-3">
+          <Button type="button" variant="secondary" size="lg" onClick={handleGoogleLogin} className="w-full">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M21.35 11.1h-9.18v2.98h5.28c-.23 1.52-1.76 4.45-5.28 4.45-3.18 0-5.78-2.63-5.78-5.87s2.6-5.87 5.78-5.87c1.81 0 3.02.77 3.72 1.43l2.54-2.47C16.8 4.22 14.75 3.3 12.17 3.3 7.47 3.3 3.65 7.12 3.65 11.83s3.82 8.53 8.52 8.53c4.91 0 8.17-3.45 8.17-8.31 0-.56-.06-.95-.13-1.36z" />
+            </svg>
+            Continue with Google
+          </Button>
+
+          <Button type="button" variant="secondary" size="lg" className="w-full">
+            Continue with Apple
+          </Button>
+        </div>
+
+        <div className="mt-7 space-y-3 border-t border-line pt-6 text-center">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Already have an account?
+            <Link
+              to="/login"
+              className="ml-1.5 inline-flex min-h-8 items-center rounded-md font-bold text-indigo-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-indigo-300"
+            >
+              Sign in
+            </Link>
+          </p>
+
+          <p className="flex items-center justify-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
+            <ShieldCheck size={14} aria-hidden />
+            Your information is secure
+          </p>
+        </div>
+      </Card>
+    </AuthShell>
   );
 };

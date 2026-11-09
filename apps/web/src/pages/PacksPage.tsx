@@ -12,7 +12,7 @@ import { usePacks, type PackCategory, type PackItem, type PackLevel } from "../h
 import { categoryTone, packIcon, topicTone } from "../components/packs/packIcons";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 const chip = (active: boolean) =>
   `h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 shrink-0 ${
     active
@@ -102,7 +102,7 @@ export const PacksPage: React.FC = () => {
           <Package className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Word packs</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Word packs</h1>
           <p className="text-sm text-slate-500">From everyday words to GRE, IELTS, TOEFL, SAT, academic and business English: thousands of words in sections, each with pronunciation, meaning, examples and related words.</p>
         </div>
         <div className="hidden sm:block text-right text-xs text-slate-500 tabular-nums shrink-0">
@@ -210,7 +210,7 @@ export const PacksPage: React.FC = () => {
           {next && NextIcon && (
             <Link
               to={`/packs/${next.id}`}
-              className="block rounded-3xl p-5 bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg shadow-orange-500/20 hover:-translate-y-0.5 transition-transform"
+              className="block rounded-3xl p-5 bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-orange-500/15 hover:-translate-y-0.5 transition-transform"
             >
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/80 inline-flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" /> Start here · {next.level}

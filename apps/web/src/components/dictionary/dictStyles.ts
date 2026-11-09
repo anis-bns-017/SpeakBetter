@@ -2,7 +2,7 @@
 import type { DictLevel, DictStatus } from "../../hooks/useDictionary";
 
 export const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 /** One colour per level; the level is always written next to it, so colour is never the only signal */
 export const LEVEL_STYLE: Record<DictLevel, { chip: string; dot: string; name: string }> = {
@@ -17,17 +17,17 @@ export const LEVEL_STYLE: Record<DictLevel, { chip: string; dot: string; name: s
 export const STATUS_LABEL: Record<DictStatus, string> = { new: "New to you", saved: "In My words", known: "You know it" };
 
 export const chip = (active: boolean) =>
-  `h-8 px-3 rounded-full text-xs font-semibold border transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+  `h-8 max-sm:h-10 px-3.5 rounded-full text-[13px] font-semibold border transition-colors flex items-center gap-1.5 whitespace-nowrap touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-page ${
     active
-      ? "bg-indigo-600 border-indigo-600 text-white"
-      : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+      ? "bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-500 dark:border-indigo-500"
+      : "border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
   }`;
 
 export const select =
-  "h-8 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 text-xs font-semibold text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30";
+  "h-8 max-sm:h-10 rounded-full border border-line bg-surface px-3 text-[13px] font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30";
 
 export const input =
-  "w-full rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.04] px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition";
+  "w-full min-h-11 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-base sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition";
 
 /** "verb" -> "verb"; Wiktionary uses the same names. Short form for tight places. */
 export const POS_SHORT: Record<string, string> = {

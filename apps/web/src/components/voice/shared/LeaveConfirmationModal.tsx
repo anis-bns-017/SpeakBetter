@@ -68,7 +68,7 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
 
           {stats && (
             <div className="mb-5 text-left">
-              <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: THEME.colors.text.muted }}>
+              <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: THEME.colors.text.muted }}>
                 Your session so far · saved to your progress
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -81,7 +81,7 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
                     <div className="text-sm font-bold" style={{ color: THEME.colors.text.primary }}>
                       {s.value}
                     </div>
-                    <div className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+                    <div className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
                       {s.label}
                     </div>
                   </div>

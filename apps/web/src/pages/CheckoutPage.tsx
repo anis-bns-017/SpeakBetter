@@ -13,7 +13,7 @@ import { formatMoney, useCheckoutDetails, useSettleSandbox, type SandboxOutcome 
 import { tutorErrorMessage } from "../hooks/useAiTutor";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const Settle: React.FC<{ paymentId: string }> = ({ paymentId }) => {
   const navigate = useNavigate();

@@ -463,7 +463,7 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
           <p className="text-[11px] font-bold uppercase tracking-wider text-fuchsia-600 dark:text-fuchsia-400">
             {data.level} · {data.track?.label ?? "Daily mix"}
           </p>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{data.title}</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{data.title}</h1>
           <p className="text-sm text-slate-500">{data.focus}</p>
         </div>
         {data.progress?.bestScore != null && (

@@ -924,7 +924,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 className="h-11 w-11 rounded-full object-cover ring-2 ring-white/50"
               />
             ) : (
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-semibold text-white shadow-md shadow-indigo-500/15">
                 {chatName.charAt(0).toUpperCase()}
               </div>
             )}
@@ -943,7 +943,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               {chat?.disappearingSeconds ? (
                 <span
                   title={`Disappearing messages: ${disappearingLabel(chat.disappearingSeconds)}`}
-                  className="flex shrink-0 items-center gap-0.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600"
+                  className="flex shrink-0 items-center gap-0.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-600"
                 >
                   <Timer className="h-3 w-3" />
                   {disappearingLabel(chat.disappearingSeconds)}
@@ -1194,7 +1194,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                           animate={{ scale: 1 }}
                           className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${
                             selectedMessages.has(msg.id)
-                              ? "border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                              ? "border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-500/15"
                               : "border-slate-300 bg-white"
                           }`}
                         >
@@ -1499,7 +1499,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <Clock className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-slate-700">{s.content}</span>
-                      <span className="text-[10px] text-slate-400">{format(new Date(s.sendAt), "EEE, MMM d 'at' HH:mm")}</span>
+                      <span className="text-[11px] text-slate-400">{format(new Date(s.sendAt), "EEE, MMM d 'at' HH:mm")}</span>
                     </span>
                     <button
                       type="button"

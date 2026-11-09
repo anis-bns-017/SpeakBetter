@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type React from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
@@ -71,8 +71,8 @@ const ProtectedRoute = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500" />
+      <div className="flex items-center justify-center h-screen bg-page" role="status" aria-label="Loading">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-200 border-t-indigo-600 dark:border-white/10 dark:border-t-indigo-400" />
       </div>
     );
   }
@@ -92,8 +92,8 @@ const PublicRoute = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500" />
+      <div className="flex items-center justify-center h-screen bg-page" role="status" aria-label="Loading">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-200 border-t-indigo-600 dark:border-white/10 dark:border-t-indigo-400" />
       </div>
     );
   }
@@ -120,13 +120,31 @@ const AppLayout = () => {
     void syncPush().catch(() => undefined);
   }, []);
 
+  // After a page change, send screen-reader and keyboard focus to the page, unless something already took it.
+  // Not on the first load: there the first Tab stop must stay the "Skip to main content" link.
+  const lastPath = useRef(location.pathname);
+  useEffect(() => {
+    if (lastPath.current === location.pathname) return;
+    lastPath.current = location.pathname;
+    const active = document.activeElement;
+    if (active && active !== document.body && active.tagName !== "A") return;
+    document.getElementById("main")?.focus({ preventScroll: true });
+  }, [location.pathname]);
+
   const style = {
     "--sidebar-w": `${isMinimized ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded}px`,
     "--tabbar-h": inVoiceRoom ? "0px" : `${MOBILE_TAB_BAR_HEIGHT}px`,
   } as React.CSSProperties;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900" style={style}>
+    <div className="min-h-screen bg-page" style={style}>
+      {/* First stop for keyboard users: jump past the sidebar to the page */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[300] focus:rounded-xl focus:bg-indigo-600 focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-white/80"
+      >
+        Skip to main content
+      </a>
       <OfflineBanner />
       <Sidebar />
       {/* Live notifications on every page; on phones the bell floats in the corner (the sidebar has its own) */}
@@ -139,7 +157,7 @@ const AppLayout = () => {
         </div>
       )}
       <div className="min-h-screen transition-[padding] duration-300 lg:pl-[var(--sidebar-w)] pb-[var(--tabbar-h)] lg:pb-0">
-        <main className="min-h-screen">
+        <main id="main" tabIndex={-1} className="min-h-screen focus:outline-none">
           <Outlet />
         </main>
       </div>

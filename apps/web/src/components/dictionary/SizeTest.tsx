@@ -26,7 +26,7 @@ const Bands: React.FC<{ bands: number[] }> = ({ bands }) => (
       {bands.map((b, i) => (
         <div key={i} className="relative flex-1 h-full flex items-end group">
           <div className="w-full rounded-t-[4px] bg-emerald-600 dark:bg-emerald-500" style={{ height: `${Math.max(b > 0 ? 3 : 0, b * 100)}%` }} />
-          <span className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 rounded bg-slate-900 dark:bg-white px-1.5 py-0.5 text-[10px] text-white dark:text-slate-900 opacity-0 group-hover:opacity-100 whitespace-nowrap">
+          <span className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 rounded bg-slate-900 dark:bg-white px-1.5 py-0.5 text-[11px] text-white dark:text-slate-900 opacity-0 group-hover:opacity-100 whitespace-nowrap">
             {Math.round(b * 100)}%
           </span>
         </div>
@@ -34,7 +34,7 @@ const Bands: React.FC<{ bands: number[] }> = ({ bands }) => (
     </div>
     <div className="mt-1 flex gap-[2px] border-t border-slate-200 dark:border-white/10 pt-1">
       {bands.map((_, i) => (
-        <span key={i} className={`flex-1 text-center text-[10px] tabular-nums text-slate-400 ${i % 2 ? "max-sm:invisible" : ""}`}>
+        <span key={i} className={`flex-1 text-center text-[11px] tabular-nums text-slate-400 ${i % 2 ? "max-sm:invisible" : ""}`}>
           {i + 1}k
         </span>
       ))}
@@ -155,7 +155,7 @@ export const SizeTest: React.FC<{ onMap: () => void }> = ({ onMap }) => {
     return (
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <section className={`${card} p-6 sm:p-8`}>
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/30">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/15">
             <Gauge className="w-7 h-7" />
           </div>
           <h2 className="mt-4 text-xl font-bold text-slate-900 dark:text-white">How many English words do you know?</h2>
@@ -165,7 +165,7 @@ export const SizeTest: React.FC<{ onMap: () => void }> = ({ onMap }) => {
             <li className="flex gap-3"><span className="w-6 h-6 shrink-0 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span><span><b>A few meanings.</b> For up to 10 words you know, pick the right meaning.</span></li>
             <li className="flex gap-3"><span className="w-6 h-6 shrink-0 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span><span><b>Your result.</b> The words you showed you know are marked on your word map.</span></li>
           </ol>
-          <button type="button" onClick={start} disabled={phase.step === "loading"} className="mt-6 h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:opacity-60 flex items-center gap-2 shadow-md shadow-indigo-500/25">
+          <button type="button" onClick={start} disabled={phase.step === "loading"} className="mt-6 h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:opacity-60 flex items-center gap-2 shadow-md shadow-indigo-500/15">
             {phase.step === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Start the test
           </button>
           <p className="mt-3 text-[11px] text-slate-400">Tip: use the arrow keys. → I know it, ← I don't.</p>
@@ -179,7 +179,7 @@ export const SizeTest: React.FC<{ onMap: () => void }> = ({ onMap }) => {
               {past.map((t) => (
                 <li key={t.id} className="py-2 flex items-center gap-2">
                   <span className="text-sm font-bold tabular-nums text-slate-900 dark:text-white">≈{(t.estimate ?? 0).toLocaleString()}</span>
-                  {t.level && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${LEVEL_STYLE[t.level].chip}`}>{t.level}</span>}
+                  {t.level && <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${LEVEL_STYLE[t.level].chip}`}>{t.level}</span>}
                   <span className="ml-auto text-[11px] text-slate-400">{t.finishedAt ? new Date(t.finishedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : ""}</span>
                 </li>
               ))}
@@ -214,7 +214,7 @@ export const SizeTest: React.FC<{ onMap: () => void }> = ({ onMap }) => {
           <button type="button" onClick={() => void answerWord(false)} disabled={busy} className="h-14 rounded-2xl border-2 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 font-semibold hover:bg-slate-50 dark:hover:bg-white/[0.04] flex items-center justify-center gap-2 disabled:opacity-50">
             <X className="w-5 h-5" /> I don't
           </button>
-          <button type="button" onClick={() => void answerWord(true)} disabled={busy} className="h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 shadow-md shadow-emerald-600/25 disabled:opacity-50">
+          <button type="button" onClick={() => void answerWord(true)} disabled={busy} className="h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 shadow-md shadow-emerald-600/15 disabled:opacity-50">
             {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />} I know it
           </button>
         </div>

@@ -479,7 +479,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           title={seenBy.readAt ? `Seen ${formatDistanceToNow(new Date(seenBy.readAt), { addSuffix: true })}` : "Seen"}
         >
           <CheckCheck className="w-3.5 h-3.5 text-sky-400 stroke-[2.5]" />
-          <span className="text-[10px] font-medium text-sky-400/80">Seen</span>
+          <span className="text-[11px] font-medium text-sky-400/80">Seen</span>
         </motion.div>
       );
     }
@@ -648,7 +648,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               : opened
                 ? "Opened"
                 : `Tap to view ${label}`}
-            <span className="block text-[10px] font-normal opacity-70">
+            <span className="block text-[11px] font-normal opacity-70">
               {isOwn ? (opened ? "Opened" : "Not opened yet") : opened ? `View-once ${label}` : "You can open it once"}
             </span>
           </span>
@@ -783,7 +783,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
 
             <div
-              className={`flex justify-between text-[10px] font-semibold tabular-nums ${
+              className={`flex justify-between text-[11px] font-semibold tabular-nums ${
                 isOwn
                   ? "text-indigo-100/80"
                   : "text-slate-500 dark:text-slate-400"
@@ -794,7 +794,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
 
             {loadError && (
-              <div className="flex items-center gap-1.5 text-[10px] text-red-300 font-medium">
+              <div className="flex items-center gap-1.5 text-[11px] text-red-300 font-medium">
                 <AlertCircle className="w-3 h-3 shrink-0" />
                 <span>Audio failed to load</span>
                 <button
@@ -875,7 +875,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       setImageRotation(0);
                       setShowFullImage(true);
                     }}
-                    className="text-[10px] font-medium text-white/90 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1.5 hover:bg-black/60 transition-all"
+                    className="text-[11px] font-medium text-white/90 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1.5 hover:bg-black/60 transition-all"
                   >
                     <Maximize2 className="w-3 h-3" /> Expand
                   </button>
@@ -946,7 +946,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <span className="truncate flex-1">
             {fileName}
             {fileSizeLabel && (
-              <span className="block text-[10px] font-normal opacity-70">{fileSizeLabel}</span>
+              <span className="block text-[11px] font-normal opacity-70">{fileSizeLabel}</span>
             )}
           </span>
           <Download className="w-3.5 h-3.5 opacity-70 shrink-0" />
@@ -1007,7 +1007,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           whileHover={{ scale: 1.05 }}
           className="relative w-9 h-9 rounded-full shrink-0"
         >
-          <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-[2px] shadow-lg shadow-indigo-500/20">
+          <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-[2px] shadow-md shadow-indigo-500/15">
             <div className="w-full h-full rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden">
               {message.sender?.avatarUrl ? (
                 <img
@@ -1016,7 +1016,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-xs font-bold bg-gradient-to-br from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
                   {message.sender?.name?.charAt(0).toUpperCase() || "U"}
                 </span>
               )}
@@ -1031,7 +1031,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <motion.div
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`flex items-center gap-1.5 mb-1 text-[10px] font-semibold ${isOwn ? "justify-end" : "justify-start"}`}
+            className={`flex items-center gap-1.5 mb-1 text-[11px] font-semibold ${isOwn ? "justify-end" : "justify-start"}`}
           >
             <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 flex items-center gap-1">
               <Pin className="w-2.5 h-2.5 fill-current" /> Pinned
@@ -1195,7 +1195,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker(false)}
-                  className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                 >
                   Close
                 </button>
@@ -1238,7 +1238,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             } ${isSelected ? "ring-2 ring-indigo-400 ring-offset-2 dark:ring-offset-slate-900" : mentionsMe ? "ring-2 ring-amber-300/70" : ""}`}
           >
             {(message.metadata?.forwarded || mentionsMe) && (
-              <div className={`flex items-center gap-2 text-[10px] font-semibold italic ${isOwn ? "text-indigo-100/80" : "text-slate-400"}`}>
+              <div className={`flex items-center gap-2 text-[11px] font-semibold italic ${isOwn ? "text-indigo-100/80" : "text-slate-400"}`}>
                 {message.metadata?.forwarded && (
                   <span className="flex items-center gap-1">
                     <Forward className="w-3 h-3" /> Forwarded
@@ -1266,7 +1266,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               >
                 <CornerDownRight className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
-                  <span className="font-semibold block text-[10px] opacity-85">
+                  <span className="font-semibold block text-[11px] opacity-85">
                     {message.replyTo.sender?.name}
                   </span>
                   <p className="truncate font-normal opacity-90">
@@ -1307,7 +1307,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 )}
                 <div className="space-y-0.5 px-3 py-2">
                   {linkPreview.siteName && (
-                    <p className={`text-[10px] font-semibold uppercase tracking-wide ${isOwn ? "text-indigo-100/70" : "text-slate-400"}`}>
+                    <p className={`text-[11px] font-semibold uppercase tracking-wide ${isOwn ? "text-indigo-100/70" : "text-slate-400"}`}>
                       {linkPreview.siteName}
                     </p>
                   )}
@@ -1339,7 +1339,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     )}
                   </div>
                 ) : null}
-                <div className={`flex items-center gap-3 text-[10px] font-semibold ${isOwn ? "text-indigo-100" : "text-indigo-600 dark:text-indigo-400"}`}>
+                <div className={`flex items-center gap-3 text-[11px] font-semibold ${isOwn ? "text-indigo-100" : "text-indigo-600 dark:text-indigo-400"}`}>
                   {!transcript && (
                     <button type="button" onClick={runTranscribe} disabled={!!transcribing} className="flex items-center gap-1 hover:underline disabled:opacity-60">
                       {transcribing === "transcribe" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Captions className="h-3 w-3" />}
@@ -1362,7 +1362,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 onClick={() => setShowTranslation((v) => !v)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.95 }}
-                className={`flex items-center gap-1.5 text-[10px] font-semibold transition-all ${isOwn ? "text-indigo-200 hover:text-white" : "text-indigo-600 dark:text-indigo-400 hover:underline"}`}
+                className={`flex items-center gap-1.5 text-[11px] font-semibold transition-all ${isOwn ? "text-indigo-200 hover:text-white" : "text-indigo-600 dark:text-indigo-400 hover:underline"}`}
               >
                 <Languages className="w-3 h-3" />
                 {showTranslation ? "Hide translation" : "See translation"}
@@ -1383,7 +1383,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             {/* Only state markers live in the bubble; the send time shows on hover beside it */}
             {(isOwn || message.isEdited || message.expiresAt) && (
             <div
-              className={`flex items-center justify-end gap-1.5 text-[10px] font-medium -mt-1 select-none ${isOwn ? "text-indigo-100/70" : "text-slate-400 dark:text-slate-500"}`}
+              className={`flex items-center justify-end gap-1.5 text-[11px] font-medium -mt-1 select-none ${isOwn ? "text-indigo-100/70" : "text-slate-400 dark:text-slate-500"}`}
             >
               {message.expiresAt && (
                 <span
@@ -1411,7 +1411,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         exit={{ opacity: 0, y: 4 }}
                         className={`absolute bottom-full z-30 mb-2 w-64 rounded-2xl border border-slate-200 bg-white p-3 text-left text-slate-700 shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 ${isOwn ? "right-0" : "left-0"}`}
                       >
-                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Edit history</p>
+                        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Edit history</p>
                         <ol className="max-h-48 space-y-2 overflow-y-auto">
                           {[...editHistory].reverse().map((v, i) => (
                             <li key={i} className="border-l-2 border-slate-200 pl-2 dark:border-slate-700">
@@ -1440,7 +1440,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.12 }}
               title={format(messageTime, "PPpp")}
-              className={`absolute bottom-2 whitespace-nowrap rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-white shadow-sm dark:bg-slate-700/90 ${
+              className={`absolute bottom-2 whitespace-nowrap rounded-full bg-slate-800/80 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm dark:bg-slate-700/90 ${
                 isOwn ? "right-full mr-2" : "left-full ml-2"
               }`}
             >
@@ -1468,7 +1468,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 >
                   <span className="text-sm">{emoji}</span>
                   {count > 1 && (
-                    <span className="text-[10px] font-bold opacity-80">
+                    <span className="text-[11px] font-bold opacity-80">
                       {count}
                     </span>
                   )}

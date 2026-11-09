@@ -92,7 +92,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                   Corrections
                 </p>
                 <p
-                  className="text-[10px] truncate"
+                  className="text-[11px] truncate"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   {pending.length === 0
@@ -166,7 +166,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
 
                     <div className="flex-1 min-w-0">
                       <p
-                        className="text-[10px] uppercase tracking-wider font-semibold"
+                        className="text-[11px] uppercase tracking-wider font-semibold"
                         style={{ color: THEME.colors.accent.success }}
                       >
                         {c.category}
@@ -184,7 +184,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                         </span>
                       </p>
                       <p
-                        className="text-[10px] mt-0.5 truncate"
+                        className="text-[11px] mt-0.5 truncate"
                         style={{ color: THEME.colors.text.muted }}
                       >
                         from {c.authorName}
@@ -291,7 +291,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                       style={{ background: "var(--sx-bg-255-255-255-20)" }}
                     >
                       <span
-                        className="text-[10px] shrink-0"
+                        className="text-[11px] shrink-0"
                         style={{
                           color:
                             c.status === "accepted"
@@ -302,7 +302,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                         {c.status === "accepted" ? "✓" : "×"}
                       </span>
                       <p
-                        className="text-[10px] truncate flex-1"
+                        className="text-[11px] truncate flex-1"
                         style={{ color: THEME.colors.text.muted }}
                       >
                         <span className="line-through">{c.original}</span>

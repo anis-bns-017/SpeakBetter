@@ -21,7 +21,7 @@ import { BadgeIcon } from "../components/gamification/BadgeIcon";
 import { TIER_STYLE } from "../components/gamification/tiers";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const CATEGORY_LABEL: Record<BadgeCategory, string> = {
   STREAK: "Showing up",
@@ -57,7 +57,7 @@ const Ladder: React.FC<{ league: CurrentLeague }> = ({ league }) => (
               </span>
             )}
           </span>
-          <span className={`text-[10px] ${mine ? "font-bold text-slate-900 dark:text-white" : "text-slate-400"}`}>{l.name}</span>
+          <span className={`text-[11px] ${mine ? "font-bold text-slate-900 dark:text-white" : "text-slate-400"}`}>{l.name}</span>
         </div>
       );
     })}
@@ -264,7 +264,7 @@ const BadgeTile: React.FC<{ b: Badge }> = ({ b }) => {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 flex-wrap">
           <p className={`text-sm font-semibold ${earned ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-300"}`}>{b.name}</p>
-          {b.isNew && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 text-white">New</span>}
+          {b.isNew && <span className="px-1.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-600 text-white">New</span>}
         </div>
         <p className="text-xs text-slate-500 mt-0.5">{b.description}</p>
         {earned ? (
@@ -364,7 +364,7 @@ export const LeaguesPage: React.FC = () => {
           <Trophy className="w-6 h-6" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Leagues</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Leagues</h1>
           <p className="text-sm text-slate-500">Climb the weekly leagues and collect badges as you learn</p>
         </div>
       </header>

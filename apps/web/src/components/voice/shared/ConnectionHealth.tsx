@@ -18,7 +18,7 @@ export const ConnectionHealth: React.FC<ConnectionHealthProps> = ({
   const healthy = socketConnected && liveKitConnected;
   return (
     <div
-      className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full border text-[10px]"
+      className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full border text-[11px]"
       style={{
         background: healthy ? 'rgba(52,211,153,0.08)' : 'rgba(251,191,36,0.08)',
         borderColor: healthy ? 'rgba(52,211,153,0.2)' : 'rgba(251,191,36,0.2)',

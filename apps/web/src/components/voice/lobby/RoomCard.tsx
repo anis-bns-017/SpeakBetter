@@ -120,7 +120,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 </h3>
                 {isCreator && (
                   <span
-                    className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
+                    className="text-[11px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
                     style={{ background: COLORS.spotlightDim, color: COLORS.spotlight }}
                   >
                     <Crown className="w-3 h-3" /> HOST
@@ -128,7 +128,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 )}
                 {isUserInRoom && !isCreator && (
                   <span
-                    className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
+                    className="text-[11px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
                     style={{ background: COLORS.liveDim, color: COLORS.live }}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
@@ -137,7 +137,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 )}
                 {room.isRecording && (
                   <span
-                    className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse"
+                    className="text-[11px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse"
                     style={{ background: "rgba(239, 68, 68, 0.2)", color: COLORS.danger }}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
@@ -170,7 +170,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 <Star className="w-4 h-4" fill={isFavorite ? "currentColor" : "none"} />
               </button>
               <span
-                className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded-full"
+                className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-1 rounded-full"
                 style={{ background: `color-mix(in srgb, ${accent} 13.3%, transparent)`, color: accent }}
               >
                 <TypeIcon className="w-3 h-3" />
@@ -183,7 +183,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
               {room.language && (
                 <span
-                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full"
+                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full"
                   style={{ background: "var(--sx-bg-255-255-255-60)", color: COLORS.textMuted }}
                 >
                   <Globe className="w-3 h-3" />
@@ -193,7 +193,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               {(room.topics || []).slice(0, isList ? 2 : 3).map((topic) => (
                 <span
                   key={topic}
-                  className="text-[10px] px-2 py-0.5 rounded-full"
+                  className="text-[11px] px-2 py-0.5 rounded-full"
                   style={{ background: "var(--sx-bg-255-255-255-60)", color: COLORS.textMuted }}
                 >
                   {topic}
@@ -243,7 +243,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               {count}/{max}
             </span>
             <span
-              className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full"
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full"
               style={{ background: `color-mix(in srgb, ${status.color} 13.3%, transparent)`, color: status.color }}
             >
               <StatusIcon className="w-3 h-3" />

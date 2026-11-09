@@ -49,7 +49,7 @@ import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { speechCaptionsSupported, useSpeechCaptions } from "../components/call/useSpeechCaptions";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 /** Silence after you stop talking before your words are sent (hands-free mode) */
 const AUTO_SEND_MS = 1800;
@@ -102,7 +102,7 @@ const Setup: React.FC<{
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 lg:py-12">
       <div className="text-center">
-        <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-md shadow-violet-500/15">
           <Bot className="w-7 h-7 text-white" />
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-5">AI speaking partner</h1>

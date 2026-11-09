@@ -1,5 +1,8 @@
 # SpeakBetter design system (Master)
 
+> **Superseded** by [`apps/web/DESIGN_SYSTEM.md`](../../apps/web/DESIGN_SYSTEM.md) (Lapis brand, warm "paper and ink"
+> neutrals, Fraunces + Plus Jakarta Sans). Kept for history; where the two differ, the new file wins.
+
 The single source of truth for how SpeakBetter looks and moves. Page files in `pages/` may override a rule for one
 page; otherwise this file wins. The tokens live in `apps/web/src/index.css` (`@theme`), so a change there reaches
 every page.

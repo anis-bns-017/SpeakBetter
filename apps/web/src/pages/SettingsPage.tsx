@@ -11,7 +11,7 @@ export const SettingsPage = () => {
 
   if (error || !settings) {
     return (
-      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-page flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-center space-y-4 max-w-sm w-full">
           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
             <AlertCircle className="w-6 h-6" />
@@ -37,7 +37,7 @@ export const SettingsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header Banner */}
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
@@ -45,7 +45,7 @@ export const SettingsPage = () => {
             <Sliders className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">
+            <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">
               Account Settings
             </h1>
             <p className="text-xs text-slate-500">
@@ -65,7 +65,7 @@ export const SettingsPage = () => {
 
 // Skeleton Loading Component
 const SettingsSkeleton = () => (
-  <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
+  <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header Skeleton */}
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4 animate-pulse">

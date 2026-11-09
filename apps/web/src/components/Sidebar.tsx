@@ -143,19 +143,19 @@ interface Accent {
 const ACCENTS: Record<string, Accent> = {
   Home: {
     tile: "from-indigo-500 to-violet-500",
-    glow: "shadow-indigo-500/40",
+    glow: "shadow-indigo-500/25",
     hover: "group-hover:text-indigo-500 dark:group-hover:text-indigo-300",
     dot: "bg-indigo-500",
   },
   Speak: {
     tile: "from-rose-500 to-orange-400",
-    glow: "shadow-rose-500/40",
+    glow: "shadow-rose-500/25",
     hover: "group-hover:text-rose-500 dark:group-hover:text-rose-300",
     dot: "bg-rose-500",
   },
   Learn: {
     tile: "from-emerald-500 to-teal-400",
-    glow: "shadow-emerald-500/40",
+    glow: "shadow-emerald-500/25",
     hover: "group-hover:text-emerald-600 dark:group-hover:text-emerald-300",
     dot: "bg-emerald-500",
   },
@@ -294,7 +294,7 @@ const LevelRing: React.FC<{ progress: number; level: number; children: React.Rea
         />
       </svg>
       <div className="absolute inset-[5px] flex">{children}</div>
-      <span className="absolute -bottom-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-[#F8F9FC] dark:ring-shell">
+      <span className="absolute -bottom-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-slate-50 dark:ring-shell">
         {level}
       </span>
     </div>
@@ -306,7 +306,7 @@ const Badge: React.FC<{ count?: number; live?: boolean; compact?: boolean }> = (
   const text = count > (compact ? 9 : 99) ? (compact ? "9+" : "99+") : String(count);
   if (live) {
     return compact ? (
-      <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-[#F8F9FC] dark:ring-shell">
+      <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-slate-50 dark:ring-shell">
         <span className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-60" />
       </span>
     ) : (
@@ -319,7 +319,7 @@ const Badge: React.FC<{ count?: number; live?: boolean; compact?: boolean }> = (
     );
   }
   return compact ? (
-    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-[#F8F9FC] dark:ring-shell">
+    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-slate-50 dark:ring-shell">
       {text}
     </span>
   ) : (
@@ -328,7 +328,7 @@ const Badge: React.FC<{ count?: number; live?: boolean; compact?: boolean }> = (
       initial={{ scale: 0.4, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: "spring", stiffness: 600, damping: 16 }}
-      className="relative ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 text-white text-[10px] font-bold tabular-nums flex items-center justify-center shadow-sm shadow-rose-500/40"
+      className="relative ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 text-white text-[10px] font-bold tabular-nums flex items-center justify-center shadow-md shadow-rose-500/15"
     >
       {text}
     </motion.span>
@@ -355,7 +355,7 @@ const Tooltip: React.FC<{ label: string; hint?: string }> = ({ label, hint }) =>
 );
 
 const Kbd: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
-  <kbd className={`inline-flex items-center rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-1.5 py-0.5 text-[10px] font-medium font-sans text-slate-500 dark:text-slate-400 ${className ?? ""}`}>
+  <kbd className={`inline-flex items-center rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-1.5 py-0.5 text-[11px] font-medium font-sans text-slate-500 dark:text-slate-400 ${className ?? ""}`}>
     {children}
   </kbd>
 );
@@ -556,7 +556,7 @@ const CommandPalette: React.FC<{
                   return (
                     <React.Fragment key={entry.id}>
                       {header && (
-                        <p className="px-3 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{header}</p>
+                        <p className="px-3 pt-3 pb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{header}</p>
                       )}
                       <button
                         type="button"
@@ -612,7 +612,7 @@ const StreakCard: React.FC<{ data: SidebarData; onOpen: () => void }> = ({ data,
     >
       <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-amber-200/50 dark:bg-amber-500/15 blur-2xl pointer-events-none ${data.streak > 0 ? "sb-glow" : ""}`} />
       <div className="relative flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${data.streak > 0 ? "bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 shadow-md shadow-orange-500/40" : "bg-slate-100 dark:bg-white/5"}`}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${data.streak > 0 ? "bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 shadow-md shadow-orange-500/15" : "bg-slate-100 dark:bg-white/5"}`}>
           <span className={`inline-flex ${data.streak > 0 ? "sb-flicker" : ""}`}>
             <Flame className={`w-5 h-5 ${data.streak > 0 ? "text-white fill-white/40" : "text-slate-400"}`} />
           </span>
@@ -653,7 +653,7 @@ const StreakCard: React.FC<{ data: SidebarData; onOpen: () => void }> = ({ data,
             <span aria-hidden className="sb-gloss absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/70 dark:via-white/70 to-transparent" />
           </motion.div>
         </div>
-        <p className="mt-1.5 text-[10.5px] text-slate-400 dark:text-slate-500 tabular-nums">
+        <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">
           {data.xpToNext > 0 ? `${data.xpToNext.toLocaleString()} XP to Level ${data.level + 1}` : "Max level reached 🎉"}
         </p>
       </div>
@@ -665,7 +665,7 @@ const LiveNowList: React.FC<{ data: SidebarData; onJoin: (roomId: string) => voi
   if (!data.liveRooms.length) return null;
   return (
     <div>
-      <p className="px-3 mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-rose-500">
+      <p className="px-3 mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-rose-500">
         <span className="relative w-1.5 h-1.5 rounded-full bg-rose-500">
           <span className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-70" />
         </span>
@@ -830,7 +830,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
   const desktop = (
     <aside
       aria-label="Main navigation"
-      className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-[#F8F9FC] dark:bg-shell border-r border-slate-200/80 dark:border-white/[0.06] transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${className ?? ""}`}
+      className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-slate-50 dark:bg-shell border-r border-slate-200/80 dark:border-white/[0.06] transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${className ?? ""}`}
       style={{ width: collapsed ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded }}
     >
       {/* Slowly drifting colour behind everything */}
@@ -903,7 +903,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
           whileHover={{ y: -1.5 }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 500, damping: 24 }}
-          className="sb-pan group relative overflow-visible w-full h-10 flex items-center justify-center gap-2 rounded-xl text-white font-semibold text-[13.5px] bg-[linear-gradient(110deg,#4f46e5,#7c3aed,#c026d3,#7c3aed,#4f46e5)] shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+          className="sb-pan group relative overflow-visible w-full h-10 flex items-center justify-center gap-2 rounded-xl text-white font-semibold text-[13.5px] bg-[linear-gradient(110deg,#4f46e5,#7c3aed,#c026d3,#7c3aed,#4f46e5)] shadow-md shadow-violet-500/15 hover:shadow-xl hover:shadow-violet-500/40 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
           aria-label="Start speaking"
         >
           {/* Shine that sweeps across every few seconds */}
@@ -939,7 +939,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                   initial={intro ? { opacity: 0 } : false}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.08 + offset * 0.028 }}
-                  className="px-3 mb-1.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500"
+                  className="px-3 mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500"
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
                   {section.title}
@@ -1096,7 +1096,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                   {tab.badge && <Badge {...tab.badge} compact />}
                 </motion.span>
               </span>
-              <span className={`text-[10.5px] ${tab.active ? "font-semibold" : "font-medium"}`}>{tab.label}</span>
+              <span className={`text-[11px] ${tab.active ? "font-semibold" : "font-medium"}`}>{tab.label}</span>
             </>
           );
           const cls = `relative flex flex-col items-center justify-center gap-0.5 transition-colors ${tab.active ? "text-indigo-600 dark:text-indigo-300" : "text-slate-500 dark:text-slate-400"}`;
@@ -1129,7 +1129,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 380, damping: 38 }}
-            className="absolute left-0 right-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-[#F8F9FC] dark:bg-panel border-t border-slate-200 dark:border-white/10 px-4 pt-3"
+            className="absolute left-0 right-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-slate-50 dark:bg-panel border-t border-slate-200 dark:border-white/10 px-4 pt-3"
             style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1165,7 +1165,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
               const offset = all.slice(0, sectionIndex).reduce((n, s) => n + s.items.length, 0);
               return (
                 <div key={section.title} className="mb-4">
-                  <p className="px-1 mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
+                  <p className="px-1 mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400">
                     <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
                     {section.title}
                   </p>

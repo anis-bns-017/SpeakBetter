@@ -36,7 +36,7 @@ import { TIER_STYLE } from "../components/gamification/tiers";
 import { getLevelProgress, getXpLevel } from "../lib/xpLevels";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 /** "bn" → "Bangla", "BD" → "Bangladesh"; anything the browser does not know is shown as typed */
 const nameOf = (type: "language" | "region", code: string): string => {
@@ -159,7 +159,7 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
           <Avatar name={p.name} url={p.avatarUrl} />
           <div className="min-w-0 flex-1 space-y-3">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
+              <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
                 <span className="truncate">{p.name}</span>
                 {p.isVerified && <BadgeCheck className="w-5 h-5 text-sky-500 shrink-0" aria-label="Verified" />}
                 {p.level && (
@@ -265,7 +265,7 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
               <li key={b.key} className="flex flex-col items-center text-center gap-1.5" title={`${b.name}: ${b.description}`}>
                 <BadgeIcon icon={b.icon} tier={b.tier} earned size={52} />
                 <span className="text-[11px] font-semibold leading-tight text-slate-800 dark:text-slate-100">{b.name}</span>
-                <span className="text-[10px]" style={{ color: TIER_STYLE[b.tier].ring }}>{TIER_STYLE[b.tier].label}</span>
+                <span className="text-[11px]" style={{ color: TIER_STYLE[b.tier].ring }}>{TIER_STYLE[b.tier].label}</span>
               </li>
             ))}
           </ul>

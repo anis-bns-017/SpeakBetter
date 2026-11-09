@@ -18,7 +18,7 @@ export const THEME_PREFERENCES: ThemePreference[] = ['light', 'dark', 'navy', 's
 
 /** Browser bar colour on phones and in the installed app */
 const BAR_COLOR: Record<ResolvedTheme, string> = {
-  light: '#4f46e5',
+  light: '#3b4fb2',
   dark: '#0b0b14',
   navy: '#0b1631',
 };

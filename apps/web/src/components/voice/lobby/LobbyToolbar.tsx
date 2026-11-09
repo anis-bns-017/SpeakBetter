@@ -38,7 +38,7 @@ const selectStyle = {
 
 const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <kbd
-    className="hidden sm:inline-block text-[10px] font-mono px-1.5 py-0.5 rounded border"
+    className="hidden sm:inline-block text-[11px] font-mono px-1.5 py-0.5 rounded border"
     style={{ borderColor: COLORS.border, color: COLORS.textSecondary }}
   >
     {children}

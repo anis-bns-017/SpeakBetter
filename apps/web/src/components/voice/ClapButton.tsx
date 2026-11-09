@@ -67,7 +67,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
     sm: {
       button: "px-3 py-2 text-xs gap-1.5",
       icon: "text-base",
-      count: "text-[10px]",
+      count: "text-[11px]",
       particles: 5,
       bubbleSize: "text-2xl",
     },
@@ -330,7 +330,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg text-[10px] whitespace-nowrap pointer-events-none z-30"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg text-[11px] whitespace-nowrap pointer-events-none z-30"
             style={{
               background: THEME.colors.background.card,
               border: `1px solid ${THEME.colors.border.primary}`,

@@ -4,7 +4,7 @@ import { ArrowRight, Swords } from "lucide-react";
 import { formatScore, useFriendChallenges, type FriendChallenge } from "../../hooks/useFriendChallenges";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const hoursLeft = (iso: string) => Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 3_600_000));
 

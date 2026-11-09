@@ -56,7 +56,7 @@ export const LogoMark: React.FC<MarkProps> = ({ size = 36, animated = true, clas
       ))}
 
       <span
-        className="relative block w-full h-full overflow-hidden shadow-lg shadow-violet-500/30 ring-1 ring-white/20"
+        className="relative block w-full h-full overflow-hidden shadow-md shadow-violet-500/15 ring-1 ring-white/20"
         style={{ borderRadius: radius }}
       >
         <span className="sb-logo-aurora absolute -inset-1/2 block" />
@@ -128,7 +128,7 @@ export function SpeakBetterLogo({ animated = true }: { animated?: boolean }) {
             </svg>
           </span>
         </span>
-        <span className="mt-2 block whitespace-nowrap text-[8.5px] font-bold uppercase tracking-[0.16em] text-slate-400">English · out loud</span>
+        <span className="mt-2 block whitespace-nowrap text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">English · out loud</span>
       </span>
     </span>
   );

@@ -677,7 +677,7 @@ const Toggle: React.FC<{ on: boolean }> = ({ on }) => (
 );
 
 const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <kbd className="px-1.5 py-0.5 rounded-md border text-[10px] font-medium font-sans" style={{ borderColor: THEME.colors.border.strong, background: "var(--sx-bg-255-255-255-50)", color: THEME.colors.text.secondary }}>
+  <kbd className="px-1.5 py-0.5 rounded-md border text-[11px] font-medium font-sans" style={{ borderColor: THEME.colors.border.strong, background: "var(--sx-bg-255-255-255-50)", color: THEME.colors.text.secondary }}>
     {children}
   </kbd>
 );
@@ -773,7 +773,7 @@ const AttachmentList: React.FC<{ attachments: Attachment[]; onOpenImage?: (attac
             aria-label={`Open ${att.name || "image"}`}
           >
             <img src={att.url} alt={att.name || "Image attachment"} loading="lazy" className="w-full max-h-56 min-h-16 object-cover bg-black/20 transition-transform duration-300 group-hover/attachment:scale-[1.03]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
-            {att.type === "gif" && <span className="absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-bold bg-black/60 text-white">GIF</span>}
+            {att.type === "gif" && <span className="absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[11px] font-bold bg-black/60 text-white">GIF</span>}
             <span className="absolute right-2 bottom-2 w-7 h-7 rounded-lg bg-black/55 text-white flex items-center justify-center opacity-0 group-hover/attachment:opacity-100 transition-opacity">
               <Maximize2 className="w-3.5 h-3.5" />
             </span>
@@ -1067,7 +1067,7 @@ const MessageBubble = React.memo(function MessageBubble({
               {formatTime(message.createdAt)}
             </span>
             {mentionsMe && (
-              <span className="text-[10px] font-semibold px-1.5 rounded-full shrink-0 flex items-center gap-0.5" style={{ color: THEME.colors.accent.warning, background: "rgba(251,191,36,0.12)" }}>
+              <span className="text-[11px] font-semibold px-1.5 rounded-full shrink-0 flex items-center gap-0.5" style={{ color: THEME.colors.accent.warning, background: "rgba(251,191,36,0.12)" }}>
                 <AtSign className="w-2.5 h-2.5" /> you
               </span>
             )}
@@ -1152,10 +1152,10 @@ const MessageBubble = React.memo(function MessageBubble({
           {!isEditing && translated && (
             <div className="mt-2 pt-1.5 border-t" style={{ borderColor: onAccent ? "var(--sx-border-255-255-255-220)" : THEME.colors.border.primary }}>
               <div className="flex items-center justify-between gap-2 mb-0.5">
-                <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: onAccent ? "var(--sx-text-255-255-255-800)" : THEME.colors.accent.cyan }}>
+                <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: onAccent ? "var(--sx-text-255-255-255-800)" : THEME.colors.accent.cyan }}>
                   <Globe className="w-3 h-3" /> {translated.language}
                 </span>
-                <button type="button" onClick={() => actions.translate(message)} className="text-[10px] underline-offset-2 hover:underline" style={{ color: metaColor }}>
+                <button type="button" onClick={() => actions.translate(message)} className="text-[11px] underline-offset-2 hover:underline" style={{ color: metaColor }}>
                   Hide
                 </button>
               </div>
@@ -1171,9 +1171,9 @@ const MessageBubble = React.memo(function MessageBubble({
           {/* Meta row: edited · time · delivery status */}
           {!isEditing && (
             <div className="flex items-center justify-end gap-1 mt-0.5 -mb-0.5 select-none">
-              {message.isEdited && <span className="text-[10px]" style={{ color: metaColor }}>edited</span>}
+              {message.isEdited && <span className="text-[11px]" style={{ color: metaColor }}>edited</span>}
               {(isOwn || !showHeader) && (
-                <span className="text-[10px] tabular-nums" style={{ color: metaColor }} title={getTimeAgo(message.createdAt)}>
+                <span className="text-[11px] tabular-nums" style={{ color: metaColor }} title={getTimeAgo(message.createdAt)}>
                   {formatTime(message.createdAt)}
                 </span>
               )}
@@ -1462,7 +1462,7 @@ const MentionSuggestions: React.FC<{
     role="listbox"
     aria-label="Mention someone"
   >
-    <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1" style={{ color: THEME.colors.text.muted }}>
+    <div className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1" style={{ color: THEME.colors.text.muted }}>
       <AtSign className="w-3 h-3" /> Mention · <span className="normal-case tracking-normal font-normal">↑↓ to choose, Enter to insert</span>
     </div>
     {matches.map((name, i) => (
@@ -2315,7 +2315,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-semibold tracking-tight" style={{ color: THEME.colors.text.primary }}>Room chat</span>
               {visibleCount > 0 && (
-                <span className="text-[10px] px-1.5 py-px rounded-full tabular-nums font-semibold" style={{ background: "rgba(129,140,248,0.16)", color: "var(--sx-text-c7d2fe)" }}>{visibleCount}</span>
+                <span className="text-[11px] px-1.5 py-px rounded-full tabular-nums font-semibold" style={{ background: "rgba(129,140,248,0.16)", color: "var(--sx-text-c7d2fe)" }}>{visibleCount}</span>
               )}
             </div>
             <div className="flex items-center gap-1.5 text-[11px]" style={{ color: THEME.colors.text.muted }}>
@@ -2368,7 +2368,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   style={{ background: THEME.colors.background.card, borderColor: THEME.colors.border.primary }}
                   role="menu"
                 >
-                  <div className="px-2 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>Display</div>
+                  <div className="px-2 pt-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>Display</div>
                   <button type="button" role="menuitemcheckbox" aria-checked={compactMode} onClick={toggleCompact} className="w-full flex items-center justify-between gap-2 px-2 py-2 rounded-lg hover:bg-white/[0.06] text-left">
                     <span className="text-[13px]" style={{ color: THEME.colors.text.secondary }}>Compact messages</span>
                     <Toggle on={compactMode} />
@@ -2380,7 +2380,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     <Toggle on={soundEnabled} />
                   </button>
                   <div className="my-1.5 h-px" style={{ background: THEME.colors.border.primary }} />
-                  <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1" style={{ color: THEME.colors.text.muted }}>
+                  <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1" style={{ color: THEME.colors.text.muted }}>
                     <Keyboard className="w-3 h-3" /> Shortcuts
                   </div>
                   <div className="px-2 pb-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 items-center text-xs" style={{ color: THEME.colors.text.muted }}>
@@ -2579,7 +2579,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   </button>
                 ))}
               </div>
-              <div className="px-2.5 pt-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>
+              <div className="px-2.5 pt-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>
                 {emojiTabs[activeEmojiTab].name}
               </div>
               <div className="grid grid-cols-8 gap-0.5 max-h-52 overflow-y-auto p-1.5">

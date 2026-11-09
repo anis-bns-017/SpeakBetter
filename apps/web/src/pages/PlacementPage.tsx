@@ -45,7 +45,7 @@ import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { speechCaptionsSupported, useSpeechCaptions } from "../components/call/useSpeechCaptions";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const SKILL_META: Record<PlacementSkill, { label: string; icon: LucideIcon; tone: string; hint: string }> = {
   GRAMMAR: { label: "Grammar", icon: PenLine, tone: "bg-violet-500/10 text-violet-500", hint: "Choose the correct form" },
@@ -73,7 +73,7 @@ const Intro: React.FC<{
 }> = ({ resumeAt, total, starting, onStart }) => (
   <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 lg:py-16">
     <div className="text-center">
-      <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+      <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center shadow-md shadow-indigo-500/15">
         <Sparkles className="w-7 h-7 text-white" />
       </div>
       <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-5">Find your English level</h1>

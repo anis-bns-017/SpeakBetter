@@ -10,7 +10,7 @@ import { BookOpen, CheckCircle2, Clock, Loader2, MessagesSquare, Newspaper, Scro
 import { useLibrary, type LibraryLevel, type TextKind } from "../hooks/useLibrary";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const KIND: Record<TextKind, { label: string; icon: typeof BookOpen; tone: string }> = {
   story: { label: "Story", icon: ScrollText, tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
@@ -43,7 +43,7 @@ export const LibraryPage: React.FC = () => {
           <BookOpen className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Library</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Library</h1>
           <p className="text-sm text-slate-500">Read and listen at your level. Tap any word, then check what you understood.</p>
         </div>
         <span className="text-xs text-slate-500 tabular-nums shrink-0">{data.done} of {data.texts.length} read</span>

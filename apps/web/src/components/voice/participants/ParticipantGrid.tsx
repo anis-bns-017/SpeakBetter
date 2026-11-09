@@ -197,7 +197,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
               {participants.length} in room
             </span>
             <span
-              className="text-[10px] px-2 py-0.5 rounded-full"
+              className="text-[11px] px-2 py-0.5 rounded-full"
               style={{
                 background: "rgba(52, 211, 153, 0.1)",
                 color: THEME.colors.status.online,
@@ -267,7 +267,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
       {roomLanguages.length > 0 && (
         <div className="flex items-center gap-1.5 mb-4 flex-wrap">
           <span
-            className="text-[10px] font-medium"
+            className="text-[11px] font-medium"
             style={{ color: THEME.colors.text.muted }}
           >
             Languages
@@ -275,7 +275,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
           <button
             type="button"
             onClick={() => setLangFilter("all")}
-            className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
+            className="px-2.5 py-1 rounded-full text-[11px] font-medium transition-all"
             style={{
               background:
                 langFilter === "all"
@@ -301,7 +301,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
               onClick={() =>
                 setLangFilter((prev) => (prev === lang ? "all" : lang))
               }
-              className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
+              className="px-2.5 py-1 rounded-full text-[11px] font-medium transition-all"
               style={{
                 background:
                   langFilter === lang

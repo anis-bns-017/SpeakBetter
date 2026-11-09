@@ -42,7 +42,7 @@ const KIND: Record<QuestKind, { icon: LucideIcon; tone: string; bar: string }> =
 };
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const errorMessage = (e: unknown, fallback: string) =>
   (e as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
@@ -95,7 +95,7 @@ const FreezeSlots: React.FC<{ have: number; max: number }> = ({ have, max }) => 
       <span
         key={i}
         className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-          i < have ? "bg-sky-500 text-white shadow-sm shadow-sky-500/40" : "bg-slate-100 dark:bg-white/5 text-slate-300 dark:text-slate-600"
+          i < have ? "bg-sky-500 text-white shadow-md shadow-sky-500/15" : "bg-slate-100 dark:bg-white/5 text-slate-300 dark:text-slate-600"
         }`}
       >
         <Snowflake className="w-4 h-4" />
@@ -152,7 +152,7 @@ export const WeeklyQuestsCard: React.FC<{ className?: string }> = ({ className =
     <section className={`${card} p-6 ${className}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-orange-500/25">
+          <span className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-orange-500/15">
             <Gift className="w-5 h-5" />
           </span>
           <div className="min-w-0">

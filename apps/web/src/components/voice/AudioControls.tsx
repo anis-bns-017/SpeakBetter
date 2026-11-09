@@ -257,7 +257,7 @@ const ConnectionQuality: React.FC<{
         ))}
       </div>
       <span
-        className="text-[10px] font-mono"
+        className="text-[11px] font-mono"
         style={{ color: THEME.text.muted }}
       >
         {config.label}
@@ -593,7 +593,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           {/* Host Badge */}
           {isHost && (
             <div
-              className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium"
+              className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium"
               style={{
                 background: "rgba(251, 191, 36, 0.15)",
                 color: "var(--sx-text-fbbf24)",
@@ -712,7 +712,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               {isCallActive ? "🔴 Live" : "🎧 Listening"}
             </span>
             {participantCount > 0 && (
-              <span className="text-[10px]" style={{ color: THEME.text.muted }}>
+              <span className="text-[11px]" style={{ color: THEME.text.muted }}>
                 {participantCount} in room
               </span>
             )}
@@ -904,7 +904,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       <div className="w-px h-4" style={{ background: THEME.border }} />
 
       <div className="flex items-center gap-1">
-        <span className="text-[10px]" style={{ color: THEME.text.muted }}>
+        <span className="text-[11px]" style={{ color: THEME.text.muted }}>
           {participantCount}
         </span>
         <Users className="w-3 h-3" style={{ color: THEME.text.muted }} />

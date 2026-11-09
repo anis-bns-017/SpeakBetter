@@ -491,7 +491,7 @@ const SpeakerAvatar: React.FC<{
 
       {/* Status */}
       <span
-        className="text-[10px] flex items-center gap-1"
+        className="text-[11px] flex items-center gap-1"
         style={{ color: isMuted ? THEME.text.muted : THEME.text.secondary }}
       >
         {isMuted ? (
@@ -583,7 +583,7 @@ const ListenerCard: React.FC<{
             <motion.div
               animate={{ scale: [1, 1.2, 1] }}
               transition={{ duration: 0.8, repeat: Infinity }}
-              className="flex items-center gap-1 text-[10px] font-medium"
+              className="flex items-center gap-1 text-[11px] font-medium"
               style={{ color: THEME.status.waiting }}
             >
               <Hand className="w-3 h-3" />
@@ -591,7 +591,7 @@ const ListenerCard: React.FC<{
             </motion.div>
           )}
         </div>
-        <span className="text-[10px]" style={{ color: THEME.text.muted }}>
+        <span className="text-[11px]" style={{ color: THEME.text.muted }}>
           Joined{" "}
           {formatDistanceToNow(new Date(listener.joinedAt), {
             addSuffix: true,
@@ -928,7 +928,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span
-                className="text-[10px] font-mono tracking-wider uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5"
+                className="text-[11px] font-mono tracking-wider uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5"
                 style={{
                   background:
                     speakers.length > 0
@@ -950,14 +950,14 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                 {speakers.length > 0 ? "Live" : "Quiet"}
               </span>
               <span
-                className="text-[10px] font-mono"
+                className="text-[11px] font-mono"
                 style={{ color: THEME.text.muted }}
               >
                 {stage.name || "Main Stage"}
               </span>
               {isModerator && (
                 <span
-                  className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
+                  className="text-[11px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
                   style={{
                     background: "rgba(252, 211, 77, 0.15)",
                     color: "var(--sx-text-fcd34d)",
@@ -968,7 +968,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
               )}
               {isHost && (
                 <span
-                  className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
+                  className="text-[11px] font-mono uppercase px-2 py-0.5 rounded-full flex items-center gap-1"
                   style={{
                     background: "rgba(251, 191, 36, 0.15)",
                     color: "var(--sx-text-fbbf24)",
@@ -1147,7 +1147,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                     Stage Full
                   </span>
                   <span
-                    className="text-[10px]"
+                    className="text-[11px]"
                     style={{ color: THEME.text.muted }}
                   >
                     🎤 5/5

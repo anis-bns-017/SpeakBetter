@@ -36,7 +36,7 @@ import { useSpeechCaptions, speechCaptionsSupported } from "../components/call/u
 import { uploadToCloudinary } from "../lib/uploadToCloudinary";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const errorMessage = (e: unknown, fallback: string) =>
   (e as { response?: { data?: { message?: string } } })?.response?.data?.message || (e as Error)?.message || fallback;
@@ -338,7 +338,7 @@ export const ChallengePage: React.FC = () => {
           <Mic className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Daily challenge</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Daily challenge</h1>
           <p className="text-sm text-slate-500">One question a day. Answer it out loud, then hear how others did.</p>
         </div>
         {data.streak > 0 && (
@@ -372,7 +372,7 @@ export const ChallengePage: React.FC = () => {
         ))}
       </div>
 
-      <section className="rounded-3xl bg-gradient-to-br from-rose-500 to-orange-500 text-white p-6 shadow-lg shadow-rose-500/20">
+      <section className="rounded-3xl bg-gradient-to-br from-rose-500 to-orange-500 text-white p-6 shadow-md shadow-rose-500/15">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/75 flex items-center gap-1.5">
           <Calendar className="w-3.5 h-3.5" /> Today · {prompt.level} · about {prompt.seconds} seconds
         </p>

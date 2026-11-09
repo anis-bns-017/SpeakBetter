@@ -11,7 +11,7 @@ import { formatDuration, useSessionRecap } from "../hooks/useSessionRecap";
 import { FollowButton } from "../components/social/FollowButton";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 const ghostBtn =
   "inline-flex items-center justify-center gap-2 h-11 px-5 rounded-full text-sm font-semibold border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors";
 const primaryBtn =
@@ -61,7 +61,7 @@ export const SessionRecapPage: React.FC = () => {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-500">Session recap</p>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white truncate">{recap.roomName}</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white truncate">{recap.roomName}</h1>
           <p className="text-sm text-slate-500">{new Date(recap.at).toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })}</p>
         </div>
         <Link to="/sessions" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
@@ -81,7 +81,7 @@ export const SessionRecapPage: React.FC = () => {
         <Stat icon={<Wand2 className="w-3.5 h-3.5 text-violet-500" />} label="Corrections" value={recap.corrections.length} sub={`You gave ${recap.correctionsGiven}`} />
       </div>
 
-      <section className="rounded-3xl p-5 bg-gradient-to-br from-indigo-600 to-violet-600 text-white">
+      <section className="rounded-3xl p-5 bg-indigo-900 ring-1 ring-inset ring-white/10 text-white">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/70 inline-flex items-center gap-1.5">
           <Lightbulb className="w-3.5 h-3.5" /> For next time
         </p>

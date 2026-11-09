@@ -141,7 +141,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
           >
             Room controls
           </p>
-          <p className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+          <p className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
             Everything you need without leaving the conversation
           </p>
         </div>
@@ -182,7 +182,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
                 }}
               />
               <span
-                className="block text-[10px] leading-tight"
+                className="block text-[11px] leading-tight"
                 style={{
                   color: isActive
                     ? THEME.colors.text.primary
@@ -210,7 +210,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
           </p>
           <div className="flex gap-2">
             <span
-              className="flex-1 px-3 py-2 rounded-xl text-[10px] flex items-center gap-1.5"
+              className="flex-1 px-3 py-2 rounded-xl text-[11px] flex items-center gap-1.5"
               style={{
                 background: "rgba(251, 191, 36, 0.08)",
                 color: THEME.colors.accent.warning,
@@ -222,7 +222,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
             </span>
             {isHost && isRecording && (
               <span
-                className="px-3 py-2 rounded-xl text-[10px] flex items-center gap-1.5"
+                className="px-3 py-2 rounded-xl text-[11px] flex items-center gap-1.5"
                 style={{
                   background: "rgba(239, 68, 68, 0.08)",
                   color: THEME.colors.accent.error,
@@ -240,7 +240,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
       <button
         onClick={onRecord}
         disabled={!isHost}
-        className="w-full mt-3 py-2.5 rounded-xl text-[10px] font-semibold border transition-all disabled:opacity-40 hover:scale-[1.02] active:scale-95"
+        className="w-full mt-3 py-2.5 rounded-xl text-[11px] font-semibold border transition-all disabled:opacity-40 hover:scale-[1.02] active:scale-95"
         style={{
           borderColor: isRecording
             ? "rgba(239,68,68,0.35)"

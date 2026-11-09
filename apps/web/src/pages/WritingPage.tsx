@@ -12,7 +12,7 @@ import { useStartWriting, useWritingOverview, type WritingLevel } from "../hooks
 import { KIND, scoreTone } from "../components/writing/writingStyles";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const LEVELS: WritingLevel[] = ["A1", "A2", "B1", "B2", "C1"];
 
@@ -56,7 +56,7 @@ export const WritingPage: React.FC = () => {
           <PenLine className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Writing studio</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Writing studio</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Real tasks at your level, checked for grammar, spelling, punctuation and style.</p>
         </div>
         <div className="flex gap-2 text-xs">
@@ -93,7 +93,7 @@ export const WritingPage: React.FC = () => {
       </div>
 
       {today && (
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 p-6 sm:p-7 text-white shadow-lg shadow-indigo-500/20">
+        <section className="relative overflow-hidden rounded-3xl bg-indigo-900 ring-1 ring-inset ring-white/10 p-6 sm:p-7 text-white shadow-md shadow-indigo-500/15">
           <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/10 blur-2xl pointer-events-none" />
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">Today's task · {level}</p>
           <div className="mt-3 flex items-start gap-3">

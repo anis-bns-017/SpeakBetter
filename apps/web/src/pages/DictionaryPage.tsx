@@ -36,6 +36,7 @@ import { canSpeak, speak } from "../lib/speech";
 import { LEVEL_STYLE, POS_SHORT, STATUS_LABEL, card, chip, input, select } from "../components/dictionary/dictStyles";
 import { WordMapView } from "../components/dictionary/WordMapView";
 import { SizeTest } from "../components/dictionary/SizeTest";
+import { PageHeader, Stat } from "../components/ui";
 
 type Tab = "browse" | "map" | "test";
 
@@ -140,7 +141,7 @@ const Browse: React.FC = () => {
               <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden" title={`${l.known} of ${l.total} known`}>
                 <div className={`h-full rounded-full ${style.dot}`} style={{ width: `${Math.round(share * 100)}%` }} />
               </div>
-              <p className="mt-1 text-[10.5px] tabular-nums text-slate-400">{l.known.toLocaleString()} known</p>
+              <p className="mt-1 text-[11px] tabular-nums text-slate-400">{l.known.toLocaleString()} known</p>
             </button>
           );
         })}
@@ -276,33 +277,24 @@ export const DictionaryPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto space-y-5">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0">
-            <BookA className="w-6 h-6" />
-          </div>
-          <div className="min-w-[13rem] flex-1">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dictionary</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              The {overview.data ? overview.data.count.toLocaleString() : "13,000"} useful English words, A1 to C2 (the 10,000 most common, then 3,000 advanced C1 and C2 words), with pronunciation, meanings, examples and word families.
-            </p>
-          </div>
-          {overview.data && (
-            <div className="flex gap-2 text-center max-sm:w-full [&>*]:max-sm:flex-1">
-              <div className={`${card} px-4 py-2`}>
-                <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">{latest?.estimate != null ? `≈${latest.estimate.toLocaleString()}` : "?"}</p>
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">Words you know</p>
+        <PageHeader
+          icon={BookA}
+          tone="sky"
+          title="Dictionary"
+          subtitle={`The ${overview.data ? overview.data.count.toLocaleString() : "13,000"} useful English words, A1 to C2 (the 10,000 most common, then 3,000 advanced C1 and C2 words), with pronunciation, meanings, examples and word families.`}
+          actions={
+            overview.data && (
+              <div className="flex gap-2 max-sm:w-full [&>*]:max-sm:flex-1">
+                <Stat className={`${card} px-4 py-2.5`} label="Words you know" value={latest?.estimate != null ? `≈${latest.estimate.toLocaleString()}` : "?"} />
+                <Stat className={`${card} px-4 py-2.5`} label="Saved" value={overview.data.progress.saved.toLocaleString()} />
               </div>
-              <div className={`${card} px-4 py-2`}>
-                <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">{overview.data.progress.saved.toLocaleString()}</p>
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">Saved</p>
-              </div>
-            </div>
-          )}
-        </div>
+            )
+          }
+        />
 
-        <div role="tablist" className="inline-flex max-sm:flex max-sm:w-full p-1 rounded-2xl bg-white dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.07]">
+        <div role="tablist" className="inline-flex max-sm:flex max-sm:w-full p-1 rounded-2xl bg-surface border border-line">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -310,7 +302,7 @@ export const DictionaryPage: React.FC = () => {
               type="button"
               aria-selected={tab === id}
               onClick={() => setTab(id)}
-              className={`relative h-9 px-4 max-sm:px-2 max-sm:flex-1 max-sm:justify-center whitespace-nowrap rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${tab === id ? "text-white" : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"}`}
+              className={`relative h-9 max-sm:h-10 px-4 max-sm:px-2 max-sm:flex-1 max-sm:justify-center whitespace-nowrap rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${tab === id ? "text-white" : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"}`}
             >
               {tab === id && <motion.span layoutId="dictionary-tab" className="absolute inset-0 rounded-xl bg-indigo-600" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
               <Icon className="relative w-4 h-4" />

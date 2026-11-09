@@ -11,7 +11,7 @@ import { Brain, CalendarDays, Gauge, Layers, Loader2, Target } from "lucide-reac
 import { useReviewStats, useSetRetention, type ReviewStats } from "../../hooks/useReview";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const RETENTION_COPY: Record<string, { label: string; hint: string }> = {
   "0.8": { label: "80%", hint: "Fewest reviews. You will forget about 1 card in 5." },
@@ -48,7 +48,7 @@ const Forecast: React.FC<{ forecast: ReviewStats["forecast"] }> = ({ forecast })
       <div className="relative" style={{ height: H + 24 }} onMouseLeave={() => setHover(null)}>
         {/* Recessive guide at the peak */}
         <div className="absolute left-0 right-0 border-t border-dashed border-slate-200 dark:border-white/[0.08]" style={{ top: 0 }} />
-        <span className="absolute right-0 -top-4 text-[10px] tabular-nums text-slate-400">{max}</span>
+        <span className="absolute right-0 -top-4 text-[11px] tabular-nums text-slate-400">{max}</span>
         <div className="absolute inset-x-0 top-0 flex items-end gap-[2px]" style={{ height: H }} role="img" aria-label={`Reviews due over the next 14 days: ${total} in total`}>
           {forecast.map((f, i) => {
             const h = f.due ? Math.max(4, (f.due / max) * H) : 0;
@@ -67,7 +67,7 @@ const Forecast: React.FC<{ forecast: ReviewStats["forecast"] }> = ({ forecast })
                 />
                 {/* Direct labels only where they help: today and the busiest day */}
                 {(i === 0 || i === peak) && f.due > 0 && hover === null && (
-                  <span className="absolute left-1/2 -translate-x-1/2 text-[10px] font-semibold tabular-nums text-slate-600 dark:text-slate-300" style={{ bottom: h + 2 }}>
+                  <span className="absolute left-1/2 -translate-x-1/2 text-[11px] font-semibold tabular-nums text-slate-600 dark:text-slate-300" style={{ bottom: h + 2 }}>
                     {f.due}
                   </span>
                 )}
@@ -78,7 +78,7 @@ const Forecast: React.FC<{ forecast: ReviewStats["forecast"] }> = ({ forecast })
         <div className="absolute inset-x-0 border-t border-slate-200 dark:border-white/[0.1]" style={{ top: H }} />
         <div className="absolute inset-x-0 flex gap-[2px]" style={{ top: H + 6 }}>
           {forecast.map((f, i) => (
-            <span key={f.day} className={`flex-1 text-center text-[10px] text-slate-400 ${i % 2 && i !== 0 ? "max-sm:invisible" : ""}`}>
+            <span key={f.day} className={`flex-1 text-center text-[11px] text-slate-400 ${i % 2 && i !== 0 ? "max-sm:invisible" : ""}`}>
               {dayLabel(f.day, i)}
             </span>
           ))}

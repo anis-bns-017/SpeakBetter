@@ -103,7 +103,7 @@ export const MissionBar: React.FC<MissionBarProps> = ({ mission, myMission, onOp
       )}
 
       <div className="mt-2.5">
-        <div className="flex items-center justify-between text-[10px] mb-1" style={{ color: THEME.colors.text.muted }}>
+        <div className="flex items-center justify-between text-[11px] mb-1" style={{ color: THEME.colors.text.muted }}>
           <span>
             {done}/{mission.total} finished
           </span>

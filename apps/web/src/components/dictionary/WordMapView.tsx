@@ -208,7 +208,7 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
                     <span className="block text-sm font-semibold text-slate-900 dark:text-white truncate">{w.word}</span>
                     <span className="block text-[11.5px] text-slate-500 dark:text-slate-400 truncate">{w.meaning}</span>
                   </span>
-                  <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${LEVEL_STYLE[w.level].chip}`}>{w.level}</span>
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[11px] font-bold ${LEVEL_STYLE[w.level].chip}`}>{w.level}</span>
                 </Link>
               </li>
             ))}

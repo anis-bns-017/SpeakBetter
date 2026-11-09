@@ -36,7 +36,7 @@ export const BlockedPage = () => {
     ) || [];
 
   return (
-    <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
@@ -45,7 +45,7 @@ export const BlockedPage = () => {
               <ShieldAlert className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">
+              <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">
                 Blocked Accounts
               </h1>
               <p className="text-sm text-slate-500">

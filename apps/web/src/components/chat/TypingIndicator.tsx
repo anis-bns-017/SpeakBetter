@@ -212,7 +212,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
             className="absolute bottom-full left-0 mb-2 p-2 bg-white rounded-xl shadow-xl border border-slate-100 min-w-[150px] max-w-[250px] z-50"
           >
             <div className="flex flex-col gap-1">
-              <p className="text-[10px] font-semibold text-slate-500 px-1 pb-1 border-b border-slate-100">
+              <p className="text-[11px] font-semibold text-slate-500 px-1 pb-1 border-b border-slate-100">
                 Currently typing ({users.length})
               </p>
               {users.map((user) => (
@@ -302,7 +302,7 @@ export const TypingIndicatorWithStatus: React.FC<TypingIndicatorWithStatusProps>
       {users.length === 1 && (
         <div className="flex items-center gap-1.5 mt-1">
           <span className={`w-1.5 h-1.5 rounded-full ${statusColors[status]}`} />
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[11px] text-slate-400">
             {statusText[status]}
             {lastActive && ` · ${new Date(lastActive).toLocaleTimeString()}`}
           </span>

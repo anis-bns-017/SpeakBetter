@@ -138,7 +138,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
               Session insights
             </p>
             <p
-              className="text-[10px] truncate"
+              className="text-[11px] truncate"
               style={{ color: THEME.colors.text.muted }}
             >
               {isHost ? "Host view" : isModerator ? "Moderator view" : "Live stats"}
@@ -317,7 +317,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
                         {c.name}
                       </span>
                       <span
-                        className="text-[10px] tabular-nums shrink-0"
+                        className="text-[11px] tabular-nums shrink-0"
                         style={{ color: THEME.colors.text.muted }}
                       >
                         {formatDuration(c.seconds)} · {share}%

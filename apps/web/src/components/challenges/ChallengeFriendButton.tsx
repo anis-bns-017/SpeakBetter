@@ -39,7 +39,7 @@ export const ChallengeFriendButton: React.FC<{ kind: ChallengeKind; refId: strin
   }
 
   return (
-    <div className="w-full rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] p-4 space-y-3" role="dialog" aria-label="Challenge a friend">
+    <div className="w-full rounded-3xl border border-line bg-surface p-4 space-y-3" role="dialog" aria-label="Challenge a friend">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-bold text-slate-900 dark:text-white inline-flex items-center gap-1.5">
           <Swords className="w-4 h-4 text-rose-500" /> Who can beat your best?

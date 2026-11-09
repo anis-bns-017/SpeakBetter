@@ -289,7 +289,7 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
                   Connection
                 </p>
                 <p
-                  className="text-[10px] truncate"
+                  className="text-[11px] truncate"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   Live network quality
@@ -339,7 +339,7 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
                 )}
               </div>
               <p
-                className="text-[10px] mt-0.5"
+                className="text-[11px] mt-0.5"
                 style={{ color: THEME.colors.text.muted }}
               >
                 {snapshot.lastUpdated

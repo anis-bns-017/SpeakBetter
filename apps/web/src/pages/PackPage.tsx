@@ -23,7 +23,7 @@ import { ChallengeFriendButton } from "../components/challenges/ChallengeFriendB
 import { ChallengeOutcomes } from "../components/challenges/ChallengeOutcomes";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 const primaryBtn =
   "inline-flex items-center justify-center gap-2 h-11 px-6 rounded-full text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
 const ghostBtn =
@@ -64,7 +64,7 @@ const FREQUENCY: Record<NonNullable<PackWord["freq"]>, { label: string; tone: st
 const Detail: React.FC<{ label: string; items: string[] }> = ({ label, items }) =>
   items.length ? (
     <p className="text-xs text-slate-500">
-      <span className="font-semibold text-slate-400 uppercase tracking-wide text-[10px] mr-1.5">{label}</span>
+      <span className="font-semibold text-slate-400 uppercase tracking-wide text-[11px] mr-1.5">{label}</span>
       {items.join(", ")}
     </p>
   ) : null;
@@ -80,11 +80,11 @@ const WordCard: React.FC<{ word: PackWord; onSave: () => void; saving: boolean }
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2">
           <span className="text-lg font-bold text-slate-900 dark:text-white">{word.word}</span>
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-slate-100 dark:bg-white/[0.07] text-slate-500">{word.pos}</span>
-          {word.lv && <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">{word.lv}</span>}
-          {freq && <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${freq.tone}`}>{freq.label}</span>}
+          <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide bg-slate-100 dark:bg-white/[0.07] text-slate-500">{word.pos}</span>
+          {word.lv && <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">{word.lv}</span>}
+          {freq && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${freq.tone}`}>{freq.label}</span>}
           {word.tags?.map((tag) => (
-            <span key={tag} className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-slate-100 dark:bg-white/[0.07] text-slate-500">{tag}</span>
+            <span key={tag} className="rounded-full px-2 py-0.5 text-[11px] font-semibold bg-slate-100 dark:bg-white/[0.07] text-slate-500">{tag}</span>
           ))}
           {canSpeak() && (
             <button type="button" onClick={() => void speak(word.word, { rate: 0.85 })} aria-label={`Listen to ${word.word}`} className="text-slate-400 hover:text-indigo-600">
@@ -117,7 +117,7 @@ const WordCard: React.FC<{ word: PackWord; onSave: () => void; saving: boolean }
           <ul className="mt-2 space-y-1.5 border-l-2 border-slate-100 dark:border-white/[0.07] pl-3">
             {word.senses.map((sense, i) => (
               <li key={i} className="text-sm text-slate-600 dark:text-slate-300">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mr-1.5">Also</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mr-1.5">Also</span>
                 {sense.meaning}
                 {sense.example && <span className="block text-slate-500 italic">“{sense.example}”</span>}
               </li>
@@ -266,7 +266,7 @@ export const PackPage: React.FC = () => {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{pack.level} · {pack.topic}</p>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{pack.title}</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{pack.title}</h1>
           <p className="mt-1 text-sm text-slate-500">{pack.summary}</p>
           <p className="mt-2 text-xs text-slate-400">
             {savedCount} of {pack.words.length} saved

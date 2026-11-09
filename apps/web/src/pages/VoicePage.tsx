@@ -602,7 +602,7 @@ export const VoicePage = () => {
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
               <div>
                 <span
-                  className="text-[10px] font-mono tracking-widest uppercase px-2.5 py-1 rounded-full inline-flex items-center gap-1.5"
+                  className="text-[11px] font-mono tracking-widest uppercase px-2.5 py-1 rounded-full inline-flex items-center gap-1.5"
                   style={{ background: COLORS.liveDim, color: COLORS.live }}
                 >
                   <span className="relative flex h-1.5 w-1.5">

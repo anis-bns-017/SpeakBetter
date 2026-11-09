@@ -1297,7 +1297,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
             >
               <div>
                 <label
-                  className="text-[10px] font-semibold uppercase tracking-wider"
+                  className="text-[11px] font-semibold uppercase tracking-wider"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   Sort by
@@ -1331,7 +1331,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
               ).map(([key, label, placeholder]) => (
                 <div key={key}>
                   <label
-                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     {label}
@@ -1657,7 +1657,7 @@ const ClapDock: React.FC<{
               initial={{ opacity: 0, scale: 0.6, x: -4 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
               exit={{ opacity: 0, scale: 0.6, x: -4 }}
-              className="px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums"
+              className="px-2 py-0.5 rounded-full text-[11px] font-bold tabular-nums"
               style={{
                 background:
                   streak >= 5

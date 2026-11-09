@@ -12,7 +12,7 @@ import { useSavePackWords, useWordOfDay } from "../../hooks/useVocabPacks";
 import { canSpeak, speak } from "../../lib/speech";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 /** The guess is remembered for the day, so the card stays answered after a reload */
 const keyFor = (day: string) => `sb.wordOfDay.${day}`;
@@ -82,12 +82,12 @@ export const WordOfDayCard: React.FC = () => {
         <p id="word-of-day-title" className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-600 dark:text-amber-400 inline-flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5" /> Word of the day
         </p>
-        <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-white/[0.07] text-slate-500">{data.level}</span>
+        <span className="rounded-full px-2 py-0.5 text-[11px] font-bold bg-slate-100 dark:bg-white/[0.07] text-slate-500">{data.level}</span>
       </div>
 
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{data.word}</h2>
-        <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-slate-100 dark:bg-white/[0.07] text-slate-500">{data.pos}</span>
+        <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide bg-slate-100 dark:bg-white/[0.07] text-slate-500">{data.pos}</span>
         {canSpeak() && (
           <button type="button" onClick={() => void speak(data.word, { rate: 0.85 })} aria-label={`Listen to ${data.word}`} className="text-slate-400 hover:text-indigo-600">
             <Volume2 className="w-5 h-5" />

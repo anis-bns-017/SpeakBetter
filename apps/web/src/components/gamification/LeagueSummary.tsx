@@ -13,7 +13,7 @@ export const LeagueSummary: React.FC = () => {
   const me = league.standings.find((s) => s.isMe);
   const zone = me?.zone;
   return (
-    <section className="rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-6">
+    <section className="rounded-3xl border border-line bg-surface shadow-sm p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <span className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0" style={{ background: league.tier.color }}>

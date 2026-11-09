@@ -391,7 +391,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                 {isSelected && (
                   <motion.div
                     layoutId="selectedIndicator"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-gradient-to-b from-indigo-500 to-violet-600 rounded-r-full shadow-lg shadow-indigo-500/30"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-gradient-to-b from-indigo-500 to-violet-600 rounded-r-full shadow-md shadow-indigo-500/15"
                   />
                 )}
 
@@ -460,7 +460,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                         {name}
                       </h4>
                       {isGroup && (
-                        <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                        <span className="text-[11px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
                           {chat.participants?.length || 0}
                         </span>
                       )}
@@ -476,7 +476,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                       <motion.span
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className={`text-[10px] shrink-0 flex items-center gap-1 ${
+                        className={`text-[11px] shrink-0 flex items-center gap-1 ${
                           unread
                             ? "text-indigo-600 font-semibold"
                             : "text-slate-400"
@@ -509,11 +509,11 @@ export const ChatList: React.FC<ChatListProps> = ({
                         className="shrink-0"
                       >
                         {unreadCount > 1 ? (
-                          <span className="px-1.5 py-0.5 text-[10px] font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full min-w-[1.25rem] text-center shadow-sm shadow-indigo-500/30">
+                          <span className="px-1.5 py-0.5 text-[11px] font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full min-w-[1.25rem] text-center shadow-md shadow-indigo-500/15">
                             {unreadCount > 99 ? "99+" : unreadCount}
                           </span>
                         ) : (
-                          <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 block shadow-sm shadow-indigo-500/30" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 block shadow-md shadow-indigo-500/15" />
                         )}
                       </motion.div>
                     )}
@@ -581,7 +581,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                       className="absolute right-0 top-full mt-1 z-10 min-w-[160px] bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden py-1.5"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <p className="px-3.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Mute for</p>
+                      <p className="px-3.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Mute for</p>
                       {MUTE_OPTIONS.map((o) => (
                         <button
                           key={o.label}

@@ -24,7 +24,7 @@ import {
 import { tutorErrorMessage } from "../hooks/useAiTutor";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const FREE_FEATURES = [
   "Voice rooms, random calls, chat and communities",
@@ -69,8 +69,8 @@ const SubscriptionCard: React.FC<{ sub: MySubscription }> = ({ sub }) => {
 
   return (
     <div className={`${card} p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4`}>
-      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25 shrink-0">
-        <Crown className="w-6 h-6 text-white" />
+      <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200/80 dark:bg-amber-400/15 dark:text-amber-200 dark:ring-amber-400/25 flex items-center justify-center shrink-0">
+        <Crown className="w-6 h-6" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-slate-900 dark:text-white">
@@ -146,7 +146,7 @@ export const PremiumPage: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 lg:py-12 space-y-6">
       <div className="text-center">
-        <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/15">
           <Crown className="w-7 h-7 text-white" />
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-5">SpeakBetter Pro</h1>

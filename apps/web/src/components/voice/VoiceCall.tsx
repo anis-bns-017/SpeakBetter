@@ -151,7 +151,7 @@ const ConnectionQuality: React.FC<{ quality: string }> = ({ quality }) => {
           />
         ))}
       </div>
-      <span className="text-[10px]" style={{ color: THEME.text.muted }}>
+      <span className="text-[11px]" style={{ color: THEME.text.muted }}>
         {config.label}
       </span>
     </div>
@@ -654,7 +654,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
                 {room?.name || "Voice Call"}
               </h3>
               <div
-                className="flex items-center gap-2 text-[10px]"
+                className="flex items-center gap-2 text-[11px]"
                 style={{ color: THEME.text.muted }}
               >
                 <Clock className="w-3 h-3" />
@@ -767,7 +767,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
               style={{ borderColor: THEME.border }}
             >
               <p
-                className="text-[10px] font-medium uppercase tracking-wider mb-2"
+                className="text-[11px] font-medium uppercase tracking-wider mb-2"
                 style={{ color: THEME.text.muted }}
               >
                 Participants ({participants.length})

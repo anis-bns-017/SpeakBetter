@@ -21,7 +21,7 @@ import { ChallengeFriendButton } from "../components/challenges/ChallengeFriendB
 import { ChallengeOutcomes } from "../components/challenges/ChallengeOutcomes";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 const primaryBtn =
   "inline-flex items-center justify-center gap-2 h-11 px-6 rounded-full text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
 const ghostBtn =
@@ -182,7 +182,7 @@ export const DictationPage: React.FC = () => {
           <Headphones className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Dictation</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Dictation</h1>
           <p className="text-sm text-slate-500">Listen to a sentence and type exactly what you hear.</p>
         </div>
         <span className="text-xs text-slate-500 shrink-0">{session.level}</span>

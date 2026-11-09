@@ -43,7 +43,7 @@ import { meaningFrom, type LookupResult } from "../hooks/useLookup";
 import { canSpeak, speak } from "../lib/speech";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 const input =
   "w-full rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.04] px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition";
 
@@ -411,7 +411,7 @@ const EmptyBank: React.FC<{ onAdd: () => void }> = ({ onAdd }) => {
   ];
   return (
     <div className={`${card} p-8 text-center`}>
-      <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30">
+      <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-md shadow-emerald-500/15">
         <BookOpen className="w-7 h-7" />
       </div>
       <h2 className="mt-4 text-lg font-bold text-slate-900 dark:text-white">Your word bank is empty</h2>
@@ -480,15 +480,15 @@ export const MyWordsPage: React.FC = () => {
   const summary = data?.summary;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-5">
         {/* Header */}
         <div className="flex flex-wrap items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200/80 dark:bg-emerald-400/15 dark:text-emerald-200 dark:ring-emerald-400/25 flex items-center justify-center shrink-0">
             <BookOpen className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">My words</h1>
+            <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">My words</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">Every word you've saved, from word packs, rooms and the word of the day, in one place.</p>
           </div>
           <div className="flex gap-2">
@@ -505,7 +505,7 @@ export const MyWordsPage: React.FC = () => {
               type="button"
               onClick={() => setAdding((v) => !v)}
               aria-expanded={adding}
-              className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold flex items-center gap-2 shadow-md shadow-indigo-500/25"
+              className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold flex items-center gap-2 shadow-md shadow-indigo-500/15"
             >
               <Plus className="w-4 h-4" /> Add a word
             </button>

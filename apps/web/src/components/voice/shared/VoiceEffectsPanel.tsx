@@ -104,7 +104,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                   Voice effects
                 </p>
                 <p
-                  className="text-[10px] truncate"
+                  className="text-[11px] truncate"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   {state.bypass ? "Off — clean mic" : `${state.preset} preset`}
@@ -215,7 +215,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                   style={{ color: THEME.colors.accent.warning }}
                 />
                 <span
-                  className="text-[10px] font-semibold uppercase tracking-wider"
+                  className="text-[11px] font-semibold uppercase tracking-wider"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   Presets
@@ -254,7 +254,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                         }}
                       />
                       <span
-                        className="text-[10px] font-medium"
+                        className="text-[11px] font-medium"
                         style={{
                           color: isSelected
                             ? meta.color
@@ -280,7 +280,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                   style={{ color: THEME.colors.accent.primary }}
                 />
                 <span
-                  className="text-[10px] font-semibold uppercase tracking-wider"
+                  className="text-[11px] font-semibold uppercase tracking-wider"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   Manual tuning
@@ -413,7 +413,7 @@ const Knob: React.FC<{
       style={{ opacity: disabled ? 0.5 : 1 }}
     >
       <span
-        className="text-[10px] font-medium w-14 shrink-0"
+        className="text-[11px] font-medium w-14 shrink-0"
         style={{ color: THEME.colors.text.muted }}
       >
         {label}
@@ -437,7 +437,7 @@ const Knob: React.FC<{
       </div>
 
       <span
-        className="text-[10px] tabular-nums w-12 text-right shrink-0"
+        className="text-[11px] tabular-nums w-12 text-right shrink-0"
         style={{ color: THEME.colors.text.secondary }}
       >
         {format(value)}

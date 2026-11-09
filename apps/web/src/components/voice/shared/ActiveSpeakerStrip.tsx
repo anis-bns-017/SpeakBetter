@@ -74,7 +74,7 @@ export const ActiveSpeakerStrip: React.FC<ActiveSpeakerStripProps> = ({
                 style={{ color: THEME.colors.accent.success }}
               />
               <span
-                className="text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap"
+                className="text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
                 style={{ color: THEME.colors.text.muted }}
               >
                 {speakers.length === 1 ? "Speaking" : "Live now"}

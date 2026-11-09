@@ -138,7 +138,7 @@ export const DictionaryWordPage: React.FC = () => {
   }
   if (isError || !data) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-16 px-4 text-center">
+      <div className="min-h-screen bg-page py-16 px-4 text-center">
         <p className="text-sm text-slate-500">We couldn't find that word.</p>
         <div className="mt-3 flex justify-center gap-2">
           <button type="button" onClick={() => refetch()} className="h-9 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200">Try again</button>
@@ -171,7 +171,7 @@ export const DictionaryWordPage: React.FC = () => {
     );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-6 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-page py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Navigation (on phones, clear of the floating notification bell) */}
         <div className="flex items-center gap-2 max-lg:pr-14">
@@ -227,7 +227,7 @@ export const DictionaryWordPage: React.FC = () => {
 
             <div className="flex flex-col gap-2 w-full sm:w-auto">
               {data.status === "new" ? (
-                <button type="button" onClick={doSave} disabled={save.isPending} className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-md shadow-indigo-500/25 disabled:opacity-60">
+                <button type="button" onClick={doSave} disabled={save.isPending} className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-md shadow-indigo-500/15 disabled:opacity-60">
                   {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Save to My words
                 </button>
               ) : (

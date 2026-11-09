@@ -136,7 +136,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                   AI Co-host
                 </p>
                 <p
-                  className="text-[10px] truncate"
+                  className="text-[11px] truncate"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   Keeps the conversation flowing
@@ -165,7 +165,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                     style={{ color: THEME.colors.accent.warning }}
                   />
                   <span
-                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     Live suggestion
@@ -174,7 +174,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                 <button
                   type="button"
                   onClick={onSuggestNow}
-                  className="text-[10px] flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/5 transition-colors"
+                  className="text-[11px] flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/5 transition-colors"
                   style={{ color: THEME.colors.accent.primary }}
                 >
                   <RefreshCcw className="w-3 h-3" />
@@ -286,7 +286,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                     style={{ color: THEME.colors.accent.cyan }}
                   />
                   <span
-                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     Session summary
@@ -296,7 +296,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                   <button
                     type="button"
                     onClick={onClearSummary}
-                    className="text-[10px] hover:underline"
+                    className="text-[11px] hover:underline"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     Clear
@@ -377,7 +377,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                         {summary.newWords.map((w) => (
                           <span
                             key={w}
-                            className="text-[10px] px-1.5 py-0.5 rounded-md"
+                            className="text-[11px] px-1.5 py-0.5 rounded-md"
                             style={{
                               background: "rgba(129,140,248,0.12)",
                               color: THEME.colors.accent.primary,

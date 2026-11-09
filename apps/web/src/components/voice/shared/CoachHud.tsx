@@ -73,12 +73,12 @@ export const CoachHud: React.FC<CoachHudProps> = ({ live, tip, onOpen }) => {
         <div className="text-[11px] font-semibold" style={{ color: THEME.colors.text.primary }}>
           Your fluency
         </div>
-        <div className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+        <div className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
           {live.wpm !== null ? `${live.wpm} wpm · ` : ""}
           {live.fillerCount} filler{live.fillerCount === 1 ? "" : "s"} · {live.words} words
         </div>
         {showTip && (
-          <div className="mt-1 text-[10px] leading-snug line-clamp-2" style={{ color: THEME.colors.accent.warning }}>
+          <div className="mt-1 text-[11px] leading-snug line-clamp-2" style={{ color: THEME.colors.accent.warning }}>
             💡 {tip.text}
           </div>
         )}

@@ -43,7 +43,7 @@ import {
 import { ISSUE_STYLE, KIND } from "../components/writing/writingStyles";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 const errorText = (e: unknown, fallback: string) =>
   (e as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
@@ -80,7 +80,7 @@ const ScoreRing: React.FC<{ score: number | null; size?: number }> = ({ score, s
       </svg>
       <span className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-xl font-bold tabular-nums text-slate-900 dark:text-white leading-none">{score ?? "–"}</span>
-        <span className="text-[10px] text-slate-400 mt-0.5">score</span>
+        <span className="text-[11px] text-slate-400 mt-0.5">score</span>
       </span>
     </div>
   );
@@ -349,7 +349,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
       </div>
 
       {result && (
-        <section className="rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-lg shadow-emerald-500/20 flex flex-wrap items-center gap-5">
+        <section className="rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-md shadow-emerald-500/15 flex flex-wrap items-center gap-5">
           <PartyPopper className="w-10 h-10 shrink-0" />
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold">Finished! {result.score !== null ? `You scored ${result.score}.` : ""}</h2>

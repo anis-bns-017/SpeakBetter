@@ -219,7 +219,7 @@ export const AttachmentPreviewModal: React.FC<
                     Send {kind === "file" ? "file" : kind}
                   </p>
                   <p
-                    className="text-[10px] truncate"
+                    className="text-[11px] truncate"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     {file.name} · {sizeLabel}
@@ -371,7 +371,7 @@ export const AttachmentPreviewModal: React.FC<
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span
-                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     Caption (optional)
@@ -431,7 +431,7 @@ export const AttachmentPreviewModal: React.FC<
                       />
                     </div>
                     <p
-                      className="text-[10px] mt-1.5 text-center"
+                      className="text-[11px] mt-1.5 text-center"
                       style={{ color: THEME.colors.text.muted }}
                     >
                       Uploading… {Math.round(progress)}%

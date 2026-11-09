@@ -270,7 +270,7 @@ export const CreateRoomModal: React.FC<{
                         {template.label}
                       </span>
                       <span
-                        className="block text-[10px] leading-tight mt-0.5"
+                        className="block text-[11px] leading-tight mt-0.5"
                         style={{ color: COLORS.textMuted }}
                       >
                         {template.hint}
@@ -405,7 +405,7 @@ export const CreateRoomModal: React.FC<{
                               {type.label}
                             </span>
                             <p
-                              className="text-[10px]"
+                              className="text-[11px]"
                               style={{ color: COLORS.textMuted }}
                             >
                               {type.desc}

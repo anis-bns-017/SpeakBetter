@@ -392,7 +392,7 @@ export const RoomPhoneDock: React.FC<{ actions: PhoneDockAction[] }> = ({ action
           onClick={a.onClick}
           aria-label={a.label}
           aria-pressed={a.state === "on" || a.state === "off" ? on : undefined}
-          className="relative flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[10px] font-medium transition-transform active:scale-95"
+          className="relative flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium transition-transform active:scale-95"
           style={{
             background: danger ? "rgba(239,68,68,0.9)" : on ? tone.bg : "var(--sx-bg-255-255-255-40)",
             color: danger ? "var(--sx-text-ffffff)" : on ? tone.fg : THEME.colors.text.secondary,

@@ -8,7 +8,7 @@ import { useScenarios, type ScenarioLevel } from "../hooks/useRoleplay";
 import { scenarioIcon } from "../components/roleplay/scenarioIcons";
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 export const RoleplayListPage: React.FC = () => {
   const { data, isLoading, isError } = useScenarios();
@@ -34,7 +34,7 @@ export const RoleplayListPage: React.FC = () => {
           <Drama className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Role-play</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Role-play</h1>
           <p className="text-sm text-slate-500">Practise real conversations out loud before you have them for real.</p>
         </div>
         <span className="text-xs text-slate-500 tabular-nums shrink-0">{data.done} of {data.scenarios.length} done</span>

@@ -85,7 +85,7 @@ const fadeUp: Variants = {
 };
 
 const card =
-  "rounded-3xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-white/[0.03] shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  "rounded-3xl border border-line bg-surface shadow-sm";
 
 // ============================================================
 // Pieces
@@ -97,9 +97,9 @@ const Skeleton: React.FC<{ className?: string }> = ({ className }) => (
 
 const SectionTitle: React.FC<{ title: string; action?: { label: string; to: string } }> = ({ title, action }) => (
   <div className="flex items-center justify-between mb-4">
-    <h2 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+    <h2 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{title}</h2>
     {action && (
-      <Link to={action.to} className="text-xs font-semibold text-indigo-600 dark:text-indigo-300 hover:underline flex items-center gap-1">
+      <Link to={action.to} className="min-h-8 rounded-md text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:underline inline-flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
         {action.label} <ArrowRight className="w-3.5 h-3.5" />
       </Link>
     )}
@@ -140,7 +140,7 @@ const GoalRing: React.FC<{ value: number; goal: number; reduced: boolean }> = ({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
         {done ? <CheckCircle2 className="w-6 h-6 text-emerald-300 mb-0.5" /> : <Target className="w-5 h-5 text-white/70 mb-0.5" />}
-        <span className="text-2xl font-bold tabular-nums leading-none">{value}</span>
+        <span className="font-display text-[28px] font-semibold tabular-nums leading-none">{value}</span>
         <span className="text-[11px] text-white/70 mt-0.5">/ {goal} XP</span>
       </div>
     </div>
@@ -159,14 +159,14 @@ const WeekBars: React.FC<{ days: Array<{ date: string; xp: number }>; reduced: b
           <div key={d.date} className="flex-1 flex flex-col items-center gap-1.5 h-full">
             <div className="flex-1 w-full flex items-end">
               <motion.div
-                className={`w-full rounded-lg ${d.xp > 0 ? (isToday ? "bg-gradient-to-t from-indigo-600 to-violet-500" : "bg-indigo-500/70 dark:bg-indigo-400/60") : "bg-slate-100 dark:bg-white/[0.05]"}`}
+                className={`w-full rounded-lg ${d.xp > 0 ? (isToday ? "bg-indigo-600 dark:bg-indigo-400" : "bg-indigo-500/70 dark:bg-indigo-400/60") : "bg-slate-100 dark:bg-white/[0.05]"}`}
                 initial={{ height: 0 }}
                 animate={{ height: `${Math.max(6, (d.xp / max) * 100)}%` }}
                 transition={reduced ? { duration: 0 } : { duration: 0.6, delay: i * 0.04, ease: "easeOut" }}
                 title={`${d.xp} XP`}
               />
             </div>
-            <span className={`text-[10.5px] ${isToday ? "font-bold text-slate-900 dark:text-slate-100" : "text-slate-400"}`}>
+            <span className={`text-[11px] ${isToday ? "font-bold text-slate-900 dark:text-slate-100" : "text-slate-400"}`}>
               {date.toLocaleDateString(undefined, { weekday: "narrow" })}
             </span>
           </div>
@@ -206,7 +206,7 @@ const ActivityHeatmap: React.FC<{ activity: DashboardData["activity"] }> = ({ ac
           ),
         )}
       </div>
-      <div className="flex items-center gap-1.5 mt-3 text-[10.5px] text-slate-400">
+      <div className="flex items-center gap-1.5 mt-3 text-[11px] text-slate-400">
         Less
         {shades.map((s) => <span key={s} className={`w-[11px] h-[11px] rounded-[3px] ${s}`} />)}
         More
@@ -235,7 +235,7 @@ const StatTile: React.FC<{ stat: Stat; index: number }> = ({ stat, index }) => {
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${stat.tone}`}>
           <Icon className="w-[18px] h-[18px]" />
         </div>
-        <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 tabular-nums">{stat.value}</p>
+        <p className="font-display text-[28px] font-semibold leading-none text-slate-900 dark:text-slate-100 tabular-nums">{stat.value}</p>
         <p className="text-[12.5px] font-medium text-slate-600 dark:text-slate-300 mt-0.5">{stat.label}</p>
         {stat.sub && <p className="text-[11.5px] text-slate-400 dark:text-slate-500 mt-1">{stat.sub}</p>}
       </Link>
@@ -364,7 +364,7 @@ const DashboardPage: React.FC = () => {
       <motion.header variants={fadeUp} initial="hidden" animate="show" className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm text-slate-500 dark:text-slate-400">{today}</p>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-0.5">
+          <h1 className="text-[26px] sm:text-[32px] leading-[1.1] font-semibold text-slate-900 dark:text-white mt-1">
             {greeting()}, {firstName} 👋
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{statusLine}</p>
@@ -381,7 +381,7 @@ const DashboardPage: React.FC = () => {
         <button
           type="button"
           onClick={openPalette}
-          className="hidden sm:flex items-center gap-2 h-10 pl-3 pr-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-slate-500 hover:border-slate-300 dark:hover:border-white/20 transition-colors"
+          className="hidden sm:flex items-center gap-2 h-10 pl-3 pr-2 rounded-xl border border-line bg-surface text-sm text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/20 transition-colors"
         >
           <Search className="w-4 h-4" /> Jump to anything
           <kbd className="ml-3 rounded-md border border-slate-200 dark:border-white/10 px-1.5 py-0.5 text-[11px] font-sans">{IS_MAC ? "⌘" : "Ctrl"} K</kbd>
@@ -397,10 +397,14 @@ const DashboardPage: React.FC = () => {
           initial="hidden"
           animate="show"
           custom={1}
-          className="lg:col-span-2 relative overflow-hidden rounded-3xl p-6 sm:p-7 text-white bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 shadow-xl shadow-indigo-500/20"
+          className="lg:col-span-2 relative overflow-hidden rounded-3xl p-6 sm:p-7 text-white bg-indigo-900 ring-1 ring-inset ring-white/10 shadow-md"
         >
-          <div className="absolute -top-24 -right-16 w-72 h-72 rounded-full bg-white/10 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-28 left-1/3 w-72 h-72 rounded-full bg-fuchsia-400/20 blur-3xl pointer-events-none" />
+          {/* A frozen speech waveform: the product is your voice */}
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 flex h-14 items-end gap-[5px] px-7 opacity-60">
+            {[22, 38, 30, 56, 44, 72, 52, 88, 62, 100, 70, 84, 56, 70, 46, 60, 40, 52, 32, 44, 26, 34, 20, 28, 16, 22, 14, 18, 12, 16, 10, 14].map((h, i) => (
+              <span key={i} className={`flex-1 max-w-[7px] rounded-full ${i % 8 === 4 ? "bg-amber-300/70" : "bg-white/15"}`} style={{ height: `${h}%` }} />
+            ))}
+          </div>
 
           <div className="relative flex flex-col sm:flex-row sm:items-center gap-6">
             <GoalRing value={data.xp.today} goal={data.xp.dailyGoal} reduced={reduced} />
@@ -419,7 +423,7 @@ const DashboardPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(liveRooms[0] ? `/voice/${liveRooms[0].id}` : "/voice")}
-                  className="h-11 px-5 rounded-xl bg-white text-indigo-700 font-semibold text-sm flex items-center gap-2 shadow-lg shadow-black/10 hover:-translate-y-0.5 transition-transform"
+                  className="h-11 px-5 rounded-xl bg-white text-indigo-800 font-semibold text-sm flex items-center gap-2 shadow-sm hover:bg-indigo-50 transition-colors"
                 >
                   <Mic className="w-4 h-4" /> {liveRooms[0] ? "Join a live room" : "Start speaking"}
                 </button>
@@ -433,7 +437,7 @@ const DashboardPage: React.FC = () => {
 
             <div className="hidden xl:flex flex-col items-center justify-center w-28 shrink-0 rounded-2xl bg-white/10 py-4">
               <Flame className={`w-8 h-8 ${data.streak.current > 0 ? "text-amber-300 fill-amber-300/40" : "text-white/40"}`} />
-              <p className="text-3xl font-bold tabular-nums mt-1">{data.streak.current}</p>
+              <p className="font-display text-[34px] font-semibold leading-none tabular-nums mt-1">{data.streak.current}</p>
               <p className="text-[11px] text-white/70">day streak</p>
               <div className="flex gap-1 mt-2.5">
                 {lastSeven.map((d) => (
@@ -448,7 +452,7 @@ const DashboardPage: React.FC = () => {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">This week</p>
-              <p className="text-3xl font-bold text-slate-900 dark:text-white mt-1 tabular-nums">
+              <p className="font-display text-[34px] font-semibold leading-none text-slate-900 dark:text-white mt-1.5 tabular-nums">
                 {data.xp.thisWeek.toLocaleString()} <span className="text-base font-semibold text-slate-400">XP</span>
               </p>
             </div>
@@ -597,7 +601,7 @@ const DashboardPage: React.FC = () => {
       {suggestions.length > 0 && (
         <motion.section variants={fadeUp} initial="hidden" animate="show" custom={8} className={`${card} p-6`}>
           <SectionTitle title="Practice partners for you" action={{ label: "See more", to: "/suggestions" }} />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {suggestions.map((person) => (
               <div key={person.id} className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200/80 dark:border-white/[0.07]">
                 <span className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-bold flex items-center justify-center shrink-0">

@@ -447,7 +447,7 @@ const AvatarStack: React.FC<{
       {shown.map((p: any, i: number) => (
         <div
           key={i}
-          className="rounded-full ring-2 overflow-hidden flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+          className="rounded-full ring-2 overflow-hidden flex items-center justify-center text-[11px] font-bold text-white shrink-0"
           style={{
             width: size,
             height: size,
@@ -581,7 +581,7 @@ const RoomCard: React.FC<{
         <div className="flex justify-between items-start mb-3 gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium"
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
               style={{
                 background: "rgba(110, 231, 183, 0.15)",
                 color: THEME.status.live,
@@ -592,7 +592,7 @@ const RoomCard: React.FC<{
             </span>
             {isNew && (
               <span
-                className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                className="text-[11px] font-medium px-1.5 py-0.5 rounded-full"
                 style={{
                   background: "rgba(252, 211, 77, 0.15)",
                   color: THEME.status.waiting,
@@ -602,12 +602,12 @@ const RoomCard: React.FC<{
               </span>
             )}
             {isAlmostFull && !isFull && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">
+              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">
                 Almost Full
               </span>
             )}
             {isFull && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400">
+              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400">
                 Full
               </span>
             )}
@@ -630,7 +630,7 @@ const RoomCard: React.FC<{
             >
               {participantCount}
             </span>
-            <span className="text-[10px] opacity-50">
+            <span className="text-[11px] opacity-50">
               /{room.maxParticipants || 50}
             </span>
           </div>
@@ -698,7 +698,7 @@ const RoomCard: React.FC<{
           <div className="flex items-center justify-between mb-3">
             <AvatarStack participants={room.participants} max={4} size={24} />
             {activeSpeakers > 0 && (
-              <span className="flex items-center gap-1 text-[10px] font-medium">
+              <span className="flex items-center gap-1 text-[11px] font-medium">
                 <span
                   className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
                   style={{
@@ -742,7 +742,7 @@ const RoomCard: React.FC<{
               </div>
             )}
             <span
-              className="text-[10px] truncate"
+              className="text-[11px] truncate"
               style={{ color: THEME.text.muted }}
             >
               {room.creator?.name || "Unknown"}
@@ -863,7 +863,7 @@ const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider"
               style={{
                 background: "rgba(110, 231, 183, 0.15)",
                 color: THEME.status.live,
@@ -874,7 +874,7 @@ const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
             </span>
             {room.category && (
               <span
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                className="text-[11px] font-medium px-2 py-0.5 rounded-full"
                 style={{
                   background: "var(--sx-bg-255-255-255-50)",
                   color: THEME.text.secondary,
@@ -1211,9 +1211,9 @@ export const DiscoveryPage: React.FC = () => {
               initial={reduced ? false : { scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.4, ease: "easeOut" }}
-              className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20"
+              className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200/80 dark:bg-indigo-400/15 dark:text-indigo-200 dark:ring-indigo-400/25 flex items-center justify-center"
             >
-              <Compass className="w-6 h-6 text-white" />
+              <Compass className="w-6 h-6" />
             </motion.div>
             <div>
               <h1
@@ -1301,7 +1301,7 @@ export const DiscoveryPage: React.FC = () => {
             {/* Keyboard shortcut hint */}
             {!searchQuery && (
               <kbd
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1.5 py-0.5 rounded border pointer-events-none"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-mono px-1.5 py-0.5 rounded border pointer-events-none"
                 style={{
                   borderColor: THEME.border,
                   color: THEME.text.muted,

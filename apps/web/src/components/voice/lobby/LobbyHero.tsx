@@ -47,7 +47,7 @@ export const LobbyHero: React.FC<LobbyHeroProps> = ({
           {featured ? (
             <>
               <span
-                className="inline-flex items-center gap-2 text-[10px] font-mono tracking-widest uppercase px-2.5 py-1 rounded-full"
+                className="inline-flex items-center gap-2 text-[11px] font-mono tracking-widest uppercase px-2.5 py-1 rounded-full"
                 style={{ background: `color-mix(in srgb, ${accent} 13.3%, transparent)`, color: accent }}
               >
                 <Equalizer color={accent} bars={3} height={12} />
@@ -93,7 +93,7 @@ export const LobbyHero: React.FC<LobbyHeroProps> = ({
           ) : (
             <>
               <span
-                className="inline-flex items-center gap-2 text-[10px] font-mono tracking-widest uppercase px-2.5 py-1 rounded-full"
+                className="inline-flex items-center gap-2 text-[11px] font-mono tracking-widest uppercase px-2.5 py-1 rounded-full"
                 style={{ background: COLORS.spotlightDim, color: COLORS.spotlight }}
               >
                 <Mic className="w-3 h-3" />

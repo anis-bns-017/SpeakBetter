@@ -16,11 +16,56 @@
   --color-shell: #0b0b14;
   --color-canvas: #0a0a14;
 
-  /* ---------- Design system tokens (design-system/speakbetter/MASTER.md) ---------- */
+  /* ---------- Design system tokens (apps/web/DESIGN_SYSTEM.md) ---------- */
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-  --font-display: "Outfit", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  /* Display: page titles and big numbers only. Everything else is --font-sans. */
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  /* Any existing font-serif (voice lobby, reader pages) uses the same serif, so the app has one */
+  --font-serif: var(--font-display);
 
-  /* Semantic colours for new code (they match the indigo the app already uses) */
+  /*
+   * Brand: "Lapis". A deep ink blue with a calm, expensive feel (Tailwind's indigo is a louder
+   * blue-violet). It replaces indigo everywhere, so every existing indigo-* class picks it up.
+   * White text on 600 is 7.1:1; on 500 it is 5.2:1.
+   */
+  --color-indigo-50: #eef1fb;
+  --color-indigo-100: #dde4f7;
+  --color-indigo-200: #bfcbef;
+  --color-indigo-300: #9db0e6;
+  --color-indigo-400: #8ea3e8;
+  --color-indigo-500: #4f66c8;
+  --color-indigo-600: #3b4fb2;
+  --color-indigo-700: #2f3f92;
+  --color-indigo-800: #263372;
+  --color-indigo-900: #1d2759;
+  --color-indigo-950: #121a3b;
+  /* Violet, purple and fuchsia sit next to Lapis (a quiet iris), so old two-colour gradients read as one hue */
+  --color-violet-50: #f1f0fb;
+  --color-violet-100: #e4e1f7;
+  --color-violet-200: #cbc6ef;
+  --color-violet-300: #aaa2e4;
+  --color-violet-400: #8b81d8;
+  --color-violet-500: #6d62c8;
+  --color-violet-600: #5a4fb0;
+  --color-violet-700: #483f90;
+  --color-violet-800: #393271;
+  --color-violet-900: #2c2758;
+  --color-violet-950: #1a1738;
+  --color-purple-50: var(--color-violet-50);
+  --color-purple-100: var(--color-violet-100);
+  --color-purple-200: var(--color-violet-200);
+  --color-purple-300: var(--color-violet-300);
+  --color-purple-400: var(--color-violet-400);
+  --color-purple-500: var(--color-violet-500);
+  --color-purple-600: var(--color-violet-600);
+  --color-purple-700: var(--color-violet-700);
+  --color-purple-800: var(--color-violet-800);
+  --color-purple-900: var(--color-violet-900);
+  --color-fuchsia-400: #b784d6;
+  --color-fuchsia-500: #a06cc4;
+  --color-fuchsia-600: #8a55ad;
+
+  /* Semantic colours */
   --color-primary: var(--color-indigo-600);
   --color-primary-hover: var(--color-indigo-700);
   --color-on-primary: #ffffff;
@@ -28,14 +73,25 @@
   --color-warning: var(--color-amber-600);
   --color-danger: var(--color-red-600);
 
-  /* Elevation: soft, layered, slightly cool. Every shadow-* in the app uses these. */
-  --shadow-2xs: 0 1px 0 rgb(15 23 42 / 0.04);
-  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.05);
-  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.04), 0 2px 6px -1px rgb(15 23 42 / 0.06);
-  --shadow-md: 0 2px 4px -1px rgb(15 23 42 / 0.05), 0 8px 18px -6px rgb(15 23 42 / 0.12);
-  --shadow-lg: 0 4px 8px -2px rgb(15 23 42 / 0.05), 0 18px 36px -10px rgb(15 23 42 / 0.16);
-  --shadow-xl: 0 8px 16px -4px rgb(15 23 42 / 0.07), 0 28px 56px -14px rgb(15 23 42 / 0.22);
-  --shadow-2xl: 0 12px 24px -6px rgb(15 23 42 / 0.1), 0 40px 80px -20px rgb(15 23 42 / 0.3);
+  /* Page, surface and line: light values here, dark values under :root.dark. Use bg-page / bg-surface / border-line. */
+  --color-page: #f7f5f1;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1efea;
+  --color-line: #e3e0d9;
+
+  /* Radius scale: 8 chips, 12 buttons and inputs, 16 small cards, 20 cards and panels, full for pills */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-3xl: 1.25rem;
+
+  /* Elevation: soft, layered, warm-tinted (the page is paper, not grey). Every shadow-* in the app uses these. */
+  --shadow-2xs: 0 1px 0 rgb(40 30 15 / 0.04);
+  --shadow-xs: 0 1px 2px rgb(40 30 15 / 0.05);
+  --shadow-sm: 0 1px 2px rgb(40 30 15 / 0.05), 0 2px 6px -1px rgb(40 30 15 / 0.06);
+  --shadow-md: 0 2px 4px -1px rgb(40 30 15 / 0.06), 0 8px 18px -6px rgb(40 30 15 / 0.13);
+  --shadow-lg: 0 4px 8px -2px rgb(40 30 15 / 0.06), 0 18px 36px -10px rgb(40 30 15 / 0.17);
+  --shadow-xl: 0 8px 16px -4px rgb(40 30 15 / 0.08), 0 28px 56px -14px rgb(40 30 15 / 0.23);
+  --shadow-2xl: 0 12px 24px -6px rgb(40 30 15 / 0.11), 0 40px 80px -20px rgb(40 30 15 / 0.32);
 
   /* Motion */
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
@@ -44,9 +100,52 @@
   --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/*
+ * Light theme neutrals: "paper and ink". The slate scale turns warm (a hint of stone), so white cards
+ * lift off a paper-coloured page and text is ink, not blue-grey. Dark and navy keep their own scales.
+ * Contrast on the page (#f7f5f1): 400 = 4.7:1, 500 = 6.2:1, 600 = 8.3:1, 700 = 10.6:1, so even slate-400 text passes AA.
+ */
+:root:not(.dark) {
+  --color-slate-50: #f9f8f5;
+  --color-slate-100: #f1efea;
+  --color-slate-200: #e3e0d9;
+  --color-slate-300: #cbc7bd;
+  --color-slate-400: #716e65;
+  --color-slate-500: #5e5b53;
+  --color-slate-600: #4b4943;
+  --color-slate-700: #3a3934;
+  --color-slate-800: #272622;
+  --color-slate-900: #1a1916;
+  --color-slate-950: #0e0e0c;
+  --color-gray-50: var(--color-slate-50);
+  --color-gray-100: var(--color-slate-100);
+  --color-gray-200: var(--color-slate-200);
+  --color-gray-300: var(--color-slate-300);
+  --color-gray-400: var(--color-slate-400);
+  --color-gray-500: var(--color-slate-500);
+  --color-gray-600: var(--color-slate-600);
+  --color-gray-700: var(--color-slate-700);
+  --color-gray-800: var(--color-slate-800);
+  --color-gray-900: var(--color-slate-900);
+
+  /*
+   * Status colours used as small text: the stock 600 steps are only 3.2-4.1:1 on white, so in light mode they
+   * point at the 700 steps (4.8-7:1). It also darkens white-on-colour fills, which gets them to AA.
+   */
+  --color-amber-600: #b45309;
+  --color-orange-600: #c2410c;
+  --color-emerald-600: #047857;
+  --color-green-600: #15803d;
+  --color-teal-600: #0f766e;
+  --color-cyan-600: #0e7490;
+  --color-sky-600: #0369a1;
+  --color-rose-600: #be123c;
+  --color-pink-600: #be185d;
+  --color-red-600: #b91c1c;
+}
+
 :root {
-  /* A slightly cool page background, so white cards lift off it */
-  background-color: #f6f7fb;
+  background-color: var(--color-page);
 }
 
 @layer base {
@@ -57,12 +156,33 @@
     text-rendering: optimizeLegibility;
   }
 
-  h1,
+  /* Page titles are the one serif moment; section and card titles stay in the UI sans */
+  h1 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
   h2,
   h3 {
-    font-family: var(--font-display);
-    letter-spacing: -0.015em;
+    letter-spacing: -0.01em;
     text-wrap: balance;
+  }
+
+  /* Reusable type roles for new code (display = serif, numeric = tabular figures) */
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.02em;
+  }
+
+  .t-eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 
   /* Every clickable thing shows a pointer (Tailwind 4 resets buttons to the default arrow) */
@@ -76,6 +196,26 @@
     outline-offset: 2px;
   }
 
+  /*
+   * Touch targets: on touch screens every button, tab and block-style link gets an invisible 44 x 44 hit area, even when it
+   * is drawn smaller (chips, tabs, small icon buttons). :where() keeps it at zero specificity, so a component
+   * that draws its own ::after, or positions itself, wins. Opt out with the `tap-none` class.
+   */
+  @media (pointer: coarse) {
+    :where(button, [role="tab"], [role="button"], a[href][class*="flex"], summary):not(.tap-none) {
+      position: relative;
+    }
+    :where(button, [role="tab"], [role="button"], a[href][class*="flex"], summary):not(.tap-none)::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+
   ::selection {
     background: color-mix(in srgb, var(--color-indigo-500) 24%, transparent);
   }
@@ -87,13 +227,19 @@
   }
 }
 
-/* Page backgrounds written as bg-slate-50 follow the cool page colour too */
+/* Page backgrounds written as bg-slate-50 follow the paper page colour too */
 :root:not(.dark) .min-h-screen.bg-slate-50 {
-  background-color: #f6f7fb;
+  background-color: var(--color-page);
 }
 
 /* Dark mode: shadows go deeper and borders carry more of the separation */
 :root.dark {
+  /* slate-500 is used as secondary text; Tailwind's value is only 3.7:1 on dark surfaces, this one is 4.9:1 */
+  --color-slate-500: #8393ab;
+  --color-page: var(--color-slate-900);
+  --color-surface: color-mix(in oklab, var(--color-slate-900), white 6%);
+  --color-surface-2: color-mix(in oklab, var(--color-slate-900), white 10%);
+  --color-line: rgb(255 255 255 / 0.09);
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px -1px rgb(0 0 0 / 0.25);
   --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.3), 0 10px 22px -8px rgb(0 0 0 / 0.45);
   --shadow-lg: 0 4px 8px -2px rgb(0 0 0 / 0.3), 0 20px 40px -12px rgb(0 0 0 / 0.55);
@@ -126,8 +272,8 @@
   --color-slate-100: #e6ecf8;
   --color-slate-200: #cdd8ee;
   --color-slate-300: #a9bbde;
-  --color-slate-400: #8399c6;
-  --color-slate-500: #637ca9;
+  --color-slate-400: #9fb2d8;
+  --color-slate-500: #8aa0c8;
   --color-slate-600: #4a628e;
   --color-slate-700: #344c77;
   --color-slate-800: #213a64;

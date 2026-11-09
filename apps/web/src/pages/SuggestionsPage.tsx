@@ -25,7 +25,7 @@ export const SuggestionsPage = () => {
 
   if (!data || data.length === 0) {
     return (
-      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-page flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-center space-y-4 max-w-md w-full">
           <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
             <Users className="w-7 h-7" />
@@ -44,7 +44,7 @@ export const SuggestionsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header Banner */}
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between gap-4">
@@ -53,7 +53,7 @@ export const SuggestionsPage = () => {
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">
+              <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">
                 People You May Know
               </h1>
               <p className="text-xs text-slate-500">
@@ -158,7 +158,7 @@ export const SuggestionsPage = () => {
 
 // Skeleton Loading Component
 const SuggestionsSkeleton = () => (
-  <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
+  <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header Skeleton */}
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4 animate-pulse">

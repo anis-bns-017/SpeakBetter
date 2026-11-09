@@ -116,7 +116,7 @@ export const CommunitiesPage = () => {
     !search.trim();
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-page">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -420,12 +420,12 @@ const CommunityCard: React.FC<{
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <h3 className="font-semibold text-slate-800 truncate">{community.name}</h3>
             {isOwner && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
                 <Crown className="w-2.5 h-2.5" /> Owner
               </span>
             )}
             {isJoined && !isOwner && (
-              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
                 Joined
               </span>
             )}

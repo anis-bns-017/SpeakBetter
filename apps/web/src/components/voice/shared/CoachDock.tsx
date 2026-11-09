@@ -150,7 +150,7 @@ export const CoachDock: React.FC<CoachDockProps> = ({
           {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
         {collapsed && (
-          <span className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+          <span className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
             {mission ? "🎯 mission running · " : ""}
             {dueCount > 0 ? `📚 ${dueCount} to review` : ""}
           </span>
@@ -164,12 +164,12 @@ export const CoachDock: React.FC<CoachDockProps> = ({
             <div className="text-xl font-bold leading-none" style={{ color: THEME.colors.text.primary }}>
               {fluency ?? "—"}
               {fluency !== null && (
-                <span className="text-[10px] font-normal ml-1" style={{ color: THEME.colors.text.muted }}>
+                <span className="text-[11px] font-normal ml-1" style={{ color: THEME.colors.text.muted }}>
                   / 100
                 </span>
               )}
             </div>
-            <div className="text-[10px] leading-snug" style={{ color: THEME.colors.text.muted }}>
+            <div className="text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
               {live && live.words > 0
                 ? `${live.wpm !== null ? `${live.wpm} wpm · ` : ""}${live.fillerCount} fillers · ${live.words} words`
                 : CAPTION_HINT[captions]}
@@ -183,7 +183,7 @@ export const CoachDock: React.FC<CoachDockProps> = ({
                 <div className="text-xl font-bold leading-none" style={{ color: THEME.colors.accent.warning }}>
                   {fmtClock(mission.endsAt - now)}
                 </div>
-                <div className="text-[10px]" style={{ color: THEME.colors.text.muted }}>
+                <div className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
                   {mission.completed.length}/{mission.total} finished
                   {myMission?.completed ? " · you're done ✅" : ""}
                 </div>
@@ -191,7 +191,7 @@ export const CoachDock: React.FC<CoachDockProps> = ({
               </>
             ) : canManage ? (
               <>
-                <div className="text-[10px] leading-snug" style={{ color: THEME.colors.text.muted }}>
+                <div className="text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
                   Everyone gets a private word to slip into the conversation.
                 </div>
                 <ActionButton onClick={onStartMission} icon={Play}>
@@ -199,7 +199,7 @@ export const CoachDock: React.FC<CoachDockProps> = ({
                 </ActionButton>
               </>
             ) : (
-              <div className="text-[10px] leading-snug" style={{ color: THEME.colors.text.muted }}>
+              <div className="text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
                 No round yet — the host can start one.
               </div>
             )}
@@ -210,7 +210,7 @@ export const CoachDock: React.FC<CoachDockProps> = ({
             <div className="text-xl font-bold leading-none" style={{ color: THEME.colors.text.primary }}>
               {balance === null ? "—" : `${balance}%`}
             </div>
-            <div className="text-[10px] leading-snug" style={{ color: THEME.colors.text.muted }}>
+            <div className="text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
               {balance === null
                 ? "Shows after a minute of talking"
                 : quietCount > 0
@@ -228,11 +228,11 @@ export const CoachDock: React.FC<CoachDockProps> = ({
           <Tile icon={BookMarked} title="Word bank" accent={THEME.colors.accent.pink} onClick={() => onOpen("words")}>
             <div className="text-xl font-bold leading-none" style={{ color: THEME.colors.text.primary }}>
               {savedCount}
-              <span className="text-[10px] font-normal ml-1" style={{ color: THEME.colors.text.muted }}>
+              <span className="text-[11px] font-normal ml-1" style={{ color: THEME.colors.text.muted }}>
                 saved
               </span>
             </div>
-            <div className="text-[10px] leading-snug" style={{ color: THEME.colors.text.muted }}>
+            <div className="text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
               {savedCount === 0 ? "Tap a word in the captions to save it" : dueCount > 0 ? `${dueCount} ready to review` : "All reviewed for now"}
             </div>
             {dueCount > 0 && <ActionButton onClick={() => onOpen("words")}>Review now</ActionButton>}
