@@ -140,7 +140,7 @@ export class ReviewService {
   async addWordCard(
     userId: string,
     /** pack: from a word pack or the word of the day; mine: added on My words (sourceId is the word, so it is never saved twice); dict: from the Dictionary */
-    input: { source: 'pack' | 'mine' | 'dict'; sourceId: string; word: string; meaning: string; example?: string | null },
+    input: { source: 'pack' | 'mine' | 'dict' | 'library'; sourceId: string; word: string; meaning: string; example?: string | null },
   ): Promise<{ created: boolean } | null> {
     try {
       const word = clean(input.word, 120);

@@ -122,7 +122,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
             style={{
-              background: "linear-gradient(135deg, rgba(129,140,248,0.2), rgba(167,139,250,0.1))",
+              background: "linear-gradient(135deg, rgba(142,163,232,0.2), rgba(170,162,228,0.1))",
             }}
           >
             <BarChart3

@@ -161,7 +161,7 @@ describe('My words: building the list', () => {
       due: 2,
       thisWeek: 2,
       averageRecall: 90,
-      bySource: { pack: 1, dict: 0, room: 1, mine: 1 },
+      bySource: { pack: 1, dict: 0, library: 0, room: 1, mine: 1 },
       byStage: { new: 2, learning: 0, learned: 1 },
     });
     expect(summarize([], NOW).averageRecall).toBeNull();

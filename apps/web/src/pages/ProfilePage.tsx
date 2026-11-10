@@ -32,6 +32,7 @@ import { EditProfileForm } from "../components/profile/EditProfileForm";
 import { SettingsForm } from "../components/settings/SettingsForm";
 import { useSettings } from "../hooks/useSettings";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
+import { PageHeader } from "../components/ui";
 
 type Tab = "profile" | "stats" | "settings";
 
@@ -92,10 +93,10 @@ const StatCard: React.FC<StatCardProps> = ({
     </div>
 
     <div className="mt-4">
-      <p className="text-2xl font-black tracking-tight text-slate-900">
+      <p className="text-2xl font-bold tracking-tight text-slate-900">
         {value}
       </p>
-      <p className="mt-1 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+      <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
         {label}
       </p>
       <p className="mt-2 text-xs leading-5 text-slate-500">{description}</p>
@@ -117,7 +118,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
   <div>
     <div className="mb-2 flex items-center justify-between gap-3">
       <span className="text-xs font-bold text-slate-700">{label}</span>
-      <span className="text-[11px] font-black text-indigo-600">
+      <span className="text-[11px] font-bold text-indigo-600">
         {valueLabel}
       </span>
     </div>
@@ -191,7 +192,7 @@ export const ProfilePage: React.FC = () => {
               <AlertCircle className="h-7 w-7" />
             </div>
 
-            <h2 className="mt-5 text-lg font-black text-slate-900">
+            <h2 className="mt-5 text-lg font-bold text-slate-900">
               We couldn't load your profile
             </h2>
 
@@ -203,7 +204,7 @@ export const ProfilePage: React.FC = () => {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-indigo-700"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700"
             >
               Try again
               <ChevronRight className="h-4 w-4" />
@@ -254,38 +255,29 @@ export const ProfilePage: React.FC = () => {
     <div className="min-h-screen bg-page px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-5 sm:space-y-6">
         {/* Page heading */}
-        <header className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
-          <div className="flex min-w-0 items-center gap-4">
-            <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 sm:flex">
-              <User className="h-6 w-6" />
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
-                  {displayName}
-                </h1>
-
-                {profile.isVerified && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-black text-indigo-700">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Verified
-                  </span>
-                )}
-              </div>
-
-              <p className="mt-1 truncate text-xs text-slate-500 sm:text-sm">
-                @{username} · Your SpeakBetter learning profile
-              </p>
-            </div>
-          </div>
-
+        <PageHeader
+          icon={User}
+          tone="indigo"
+          eyebrow="Profile"
+          title={
+            <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+              {displayName}
+              {profile.isVerified && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 font-sans text-xs font-bold tracking-normal text-indigo-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                  Verified
+                </span>
+              )}
+            </span>
+          }
+          subtitle={`@${username} · Your SpeakBetter learning profile`}
+          actions={
           <div className="flex items-center gap-2">
             <div className="hidden rounded-xl bg-slate-50 px-3 py-2 text-right sm:block">
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
                 Level
               </p>
-              <p className="text-xs font-black text-slate-800">
+              <p className="text-xs font-bold text-slate-800">
                 {profile.level
                   ? getLevelLabel(profile.level)
                   : `Level ${derived.level}`}
@@ -294,7 +286,7 @@ export const ProfilePage: React.FC = () => {
 
             <Link
               to={`/u/${profile.userId}`}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-black text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+              className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-xs font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               <Eye className="h-4 w-4" />
               <span className="hidden sm:inline">How others see you</span>
@@ -307,18 +299,19 @@ export const ProfilePage: React.FC = () => {
                 setActiveTab("profile");
                 setIsEditing(true);
               }}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-black text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+              className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-xs font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               <Edit3 className="h-4 w-4" />
               Edit
             </button>
           </div>
-        </header>
+          }
+        />
 
         {/* Tab navigation */}
         <nav
           aria-label="Profile sections"
-          className="rounded-2xl border border-slate-100 bg-white p-1.5 shadow-sm"
+          className="rounded-2xl border border-line bg-surface p-1.5 shadow-sm"
         >
           <div className="grid grid-cols-3 gap-1">
             {tabs.map((tab) => {
@@ -330,7 +323,7 @@ export const ProfilePage: React.FC = () => {
                   type="button"
                   aria-current={isActive ? "page" : undefined}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`group flex min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-3 text-xs font-black transition sm:justify-start sm:px-4 ${
+                  className={`group flex min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-3 text-xs font-bold transition sm:justify-start sm:px-4 ${
                     isActive
                       ? "bg-indigo-600 text-white shadow-sm shadow-indigo-100"
                       : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
@@ -354,7 +347,7 @@ export const ProfilePage: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
                   <div>
-                    <p className="text-sm font-black text-slate-900">
+                    <p className="text-sm font-bold text-slate-900">
                       Edit your profile
                     </p>
                     <p className="mt-0.5 text-xs text-slate-500">
@@ -365,7 +358,7 @@ export const ProfilePage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsEditing(false)}
-                    className="rounded-xl px-3 py-2 text-xs font-black text-slate-500 transition hover:bg-white hover:text-slate-800"
+                    className="rounded-xl px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-white hover:text-slate-800"
                   >
                     Cancel
                   </button>
@@ -387,13 +380,13 @@ export const ProfilePage: React.FC = () => {
 
                 {/* Profile overview */}
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                  <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                         <Languages className="h-5 w-5" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-black text-slate-900">
+                        <h3 className="text-sm font-bold text-slate-900">
                           Language journey
                         </h3>
                         <p className="text-xs text-slate-500">
@@ -403,7 +396,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     <div className="mt-5">
-                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
                         Native language
                       </p>
                       <p className="mt-1 text-sm font-bold text-slate-800">
@@ -412,7 +405,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     <div className="mt-4">
-                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
                         Learning
                       </p>
 
@@ -435,13 +428,13 @@ export const ProfilePage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                  <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                         <Target className="h-5 w-5" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-black text-slate-900">
+                        <h3 className="text-sm font-bold text-slate-900">
                           Learning direction
                         </h3>
                         <p className="text-xs text-slate-500">
@@ -479,17 +472,17 @@ export const ProfilePage: React.FC = () => {
         {/* Stats & Progress */}
         {activeTab === "stats" && (
           <section className="space-y-5">
-            <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-7">
+            <div className="rounded-3xl border border-line bg-surface p-5 shadow-sm sm:p-7">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <Trophy className="h-5 w-5 text-amber-500" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.16em] text-amber-600">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-600">
                       Learning journey
                     </span>
                   </div>
 
-                  <h2 className="mt-2 text-xl font-black tracking-tight text-slate-900">
+                  <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-900">
                     Your progress at a glance
                   </h2>
 
@@ -500,10 +493,10 @@ export const ProfilePage: React.FC = () => {
                 </div>
 
                 <div className="shrink-0 rounded-2xl bg-slate-50 px-4 py-3">
-                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
                     Current level
                   </p>
-                  <p className="mt-1 text-lg font-black text-slate-900">
+                  <p className="mt-1 text-lg font-bold text-slate-900">
                     Level {derived.level}
                   </p>
                 </div>
@@ -563,10 +556,10 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-              <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6 lg:col-span-2">
+              <div className="rounded-3xl border border-line bg-surface p-5 shadow-sm sm:p-6 lg:col-span-2">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-sm font-black text-slate-900">
+                    <h3 className="text-sm font-bold text-slate-900">
                       Profile & learning activity
                     </h3>
                     <p className="mt-1 text-xs text-slate-500">
@@ -608,13 +601,13 @@ export const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+              <div className="rounded-3xl border border-line bg-surface p-5 shadow-sm sm:p-6">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
                     <GraduationCap className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-slate-900">
+                    <h3 className="text-sm font-bold text-slate-900">
                       Learner profile
                     </h3>
                     <p className="text-xs text-slate-500">
@@ -627,7 +620,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
-                      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
                         Location
                       </p>
                       <p className="mt-1 truncate text-xs font-bold text-slate-700">
@@ -641,7 +634,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3">
                     <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
-                      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
                         Member since
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-700">
@@ -653,7 +646,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3">
                     <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
-                      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
                         Social
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-700">
@@ -666,7 +659,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3">
                     <Shield className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
-                      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
                         Verification
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-700">
@@ -687,7 +680,7 @@ export const ProfilePage: React.FC = () => {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">
+                  <h3 className="text-sm font-bold text-slate-900">
                     Keep the momentum going
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-slate-600">
@@ -704,14 +697,14 @@ export const ProfilePage: React.FC = () => {
         {/* Settings */}
         {activeTab === "settings" && (
           <section className="space-y-4">
-            <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+            <div className="rounded-3xl border border-line bg-surface p-5 shadow-sm sm:p-6">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                   <Settings className="h-5 w-5" />
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-black tracking-tight text-slate-900">
+                  <h2 className="text-lg font-bold tracking-tight text-slate-900">
                     Account settings
                   </h2>
                   <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">

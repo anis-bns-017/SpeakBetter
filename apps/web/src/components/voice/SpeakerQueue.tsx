@@ -121,10 +121,10 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
       className={cn("rounded-2xl border overflow-hidden shadow-2xl", className)}
       style={{
         background: "var(--sx-bg-10-10-20-980)",
-        borderColor: "rgba(129,140,248,0.25)",
+        borderColor: "rgba(142,163,232,0.25)",
         backdropFilter: "blur(20px)",
         boxShadow:
-          "0 12px 40px var(--sx-bg-0-0-0-500), 0 0 0 1px rgba(129,140,248,0.08)",
+          "0 12px 40px var(--sx-bg-0-0-0-500), 0 0 0 1px rgba(142,163,232,0.08)",
       }}
     >
       {/* Header */}
@@ -149,7 +149,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
             <span
               className="text-[11px] px-1.5 py-0.5 rounded-full tabular-nums font-medium"
               style={{
-                background: "rgba(129,140,248,0.15)",
+                background: "rgba(142,163,232,0.15)",
                 color: THEME.colors.accent.primary,
               }}
             >
@@ -189,7 +189,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
               style={{
                 background: iAmInQueue
                   ? "rgba(239,68,68,0.15)"
-                  : "rgba(129,140,248,0.18)",
+                  : "rgba(142,163,232,0.18)",
                 color: iAmInQueue
                   ? THEME.colors.accent.error
                   : THEME.colors.accent.primary,
@@ -297,10 +297,10 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                         background: item.isSpeaking
                           ? "rgba(52,211,153,0.08)"
                           : isMe
-                            ? "rgba(129,140,248,0.08)"
+                            ? "rgba(142,163,232,0.08)"
                             : "var(--sx-bg-255-255-255-20)",
                         borderColor: isMe
-                          ? "rgba(129,140,248,0.35)"
+                          ? "rgba(142,163,232,0.35)"
                           : "transparent",
                         borderWidth: isMe ? 1 : 0,
                         borderStyle: "solid",
@@ -365,7 +365,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                             <span
                               className="text-[8px] px-1 py-0.5 rounded font-bold shrink-0"
                               style={{
-                                background: "rgba(129,140,248,0.2)",
+                                background: "rgba(142,163,232,0.2)",
                                 color: THEME.colors.accent.primary,
                               }}
                             >
@@ -482,7 +482,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                   }}
                   className="text-[11px] px-2 py-1 rounded-lg font-medium transition-colors"
                   style={{
-                    background: "rgba(129,140,248,0.18)",
+                    background: "rgba(142,163,232,0.18)",
                     color: THEME.colors.accent.primary,
                   }}
                 >

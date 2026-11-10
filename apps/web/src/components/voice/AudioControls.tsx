@@ -363,13 +363,13 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         className={`relative ${className}`}
       >
         <div
-          className="flex items-center gap-3 px-4 py-3 rounded-2xl backdrop-blur-xl border"
+          className="vr-edge flex items-center gap-3 px-5 py-3 rounded-full backdrop-blur-2xl border"
           style={{
             background: "var(--sx-bg-20-20-37-800)",
             borderColor: THEME.border,
             boxShadow: isCallActive
-              ? `0 0 40px color-mix(in srgb, ${THEME.aurora.primary} 13.3%, transparent)`
-              : "none",
+              ? `0 24px 60px -24px var(--sx-shadow-0-0-0-800), 0 0 56px color-mix(in srgb, ${THEME.aurora.primary} 20%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.08)`
+              : "0 24px 60px -24px var(--sx-shadow-0-0-0-800), inset 0 1px 0 rgb(255 255 255 / 0.06)",
           }}
         >
           {/* Audience: raise hand instead of a mic */}
@@ -406,14 +406,16 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleMuteToggle}
-            className="relative p-3 rounded-full transition-all"
+            aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+            aria-pressed={isMuted}
+            className={`relative grid h-14 w-14 place-items-center rounded-full transition-colors ${isMuted ? "" : "vr-aura"}`}
             style={{
               background: isMuted
                 ? "rgba(239, 68, 68, 0.15)"
                 : `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
               boxShadow: isMuted
-                ? "none"
-                : `0 0 30px color-mix(in srgb, ${THEME.aurora.primary} 20%, transparent)`,
+                ? "inset 0 0 0 1px rgba(239,68,68,0.4)"
+                : "inset 0 1px 0 rgb(255 255 255 / 0.28)",
             }}
           >
             <AnimatePresence>
@@ -448,18 +450,19 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             )}
 
             {isMuted ? (
-              <MicOff className="w-5 h-5 text-red-400" />
+              <MicOff className="w-6 h-6 text-red-400" />
             ) : (
-              <Mic className="w-5 h-5 text-white" />
+              <Mic className="w-6 h-6 text-white" />
             )}
 
             {!isMuted && (
               <motion.div
-                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full"
+                className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2"
                 animate={{ scale: micPulse ? [1, 1.3, 1] : 1 }}
                 transition={{ duration: 0.5, repeat: micPulse ? Infinity : 0 }}
                 style={{
                   background: micPulse ? THEME.status.live : THEME.text.muted,
+                  borderColor: "var(--sx-bg-20-20-37-800)",
                 }}
               />
             )}

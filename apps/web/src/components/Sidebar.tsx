@@ -142,20 +142,20 @@ interface Accent {
 
 const ACCENTS: Record<string, Accent> = {
   Home: {
-    tile: "from-indigo-500 to-violet-500",
-    glow: "shadow-indigo-500/25",
+    tile: "bg-indigo-600 dark:bg-indigo-500",
+    glow: "",
     hover: "group-hover:text-indigo-500 dark:group-hover:text-indigo-300",
     dot: "bg-indigo-500",
   },
   Speak: {
-    tile: "from-rose-500 to-orange-400",
-    glow: "shadow-rose-500/25",
+    tile: "bg-rose-600 dark:bg-rose-500",
+    glow: "",
     hover: "group-hover:text-rose-500 dark:group-hover:text-rose-300",
     dot: "bg-rose-500",
   },
   Learn: {
-    tile: "from-emerald-500 to-teal-400",
-    glow: "shadow-emerald-500/25",
+    tile: "bg-emerald-600 dark:bg-emerald-500",
+    glow: "",
     hover: "group-hover:text-emerald-600 dark:group-hover:text-emerald-300",
     dot: "bg-emerald-500",
   },
@@ -398,7 +398,7 @@ const SidebarLink: React.FC<{
         {active && (
           <motion.span
             layoutId="sidebar-active-pill"
-            className="absolute inset-0 rounded-xl bg-white dark:bg-white/[0.07] ring-1 ring-slate-200/70 dark:ring-white/[0.08] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_6px_16px_-6px_rgba(79,70,229,0.25)] dark:shadow-[0_6px_20px_-8px_rgba(129,140,248,0.45)]"
+            className="absolute inset-0 rounded-xl bg-surface dark:bg-white/[0.07] ring-1 ring-line shadow-xs"
             transition={{ type: "spring", stiffness: 480, damping: 36 }}
           />
         )}
@@ -418,7 +418,7 @@ const SidebarLink: React.FC<{
         <span className={`relative shrink-0 flex items-center justify-center rounded-lg ${collapsed ? "w-9 h-9" : "w-7 h-7"}`}>
           {active && (
             <motion.span
-              className={`absolute inset-0 rounded-lg bg-gradient-to-br ${accent.tile} shadow-md ${accent.glow}`}
+              className={`absolute inset-0 rounded-lg ${accent.tile} shadow-sm`}
               initial={{ scale: 0.4, opacity: 0, rotate: -25 }}
               animate={{ scale: 1, opacity: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 520, damping: 20 }}
@@ -833,17 +833,6 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
       className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-slate-50 dark:bg-shell border-r border-slate-200/80 dark:border-white/[0.06] transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${className ?? ""}`}
       style={{ width: collapsed ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded }}
     >
-      {/* Slowly drifting colour behind everything */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="sb-drift absolute -top-28 -left-20 w-72 h-72 rounded-full bg-indigo-300/30 dark:bg-indigo-500/[0.14] blur-3xl" />
-        <div className="sb-drift-slow absolute top-[38%] -right-28 w-60 h-60 rounded-full bg-fuchsia-300/20 dark:bg-fuchsia-500/[0.08] blur-3xl" />
-        <div className="sb-drift absolute -bottom-24 -left-12 w-64 h-64 rounded-full bg-sky-300/25 dark:bg-sky-500/[0.08] blur-3xl" style={{ animationDelay: "-11s" }} />
-      </div>
-      {/* A light that runs down the edge now and then */}
-      <span aria-hidden className="pointer-events-none absolute top-0 bottom-0 -right-px w-px overflow-hidden">
-        <span className="sb-beam absolute left-0 w-px h-40 bg-gradient-to-b from-transparent via-indigo-500/80 to-transparent dark:via-indigo-300/80" />
-      </span>
-
       {/* Logo + collapse */}
       <div className={`h-16 shrink-0 flex items-center ${collapsed ? "justify-center px-3" : "justify-between pl-4 pr-3"}`}>
         <motion.button
@@ -903,13 +892,9 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
           whileHover={{ y: -1.5 }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 500, damping: 24 }}
-          className="sb-pan group relative overflow-visible w-full h-10 flex items-center justify-center gap-2 rounded-xl text-white font-semibold text-[13.5px] bg-[linear-gradient(110deg,#4f46e5,#7c3aed,#c026d3,#7c3aed,#4f46e5)] shadow-md shadow-violet-500/15 hover:shadow-xl hover:shadow-violet-500/40 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+          className="group relative overflow-visible w-full h-10 flex items-center justify-center gap-2 rounded-xl text-white font-semibold text-[13.5px] bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 shadow-[inset_0_1px_0_rgb(255_255_255/0.16),var(--shadow-sm)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-shell"
           aria-label="Start speaking"
         >
-          {/* Shine that sweeps across every few seconds */}
-          <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl overflow-hidden">
-            <span className="sb-shimmer absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/40 dark:via-white/40 to-transparent" />
-          </span>
           <Mic className="relative w-4 h-4 motion-safe:transition-transform motion-safe:group-hover:scale-110" />
           {!collapsed && <span className="relative">Start speaking</span>}
           {!collapsed && <span className="relative"><Equalizer /></span>}
@@ -943,7 +928,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
                   {section.title}
-                  <span className="flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-white/[0.08] to-transparent" />
+                  <span className="flex-1 h-px bg-line" />
                 </motion.p>
               )}
               <div className="space-y-0.5">
@@ -1189,7 +1174,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                               : "bg-white border-slate-200/80 text-slate-700 dark:bg-white/[0.03] dark:border-white/10 dark:text-slate-300"
                           }`}
                         >
-                          <span className={`relative flex items-center justify-center w-8 h-8 rounded-xl ${active ? `bg-gradient-to-br ${accent.tile} text-white shadow-md ${accent.glow}` : ""}`}>
+                          <span className={`relative flex items-center justify-center w-8 h-8 rounded-xl ${active ? `${accent.tile} text-white shadow-sm` : ""}`}>
                             <Icon className="w-5 h-5" />
                             <Badge {...badge} compact />
                           </span>

@@ -84,7 +84,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
             style={{
               borderColor: THEME.colors.border.primary,
               background:
-                "linear-gradient(135deg, rgba(34,211,238,0.08), rgba(129,140,248,0.06))",
+                "linear-gradient(135deg, rgba(34,211,238,0.08), rgba(142,163,232,0.06))",
             }}
           >
             <div className="flex items-center gap-2.5 min-w-0">

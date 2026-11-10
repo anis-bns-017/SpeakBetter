@@ -10,14 +10,15 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, Layers, Loader2, Package, Search, Sparkles, X } from "lucide-react";
 import { usePacks, type PackCategory, type PackItem, type PackLevel } from "../hooks/useVocabPacks";
 import { categoryTone, packIcon, topicTone } from "../components/packs/packIcons";
+import { PageHeader } from "../components/ui";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
 const chip = (active: boolean) =>
   `h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 shrink-0 ${
     active
-      ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white"
-      : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+      ? "bg-indigo-600 text-white border-indigo-600 dark:bg-indigo-500 dark:text-white dark:border-indigo-500"
+      : "border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
   }`;
 
 const PAGE = 24;
@@ -97,19 +98,23 @@ export const PacksPage: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 lg:py-10 space-y-5">
-      <header className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
-          <Package className="w-6 h-6" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Word packs</h1>
-          <p className="text-sm text-slate-500">From everyday words to GRE, IELTS, TOEFL, SAT, academic and business English: thousands of words in sections, each with pronunciation, meaning, examples and related words.</p>
-        </div>
-        <div className="hidden sm:block text-right text-xs text-slate-500 tabular-nums shrink-0">
-          <p>{data.done} of {data.packs.length} packs passed</p>
-          <p>{data.wordsSaved.toLocaleString()} of {totalWords.toLocaleString()} words saved</p>
-        </div>
-      </header>
+      <PageHeader
+        icon={Package}
+        tone="amber"
+        eyebrow="Learn"
+        title="Word packs"
+        subtitle="From everyday words to GRE, IELTS, TOEFL, SAT, academic and business English: thousands of words in sections, each with pronunciation, meaning, examples and related words."
+        actions={
+          <div className="hidden text-right text-sm tabular-nums text-slate-600 sm:block dark:text-slate-400">
+            <p>
+              <span className="font-display text-lg font-semibold text-slate-900 dark:text-white">{data.done}</span> of {data.packs.length} packs passed
+            </p>
+            <p>
+              <span className="font-display text-lg font-semibold text-slate-900 dark:text-white">{data.wordsSaved.toLocaleString()}</span> of {totalWords.toLocaleString()} words saved
+            </p>
+          </div>
+        }
+      />
 
       <div className="relative">
         <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -210,7 +215,7 @@ export const PacksPage: React.FC = () => {
           {next && NextIcon && (
             <Link
               to={`/packs/${next.id}`}
-              className="block rounded-3xl p-5 bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-orange-500/15 hover:-translate-y-0.5 transition-transform"
+              className="block rounded-3xl p-5 bg-indigo-900 ring-1 ring-inset ring-white/10 text-white shadow-md hover:bg-indigo-800 transition-colors"
             >
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/80 inline-flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" /> Start here · {next.level}

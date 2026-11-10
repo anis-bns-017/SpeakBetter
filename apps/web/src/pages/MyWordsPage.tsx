@@ -41,6 +41,7 @@ import {
 import { apiClient } from "../lib/api/client";
 import { meaningFrom, type LookupResult } from "../hooks/useLookup";
 import { canSpeak, speak } from "../lib/speech";
+import { PageHeader } from "../components/ui";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -50,6 +51,7 @@ const input =
 const SOURCE: Record<WordSource, { label: string; icon: LucideIcon; tone: string }> = {
   pack: { label: "Word packs", icon: Package, tone: "text-emerald-600 dark:text-emerald-300" },
   dict: { label: "Dictionary", icon: BookA, tone: "text-sky-600 dark:text-sky-300" },
+  library: { label: "Library", icon: BookOpen, tone: "text-emerald-600 dark:text-emerald-300" },
   room: { label: "Voice rooms", icon: AudioLines, tone: "text-rose-600 dark:text-rose-300" },
   mine: { label: "Added by you", icon: PenLine, tone: "text-indigo-600 dark:text-indigo-300" },
 };
@@ -472,7 +474,7 @@ export const MyWordsPage: React.FC = () => {
     `h-8 px-3 rounded-full text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
       active
         ? "bg-indigo-600 border-indigo-600 text-white"
-        : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+        : "border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
     }`;
   const select =
     "h-8 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 text-xs font-semibold text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30";
@@ -482,15 +484,13 @@ export const MyWordsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-5">
-        {/* Header */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200/80 dark:bg-emerald-400/15 dark:text-emerald-200 dark:ring-emerald-400/25 flex items-center justify-center shrink-0">
-            <BookOpen className="w-6 h-6" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">My words</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Every word you've saved, from word packs, rooms and the word of the day, in one place.</p>
-          </div>
+        <PageHeader
+          icon={BookOpen}
+          tone="emerald"
+          eyebrow="Learn"
+          title="My words"
+          subtitle="Every word you've saved, from word packs, rooms and the word of the day, in one place."
+          actions={
           <div className="flex gap-2">
             {!!summary?.due && (
               <button
@@ -510,7 +510,8 @@ export const MyWordsPage: React.FC = () => {
               <Plus className="w-4 h-4" /> Add a word
             </button>
           </div>
-        </div>
+          }
+        />
 
         <AnimatePresence initial={false}>{adding && <AddWordPanel onClose={() => setAdding(false)} />}</AnimatePresence>
 

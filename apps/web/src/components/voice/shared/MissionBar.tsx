@@ -53,7 +53,7 @@ export const MissionBar: React.FC<MissionBarProps> = ({ mission, myMission, onOp
       className="fixed top-36 left-4 z-30 hidden md:block w-[250px] rounded-2xl border p-3 backdrop-blur-xl"
       style={{
         background: "var(--sx-bg-10-10-18-880)",
-        borderColor: "rgba(99,102,241,0.35)",
+        borderColor: "rgba(79,102,200,0.35)",
         boxShadow: "0 0 30px var(--sx-shadow-99-102-241-120)",
       }}
       role="status"

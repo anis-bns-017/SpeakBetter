@@ -1,66 +1,13 @@
 import React from "react";
-import {
-  ArrowUpCircle,
-  Award,
-  AudioLines,
-  BookOpen,
-  CalendarCheck,
-  CheckCircle2,
-  Flame,
-  Drama,
-  Repeat2,
-  Gem,
-  Gift,
-  GraduationCap,
-  Headphones,
-  Layers,
-  Lock,
-  Medal,
-  Mic,
-  PenLine,
-  Snowflake,
-  Sparkles,
-  Target,
-  TrendingUp,
-  UserPlus,
-  Users,
-  Wand2,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
+import { Lock } from "lucide-react";
+import { BADGE_ICONS, FALLBACK_BADGE_ICON } from "./badgeIcons";
 import type { BadgeTier } from "../../hooks/useGamification";
 import { TIER_STYLE } from "./tiers";
 
-const ICONS: Record<string, LucideIcon> = {
-  ArrowUpCircle,
-  AudioLines,
-  BookOpen,
-  CalendarCheck,
-  CheckCircle2,
-  Flame,
-  Drama,
-  Repeat2,
-  Gem,
-  Gift,
-  GraduationCap,
-  Headphones,
-  Layers,
-  Medal,
-  Mic,
-  PenLine,
-  Snowflake,
-  Sparkles,
-  Target,
-  TrendingUp,
-  UserPlus,
-  Users,
-  Wand2,
-  Zap,
-};
 
 /** A badge's medal: coloured when earned, grey with a lock until then */
 export const BadgeIcon: React.FC<{ icon: string; tier: BadgeTier; earned: boolean; size?: number }> = ({ icon, tier, earned, size = 48 }) => {
-  const Icon = ICONS[icon] ?? Award;
+  const Icon = BADGE_ICONS[icon] ?? FALLBACK_BADGE_ICON;
   const style = TIER_STYLE[tier];
   return (
     <span

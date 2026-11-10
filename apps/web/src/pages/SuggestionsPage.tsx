@@ -26,7 +26,7 @@ export const SuggestionsPage = () => {
   if (!data || data.length === 0) {
     return (
       <div className="min-h-screen bg-page flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-center space-y-4 max-w-md w-full">
+        <div className="bg-surface p-8 rounded-3xl border border-line shadow-sm text-center space-y-4 max-w-md w-full">
           <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
             <Users className="w-7 h-7" />
           </div>
@@ -47,7 +47,7 @@ export const SuggestionsPage = () => {
     <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header Banner */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between gap-4">
+        <div className="bg-surface p-6 rounded-3xl border border-line shadow-sm flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
               <Sparkles className="w-6 h-6" />
@@ -76,7 +76,7 @@ export const SuggestionsPage = () => {
             return (
               <div
                 key={user.id}
-                className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-slate-200"
+                className="bg-surface p-5 rounded-3xl border border-line shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-line"
               >
                 {/* Profile Info */}
                 <div className="flex items-center gap-4">
@@ -161,7 +161,7 @@ const SuggestionsSkeleton = () => (
   <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header Skeleton */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4 animate-pulse">
+      <div className="bg-surface p-6 rounded-3xl border border-line shadow-sm flex items-center gap-4 animate-pulse">
         <div className="w-12 h-12 rounded-2xl bg-slate-200 shrink-0" />
         <div className="space-y-2 flex-1">
           <div className="h-6 w-48 bg-slate-200 rounded-lg" />
@@ -174,7 +174,7 @@ const SuggestionsSkeleton = () => (
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between gap-4 animate-pulse"
+            className="bg-surface p-5 rounded-3xl border border-line shadow-sm flex items-center justify-between gap-4 animate-pulse"
           >
             <div className="flex items-center gap-4 flex-1">
               <div className="w-14 h-14 rounded-2xl bg-slate-200 shrink-0" />

@@ -112,7 +112,7 @@ export const FriendsPage = () => {
     <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header Section */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-surface p-6 rounded-2xl border border-line shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
               <Users className="w-6 h-6" />
@@ -127,7 +127,7 @@ export const FriendsPage = () => {
         </div>
 
         {/* Tab Navigation Pill Bar */}
-        <div className="bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm flex gap-1 overflow-x-auto">
+        <div className="bg-surface p-1.5 rounded-2xl border border-line shadow-sm flex gap-1 overflow-x-auto">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -166,7 +166,7 @@ export const FriendsPage = () => {
                 {friends.map((friend) => (
                   <div
                     key={friend.id}
-                    className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-slate-200 transition-all flex items-center justify-between gap-4"
+                    className="bg-surface p-4 rounded-2xl border border-line shadow-sm hover:border-line transition-all flex items-center justify-between gap-4"
                   >
                     <div className="flex items-center gap-3">
                       {/* Avatar */}
@@ -235,7 +235,7 @@ export const FriendsPage = () => {
                   return (
                     <div
                       key={req.id}
-                      className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-slate-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      className="bg-surface p-4 rounded-2xl border border-line shadow-sm hover:border-line transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-11 h-11 rounded-full bg-violet-50 border border-violet-100 flex items-center justify-center font-bold text-violet-700 text-sm overflow-hidden shrink-0">
@@ -313,14 +313,14 @@ export const FriendsPage = () => {
                 placeholder="Search learners by name or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                className="w-full pl-10 pr-4 py-3 bg-surface border border-line rounded-2xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
               />
             </div>
 
             {searchLoading ? (
               <ListSkeleton />
             ) : searchQuery.length < 2 ? (
-              <div className="bg-white p-8 rounded-2xl border border-slate-100 text-center space-y-2">
+              <div className="bg-surface p-8 rounded-2xl border border-line text-center space-y-2">
                 <Sparkles className="w-6 h-6 text-indigo-400 mx-auto" />
                 <p className="text-sm font-medium text-slate-600">
                   Type at least 2 characters to search for classmates and friends.
@@ -334,7 +334,7 @@ export const FriendsPage = () => {
                   return (
                     <div
                       key={result.id}
-                      className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-slate-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      className="bg-surface p-4 rounded-2xl border border-line shadow-sm hover:border-line transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-11 h-11 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-sm overflow-hidden shrink-0">
@@ -416,7 +416,7 @@ export const FriendsPage = () => {
                   return (
                     <div
                       key={userItem.id}
-                      className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-slate-200 transition-all flex items-center justify-between gap-4"
+                      className="bg-surface p-4 rounded-2xl border border-line shadow-sm hover:border-line transition-all flex items-center justify-between gap-4"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-11 h-11 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-500 text-sm overflow-hidden shrink-0">
@@ -481,7 +481,7 @@ const ListSkeleton = () => (
     {[1, 2, 3].map((i) => (
       <div
         key={i}
-        className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between animate-pulse"
+        className="bg-surface p-4 rounded-2xl border border-line flex items-center justify-between animate-pulse"
       >
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-full bg-slate-200 shrink-0" />
@@ -510,7 +510,7 @@ const EmptyState = ({
   actionLabel?: string;
   onAction?: () => void;
 }) => (
-  <div className="bg-white p-12 rounded-2xl border border-slate-100 text-center space-y-3 shadow-sm">
+  <div className="bg-surface p-12 rounded-2xl border border-line text-center space-y-3 shadow-sm">
     <div className="w-14 h-14 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mx-auto">
       {icon}
     </div>

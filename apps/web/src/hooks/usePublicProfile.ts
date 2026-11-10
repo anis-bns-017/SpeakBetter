@@ -9,6 +9,7 @@ export interface ProfileBadge {
   tier: BadgeTier;
   icon: string;
   earnedAt: string;
+  pinned: boolean;
 }
 
 export interface ProfileRelationship {

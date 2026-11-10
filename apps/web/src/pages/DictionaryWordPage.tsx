@@ -206,7 +206,7 @@ export const DictionaryWordPage: React.FC = () => {
                   {word.est ? " (estimated from how common it is)" : ""}
                 </span>
               </div>
-              <h1 className="mt-2 text-4xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white break-words">{word.w}</h1>
+              <h1 className="mt-2 text-4xl sm:text-5xl font-bold tracking-tight text-slate-900 dark:text-white break-words">{word.w}</h1>
               {word.alt && word.alt.length > 0 && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Also written: {word.alt.join(", ")}</p>}
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{word.pos.join(" · ")}</p>
 

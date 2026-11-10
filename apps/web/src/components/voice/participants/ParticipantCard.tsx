@@ -88,9 +88,9 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
 
   const hue = hueFromString(participant.name);
   const sizeMap = {
-    sm: { avatar: 52, text: 'text-xs', gap: 'gap-1', nameSize: 'text-xs' },
-    md: { avatar: 68, text: 'text-sm', gap: 'gap-1.5', nameSize: 'text-sm' },
-    lg: { avatar: 88, text: 'text-base', gap: 'gap-2', nameSize: 'text-base' },
+    sm: { avatar: 56, text: 'text-xs', gap: 'gap-1', nameSize: 'text-xs' },
+    md: { avatar: 76, text: 'text-sm', gap: 'gap-1.5', nameSize: 'text-sm' },
+    lg: { avatar: 104, text: 'text-base', gap: 'gap-2', nameSize: 'text-base' },
   };
   const s = sizeMap[size];
 
@@ -116,27 +116,32 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
     >
       <div className="cursor-pointer" onClick={onViewProfile}>
         <div className="relative">
-          {/* Speaking ring: a steady glow that fades in and out and follows the voice level (no looping pulse) */}
+          {/* Speaking halo: a breathing aura, a slowly turning ring and two ripples. The aura and ring follow the
+              voice level; everything fades with opacity so it never jumps (see styles/voice-stage.css) */}
           <div
             aria-hidden
-            className="absolute inset-[-4px] rounded-full pointer-events-none"
-            style={{
-              border: '2px solid rgba(129,140,248,0.9)',
-              boxShadow: `0 0 ${6 + voiceLevel * 16}px rgba(129,140,248,${0.25 + voiceLevel * 0.35})`,
-              opacity: isSpeaking ? 1 : 0,
-              transition: 'opacity 250ms ease, box-shadow 120ms ease-out',
-            }}
-          />
+            className="absolute inset-0 pointer-events-none"
+            style={{ opacity: isSpeaking ? 1 : 0, transition: 'opacity 350ms ease' }}
+          >
+            {isSpeaking && (
+              <>
+                <span className="vr-halo-glow" style={{ opacity: 0.55 + voiceLevel * 0.45, inset: -(8 + voiceLevel * 12) }} />
+                <span className="vr-halo-ripple" />
+                <span className="vr-halo-ripple" />
+                <span className="vr-halo-ring" style={{ padding: 2 + voiceLevel * 2 }} />
+              </>
+            )}
+          </div>
 
           {/* Avatar */}
           <div
-            className="relative rounded-full flex items-center justify-center font-semibold border-2 shadow-lg transition-all duration-200"
+            className="relative rounded-full flex items-center justify-center font-semibold border-2 shadow-lg transition-[border-color,box-shadow,transform] duration-300 group-hover:scale-[1.03]"
             style={{
               width: s.avatar,
               height: s.avatar,
               background: participant.avatarUrl
                 ? `url(${participant.avatarUrl}) center/cover`
-                : `hsl(${hue}, 50%, 22%)`,
+                : `linear-gradient(145deg, hsl(${hue}, 55%, 34%), hsl(${(hue + 40) % 360}, 50%, 20%))`,
               borderColor: isOnline
                 ? isSpeaking
                   ? THEME.colors.accent.primary
@@ -243,7 +248,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
         {/* Name and details */}
         <div className={`mt-1.5 text-center ${s.gap}`}>
           <span
-            className={`${s.nameSize} font-medium truncate max-w-[80px] block`}
+            className={`${s.nameSize} font-semibold tracking-tight truncate max-w-[120px] block`}
             style={{ color: THEME.colors.text.primary }}
           >
             {participant.name}
@@ -252,9 +257,9 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
           <div className="flex flex-col items-center gap-0.5 mt-0.5">
             {participant.nativeLanguage && (
               <span
-                className="text-[8px] px-1.5 py-0.5 rounded-full"
+                className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                 style={{
-                  background: 'rgba(167, 139, 250, 0.12)',
+                  background: 'rgba(170,162,228, 0.12)',
                   color: THEME.colors.accent.tertiary,
                 }}
               >
@@ -263,19 +268,19 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
             )}
             {participant.learningLanguage && (
               <span
-                className="text-[8px] px-1.5 py-0.5 rounded-full"
+                className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                 style={{
                   background: 'rgba(52, 211, 153, 0.12)',
                   color: THEME.colors.accent.success,
                 }}
               >
-                📚 {participant.learningLanguage}
+                Learning {participant.learningLanguage}
               </span>
             )}
           </div>
 
           <span
-            className="text-[8px]"
+            className="text-[11px] font-medium"
             style={{
               color: isMuted
                 ? THEME.colors.accent.error
@@ -287,41 +292,41 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
             }}
           >
             {participant.isReconnecting
-              ? '📶 Reconnecting…'
+              ? 'Reconnecting…'
               : isMuted
-              ? '🔇 Muted'
+              ? 'Muted'
               : isOnline
                 ? isSpeaking
-                  ? '🔊 Speaking'
-                  : '🎧 Listening'
-                : '💤 Away'}
+                  ? 'Speaking'
+                  : 'Listening'
+                : 'Away'}
           </span>
 
           {(participant.spotlighted || participant.missionDone || participant.isQuiet) && (
             <div className="flex flex-wrap justify-center gap-1 mt-1">
               {participant.spotlighted && (
                 <span
-                  className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold animate-pulse"
+                  className="text-[10px] px-2 py-0.5 rounded-full font-semibold animate-pulse"
                   style={{ background: 'rgba(251,191,36,0.18)', color: THEME.colors.accent.warning }}
                 >
-                  🔦 Spotlight
+                  Spotlight
                 </span>
               )}
               {participant.missionDone && (
                 <span
-                  className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold"
+                  className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                   style={{ background: 'rgba(52,211,153,0.15)', color: THEME.colors.accent.success }}
                 >
-                  🎯 Mission done
+                  Mission done
                 </span>
               )}
               {participant.isQuiet && (
                 <span
-                  className="text-[8px] px-1.5 py-0.5 rounded-full"
+                  className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                   title="Has spoken much less than the others — try a spotlight"
                   style={{ background: 'rgba(251,191,36,0.1)', color: THEME.colors.accent.warning }}
                 >
-                  🤫 Quiet
+                  Quiet
                 </span>
               )}
             </div>

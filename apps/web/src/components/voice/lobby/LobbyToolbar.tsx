@@ -87,7 +87,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
             onChange={(e) => onSearch(e.target.value)}
             placeholder="Search rooms, topics, hosts..."
             aria-label="Search rooms"
-            className="w-full pl-10 pr-12 py-2.5 rounded-xl border outline-none text-sm transition-colors focus:border-[#F5A623]"
+            className="h-11 w-full rounded-xl border pl-10 pr-12 text-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
             style={selectStyle}
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -113,7 +113,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
             id="lobby-sort"
             value={sort}
             onChange={(e) => onSort(e.target.value as SortKey)}
-            className="px-3 py-2.5 rounded-xl border outline-none text-sm"
+            className="h-11 rounded-xl border px-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
             style={selectStyle}
           >
             {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
@@ -132,7 +132,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
                 id="lobby-language"
                 value={language ?? ""}
                 onChange={(e) => onLanguage(e.target.value || null)}
-                className="px-3 py-2.5 rounded-xl border outline-none text-sm"
+                className="h-11 rounded-xl border px-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                 style={selectStyle}
               >
                 <option value="">All languages</option>
@@ -156,7 +156,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
                 aria-pressed={viewMode === mode}
                 aria-label={`${mode} view`}
                 title={`${mode === "grid" ? "Grid" : "List"} view (G)`}
-                className={`p-1.5 rounded-lg transition-colors ${viewMode === mode ? "bg-white/10" : ""}`}
+                className={`grid h-9 w-9 place-items-center rounded-lg transition-colors ${viewMode === mode ? "bg-slate-900/10 dark:bg-white/10" : ""}`}
                 style={{
                   color: viewMode === mode ? COLORS.textPrimary : COLORS.textMuted,
                 }}
@@ -173,7 +173,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
           <button
             onClick={onRefresh}
             disabled={refreshing}
-            className="p-2.5 rounded-xl transition-colors hover:bg-white/5 disabled:opacity-50"
+            className="grid h-11 w-11 place-items-center rounded-xl transition-colors hover:bg-slate-900/[0.05] disabled:opacity-50 dark:hover:bg-white/5"
             style={{ color: COLORS.textMuted }}
             title="Refresh (R)"
             aria-label="Refresh rooms"
@@ -192,7 +192,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
               key={type}
               onClick={() => onFilterType(type === "ALL" ? null : filterType === type ? null : type)}
               aria-pressed={selected}
-              className="px-3 py-1.5 rounded-full text-xs font-medium border transition-all"
+              className="min-h-9 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all"
               style={{
                 background: selected ? `color-mix(in srgb, ${color} 14.9%, transparent)` : "transparent",
                 borderColor: selected ? color : COLORS.border,
@@ -214,7 +214,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
             type="checkbox"
             checked={hideFull}
             onChange={(e) => onHideFull(e.target.checked)}
-            className="accent-[var(--sx-bg-f5a623)]"
+            className="h-4 w-4 accent-indigo-600"
           />
           Hide full rooms
         </label>
@@ -224,11 +224,11 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
             key={t}
             onClick={() => onTopic(topic === t ? null : t)}
             aria-pressed={topic === t}
-            className="px-2.5 py-1 rounded-full text-[11px] border transition-all"
+            className="min-h-8 rounded-full border px-3 py-1 text-xs font-medium transition-all"
             style={{
-              background: topic === t ? COLORS.spotlightDim : "transparent",
-              borderColor: topic === t ? COLORS.spotlight : COLORS.border,
-              color: topic === t ? COLORS.spotlight : COLORS.textSecondary,
+              background: topic === t ? `color-mix(in srgb, ${COLORS.primary} 14%, transparent)` : "transparent",
+              borderColor: topic === t ? COLORS.primary : COLORS.border,
+              color: topic === t ? COLORS.primary : COLORS.textMuted,
             }}
           >
             #{t}
@@ -244,7 +244,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
             <button
               onClick={onClear}
               className="underline underline-offset-2 hover:opacity-80"
-              style={{ color: COLORS.spotlight }}
+              style={{ color: COLORS.primary }}
             >
               Clear {activeFilters} filter{activeFilters > 1 ? "s" : ""}
             </button>

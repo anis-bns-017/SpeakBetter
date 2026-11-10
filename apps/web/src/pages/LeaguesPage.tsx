@@ -6,18 +6,22 @@
 
 import React, { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, Clock, Crown, Info, Loader2, Lock, Trophy, UserPlus } from "lucide-react";
+import { toast } from "sonner";
+import { ArrowDown, ArrowUp, Clock, Crown, Info, Loader2, Lock, Pin, PinOff, Trophy, UserPlus } from "lucide-react";
 import {
   timeLeft,
   useAchievements,
   useCurrentLeague,
   useFriendsLeague,
+  usePinBadge,
   type Badge,
   type BadgeCategory,
   type CurrentLeague,
   type LeagueStanding,
 } from "../hooks/useGamification";
+import { useAuth } from "../contexts/AuthContext";
 import { BadgeIcon } from "../components/gamification/BadgeIcon";
+import { ShareCardButton } from "../components/gamification/ShareCardDialog";
 import { TIER_STYLE } from "../components/gamification/tiers";
 
 const card =
@@ -255,8 +259,14 @@ const FriendsView: React.FC = () => {
 // Badges
 // ============================================================
 
-const BadgeTile: React.FC<{ b: Badge }> = ({ b }) => {
+const BadgeTile: React.FC<{ b: Badge; person: string; pinFull: boolean }> = ({ b, person, pinFull }) => {
   const earned = !!b.earnedAt;
+  const pin = usePinBadge();
+  const togglePin = () =>
+    pin.mutate(
+      { key: b.key, pinned: !b.pinned },
+      { onError: (e: unknown) => toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Couldn't change the pin. Try again.") },
+    );
   const pct = Math.round((b.progress.value / b.progress.target) * 100);
   return (
     <div className={`${card} p-4 flex items-start gap-3 ${earned ? "" : "opacity-90"}`}>
@@ -268,9 +278,35 @@ const BadgeTile: React.FC<{ b: Badge }> = ({ b }) => {
         </div>
         <p className="text-xs text-slate-500 mt-0.5">{b.description}</p>
         {earned ? (
-          <p className="text-[11px] mt-1.5" style={{ color: TIER_STYLE[b.tier].ring }}>
-            {TIER_STYLE[b.tier].label} · earned {new Date(b.earnedAt as string).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-          </p>
+          <>
+            <p className="text-[11px] mt-1.5" style={{ color: TIER_STYLE[b.tier].ring }}>
+              {TIER_STYLE[b.tier].label} · earned {new Date(b.earnedAt as string).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+            </p>
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={togglePin}
+                aria-pressed={b.pinned}
+                disabled={pin.isPending || (!b.pinned && pinFull)}
+                title={!b.pinned && pinFull ? "You can pin up to 6. Unpin one first." : undefined}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                  b.pinned
+                    ? "border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-400/15 dark:text-indigo-200"
+                    : "border-line bg-surface text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+                }`}
+              >
+                {b.pinned ? <PinOff className="h-3.5 w-3.5" aria-hidden /> : <Pin className="h-3.5 w-3.5" aria-hidden />}
+                {b.pinned ? "Pinned" : "Pin"}
+                <span className="sr-only">{b.pinned ? ` ${b.name}, tap to unpin` : ` ${b.name} to your profile`}</span>
+              </button>
+              <ShareCardButton
+                size="sm"
+                label="Share"
+                card={{ kind: "badge", person, name: b.name, description: b.description, tier: b.tier, icon: b.icon }}
+                className="!h-8 !px-2.5 text-xs"
+              />
+            </div>
+          </>
         ) : (
           <div className="mt-2">
             <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden" aria-hidden>
@@ -288,6 +324,7 @@ const BadgeTile: React.FC<{ b: Badge }> = ({ b }) => {
 
 const BadgesView: React.FC = () => {
   const { data, isLoading, isError } = useAchievements();
+  const { user } = useAuth();
   const groups = useMemo(() => {
     if (!data) return [];
     return CATEGORY_ORDER.map((c) => ({
@@ -312,6 +349,11 @@ const BadgesView: React.FC = () => {
           </p>
           <p className="text-xs text-slate-500">badges earned</p>
         </div>
+        {data.earned > 0 && (
+          <p className="text-xs text-slate-500 max-w-[16rem]">
+            Pinned {data.pinnedCount} of {data.maxPinned}. Pinned badges come first on your profile.
+          </p>
+        )}
         {data.recent.length > 0 && (
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-xs text-slate-500">Latest</span>
@@ -329,7 +371,7 @@ const BadgesView: React.FC = () => {
           <h2 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">{CATEGORY_LABEL[g.category]}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {g.badges.map((b) => (
-              <BadgeTile key={b.key} b={b} />
+              <BadgeTile key={b.key} b={b} person={user?.name ?? "A SpeakBetter learner"} pinFull={data.pinnedCount >= data.maxPinned} />
             ))}
           </div>
         </section>

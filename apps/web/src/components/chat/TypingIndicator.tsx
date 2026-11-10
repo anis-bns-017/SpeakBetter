@@ -209,7 +209,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
             initial={{ opacity: 0, scale: 0.9, y: -5 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -5 }}
-            className="absolute bottom-full left-0 mb-2 p-2 bg-white rounded-xl shadow-xl border border-slate-100 min-w-[150px] max-w-[250px] z-50"
+            className="absolute bottom-full left-0 mb-2 p-2 bg-surface rounded-xl shadow-xl border border-line min-w-[150px] max-w-[250px] z-50"
           >
             <div className="flex flex-col gap-1">
               <p className="text-[11px] font-semibold text-slate-500 px-1 pb-1 border-b border-slate-100">
@@ -262,7 +262,7 @@ export const GroupTypingIndicator: React.FC<GroupTypingIndicatorProps> = ({
         variant="gradient"
       />
       {groupName && (
-        <div className="absolute -bottom-2 left-4 text-[8px] text-slate-400 bg-white px-1.5 py-0.5 rounded-full border border-slate-100">
+        <div className="absolute -bottom-2 left-4 text-[8px] text-slate-400 bg-surface px-1.5 py-0.5 rounded-full border border-line">
           {groupName} {totalMembers && `· ${totalMembers} members`}
         </div>
       )}

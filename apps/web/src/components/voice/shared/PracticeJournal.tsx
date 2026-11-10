@@ -159,7 +159,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
               className="px-5 pt-5 pb-4 shrink-0"
               style={{
                 background:
-                  "linear-gradient(135deg, rgba(129,140,248,0.12), rgba(34,211,238,0.05))",
+                  "linear-gradient(135deg, rgba(142,163,232,0.12), rgba(34,211,238,0.05))",
               }}
             >
               <div className="flex items-start justify-between gap-3">
@@ -222,14 +222,14 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                       className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
                       style={{
                         background: active
-                          ? "rgba(129,140,248,0.16)"
+                          ? "rgba(142,163,232,0.16)"
                           : "transparent",
                         color: active
                           ? THEME.colors.accent.primary
                           : THEME.colors.text.muted,
                         border: `1px solid ${
                           active
-                            ? "rgba(129,140,248,0.3)"
+                            ? "rgba(142,163,232,0.3)"
                             : "transparent"
                         }`,
                       }}
@@ -485,7 +485,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                               onClick={() => setRevealed(true)}
                               className="px-4 py-2 rounded-full text-xs font-semibold transition-all hover:scale-[1.03]"
                               style={{
-                                background: "rgba(129,140,248,0.15)",
+                                background: "rgba(142,163,232,0.15)",
                                 color: THEME.colors.accent.primary,
                               }}
                             >
@@ -770,7 +770,7 @@ const EmptyJournal: React.FC<{ hasAny: boolean }> = ({ hasAny }) => (
   <div className="text-center py-12">
     <div
       className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
-      style={{ background: "rgba(129,140,248,0.08)" }}
+      style={{ background: "rgba(142,163,232,0.08)" }}
     >
       <BookOpen
         className="w-7 h-7"

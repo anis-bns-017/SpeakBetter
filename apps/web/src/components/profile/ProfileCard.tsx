@@ -82,9 +82,9 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
               )}
             </div>
             <div className="text-white pb-1">
-              <h1 className="text-2xl font-bold">
+              <h2 className="font-display text-2xl font-semibold">
                 {profile.displayName || profile.user.name}
-              </h1>
+              </h2>
               <p className="text-sm text-white/80">@{profile.username || profile.user.email.split('@')[0]}</p>
             </div>
           </div>

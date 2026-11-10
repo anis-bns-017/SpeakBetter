@@ -1,6 +1,7 @@
 import { useSettings } from '../hooks/useSettings';
 import { SettingsForm } from '../components/settings/SettingsForm';
 import { Sliders, AlertCircle, RefreshCw } from 'lucide-react';
+import { PageHeader } from '../components/ui';
 
 export const SettingsPage = () => {
   const { settings, isLoading, error } = useSettings();
@@ -12,7 +13,7 @@ export const SettingsPage = () => {
   if (error || !settings) {
     return (
       <div className="min-h-screen bg-page flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-center space-y-4 max-w-sm w-full">
+        <div className="bg-surface p-8 rounded-3xl border border-line shadow-sm text-center space-y-4 max-w-sm w-full">
           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
             <AlertCircle className="w-6 h-6" />
           </div>
@@ -39,23 +40,16 @@ export const SettingsPage = () => {
   return (
     <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-6">
-        {/* Header Banner */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-            <Sliders className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">
-              Account Settings
-            </h1>
-            <p className="text-xs text-slate-500">
-              Manage your profile preferences, notifications, and app experience.
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          icon={Sliders}
+          tone="indigo"
+          eyebrow="Account"
+          title="Settings"
+          subtitle="Manage your profile preferences, notifications, and app experience."
+        />
 
         {/* Main Settings Form Container */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="bg-surface p-6 sm:p-8 rounded-3xl border border-line shadow-sm">
           <SettingsForm settings={settings} />
         </div>
       </div>
@@ -68,7 +62,7 @@ const SettingsSkeleton = () => (
   <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header Skeleton */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4 animate-pulse">
+      <div className="bg-surface p-6 rounded-3xl border border-line shadow-sm flex items-center gap-4 animate-pulse">
         <div className="w-12 h-12 rounded-2xl bg-slate-200 shrink-0" />
         <div className="space-y-2 flex-1">
           <div className="h-6 w-48 bg-slate-200 rounded-lg" />
@@ -77,7 +71,7 @@ const SettingsSkeleton = () => (
       </div>
 
       {/* Form Content Skeleton */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6 animate-pulse">
+      <div className="bg-surface p-6 sm:p-8 rounded-3xl border border-line shadow-sm space-y-6 animate-pulse">
         <div className="space-y-4">
           <div className="h-5 w-32 bg-slate-200 rounded" />
           <div className="h-10 w-full bg-slate-50 rounded-xl" />

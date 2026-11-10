@@ -66,7 +66,7 @@ export const ExercisesPage = () => {
     <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Page Header */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+        <div className="bg-surface p-6 rounded-2xl border border-line shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
             <Dumbbell className="w-6 h-6" />
           </div>
@@ -81,7 +81,7 @@ export const ExercisesPage = () => {
         </div>
 
         {/* Filter Toolbar */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+        <div className="bg-surface p-4 rounded-2xl border border-line shadow-sm space-y-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
             <Filter className="w-3.5 h-3.5 text-indigo-500" />
             <span>Filter Exercises</span>
@@ -146,7 +146,7 @@ export const ExercisesPage = () => {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="bg-white p-6 rounded-2xl border border-slate-100 animate-pulse space-y-3"
+                className="bg-surface p-6 rounded-2xl border border-line animate-pulse space-y-3"
               >
                 <div className="flex justify-between items-center">
                   <div className="h-5 w-48 bg-slate-200 rounded" />
@@ -159,7 +159,7 @@ export const ExercisesPage = () => {
           </div>
         ) : isError ? (
           /* Error State */
-          <div className="bg-white p-12 rounded-2xl border border-slate-100 text-center space-y-3">
+          <div className="bg-surface p-12 rounded-2xl border border-line text-center space-y-3">
             <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
               <AlertCircle className="w-6 h-6" />
             </div>
@@ -172,7 +172,7 @@ export const ExercisesPage = () => {
           </div>
         ) : !data || data.length === 0 ? (
           /* Empty State */
-          <div className="bg-white p-12 rounded-2xl border border-slate-100 text-center space-y-3">
+          <div className="bg-surface p-12 rounded-2xl border border-line text-center space-y-3">
             <div className="w-14 h-14 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mx-auto">
               <Layers className="w-7 h-7" />
             </div>
@@ -247,7 +247,7 @@ export const ExercisesPage = () => {
                           onChange={(e) =>
                             setAnswers({ ...answers, [ex.id]: e.target.value })
                           }
-                          className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                          className="w-full px-4 py-2.5 bg-surface border border-line rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                         />
                       </div>
 

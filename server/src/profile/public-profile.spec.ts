@@ -18,6 +18,19 @@ describe('earnedBadges', () => {
     ]);
     expect(out.map((b) => b.key)).toEqual([gold, silverKeys[1], silverKeys[0], bronze]);
   });
+
+  it('shows pinned badges first, in the order they were pinned, whatever their tier', () => {
+    const bronze = BADGES.find((b) => b.tier === 'BRONZE')!.key;
+    const gold = BADGES.find((b) => b.tier === 'GOLD')!.key;
+    const silver = BADGES.find((b) => b.tier === 'SILVER')!.key;
+    const out = earnedBadges([
+      { badgeId: gold, earnedAt: day(2) },
+      { badgeId: silver, earnedAt: day(3), pinnedAt: day(9) },
+      { badgeId: bronze, earnedAt: day(1), pinnedAt: day(8) },
+    ]);
+    expect(out.map((b) => b.key)).toEqual([bronze, silver, gold]);
+    expect(out.map((b) => b.pinned)).toEqual([true, true, false]);
+  });
 });
 
 interface Setup {

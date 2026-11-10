@@ -133,33 +133,43 @@ export const Card: React.FC<React.HTMLAttributes<HTMLDivElement> & { interactive
 // Page header
 // ============================================================
 
-/** Section colours for the icon tile: Home lapis, Speak rose, Learn emerald, plus a few for tools. Flat tint + hairline, no gradient. */
-const TILE: Record<string, string> = {
-  indigo: "bg-indigo-50 text-indigo-700 ring-indigo-200/80 dark:bg-indigo-400/15 dark:text-indigo-200 dark:ring-indigo-400/25",
-  rose: "bg-rose-50 text-rose-700 ring-rose-200/80 dark:bg-rose-400/15 dark:text-rose-200 dark:ring-rose-400/25",
-  emerald: "bg-emerald-50 text-emerald-700 ring-emerald-200/80 dark:bg-emerald-400/15 dark:text-emerald-200 dark:ring-emerald-400/25",
-  sky: "bg-sky-50 text-sky-700 ring-sky-200/80 dark:bg-sky-400/15 dark:text-sky-200 dark:ring-sky-400/25",
-  amber: "bg-amber-50 text-amber-800 ring-amber-200/80 dark:bg-amber-400/15 dark:text-amber-200 dark:ring-amber-400/25",
+/** Section colours for the label above a page title: Home lapis, Speak rose, Learn emerald, plus a few for tools */
+const EYEBROW: Record<string, { text: string; label: string }> = {
+  indigo: { text: "text-indigo-700 dark:text-indigo-300", label: "Overview" },
+  rose: { text: "text-rose-700 dark:text-rose-300", label: "Speak" },
+  emerald: { text: "text-emerald-700 dark:text-emerald-300", label: "Learn" },
+  sky: { text: "text-sky-700 dark:text-sky-300", label: "Reference" },
+  amber: { text: "text-amber-800 dark:text-amber-300", label: "Explore" },
 };
 
+/**
+ * The top of every page: a small section label (icon + word, in the section colour), a large serif title,
+ * one line of context, and the page's actions on the right. A hairline closes it, so each page starts the same way.
+ */
 export const PageHeader: React.FC<{
   icon: LucideIcon;
-  title: string;
+  title: React.ReactNode;
   subtitle?: React.ReactNode;
-  tone?: keyof typeof TILE;
+  tone?: keyof typeof EYEBROW;
+  /** The word next to the icon. Defaults to the section name for the tone. */
+  eyebrow?: string;
   actions?: React.ReactNode;
-}> = ({ icon: Icon, title, subtitle, tone = "indigo", actions }) => (
-  <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
-    <div className={cx("w-12 h-12 rounded-2xl ring-1 ring-inset flex items-center justify-center shrink-0", TILE[tone] ?? TILE.indigo)}>
-      <Icon className="w-6 h-6" aria-hidden />
-    </div>
-    <div className="min-w-0 flex-1">
-      <h1 className="text-[26px] sm:text-[32px] leading-[1.1] text-slate-900 dark:text-white">{title}</h1>
-      {subtitle && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{subtitle}</p>}
-    </div>
-    {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-  </header>
-);
+}> = ({ icon: Icon, title, subtitle, tone = "indigo", eyebrow, actions }) => {
+  const e = EYEBROW[tone] ?? EYEBROW.indigo;
+  return (
+    <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-line pb-6">
+      <div className="min-w-0 max-w-3xl flex-1">
+        <p className={cx("t-eyebrow inline-flex items-center gap-2", e.text)}>
+          <Icon className="h-4 w-4" aria-hidden />
+          {eyebrow ?? e.label}
+        </p>
+        <h1 className="mt-2.5 text-[34px] leading-[1.04] text-slate-900 sm:text-[46px] dark:text-white">{title}</h1>
+        {subtitle && <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">{subtitle}</p>}
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </header>
+  );
+};
 
 /** Title of a block inside a page, with an optional "see all" link */
 export const SectionHeader: React.FC<{ title: string; hint?: React.ReactNode; action?: { label: string; to: string } }> = ({ title, hint, action }) => (

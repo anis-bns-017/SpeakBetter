@@ -265,7 +265,7 @@ export const SizeTest: React.FC<{ onMap: () => void }> = ({ onMap }) => {
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
       <section className={`${card} p-6 sm:p-8`}>
         <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">You know about</p>
-        <motion.p initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 18 }} className="text-6xl font-black tabular-nums tracking-tight text-slate-900 dark:text-white">
+        <motion.p initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 18 }} className="text-6xl font-bold tabular-nums tracking-tight text-slate-900 dark:text-white">
           {result.estimate.toLocaleString()}
         </motion.p>
         <p className="text-sm text-slate-500 dark:text-slate-400">of the 10,000 most common English words</p>

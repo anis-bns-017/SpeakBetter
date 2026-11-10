@@ -59,7 +59,7 @@ export const ActiveSpeakerStrip: React.FC<ActiveSpeakerStripProps> = ({
           className={className}
           style={{
             background:
-              "linear-gradient(180deg, rgba(129,140,248,0.06), rgba(129,140,248,0))",
+              "linear-gradient(180deg, rgba(142,163,232,0.06), rgba(142,163,232,0))",
             borderBottom: `1px solid ${THEME.colors.border.primary}`,
           }}
         >
@@ -131,9 +131,9 @@ const SpeakerChip: React.FC<{
       transition={{ duration: 0.18 }}
       className="group flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full border shrink-0 hover:bg-white/5 transition-colors"
       style={{
-        background: isMe ? "rgba(129,140,248,0.12)" : "var(--sx-bg-255-255-255-30)",
+        background: isMe ? "rgba(142,163,232,0.12)" : "var(--sx-bg-255-255-255-30)",
         borderColor: isMe
-          ? "rgba(129,140,248,0.35)"
+          ? "rgba(142,163,232,0.35)"
           : THEME.colors.border.primary,
       }}
       title={`${participant.name}${isMe ? " (You)" : ""}`}
@@ -192,7 +192,7 @@ const SpeakerChip: React.FC<{
             <span
               className="text-[8px] px-1 rounded font-bold"
               style={{
-                background: "rgba(129,140,248,0.25)",
+                background: "rgba(142,163,232,0.25)",
                 color: THEME.colors.accent.primary,
               }}
             >

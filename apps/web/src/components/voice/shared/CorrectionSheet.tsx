@@ -170,7 +170,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
               className="px-5 pt-5 pb-4 flex items-start justify-between gap-3"
               style={{
                 background:
-                  "linear-gradient(135deg, rgba(52,211,153,0.12), rgba(129,140,248,0.06))",
+                  "linear-gradient(135deg, rgba(52,211,153,0.12), rgba(142,163,232,0.06))",
               }}
             >
               <div className="flex items-center gap-3 min-w-0">

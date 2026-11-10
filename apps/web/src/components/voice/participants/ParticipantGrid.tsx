@@ -44,15 +44,15 @@ interface ParticipantGridProps {
 const STAGE_ROLES = new Set(["HOST", "MODERATOR", "SPEAKER", "STAGE_SPEAKER"]);
 
 const SectionLabel: React.FC<{ title: string; count: number; hint?: string }> = ({ title, count, hint }) => (
-  <div className="col-span-full flex items-center gap-2 mt-2">
-    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: THEME.colors.text.secondary }}>
+  <div className="col-span-full flex items-center gap-2.5 mt-3">
+    <span className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: THEME.colors.text.secondary }}>
       {title}
     </span>
-    <span className="text-[11px] tabular-nums px-1.5 rounded-full" style={{ background: "var(--sx-bg-255-255-255-60)", color: THEME.colors.text.muted }}>
+    <span className="text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full" style={{ background: "var(--sx-bg-255-255-255-60)", color: THEME.colors.text.secondary }}>
       {count}
     </span>
-    {hint && <span className="text-[11px]" style={{ color: THEME.colors.text.muted }}>{hint}</span>}
-    <div className="h-px flex-1" style={{ background: THEME.colors.border.primary }} />
+    {hint && <span className="text-xs" style={{ color: THEME.colors.text.muted }}>{hint}</span>}
+    <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${THEME.colors.border.primary}, transparent)` }} />
   </div>
 );
 
@@ -129,7 +129,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   const stageParticipants = isStageRoom ? filteredParticipants.filter(isOnStage) : filteredParticipants;
   const audienceParticipants = isStageRoom ? filteredParticipants.filter((p: any) => !isOnStage(p)) : [];
 
-  const renderCard = (p: any) => {
+  const renderCard = (p: any, size: "sm" | "md" | "lg" = "md") => {
     const isParticipantHost = hostId === p.id || p.role === "HOST";
     const isCurrentUser = p.id === currentUserId;
     const onStage = isOnStage(p);
@@ -157,7 +157,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
             : undefined
         }
         stageActionKind={onStage ? "remove" : "invite"}
-        size="sm"
+        size={size}
       />
     );
   };
@@ -173,7 +173,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
         className,
       )}
       style={{
-        background: `radial-gradient(ellipse at 50% 20%, rgba(99,102,241,0.04), transparent 70%)`,
+        background: `radial-gradient(ellipse at 50% 20%, rgba(79,102,200,0.04), transparent 70%)`,
       }}
     >
       {/* Toolbar */}
@@ -215,7 +215,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                 className="px-2.5 py-1 rounded-full text-[9px] capitalize transition-all"
                 style={{
                   background:
-                    filter === f ? "rgba(99,102,241,0.15)" : "transparent",
+                    filter === f ? "rgba(79,102,200,0.15)" : "transparent",
                   color:
                     filter === f
                       ? THEME.colors.text.primary
@@ -279,7 +279,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
             style={{
               background:
                 langFilter === "all"
-                  ? "rgba(129,140,248,0.18)"
+                  ? "rgba(142,163,232,0.18)"
                   : THEME.colors.background.tertiary,
               color:
                 langFilter === "all"
@@ -287,7 +287,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                   : THEME.colors.text.secondary,
               border: `1px solid ${
                 langFilter === "all"
-                  ? "rgba(129,140,248,0.35)"
+                  ? "rgba(142,163,232,0.35)"
                   : THEME.colors.border.primary
               }`,
             }}
@@ -305,7 +305,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
               style={{
                 background:
                   langFilter === lang
-                    ? "rgba(129,140,248,0.18)"
+                    ? "rgba(142,163,232,0.18)"
                     : THEME.colors.background.tertiary,
                 color:
                   langFilter === lang
@@ -313,7 +313,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                     : THEME.colors.text.secondary,
                 border: `1px solid ${
                   langFilter === lang
-                    ? "rgba(129,140,248,0.35)"
+                    ? "rgba(142,163,232,0.35)"
                     : THEME.colors.border.primary
                 }`,
               }}
@@ -325,7 +325,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
       )}
 
       {/* Grid — centered vertically when sparse */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-w-5xl mx-auto min-h-[50vh] place-content-center">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-7 max-w-5xl mx-auto min-h-[50vh] place-content-center">
         {filteredParticipants.length === 0 ? (
           <div className="col-span-full">
             <EmptyParticipantState
@@ -355,13 +355,13 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
         ) : isStageRoom ? (
           <>
             <SectionLabel title="On stage" count={stageParticipants.length} />
-            {stageParticipants.map(renderCard)}
+            {stageParticipants.map((p: any) => renderCard(p, "lg"))}
             <SectionLabel
               title="Audience"
               count={audienceParticipants.length}
               hint={
                 isModerator && audienceParticipants.some((p: any) => p.raisedHand)
-                  ? "✋ raised hands are listed first"
+                  ? "Raised hands are listed first"
                   : undefined
               }
             />
@@ -370,11 +370,11 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                 Everyone here is on stage.
               </p>
             ) : (
-              audienceParticipants.map(renderCard)
+              audienceParticipants.map((p: any) => renderCard(p, "sm"))
             )}
           </>
         ) : (
-          filteredParticipants.map(renderCard)
+          filteredParticipants.map((p: any) => renderCard(p, "md"))
         )}
       </div>
     </section>

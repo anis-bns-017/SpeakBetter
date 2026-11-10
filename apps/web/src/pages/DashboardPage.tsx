@@ -230,13 +230,13 @@ const StatTile: React.FC<{ stat: Stat; index: number }> = ({ stat, index }) => {
     <motion.div variants={fadeUp} initial="hidden" animate="show" custom={index}>
       <Link
         to={stat.to}
-        className={`${card} group block p-4 h-full transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60`}
+        className="group block h-full bg-surface p-5 transition-colors hover:bg-slate-50 focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:hover:bg-white/[0.04]"
       >
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${stat.tone}`}>
           <Icon className="w-[18px] h-[18px]" />
         </div>
         <p className="font-display text-[28px] font-semibold leading-none text-slate-900 dark:text-slate-100 tabular-nums">{stat.value}</p>
-        <p className="text-[12.5px] font-medium text-slate-600 dark:text-slate-300 mt-0.5">{stat.label}</p>
+        <p className="t-eyebrow mt-2 text-slate-600 dark:text-slate-300">{stat.label}</p>
         {stat.sub && <p className="text-[11.5px] text-slate-400 dark:text-slate-500 mt-1">{stat.sub}</p>}
       </Link>
     </motion.div>
@@ -244,23 +244,23 @@ const StatTile: React.FC<{ stat: Stat; index: number }> = ({ stat, index }) => {
 };
 
 const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon; tone: string }> = [
-  { to: "/voice", title: "Voice Rooms", desc: "Live speaking practice", icon: AudioLines, tone: "text-indigo-500 bg-indigo-500/10" },
-  { to: "/ai-partner", title: "AI Partner", desc: "Talk any time", icon: Bot, tone: "text-violet-500 bg-violet-500/10" },
-  { to: "/chat", title: "Chat", desc: "Message partners", icon: MessageCircle, tone: "text-rose-500 bg-rose-500/10" },
-  { to: "/communities", title: "Communities", desc: "Groups by interest", icon: Hash, tone: "text-teal-500 bg-teal-500/10" },
-  { to: "/discover", title: "Discover", desc: "Trending rooms", icon: Compass, tone: "text-amber-500 bg-amber-500/10" },
-  { to: "/library", title: "Library", desc: "Read & listen", icon: Library, tone: "text-teal-500 bg-teal-500/10" },
-  { to: "/writing", title: "Writing", desc: "Write & get it checked", icon: PenLine, tone: "text-indigo-500 bg-indigo-500/10" },
-  { to: "/words", title: "My words", desc: "Your word bank", icon: BookOpen, tone: "text-emerald-500 bg-emerald-500/10" },
-  { to: "/packs", title: "Word packs", desc: "Themed word sets", icon: Package, tone: "text-amber-500 bg-amber-500/10" },
-  { to: "/dictation", title: "Dictation", desc: "Listen and type", icon: Headphones, tone: "text-sky-500 bg-sky-500/10" },
-  { to: "/shadowing", title: "Shadowing", desc: "Listen and repeat", icon: Repeat2, tone: "text-fuchsia-500 bg-fuchsia-500/10" },
-  { to: "/roleplay", title: "Role-play", desc: "Real conversations", icon: Drama, tone: "text-orange-500 bg-orange-500/10" },
-  { to: "/flashcards", title: "Flashcards", desc: "Spaced repetition", icon: Layers, tone: "text-sky-500 bg-sky-500/10" },
-  { to: "/pronunciation", title: "Pronunciation", desc: "Say it, get a score", icon: Mic, tone: "text-cyan-500 bg-cyan-500/10" },
-  { to: "/challenge", title: "Daily challenge", desc: "One question a day", icon: Megaphone, tone: "text-rose-500 bg-rose-500/10" },
-  { to: "/grammar", title: "Grammar", desc: "Lessons & drills", icon: GraduationCap, tone: "text-violet-500 bg-violet-500/10" },
-  { to: "/exercises", title: "Exercises", desc: "Quizzes & drills", icon: Dumbbell, tone: "text-orange-500 bg-orange-500/10" },
+  { to: "/voice", title: "Voice Rooms", desc: "Live speaking practice", icon: AudioLines, tone: "text-indigo-700 bg-indigo-500/10 dark:text-indigo-300" },
+  { to: "/ai-partner", title: "AI Partner", desc: "Talk any time", icon: Bot, tone: "text-violet-700 bg-violet-500/10 dark:text-violet-300" },
+  { to: "/chat", title: "Chat", desc: "Message partners", icon: MessageCircle, tone: "text-rose-700 bg-rose-500/10 dark:text-rose-300" },
+  { to: "/communities", title: "Communities", desc: "Groups by interest", icon: Hash, tone: "text-teal-700 bg-teal-500/10 dark:text-teal-300" },
+  { to: "/discover", title: "Discover", desc: "Trending rooms", icon: Compass, tone: "text-amber-700 bg-amber-500/10 dark:text-amber-300" },
+  { to: "/library", title: "Library", desc: "Read & listen", icon: Library, tone: "text-teal-700 bg-teal-500/10 dark:text-teal-300" },
+  { to: "/writing", title: "Writing", desc: "Write & get it checked", icon: PenLine, tone: "text-indigo-700 bg-indigo-500/10 dark:text-indigo-300" },
+  { to: "/words", title: "My words", desc: "Your word bank", icon: BookOpen, tone: "text-emerald-700 bg-emerald-500/10 dark:text-emerald-300" },
+  { to: "/packs", title: "Word packs", desc: "Themed word sets", icon: Package, tone: "text-amber-700 bg-amber-500/10 dark:text-amber-300" },
+  { to: "/dictation", title: "Dictation", desc: "Listen and type", icon: Headphones, tone: "text-sky-700 bg-sky-500/10 dark:text-sky-300" },
+  { to: "/shadowing", title: "Shadowing", desc: "Listen and repeat", icon: Repeat2, tone: "text-fuchsia-700 bg-fuchsia-500/10 dark:text-fuchsia-300" },
+  { to: "/roleplay", title: "Role-play", desc: "Real conversations", icon: Drama, tone: "text-orange-700 bg-orange-500/10 dark:text-orange-300" },
+  { to: "/flashcards", title: "Flashcards", desc: "Spaced repetition", icon: Layers, tone: "text-sky-700 bg-sky-500/10 dark:text-sky-300" },
+  { to: "/pronunciation", title: "Pronunciation", desc: "Say it, get a score", icon: Mic, tone: "text-cyan-700 bg-cyan-500/10 dark:text-cyan-300" },
+  { to: "/challenge", title: "Daily challenge", desc: "One question a day", icon: Megaphone, tone: "text-rose-700 bg-rose-500/10 dark:text-rose-300" },
+  { to: "/grammar", title: "Grammar", desc: "Lessons & drills", icon: GraduationCap, tone: "text-violet-700 bg-violet-500/10 dark:text-violet-300" },
+  { to: "/exercises", title: "Exercises", desc: "Quizzes & drills", icon: Dumbbell, tone: "text-orange-700 bg-orange-500/10 dark:text-orange-300" },
 ];
 
 // ============================================================
@@ -350,12 +350,12 @@ const DashboardPage: React.FC = () => {
         : "Let's make today your first practice day";
 
   const stats: Stat[] = [
-    { label: `Level ${level}`, value: data.xp.total.toLocaleString(), sub: xpToNext > 0 ? `${xpToNext.toLocaleString()} XP to level ${level + 1}` : "Max level", icon: Trophy, tone: "bg-violet-500/10 text-violet-500", to: "/progress" },
-    { label: "Day streak", value: String(data.streak.current), sub: `Best: ${data.streak.longest} day${data.streak.longest === 1 ? "" : "s"}`, icon: Flame, tone: "bg-orange-500/10 text-orange-500", to: "/progress" },
-    { label: "Minutes spoken", value: String(data.voice.speakingMinutes), sub: `${data.voice.speakingMinutesThisWeek} this week`, icon: Mic, tone: "bg-indigo-500/10 text-indigo-500", to: "/voice" },
-    { label: "Rooms joined", value: String(data.voice.roomsJoined), sub: `${data.voice.roomsThisWeek} this week`, icon: Users, tone: "bg-sky-500/10 text-sky-500", to: "/voice" },
-    { label: "Corrections learned", value: String(data.corrections.accepted), sub: `${data.corrections.given} given to others`, icon: Wand2, tone: "bg-fuchsia-500/10 text-fuchsia-500", to: "/progress" },
-    { label: "Words saved", value: data.words.total.toLocaleString(), sub: `${data.words.thisWeek} this week`, icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-500", to: "/words" },
+    { label: `Level ${level}`, value: data.xp.total.toLocaleString(), sub: xpToNext > 0 ? `${xpToNext.toLocaleString()} XP to level ${level + 1}` : "Max level", icon: Trophy, tone: "bg-violet-500/10 text-violet-700 dark:text-violet-300", to: "/progress" },
+    { label: "Day streak", value: String(data.streak.current), sub: `Best: ${data.streak.longest} day${data.streak.longest === 1 ? "" : "s"}`, icon: Flame, tone: "bg-orange-500/10 text-orange-700 dark:text-orange-300", to: "/progress" },
+    { label: "Minutes spoken", value: String(data.voice.speakingMinutes), sub: `${data.voice.speakingMinutesThisWeek} this week`, icon: Mic, tone: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300", to: "/voice" },
+    { label: "Rooms joined", value: String(data.voice.roomsJoined), sub: `${data.voice.roomsThisWeek} this week`, icon: Users, tone: "bg-sky-500/10 text-sky-700 dark:text-sky-300", to: "/voice" },
+    { label: "Corrections learned", value: String(data.corrections.accepted), sub: `${data.corrections.given} given to others`, icon: Wand2, tone: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300", to: "/progress" },
+    { label: "Words saved", value: data.words.total.toLocaleString(), sub: `${data.words.thisWeek} this week`, icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", to: "/words" },
   ];
 
   return (
@@ -363,8 +363,8 @@ const DashboardPage: React.FC = () => {
       {/* ================= Header ================= */}
       <motion.header variants={fadeUp} initial="hidden" animate="show" className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{today}</p>
-          <h1 className="text-[26px] sm:text-[32px] leading-[1.1] font-semibold text-slate-900 dark:text-white mt-1">
+          <p className="t-eyebrow text-slate-600 dark:text-slate-400">{today}</p>
+          <h1 className="text-[32px] sm:text-[44px] leading-[1.05] font-semibold text-slate-900 dark:text-white mt-2">
             {greeting()}, {firstName} 👋
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{statusLine}</p>
@@ -474,7 +474,7 @@ const DashboardPage: React.FC = () => {
       </div>
 
       {/* ================= Stats ================= */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-px overflow-hidden rounded-3xl border border-line bg-line shadow-sm">
         {stats.map((stat, i) => <StatTile key={stat.label} stat={stat} index={i + 3} />)}
       </div>
 
@@ -492,7 +492,7 @@ const DashboardPage: React.FC = () => {
           <SectionTitle title="Live now" action={{ label: "All rooms", to: "/voice" }} />
           {liveRooms.length === 0 ? (
             <div className="text-center py-6">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 flex items-center justify-center mx-auto mb-3">
                 <Radio className="w-6 h-6" />
               </div>
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">No rooms live right now</p>
@@ -643,7 +643,7 @@ const DashboardPage: React.FC = () => {
               <Link
                 key={item.to}
                 to={item.to}
-                className={`${card} group flex items-center gap-3 p-3.5 hover:-translate-y-0.5 hover:shadow-md transition-all`}
+                className={`${card} group flex items-center gap-3 p-3.5 hover:border-slate-300 hover:shadow-md transition-[box-shadow,border-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500`}
               >
                 <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.tone}`}>
                   <Icon className="w-5 h-5" />

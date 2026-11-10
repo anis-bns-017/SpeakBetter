@@ -29,12 +29,12 @@ import { THEME } from "./VoiceRoomView.theme";
 const ROOM_SURFACE = {
   background: "linear-gradient(180deg, var(--sx-bg-22-22-38-780) 0%, var(--sx-bg-12-12-22-820) 100%)",
   border: "1px solid var(--sx-border-255-255-255-70)",
-  boxShadow: "0 30px 80px -40px var(--sx-shadow-0-0-0-900), inset 0 1px 0 var(--sx-bg-255-255-255-50)",
-  backdropFilter: "blur(18px)",
+  boxShadow: "0 40px 90px -40px var(--sx-shadow-0-0-0-900), 0 0 0 1px rgb(255 255 255 / 0.02), inset 0 1px 0 var(--sx-bg-255-255-255-50)",
+  backdropFilter: "blur(22px) saturate(140%)",
 } as const;
 
 const TONES = {
-  primary: { fg: THEME.colors.accent.primaryLight, bg: "rgba(99,102,241,0.16)", ring: "rgba(129,140,248,0.45)" },
+  primary: { fg: THEME.colors.accent.primaryLight, bg: "rgba(79,102,200,0.16)", ring: "rgba(142,163,232,0.45)" },
   success: { fg: THEME.colors.accent.success, bg: "rgba(52,211,153,0.14)", ring: "rgba(52,211,153,0.45)" },
   warning: { fg: THEME.colors.accent.warning, bg: "rgba(251,191,36,0.14)", ring: "rgba(251,191,36,0.45)" },
 } as const;
@@ -42,32 +42,59 @@ const TONES = {
 export type Tone = keyof typeof TONES;
 
 // ------------------------------------------------------------
-// Backdrop — static, so the room never re-renders just to animate the wallpaper
+// Backdrop: a slow aurora, rising motes and film grain. Pure CSS (see styles/voice-stage.css), so the room
+// never re-renders to animate the wallpaper. `energy` brightens it while someone is speaking.
 // ------------------------------------------------------------
 
-export const RoomBackdrop: React.FC<{ intensity?: "calm" | "bright" }> = ({ intensity = "calm" }) => {
-  const k = intensity === "bright" ? 1.4 : 1;
+/** left %, size px, duration s, delay s, drift px, alpha */
+const MOTES: Array<[number, number, number, number, number, number]> = [
+  [6, 2, 24, -3, 30, 0.6], [14, 3, 30, -14, -24, 0.5], [22, 2, 21, -8, 18, 0.7], [31, 2, 27, -19, -30, 0.5],
+  [39, 3, 33, -5, 26, 0.45], [47, 2, 23, -12, -18, 0.65], [55, 2, 29, -22, 34, 0.5], [63, 3, 26, -9, -28, 0.55],
+  [71, 2, 22, -16, 22, 0.7], [78, 2, 31, -2, -20, 0.5], [85, 3, 25, -18, 28, 0.55], [93, 2, 28, -11, -26, 0.6],
+];
+
+export const RoomBackdrop: React.FC<{ intensity?: "calm" | "bright"; energy?: boolean }> = ({ intensity = "calm", energy = false }) => {
+  const k = intensity === "bright" ? 1.35 : 1;
+  const lift = energy ? 1.35 : 1;
+  const orb = (rgb: string, a: number) => `rgb(var(${rgb}) / calc(var(--vr-orb-alpha) * ${(a * k * lift).toFixed(2)}))`;
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="vr-orb vr-orb-a -left-[12%] -top-[22%] h-[62%] w-[52%]" style={{ background: orb("--vr-lapis", 1) }} />
+      <div className="vr-orb vr-orb-b -right-[14%] top-[18%] h-[58%] w-[46%]" style={{ background: orb("--vr-orchid", 0.8) }} />
+      <div className="vr-orb vr-orb-c -bottom-[26%] left-[18%] h-[56%] w-[44%]" style={{ background: orb("--vr-saffron", 0.38) }} />
+
+      {/* A faint dot grid that fades out toward the bottom */}
       <div
-        className="absolute inset-0"
-        style={{
-          background: [
-            `radial-gradient(ellipse 70% 45% at 50% -8%, rgba(99,102,241,${0.22 * k}), transparent 70%)`,
-            `radial-gradient(ellipse 45% 40% at 100% 100%, rgba(236,72,153,${0.08 * k}), transparent 70%)`,
-            `radial-gradient(ellipse 40% 35% at 0% 85%, rgba(34,211,238,${0.06 * k}), transparent 70%)`,
-          ].join(", "),
-        }}
-      />
-      <div
-        className="absolute inset-0 opacity-[0.35]"
+        className="absolute inset-0 opacity-[0.32]"
         style={{
           backgroundImage: "radial-gradient(var(--sx-bg-255-255-255-90) 1px, transparent 1px)",
-          backgroundSize: "22px 22px",
-          maskImage: "radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%)",
-          WebkitMaskImage: "radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%)",
+          backgroundSize: "24px 24px",
+          maskImage: "radial-gradient(ellipse 80% 55% at 50% 0%, black 25%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(ellipse 80% 55% at 50% 0%, black 25%, transparent 75%)",
         }}
       />
+
+      {MOTES.map(([left, size, dur, delay, dx, alpha], i) => (
+        <span
+          key={i}
+          className="vr-particle"
+          style={
+            {
+              left: `${left}%`,
+              width: size,
+              height: size,
+              ["--vr-dur" as string]: `${dur}s`,
+              ["--vr-delay" as string]: `${delay}s`,
+              ["--vr-dx" as string]: `${dx}px`,
+              ["--vr-p-alpha" as string]: alpha,
+            } as React.CSSProperties
+          }
+        />
+      ))}
+
+      <div className="vr-grain" />
+      {/* Vignette keeps the eye on the stage */}
+      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 90% 80% at 50% 45%, transparent 55%, rgb(0 0 0 / 0.32) 100%)" }} />
     </div>
   );
 };
@@ -104,14 +131,14 @@ const ToolButton: React.FC<{ tool: RoomTool }> = ({ tool }) => {
       onClick={tool.onClick}
       aria-label={tool.label}
       aria-pressed={tool.active ?? false}
-      className="group/tool relative grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+      className="group/tool relative grid h-9 w-9 shrink-0 place-items-center rounded-full transition-[transform,background-color,color] duration-200 hover:-translate-y-px active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
       style={{
         background: tool.active ? tone.bg : "transparent",
         color: tool.active ? tone.fg : THEME.colors.text.secondary,
-        boxShadow: tool.active ? `inset 0 0 0 1px ${tone.ring}` : undefined,
+        boxShadow: tool.active ? `inset 0 0 0 1px ${tone.ring}, 0 0 18px -2px ${tone.ring}` : undefined,
       }}
     >
-      <span className="absolute inset-0 rounded-xl bg-white/0 transition-colors group-hover/tool:bg-white/[0.06]" />
+      <span className="absolute inset-0 rounded-full bg-white/0 transition-colors group-hover/tool:bg-white/[0.08]" />
       <Icon className="relative h-[18px] w-[18px]" />
       {showBadge && (
         <span
@@ -142,7 +169,7 @@ export const RoomToolbar: React.FC<{ groups: RoomToolGroup[] }> = ({ groups }) =
     .filter((g) => g.tools.length > 0);
   if (!visible.length) return null;
   return (
-    <div role="toolbar" aria-label="Room tools" className="flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl p-1 md:overflow-visible" style={{ background: "var(--sx-bg-255-255-255-35)", border: "1px solid var(--sx-border-255-255-255-60)" }}>
+    <div role="toolbar" aria-label="Room tools" className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full p-1 md:overflow-visible" style={{ background: "var(--sx-bg-255-255-255-35)", border: "1px solid var(--sx-border-255-255-255-60)", boxShadow: "inset 0 1px 0 var(--sx-bg-255-255-255-50), 0 8px 24px -12px var(--sx-shadow-0-0-0-600)" }}>
       {visible.map((group, i) => (
         <React.Fragment key={group.id}>
           {i > 0 && <span aria-hidden className="mx-0.5 h-5 w-px shrink-0" style={{ background: "var(--sx-bg-255-255-255-80)" }} />}
@@ -176,7 +203,7 @@ const StatChip: React.FC<{ stat: StageStat }> = ({ stat }) => {
   const color = stat.color ?? THEME.colors.accent.success;
   return (
     <span
-      className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs"
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs transition-colors duration-300"
       style={{
         background: stat.live ? `color-mix(in srgb, ${color} 12.2%, transparent)` : "var(--sx-bg-255-255-255-40)",
         border: `1px solid ${stat.live ? `color-mix(in srgb, ${color} 33.3%, transparent)` : "var(--sx-bg-255-255-255-60)"}`,
@@ -199,8 +226,7 @@ export const LiveBadge: React.FC<{ label?: string; tone?: "live" | "idle" }> = (
   return (
     <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full pl-2 pr-2.5 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ background: `color-mix(in srgb, ${color} 10.2%, transparent)`, color, border: `1px solid color-mix(in srgb, ${color} 25.1%, transparent)` }}>
       <span className="relative flex h-2 w-2">
-        {tone === "live" && <span className="absolute inset-0 animate-ping rounded-full opacity-70" style={{ background: color }} />}
-        <span className="relative h-2 w-2 rounded-full" style={{ background: color }} />
+        <span className={`relative h-2 w-2 rounded-full ${tone === "live" ? "vr-live-dot" : ""}`} style={{ background: color }} />
       </span>
       {label}
     </span>
@@ -214,7 +240,7 @@ export const LiveBadge: React.FC<{ label?: string; tone?: "live" | "idle" }> = (
 export const RoomCard: React.FC<React.HTMLAttributes<HTMLDivElement> & { as?: "section" | "div" | "aside" }> = ({ as = "div", className = "", style, children, ...rest }) => {
   const Tag = as;
   return (
-    <Tag className={`relative overflow-hidden rounded-[26px] ${className}`} style={{ ...ROOM_SURFACE, ...style }} {...rest}>
+    <Tag className={`vr-edge relative overflow-hidden rounded-[28px] ${className}`} style={{ ...ROOM_SURFACE, ...style }} {...rest}>
       {children}
     </Tag>
   );
@@ -278,14 +304,14 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
   children,
 }) => (
   <div className="relative flex h-dvh flex-col overflow-hidden" style={{ background: "var(--sx-bg-07070d)", color: THEME.colors.text.primary }}>
-    <RoomBackdrop />
+    <RoomBackdrop energy={stats.some((st) => st.id === "speaking" && st.live)} />
 
-    <div className="relative z-30">{header}</div>
+    <div className="vr-enter relative z-30">{header}</div>
     {banner}
 
     <main className="relative z-10 flex min-h-0 flex-1 gap-3 px-2 pt-2 sm:px-3 sm:pt-3">
       {/* Stage */}
-      <RoomCard as="section" aria-label="Stage" className="flex min-w-0 flex-1 flex-col">
+      <RoomCard as="section" aria-label="Stage" className="vr-enter flex min-w-0 flex-1 flex-col" style={{ ["--vr-enter-delay" as string]: "120ms" } as React.CSSProperties}>
         <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 pt-3 sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {stageTitle}
@@ -328,7 +354,7 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 24 }}
             transition={{ type: "spring", stiffness: 340, damping: 32 }}
-            className="absolute inset-x-2 bottom-0 top-2 z-40 flex overflow-hidden rounded-[26px] md:static md:inset-auto md:z-auto"
+            className="vr-edge absolute inset-x-2 bottom-0 top-2 z-40 flex overflow-hidden rounded-[28px] md:static md:inset-auto md:z-auto"
             style={{ border: ROOM_SURFACE.border, boxShadow: ROOM_SURFACE.boxShadow }}
           >
             {chat}
@@ -338,7 +364,7 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
     </main>
 
     {/* Control dock */}
-    <footer className="relative z-30 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 py-2.5 sm:px-4">
+    <footer className="vr-enter relative z-30 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 py-3 sm:px-4" style={{ ["--vr-enter-delay" as string]: "260ms" } as React.CSSProperties}>
       <div className="hidden min-w-0 items-center gap-2 md:flex">{dockInfo}</div>
       <div className={`col-span-3 justify-center md:col-span-1 ${phoneDock ? "hidden md:flex" : "flex"}`}>{dock}</div>
       {phoneDock && <div className="col-span-3 flex justify-center md:hidden">{phoneDock}</div>}
@@ -457,7 +483,7 @@ export const RoomButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> 
     className={`inline-flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 ${variant === "primary" ? "text-white hover:brightness-110 active:scale-[0.98]" : "hover:bg-white/[0.06]"} ${className}`}
     style={{
       ...(variant === "primary"
-        ? { background: "linear-gradient(135deg, var(--sx-bg-6366f1), var(--sx-bg-8b5cf6))", boxShadow: "0 12px 30px -12px var(--sx-shadow-99-102-241-900)" }
+        ? { background: "linear-gradient(135deg, var(--sx-bg-6366f1), var(--sx-bg-8b5cf6))", boxShadow: "0 12px 30px -12px var(--sx-shadow-99-102-241-900), inset 0 1px 0 rgb(255 255 255 / 0.22)" }
         : { border: "1px solid var(--sx-border-255-255-255-100)", color: THEME.colors.text.secondary }),
       ...style,
     }}
@@ -475,7 +501,7 @@ export const RoomJoiningIndicator: React.FC<{ label: string; icon: LucideIcon; o
         <motion.span
           key={i}
           className="absolute inset-0 rounded-full"
-          style={{ border: "1px solid rgba(129,140,248,0.45)" }}
+          style={{ border: "1px solid rgba(142,163,232,0.45)" }}
           initial={{ scale: 0.55, opacity: 0.8 }}
           animate={{ scale: 1.25, opacity: 0 }}
           transition={{ duration: 2.4, repeat: Infinity, delay: i * 0.8, ease: "easeOut" }}

@@ -533,7 +533,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                       e.stopPropagation();
                       setShowContextMenu(isContextOpen ? null : chat.id);
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-xl bg-white/80 backdrop-blur-sm text-slate-400 hover:text-slate-600 hover:bg-white shadow-sm border border-slate-200/50 transition-all"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-xl bg-surface/80 backdrop-blur-sm text-slate-400 hover:text-slate-600 hover:bg-surface shadow-sm border border-line/50 transition-all"
                   >
                     <MoreVertical className="w-3.5 h-3.5" />
                   </motion.button>
@@ -547,7 +547,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.9, y: -5 }}
                       transition={{ type: "spring", damping: 20 }}
-                      className="absolute right-0 top-full mt-1 z-10 min-w-[180px] bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden"
+                      className="absolute right-0 top-full mt-1 z-10 min-w-[180px] bg-surface/95 backdrop-blur-xl rounded-2xl border border-line/80 shadow-2xl overflow-hidden"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="py-1.5">
@@ -578,7 +578,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                       initial={{ opacity: 0, scale: 0.9, y: -5 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.9, y: -5 }}
-                      className="absolute right-0 top-full mt-1 z-10 min-w-[160px] bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden py-1.5"
+                      className="absolute right-0 top-full mt-1 z-10 min-w-[160px] bg-surface/95 backdrop-blur-xl rounded-2xl border border-line/80 shadow-2xl overflow-hidden py-1.5"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <p className="px-3.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Mute for</p>

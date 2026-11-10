@@ -31,7 +31,7 @@ export const FollowButton: React.FC<{ userId: string; name?: string; size?: "sm"
       title={following ? "Stop following" : "Get told when they go live or schedule a room"}
       className={`${sizing} shrink-0 rounded-xl font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-60 ${
         following
-          ? "border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+          ? "border border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
           : "bg-indigo-600 hover:bg-indigo-700 text-white"
       }`}
     >

@@ -77,7 +77,7 @@ const ICEBREAKERS: { text: string; icon: typeof Coffee; color: string }[] = [
 
 const COLOR_MAP: Record<string, { fg: string; bg: string }> = {
   cyan: { fg: "var(--sx-bg-22d3ee)", bg: "rgba(34,211,238,0.12)" },
-  violet: { fg: "var(--sx-bg-a78bfa)", bg: "rgba(167,139,250,0.12)" },
+  violet: { fg: "var(--sx-bg-a78bfa)", bg: "rgba(170,162,228,0.12)" },
   pink: { fg: "var(--sx-bg-f472b6)", bg: "rgba(244,114,182,0.12)" },
   amber: { fg: "var(--sx-bg-fbbf24)", bg: "rgba(251,191,36,0.12)" },
   emerald: { fg: "var(--sx-bg-34d399)", bg: "rgba(52,211,153,0.12)" },

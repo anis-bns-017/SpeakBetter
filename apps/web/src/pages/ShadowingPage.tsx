@@ -176,8 +176,8 @@ export const ShadowingPage: React.FC = () => {
               onClick={() => setLevel(lv)}
               className={`h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors ${
                 level === lv
-                  ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white"
-                  : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                  ? "bg-indigo-600 text-white border-indigo-600 dark:bg-indigo-500 dark:text-white dark:border-indigo-500"
+                  : "border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
               }`}
             >
               {lv === "all" ? "All" : lv}

@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { dayKey } from '../insights/plan.engine';
@@ -7,6 +7,8 @@ import { BADGES, levelsGained, newlyEarned, progressOf, type BadgeDef, type Lear
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** A badge counts as new on the page for this long */
 const NEW_FOR_MS = 3 * DAY_MS;
+/** Badges a learner can pin to the top of their profile (the profile's showcase row) */
+export const MAX_PINNED = 6;
 /** Most people checked in one background pass */
 const EVALUATE_BATCH = 200;
 
@@ -151,8 +153,8 @@ export class BadgesService implements OnModuleInit {
       challenges,
       reactionsReceived,
       textsRead: library.length,
-      // B2 and C1 text ids start with their level
-      hardTextsPerfect: library.filter((p) => /^(b2|c1)-/.test(p.textId) && p.total > 0 && p.bestScore === p.total).length,
+      // B2, C1 and C2 text ids start with their level
+      hardTextsPerfect: library.filter((p) => /^(b2|c1|c2)-/.test(p.textId) && p.total > 0 && p.bestScore === p.total).length,
       packsPassed,
       packWordsSaved,
       dictations,
@@ -219,9 +221,10 @@ export class BadgesService implements OnModuleInit {
     await this.evaluate(userId);
     const [stats, owned] = await Promise.all([
       this.stats(userId),
-      this.prisma.userBadge.findMany({ where: { userId }, select: { badgeId: true, earnedAt: true } }),
+      this.prisma.userBadge.findMany({ where: { userId }, select: { badgeId: true, earnedAt: true, pinnedAt: true } }),
     ]);
     const earnedAt = new Map(owned.map((o) => [o.badgeId, o.earnedAt]));
+    const pinnedAt = new Map(owned.map((o) => [o.badgeId, o.pinnedAt]));
     const now = Date.now();
     const badges = BADGES.map((b) => {
       const when = earnedAt.get(b.key) ?? null;
@@ -234,6 +237,7 @@ export class BadgesService implements OnModuleInit {
         icon: b.icon,
         earnedAt: when,
         isNew: !!when && now - when.getTime() < NEW_FOR_MS,
+        pinned: !!pinnedAt.get(b.key),
         progress: progressOf(b, stats),
       };
     });
@@ -242,7 +246,22 @@ export class BadgesService implements OnModuleInit {
       badges,
       earned: earned.length,
       total: badges.length,
+      pinnedCount: owned.filter((o) => o.pinnedAt).length,
+      maxPinned: MAX_PINNED,
       recent: earned.sort((a, b) => (b.earnedAt as Date).getTime() - (a.earnedAt as Date).getTime()).slice(0, 3),
     };
+  }
+
+  /** Pins or unpins one of your own badges. Only earned badges can be pinned, and only MAX_PINNED at a time. */
+  async setPinned(userId: string, badgeKey: string, pinned: boolean) {
+    const row = await this.prisma.userBadge.findUnique({ where: { userId_badgeId: { userId, badgeId: badgeKey } }, select: { id: true, pinnedAt: true } });
+    if (!row) throw new NotFoundException('You have not earned this badge yet');
+    if (pinned && !row.pinnedAt) {
+      const count = await this.prisma.userBadge.count({ where: { userId, pinnedAt: { not: null } } });
+      if (count >= MAX_PINNED) throw new BadRequestException(`You can pin up to ${MAX_PINNED} badges. Unpin one first.`);
+    }
+    if (pinned === !!row.pinnedAt) return { key: badgeKey, pinned };
+    await this.prisma.userBadge.update({ where: { id: row.id }, data: { pinnedAt: pinned ? new Date() : null } });
+    return { key: badgeKey, pinned };
   }
 }

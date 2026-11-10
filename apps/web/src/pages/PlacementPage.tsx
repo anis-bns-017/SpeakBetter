@@ -518,7 +518,7 @@ const Result: React.FC<{
         <div className="absolute -top-20 -right-12 w-64 h-64 rounded-full bg-white/15 blur-3xl pointer-events-none" />
         <p className="relative text-xs font-semibold uppercase tracking-[0.16em] text-white/80">Your English level</p>
         <div className="relative flex items-end gap-4 mt-2">
-          <span className="text-6xl sm:text-7xl font-black tracking-tight leading-none">{result.level}</span>
+          <span className="text-6xl sm:text-7xl font-bold tracking-tight leading-none">{result.level}</span>
           <span className="text-xl font-semibold pb-1.5">{info.name}</span>
         </div>
         <p className="relative text-white/90 mt-4 max-w-lg">{info.summary}</p>

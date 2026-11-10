@@ -379,8 +379,9 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
         whileHover={!isMaxed ? { scale: 1.04 } : undefined}
         whileTap={!isMaxed ? { scale: 0.94 } : undefined}
         className={
-          "relative flex items-center justify-center rounded-full font-semibold " +
+          "relative flex items-center justify-center overflow-hidden rounded-full font-semibold " +
           "shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed " +
+          (isMaxed ? "" : "vr-sheen ") +
           config.button
         }
         style={{
@@ -390,7 +391,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
           color: isMaxed ? THEME.colors.text.muted : "var(--sx-text-ffffff)",
           boxShadow: isMaxed
             ? "none"
-            : `0 6px 20px color-mix(in srgb, ${THEME.colors.accent.warning} 33.3%, transparent)`,
+            : `0 10px 28px -6px color-mix(in srgb, ${THEME.colors.accent.warning} 45%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.3)`,
         }}
         title={isMaxed ? "Clap limit reached" : "Clap for the speaker"}
       >

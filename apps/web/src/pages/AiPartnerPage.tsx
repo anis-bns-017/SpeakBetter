@@ -294,7 +294,7 @@ const Bubble: React.FC<{
                   key={s}
                   type="button"
                   onClick={() => onSuggestion(s)}
-                  className="px-3 py-1.5 rounded-full text-xs border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                  className="px-3 py-1.5 rounded-full text-xs border border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
                 >
                   {s}
                 </button>

@@ -55,7 +55,7 @@ export const GrammarPage = () => {
     <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header Section */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="bg-surface p-6 rounded-2xl border border-line shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
               <BookOpen className="w-6 h-6" />
@@ -70,7 +70,7 @@ export const GrammarPage = () => {
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-surface p-4 rounded-2xl border border-line shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* Search Input */}
           <div className="relative sm:col-span-1">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -124,7 +124,7 @@ export const GrammarPage = () => {
               return (
                 <div
                   key={rule.id}
-                  className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-slate-200 transition-all overflow-hidden"
+                  className="bg-surface rounded-2xl border border-line shadow-sm hover:border-line transition-all overflow-hidden"
                 >
                   {/* Card Header (Click to toggle expand) */}
                   <div
@@ -179,7 +179,7 @@ export const GrammarPage = () => {
                         rule.examples.map((ex, i) => (
                           <div
                             key={i}
-                            className="bg-white p-3 rounded-xl border border-slate-200/60 text-xs text-slate-700 flex items-start gap-2.5 shadow-2xs"
+                            className="bg-surface p-3 rounded-xl border border-line/60 text-xs text-slate-700 flex items-start gap-2.5 shadow-2xs"
                           >
                             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                             <span className="font-medium leading-relaxed">{ex}</span>
@@ -198,7 +198,7 @@ export const GrammarPage = () => {
           </div>
         ) : (
           /* Empty State */
-          <div className="bg-white p-12 rounded-2xl border border-slate-100 text-center space-y-3 shadow-sm">
+          <div className="bg-surface p-12 rounded-2xl border border-line text-center space-y-3 shadow-sm">
             <div className="w-14 h-14 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mx-auto">
               <GraduationCap className="w-7 h-7" />
             </div>
@@ -234,7 +234,7 @@ const GrammarSkeleton = () => (
     {[1, 2, 3].map((i) => (
       <div
         key={i}
-        className="bg-white p-5 rounded-2xl border border-slate-100 space-y-4 animate-pulse"
+        className="bg-surface p-5 rounded-2xl border border-line space-y-4 animate-pulse"
       >
         <div className="flex items-center justify-between">
           <div className="h-5 w-48 bg-slate-200 rounded" />

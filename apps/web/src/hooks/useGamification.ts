@@ -13,6 +13,8 @@ export interface Badge {
   icon: string;
   earnedAt: string | null;
   isNew: boolean;
+  /** Pinned to the top of your profile */
+  pinned: boolean;
   progress: { value: number; target: number };
 }
 
@@ -21,6 +23,8 @@ export interface Achievements {
   earned: number;
   total: number;
   recent: Badge[];
+  pinnedCount: number;
+  maxPinned: number;
 }
 
 export const useAchievements = () =>
@@ -29,6 +33,19 @@ export const useAchievements = () =>
     queryFn: async () => (await apiClient.get<Achievements>('/achievements')).data,
     staleTime: 60_000,
   });
+
+/** Pin or unpin a badge you have earned (the pinned ones come first on your profile) */
+export const usePinBadge = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { key: string; pinned: boolean }) =>
+      (await apiClient.put<{ key: string; pinned: boolean }>(`/achievements/${encodeURIComponent(input.key)}/pin`, { pinned: input.pinned })).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['achievements'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+    },
+  });
+};
 
 export type Zone = 'promote' | 'stay' | 'demote';
 

@@ -518,7 +518,7 @@ export const FlashcardPage: React.FC = () => {
     `h-8 px-3 rounded-full text-xs font-semibold border transition-colors ${
       active
         ? "bg-indigo-600 border-indigo-600 text-white"
-        : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+        : "border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
     }`;
 
   return (

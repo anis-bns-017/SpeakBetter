@@ -156,7 +156,7 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
                       <div
                         className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
                         style={{
-                          background: "rgba(129,140,248,0.18)",
+                          background: "rgba(142,163,232,0.18)",
                           color: THEME.colors.accent.primary,
                         }}
                         aria-hidden="true"
@@ -185,7 +185,7 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
                       onClick={() => handleUnban(ban.userId, name)}
                       className="px-3 py-1.5 rounded-lg font-semibold text-[11px] transition-all hover:scale-[1.03] active:scale-95 disabled:opacity-60 shrink-0"
                       style={{
-                        background: "rgba(129,140,248,0.18)",
+                        background: "rgba(142,163,232,0.18)",
                         color: THEME.colors.accent.primary,
                       }}
                     >

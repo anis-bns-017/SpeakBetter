@@ -12,13 +12,14 @@ import {
 } from '../learning/review.memory';
 import { PACKS } from '../vocab-packs/packs.content';
 
-export type WordSource = 'pack' | 'room' | 'mine' | 'dict';
+export type WordSource = 'pack' | 'room' | 'mine' | 'dict' | 'library';
 export type WordStage = 'new' | 'learning' | 'learned';
 export type BankItemType = 'card' | 'word';
 
 export const WORD_SOURCES: readonly WordSource[] = [
   'pack',
   'dict',
+  'library',
   'room',
   'mine',
 ];
@@ -99,6 +100,7 @@ export function cardSource(
     return { source: 'pack', label: title ? `${title} pack` : 'Word pack' };
   }
   if (source === 'dict') return { source: 'dict', label: 'Dictionary' };
+  if (source === 'library') return { source: 'library', label: 'Library' };
   return { source: 'mine', label: 'Added by you' };
 }
 
@@ -189,6 +191,7 @@ export function summarize(items: BankItem[], now: Date): BankSummary {
   const bySource: Record<WordSource, number> = {
     pack: 0,
     dict: 0,
+    library: 0,
     room: 0,
     mine: 0,
   };

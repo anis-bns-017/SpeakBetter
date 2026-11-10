@@ -282,6 +282,7 @@ export const DictionaryPage: React.FC = () => {
         <PageHeader
           icon={BookA}
           tone="sky"
+          eyebrow="Learn"
           title="Dictionary"
           subtitle={`The ${overview.data ? overview.data.count.toLocaleString() : "13,000"} useful English words, A1 to C2 (the 10,000 most common, then 3,000 advanced C1 and C2 words), with pronunciation, meanings, examples and word families.`}
           actions={

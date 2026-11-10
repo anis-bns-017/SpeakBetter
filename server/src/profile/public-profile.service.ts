@@ -16,16 +16,30 @@ export interface EarnedBadge {
   tier: BadgeTier;
   icon: string;
   earnedAt: Date;
+  /** Pinned by the owner to the top of their profile */
+  pinned: boolean;
 }
 
-/** Badges a person has earned, best tier first, newest first within a tier. Unknown (retired) badges are left out. */
-export function earnedBadges(rows: Array<{ badgeId: string; earnedAt: Date }>): EarnedBadge[] {
+/**
+ * Badges a person has earned: the ones they pinned first (in the order they pinned them), then best tier first,
+ * newest first within a tier. Unknown (retired) badges are left out.
+ */
+export function earnedBadges(rows: Array<{ badgeId: string; earnedAt: Date; pinnedAt?: Date | null }>): EarnedBadge[] {
+  const pinnedAt = new Map(rows.map((r) => [r.badgeId, r.pinnedAt ?? null]));
   return rows
     .flatMap((r) => {
       const def = BADGE_BY_KEY.get(r.badgeId);
-      return def ? [{ key: def.key, name: def.name, description: def.description, tier: def.tier, icon: def.icon, earnedAt: r.earnedAt }] : [];
+      return def
+        ? [{ key: def.key, name: def.name, description: def.description, tier: def.tier, icon: def.icon, earnedAt: r.earnedAt, pinned: !!r.pinnedAt }]
+        : [];
     })
-    .sort((a, b) => TIER_RANK[b.tier] - TIER_RANK[a.tier] || b.earnedAt.getTime() - a.earnedAt.getTime());
+    .sort((a, b) => {
+      const pa = pinnedAt.get(a.key);
+      const pb = pinnedAt.get(b.key);
+      if (pa && pb) return pa.getTime() - pb.getTime();
+      if (pa || pb) return pa ? -1 : 1;
+      return TIER_RANK[b.tier] - TIER_RANK[a.tier] || b.earnedAt.getTime() - a.earnedAt.getTime();
+    });
 }
 
 @Injectable()
@@ -108,7 +122,7 @@ export class PublicProfileService {
     const [xp, streak, badgeRows, league, followers, followingCount, friends, lessonsPassed, textsRead, challengeAnswers] = await Promise.all([
       this.prisma.xpTransaction.aggregate({ where: { userId: targetId }, _sum: { amount: true } }),
       this.prisma.streak.findUnique({ where: { userId: targetId } }),
-      this.prisma.userBadge.findMany({ where: { userId: targetId }, select: { badgeId: true, earnedAt: true } }),
+      this.prisma.userBadge.findMany({ where: { userId: targetId }, select: { badgeId: true, earnedAt: true, pinnedAt: true } }),
       this.prisma.leagueProfile.findUnique({ where: { userId: targetId } }),
       this.prisma.follow.count({ where: { followingId: targetId } }),
       this.prisma.follow.count({ where: { followerId: targetId } }),

@@ -13,6 +13,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useCelebrations, useMarkCelebrated, type Celebrations } from "../../hooks/useGamification";
 import { useMarkQuestNews, useQuests, useStreak, type StreakStatus, type WeeklyQuests } from "../../hooks/useQuests";
 import { BadgeIcon } from "./BadgeIcon";
+import { ShareCardButton } from "./ShareCardDialog";
 import { TIER_STYLE } from "./tiers";
 
 interface Piece {
@@ -81,11 +82,12 @@ const BadgeReveal: React.FC<{
   onNext: () => void;
   onSeeAll: () => void;
 }> = ({ badge, position, reduced, onNext, onSeeAll }) => {
+  const { user } = useAuth();
   const tier = TIER_STYLE[badge.tier];
   const last = position.index === position.total - 1;
   return (
     <Backdrop onClose={onNext} label={`New badge: ${badge.name}`}>
-      {!reduced && <Confetti key={badge.key} colors={[tier.ring, "#6366f1", "#f59e0b", "#10b981", "#ec4899"]} />}
+      {!reduced && <Confetti key={`confetti-${badge.key}`} colors={[tier.ring, "#6366f1", "#f59e0b", "#10b981", "#ec4899"]} />}
       <motion.div
         key={badge.key}
         className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-panel p-7 text-center shadow-2xl"
@@ -113,7 +115,13 @@ const BadgeReveal: React.FC<{
         <p className="mt-2 text-xs font-semibold" style={{ color: tier.ring }}>
           {tier.label}
         </p>
-        <div className="mt-6 flex gap-2">
+        <ShareCardButton
+          variant="soft"
+          label="Share this badge"
+          className="mt-5 w-full"
+          card={{ kind: "badge", person: user?.name ?? "A SpeakBetter learner", name: badge.name, description: badge.description, tier: badge.tier, icon: badge.icon }}
+        />
+        <div className="mt-3 flex gap-2">
           <button
             type="button"
             onClick={onSeeAll}
@@ -148,6 +156,7 @@ const LeagueResult: React.FC<{ result: NonNullable<Celebrations["league"]>; redu
   onClose,
   onOpen,
 }) => {
+  const { user } = useAuth();
   const copy = RESULT_COPY[result.result](result.to.name);
   const podium = result.rank !== null && result.rank <= 3 && result.xp > 0;
   const moved = result.from.index !== result.to.index;
@@ -173,7 +182,7 @@ const LeagueResult: React.FC<{ result: NonNullable<Celebrations["league"]>; redu
           transition={{ type: "spring", stiffness: 220, damping: 13, delay: 0.1 }}
         >
           {podium ? <Medal className="w-6 h-6" /> : <Trophy className="w-6 h-6" />}
-          <span className="text-2xl font-black tabular-nums leading-none mt-0.5">#{result.rank ?? "–"}</span>
+          <span className="text-2xl font-bold tabular-nums leading-none mt-0.5">#{result.rank ?? "–"}</span>
         </motion.div>
         <p className="mt-3 text-sm text-slate-500">
           of {result.groupSize} in the {result.from.name} league · {result.xp.toLocaleString()} XP
@@ -205,7 +214,24 @@ const LeagueResult: React.FC<{ result: NonNullable<Celebrations["league"]>; redu
         <h2 className="mt-5 text-xl font-bold text-slate-900 dark:text-white">{copy.title}</h2>
         <p className="mt-1 text-sm text-slate-500">{copy.line}</p>
 
-        <div className="mt-6 flex gap-2">
+        {(result.result === "promote" || podium) && (
+          <ShareCardButton
+            variant="soft"
+            label="Share this result"
+            className="mt-5 w-full"
+            card={{
+              kind: "league",
+              person: user?.name ?? "A SpeakBetter learner",
+              league: result.result === "promote" ? result.to.name : result.from.name,
+              color: result.result === "promote" ? result.to.color : result.from.color,
+              rank: result.rank,
+              groupSize: result.groupSize,
+              xp: result.xp,
+              result: result.result,
+            }}
+          />
+        )}
+        <div className="mt-3 flex gap-2">
           <button
             type="button"
             onClick={onClose}

@@ -1661,6 +1661,8 @@ model UserBadge {
   earnedAt  DateTime @default(now())
   /// When the learner saw the reveal (null = still to celebrate)
   seenAt    DateTime?
+  /// When the learner pinned it to the top of their profile (null = not pinned)
+  pinnedAt  DateTime?
   createdAt DateTime @default(now())
 
   @@unique([userId, badgeId])

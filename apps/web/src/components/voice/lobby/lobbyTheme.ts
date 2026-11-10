@@ -20,6 +20,8 @@ export const COLORS = {
   surfaceHover: "var(--sx-bg-hover-2d1f4a)",
   border: "var(--sx-border-322754)",
   borderLight: "var(--sx-border-4a3a6e)",
+  /** The brand colour for selected states and primary actions: Lapis, lifted in dark and navy (styles/voice-stage.css) */
+  primary: "var(--lobby-primary)",
   spotlight: "var(--sx-accent-f5a623)",
   spotlightDim: "var(--sx-accent-245-166-35-160)",
   live: "var(--sx-accent-2dd4bf)",

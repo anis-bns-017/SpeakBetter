@@ -92,18 +92,20 @@ export const RoomCard: React.FC<RoomCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       whileHover={{ y: -2 }}
-      className={`group relative rounded-2xl border overflow-hidden transition-shadow hover:shadow-[0_12px_40px_-12px_var(--card-glow)] ${
+      className={`group relative overflow-hidden rounded-3xl border transition-shadow hover:shadow-[0_18px_44px_-18px_var(--card-glow)] ${
         isList ? "flex items-stretch" : ""
       }`}
       style={{
-        background: `linear-gradient(160deg, ${COLORS.surface} 0%, var(--sx-bg-28-20-48-720) 100%)`,
-        borderColor: isUserInRoom ? `color-mix(in srgb, ${COLORS.live} 40%, transparent)` : COLORS.border,
-        ["--card-glow" as string]: `color-mix(in srgb, ${accent} 33.3%, transparent)`,
+        background: `radial-gradient(80% 90% at 0% 0%, color-mix(in srgb, ${accent} 9%, transparent) 0%, transparent 62%), ${COLORS.surface}`,
+        borderColor: isUserInRoom ? `color-mix(in srgb, ${COLORS.live} 45%, transparent)` : COLORS.border,
+        boxShadow: "var(--shadow-sm)",
+        ["--card-glow" as string]: `color-mix(in srgb, ${accent} 45%, transparent)`,
       }}
     >
       <div
-        className={isList ? "w-1 shrink-0" : "h-1"}
-        style={{ background: `linear-gradient(90deg, ${accent}, color-mix(in srgb, ${accent} 33.3%, transparent))` }}
+        aria-hidden
+        className={isList ? "w-1 shrink-0" : "h-[3px]"}
+        style={{ background: `linear-gradient(${isList ? "180deg" : "90deg"}, ${accent}, color-mix(in srgb, ${accent} 12%, transparent))` }}
       />
 
       <div className={`p-5 ${isList ? "flex-1 min-w-0 flex flex-wrap items-center gap-x-6 gap-y-3" : ""}`}>
@@ -112,7 +114,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3
-                  className="font-serif text-lg leading-snug line-clamp-2 break-words max-w-full"
+                  className="font-display text-xl font-semibold leading-snug tracking-tight line-clamp-2 break-words max-w-full"
                   style={{ color: COLORS.textPrimary }}
                   title={room.name}
                 >
@@ -164,8 +166,8 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 aria-pressed={isFavorite}
                 aria-label={isFavorite ? "Unpin room" : "Pin room"}
                 title={isFavorite ? "Unpin room" : "Pin room"}
-                className="p-1.5 rounded-full transition-colors hover:bg-white/5"
-                style={{ color: isFavorite ? COLORS.spotlight : COLORS.textSecondary }}
+                className="grid h-10 w-10 place-items-center rounded-full transition-colors hover:bg-slate-900/[0.05] dark:hover:bg-white/5"
+                style={{ color: isFavorite ? COLORS.spotlight : COLORS.textMuted }}
               >
                 <Star className="w-4 h-4" fill={isFavorite ? "currentColor" : "none"} />
               </button>
@@ -212,11 +214,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                   return (
                     <div
                       key={p.id}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-semibold border-2"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-semibold border-2 shadow-sm"
                       style={{
-                        background: `hsl(${hue}, 35%, 24%)`,
+                        background: `hsl(${hue}, 38%, 30%)`,
                         borderColor: COLORS.surface,
-                        color: COLORS.textPrimary,
+                        color: "#fff",
                       }}
                       title={p.user?.name || "Unknown"}
                     >
@@ -226,7 +228,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 })}
                 {count > preview.length && (
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-semibold border-2"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-semibold border-2"
                     style={{
                       background: COLORS.surfaceRaised,
                       borderColor: COLORS.surface,
@@ -317,7 +319,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           <button
             onClick={onJoin}
             disabled={full || isJoining}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold whitespace-nowrap shadow-sm transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               background: full ? COLORS.textMuted : accent,
               color: COLORS.void,
@@ -336,7 +338,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           {isCreator && (
             <button
               onClick={onEnd}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors hover:bg-white/5 whitespace-nowrap"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium whitespace-nowrap transition-colors hover:bg-slate-900/[0.04] dark:hover:bg-white/5"
               style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
             >
               <Square className="w-3.5 h-3.5" />
@@ -346,7 +348,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
 
           <button
             onClick={onCopyLink}
-            className="p-2 rounded-full transition-colors hover:bg-white/5"
+            className="grid h-11 w-11 place-items-center rounded-full transition-colors hover:bg-slate-900/[0.05] dark:hover:bg-white/5"
             style={{ color: COLORS.textMuted }}
             title="Share room"
             aria-label="Copy room link"

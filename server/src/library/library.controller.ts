@@ -21,6 +21,12 @@ export class LibraryController {
     return this.library.get(req.user.id, id);
   }
 
+  @Post(':id/words')
+  @ApiOperation({ summary: "Save one of a text's key words as a flashcard: { word }" })
+  saveWord(@Req() req: any, @Param('id') id: string, @Body() body: { word?: string }) {
+    return this.library.saveWord(req.user.id, id, body?.word);
+  }
+
   @Post(':id/answers')
   @ApiOperation({ summary: 'Check your answers: { answers: { q1: 2, q2: 0, ... } } (index of the option chosen)' })
   answer(@Req() req: any, @Param('id') id: string, @Body() body: { answers?: Record<string, number> }) {

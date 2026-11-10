@@ -23,6 +23,7 @@ import {
   MapPin,
   Megaphone,
   Pencil,
+  Pin,
   Trophy,
   UserPlus,
   Users,
@@ -32,6 +33,8 @@ import { useUserProfile, type FullProfile, type ProfileRelationship } from "../h
 import { useSendFriendRequest } from "../hooks/useFriends";
 import { FollowButton } from "../components/social/FollowButton";
 import { BadgeIcon } from "../components/gamification/BadgeIcon";
+import { ShareCardButton } from "../components/gamification/ShareCardDialog";
+import type { ShareCardData } from "../lib/shareCard";
 import { TIER_STYLE } from "../components/gamification/tiers";
 import { getLevelProgress, getXpLevel } from "../lib/xpLevels";
 
@@ -70,7 +73,7 @@ const Avatar: React.FC<{ name: string; url: string | null; size?: number }> = ({
   );
 
 /** Follow and friend actions, or edit and share on your own profile */
-const Actions: React.FC<{ userId: string; name: string; relationship: ProfileRelationship }> = ({ userId, name, relationship }) => {
+const Actions: React.FC<{ userId: string; name: string; relationship: ProfileRelationship; progressCard?: ShareCardData }> = ({ userId, name, relationship, progressCard }) => {
   const sendRequest = useSendFriendRequest();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
@@ -97,6 +100,7 @@ const Actions: React.FC<{ userId: string; name: string; relationship: ProfileRel
         >
           {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} {copied ? "Copied" : "Copy link"}
         </button>
+        {progressCard && <ShareCardButton card={progressCard} label="Share my progress" />}
       </div>
     );
   }
@@ -193,7 +197,21 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
               </li>
             </ul>
 
-            <Actions userId={p.id} name={p.name} relationship={p.relationship} />
+            <Actions
+              userId={p.id}
+              name={p.name}
+              relationship={p.relationship}
+              progressCard={{
+                kind: "progress",
+                person: p.name,
+                level,
+                streak: p.stats.streak,
+                xp: p.stats.xp,
+                badges: p.badges.earned,
+                league: p.league?.name ?? null,
+                leagueColor: p.league?.color ?? null,
+              }}
+            />
           </div>
         </div>
       </section>
@@ -257,13 +275,26 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
             </button>
           )}
         </div>
+        {p.relationship.isMe && p.badges.earned > 0 && (
+          <p className="mt-1 text-xs text-slate-500">
+            Pinned badges come first. <Link to="/leagues?tab=badges" className="font-semibold text-indigo-700 hover:underline dark:text-indigo-300">Choose which to pin</Link>
+          </p>
+        )}
         {badges.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">{p.relationship.isMe ? "Earn your first badge by practising today." : "No badges yet."}</p>
         ) : (
           <ul className="mt-4 grid grid-cols-3 sm:grid-cols-6 gap-3">
             {badges.map((b) => (
               <li key={b.key} className="flex flex-col items-center text-center gap-1.5" title={`${b.name}: ${b.description}`}>
-                <BadgeIcon icon={b.icon} tier={b.tier} earned size={52} />
+                <span className="relative">
+                  <BadgeIcon icon={b.icon} tier={b.tier} earned size={52} />
+                  {b.pinned && (
+                    <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-indigo-600 text-white ring-2 ring-white dark:ring-slate-900">
+                      <Pin className="h-2.5 w-2.5" aria-hidden />
+                      <span className="sr-only">Pinned</span>
+                    </span>
+                  )}
+                </span>
                 <span className="text-[11px] font-semibold leading-tight text-slate-800 dark:text-slate-100">{b.name}</span>
                 <span className="text-[11px]" style={{ color: TIER_STYLE[b.tier].ring }}>{TIER_STYLE[b.tier].label}</span>
               </li>

@@ -36,10 +36,10 @@ export const SectionPill: React.FC<SectionPillProps> = ({
       }
       style={{
         background: active
-          ? "rgba(99,102,241,0.12)"
+          ? "rgba(79,102,200,0.12)"
           : "var(--sx-bg-255-255-255-20)",
         borderColor: active
-          ? "rgba(99,102,241,0.45)"
+          ? "rgba(79,102,200,0.45)"
           : THEME.colors.border.primary,
         color: active
           ? THEME.colors.text.primary

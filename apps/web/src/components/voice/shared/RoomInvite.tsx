@@ -153,7 +153,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
               className="px-5 pt-5 pb-4 flex items-start justify-between gap-3"
               style={{
                 background:
-                  "linear-gradient(135deg, rgba(129,140,248,0.14), rgba(167,139,250,0.06))",
+                  "linear-gradient(135deg, rgba(142,163,232,0.14), rgba(170,162,228,0.06))",
               }}
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -229,7 +229,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                     style={{
                       background: copied
                         ? "rgba(52,211,153,0.18)"
-                        : "rgba(129,140,248,0.18)",
+                        : "rgba(142,163,232,0.18)",
                       color: copied
                         ? THEME.colors.accent.success
                         : THEME.colors.accent.primary,

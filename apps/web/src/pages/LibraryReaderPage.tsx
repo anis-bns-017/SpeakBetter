@@ -8,8 +8,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Mic, Pause, Play, RotateCcw, Square, Turtle, Volume2, XCircle } from "lucide-react";
-import { useAnswerLibrary, useLibraryText, type QuizResult } from "../hooks/useLibrary";
+import { ArrowLeft, ArrowRight, BookmarkPlus, Check, CheckCircle2, KeyRound, Loader2, MessageCircle, Mic, Pause, Play, RotateCcw, Square, Turtle, Volume2, XCircle } from "lucide-react";
+import { useAnswerLibrary, useLibraryText, useSaveLibraryWord, type QuestionType, type QuizResult } from "../hooks/useLibrary";
 import { canListen, useListenOnce, useSubmitAttempt } from "../hooks/usePronunciation";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { WordLookup, type WordSelection } from "../components/chat/WordLookup";
@@ -23,10 +23,19 @@ const scoreTone = (score: number) =>
 /** The word under a tap, without the punctuation around it */
 const cleanWord = (token: string) => token.replace(/[‘’]/g, "'").replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, "");
 
+/** What kind of question this is, in words a learner knows from exams */
+const QUESTION_LABEL: Record<QuestionType, string | null> = {
+  detail: null,
+  tfng: "True, false or not given",
+  vocab: "Word meaning",
+  inference: "Between the lines",
+};
+
 export const LibraryReaderPage: React.FC = () => {
   const { textId } = useParams<{ textId: string }>();
   const { data: text, isLoading, isError } = useLibraryText(textId);
   const check = useAnswerLibrary(textId ?? "");
+  const saveWord = useSaveLibraryWord(textId ?? "");
   const submitAttempt = useSubmitAttempt();
   const { listening, listen, stop: stopListening, error: listenError } = useListenOnce();
 
@@ -59,6 +68,17 @@ export const LibraryReaderPage: React.FC = () => {
   }
 
   const rate = slow ? 0.7 : 0.95;
+  const keyWords = new Set(text.vocab.map((w) => w.word.toLowerCase()));
+  const savedCount = text.vocab.filter((w) => w.saved).length;
+
+  const save = async (word: string) => {
+    try {
+      const r = await saveWord.mutateAsync(word);
+      toast.success(r.created ? `Saved "${word}" to your words` : `"${word}" is already in your words`);
+    } catch {
+      toast.error("Couldn't save that word. Try again.");
+    }
+  };
 
   const playFrom = async (start: number, once = false) => {
     const token = ++playToken.current;
@@ -135,11 +155,65 @@ export const LibraryReaderPage: React.FC = () => {
 
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-          {text.level} · {text.kind} · {text.minutes} min
+          {text.level} · {text.kind} · {text.topic} · {text.words} words · {text.minutes} min
         </p>
         <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{text.title}</h1>
         <p className="mt-1 text-sm text-slate-500">{text.summary}</p>
       </header>
+
+      {/* ---------- key words ---------- */}
+      {text.vocab.length > 0 && (
+        <details className={`${card} group p-4 sm:p-5`} open>
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-bold text-slate-900 dark:text-white [&::-webkit-details-marker]:hidden">
+            <KeyRound className="h-4 w-4 text-indigo-600 dark:text-indigo-300" aria-hidden />
+            Key words
+            <span className="font-normal text-slate-500">· {savedCount} of {text.vocab.length} saved</span>
+            <span className="ml-auto text-xs font-semibold text-indigo-700 group-open:hidden dark:text-indigo-300">Show</span>
+            <span className="ml-auto hidden text-xs font-semibold text-indigo-700 group-open:inline dark:text-indigo-300">Hide</span>
+          </summary>
+          <ul className="mt-3 divide-y divide-line">
+            {text.vocab.map((w) => (
+              <li key={w.word} className="flex items-start gap-3 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => showSentence(w.sentence)}
+                    className="text-left text-[15px] font-semibold text-slate-900 hover:underline dark:text-white"
+                    title="Show it in the text"
+                  >
+                    {w.word}
+                  </button>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{w.meaning}</p>
+                </div>
+                {canSpeak() && (
+                  <button
+                    type="button"
+                    onClick={() => void speak(w.word, { rate: 0.8 })}
+                    aria-label={`Hear ${w.word}`}
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-indigo-700 dark:hover:bg-white/5"
+                  >
+                    <Volume2 className="h-4 w-4" aria-hidden />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void save(w.word)}
+                  disabled={w.saved || saveWord.isPending}
+                  aria-label={w.saved ? `${w.word} is saved` : `Save ${w.word} to my words`}
+                  className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors ${
+                    w.saved
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200"
+                      : "border-line bg-surface text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+                  }`}
+                >
+                  {w.saved ? <Check className="h-3.5 w-3.5" aria-hidden /> : <BookmarkPlus className="h-3.5 w-3.5" aria-hidden />}
+                  {w.saved ? "Saved" : "Save"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {/* ---------- listening controls ---------- */}
       <div className={`${card} p-3 flex flex-wrap items-center gap-2 sticky top-2 z-10`}>
@@ -197,7 +271,9 @@ export const LibraryReaderPage: React.FC = () => {
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                           setLookup({ text: word, context: sentence.text, rect: { top: rect.top, left: rect.left, bottom: rect.bottom, width: rect.width } });
                         }}
-                        className="rounded px-[1px] hover:bg-indigo-100/70 dark:hover:bg-indigo-500/20 cursor-pointer"
+                        className={`rounded px-[1px] cursor-pointer hover:bg-indigo-100/70 dark:hover:bg-indigo-500/20 ${
+                          keyWords.has(word.toLowerCase()) ? "bg-indigo-50 font-medium underline decoration-indigo-400 decoration-dotted underline-offset-4 dark:bg-indigo-500/10" : ""
+                        }`}
                       >
                         {token}
                       </button>{" "}
@@ -248,10 +324,11 @@ export const LibraryReaderPage: React.FC = () => {
           const r = result?.results.find((x) => x.id === q.id);
           return (
             <fieldset key={q.id} className="space-y-2">
+              {QUESTION_LABEL[q.type] && <p className="t-eyebrow text-indigo-700 dark:text-indigo-300">{QUESTION_LABEL[q.type]}</p>}
               <legend className="text-sm font-semibold text-slate-900 dark:text-white">
                 {qi + 1}. {q.question}
               </legend>
-              <div className="grid gap-1.5">
+              <div className={q.type === "tfng" ? "grid grid-cols-3 gap-1.5" : "grid gap-1.5"}>
                 {q.options.map((option, oi) => {
                   const picked = answers[q.id] === oi;
                   const isRight = r ? r.correctIndex === oi : false;
@@ -263,7 +340,7 @@ export const LibraryReaderPage: React.FC = () => {
                       disabled={!!result}
                       onClick={() => setAnswers((a) => ({ ...a, [q.id]: oi }))}
                       aria-pressed={picked}
-                      className={`text-left text-sm rounded-xl border px-3.5 py-2.5 transition-colors flex items-center gap-2 ${
+                      className={`${q.type === "tfng" ? "justify-center text-center" : "text-left"} text-sm rounded-xl border px-3.5 py-2.5 min-h-11 transition-colors flex items-center gap-2 ${
                         isRight
                           ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
                           : isWrongPick
@@ -326,6 +403,26 @@ export const LibraryReaderPage: React.FC = () => {
           </button>
         )}
       </section>
+
+      {result && text.discuss.length > 0 && (
+        <section className={`${card} space-y-3 p-5`}>
+          <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+            <MessageCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-300" aria-hidden />
+            Talk about it
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Use the new words out loud. Answer these with a partner, in a voice room, or on your own.</p>
+          <ul className="space-y-2">
+            {text.discuss.map((d) => (
+              <li key={d} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:bg-white/[0.04] dark:text-slate-100">
+                {d}
+              </li>
+            ))}
+          </ul>
+          <Link to="/voice" className="inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/[0.06]">
+            <Mic className="h-4 w-4" aria-hidden /> Find a voice room
+          </Link>
+        </section>
+      )}
 
       <AnimatePresence>
         {lookup && <WordLookup key={`${lookup.text}-${lookup.rect.top}`} selection={lookup} onClose={() => setLookup(null)} />}

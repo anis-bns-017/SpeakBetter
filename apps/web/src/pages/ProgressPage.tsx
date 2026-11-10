@@ -25,6 +25,7 @@ import {
 import { useProgressInsights, type ActivityKind, type ProgressInsights, type WeekStats } from "../hooks/usePlan";
 import { useProgress } from "../hooks/useLearning";
 import { getXpLevel } from "../lib/xpLevels";
+import { PageHeader } from "../components/ui";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -486,15 +487,7 @@ export const ProgressPage: React.FC = () => {
 
   return (
     <div className={`max-w-5xl mx-auto px-4 sm:px-6 py-6 lg:py-10 space-y-5 ${SERIES_VARS}`}>
-      <header className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 flex items-center justify-center shrink-0">
-          <TrendingUp className="w-6 h-6" />
-        </div>
-        <div className="min-w-0">
-          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Your progress</h1>
-          <p className="text-sm text-slate-500">How your practice is going, week by week</p>
-        </div>
-      </header>
+      <PageHeader icon={TrendingUp} tone="indigo" eyebrow="Overview" title="Your progress" subtitle="How your practice is going, week by week." />
 
       {data.summary.length > 0 && (
         <section className="rounded-3xl bg-indigo-900 ring-1 ring-inset ring-white/10 text-white p-5 shadow-md shadow-indigo-500/15">

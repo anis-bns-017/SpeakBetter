@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api/client';
 
-export type WordSource = 'pack' | 'dict' | 'room' | 'mine';
+export type WordSource = 'pack' | 'dict' | 'room' | 'mine' | 'library';
 export type WordStage = 'new' | 'learning' | 'learned';
 export type WordItemType = 'card' | 'word';
 

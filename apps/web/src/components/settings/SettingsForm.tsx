@@ -290,7 +290,7 @@ const Section = ({
   description: string;
   children: React.ReactNode;
 }) => (
-  <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+  <section className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm">
     <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
@@ -462,7 +462,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2 self-start rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm sm:self-center">
+            <div className="flex shrink-0 items-center gap-2 self-start rounded-2xl border border-line bg-surface px-3 py-2 shadow-sm sm:self-center">
               <Zap size={16} className="text-indigo-600" />
               <div>
                 <p className="text-xs font-semibold text-slate-500">
@@ -525,7 +525,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
                 onChange={(event) =>
                   updateField("language", event.target.value)
                 }
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
+                className="w-full appearance-none rounded-xl border border-line bg-surface px-4 py-3 pr-10 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
               >
                 {LANGUAGE_OPTIONS.map((language) => (
                   <option key={language.value} value={language.value}>
@@ -618,7 +618,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
                   onChange={(event) =>
                     updateField("dailyReminderTime", event.target.value)
                   }
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                  className="w-full appearance-none rounded-xl border border-line bg-surface px-4 py-3 pr-10 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
                 >
                   {REMINDER_TIMES.map((time) => (
                     <option key={time} value={time}>
@@ -777,7 +777,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
               type="button"
               onClick={resetChanges}
               disabled={!isDirty || isUpdating}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
             >
               <RotateCcw size={16} />
               Reset

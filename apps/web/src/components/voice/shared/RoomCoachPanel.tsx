@@ -224,13 +224,13 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
             style={{
               borderColor: THEME.colors.border.primary,
               background:
-                "linear-gradient(135deg, rgba(99,102,241,0.14), rgba(236,72,153,0.06))",
+                "linear-gradient(135deg, rgba(79,102,200,0.14), rgba(236,72,153,0.06))",
             }}
           >
             <div className="flex items-center gap-2.5">
               <div
                 className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: "rgba(99,102,241,0.2)" }}
+                style={{ background: "rgba(79,102,200,0.2)" }}
               >
                 <Gauge className="w-4 h-4" style={{ color: THEME.colors.accent.primaryLight }} />
               </div>
@@ -270,7 +270,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 onClick={() => setTab(id)}
                 className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
                 style={{
-                  background: tab === id ? "rgba(99,102,241,0.18)" : "transparent",
+                  background: tab === id ? "rgba(79,102,200,0.18)" : "transparent",
                   color: tab === id ? THEME.colors.text.primary : THEME.colors.text.muted,
                 }}
               >
@@ -379,7 +379,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                             <span
                               key={w}
                               className="px-2 py-0.5 rounded-full text-[11px]"
-                              style={{ background: "rgba(99,102,241,0.14)", color: THEME.colors.accent.primaryLight }}
+                              style={{ background: "rgba(79,102,200,0.14)", color: THEME.colors.accent.primaryLight }}
                             >
                               {w}
                             </span>
@@ -434,8 +434,8 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                         style={{
                           background: myMission.completed
                             ? "rgba(52,211,153,0.08)"
-                            : "linear-gradient(145deg, rgba(99,102,241,0.14), rgba(236,72,153,0.07))",
-                          borderColor: myMission.completed ? "rgba(52,211,153,0.3)" : "rgba(99,102,241,0.3)",
+                            : "linear-gradient(145deg, rgba(79,102,200,0.14), rgba(236,72,153,0.07))",
+                          borderColor: myMission.completed ? "rgba(52,211,153,0.3)" : "rgba(79,102,200,0.3)",
                         }}
                       >
                         <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: THEME.colors.text.muted }}>
@@ -696,7 +696,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                     <button
                       onClick={() => onSpotlight({ level, everyone: true })}
                       className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold"
-                      style={{ background: "rgba(99,102,241,0.14)", color: THEME.colors.accent.primaryLight }}
+                      style={{ background: "rgba(79,102,200,0.14)", color: THEME.colors.accent.primaryLight }}
                     >
                       <Megaphone className="w-3.5 h-3.5" /> Topic card for everyone
                     </button>
@@ -754,7 +754,7 @@ const WordsTab: React.FC<{
   return (
     <>
       {current ? (
-        <div className="rounded-2xl border p-4" style={{ background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.3)" }}>
+        <div className="rounded-2xl border p-4" style={{ background: "rgba(79,102,200,0.08)", borderColor: "rgba(79,102,200,0.3)" }}>
           <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: THEME.colors.text.muted }}>
             Review · {dueWords.length} due
           </div>

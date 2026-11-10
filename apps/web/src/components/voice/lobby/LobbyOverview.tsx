@@ -18,27 +18,23 @@ export const StatsStrip: React.FC<{
     { label: "You are in", value: inside, icon: Headphones, color: COLORS.info },
   ];
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div
+      className="vr-enter mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-3xl border lg:grid-cols-4"
+      style={{ ["--vr-enter-delay" as string]: "160ms", borderColor: COLORS.border, background: COLORS.border }}
+    >
       {stats.map(({ label, value, icon: Icon, color }) => (
-        <div
-          key={label}
-          className="flex items-center gap-3 rounded-2xl border px-4 py-3"
-          style={{ background: "var(--sx-bg-28-20-48-600)", borderColor: COLORS.border }}
-        >
+        <div key={label} className="flex items-center gap-3.5 px-5 py-4" style={{ background: COLORS.surface }}>
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: `color-mix(in srgb, ${color} 12.2%, transparent)`, color }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+            style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="h-[18px] w-[18px]" aria-hidden />
           </div>
           <div className="min-w-0">
-            <p
-              className="text-xl font-semibold leading-none tabular-nums"
-              style={{ color: COLORS.textPrimary }}
-            >
+            <p className="font-display text-[28px] font-semibold leading-none tabular-nums" style={{ color: COLORS.textPrimary }}>
               {value}
             </p>
-            <p className="text-[11px] mt-1 truncate" style={{ color: COLORS.textMuted }}>
+            <p className="mt-1.5 truncate text-xs font-medium" style={{ color: COLORS.textMuted }}>
               {label}
             </p>
           </div>

@@ -114,7 +114,9 @@ export const BADGES: BadgeDef[] = [
   // Reading and listening
   { key: 'read-1', name: 'Bookworm', description: 'Finish a story in the library', category: 'VOCABULARY', tier: 'BRONZE', icon: 'BookOpen', measure: at('textsRead'), target: 1 },
   { key: 'read-10', name: 'Avid reader', description: 'Finish 10 library texts', category: 'VOCABULARY', tier: 'SILVER', icon: 'BookOpen', measure: at('textsRead'), target: 10 },
-  { key: 'read-perfect', name: 'Sharp reader', description: 'Get every question right on a B2 or C1 text', category: 'VOCABULARY', tier: 'GOLD', icon: 'Target', measure: at('hardTextsPerfect'), target: 1 },
+  { key: 'read-25', name: 'Library regular', description: 'Finish 25 library texts', category: 'VOCABULARY', tier: 'GOLD', icon: 'BookOpen', measure: at('textsRead'), target: 25 },
+  { key: 'read-50', name: 'Well read', description: 'Finish 50 library texts', category: 'VOCABULARY', tier: 'PLATINUM', icon: 'GraduationCap', measure: at('textsRead'), target: 50 },
+  { key: 'read-perfect', name: 'Sharp reader', description: 'Get every question right on a B2, C1 or C2 text', category: 'VOCABULARY', tier: 'GOLD', icon: 'Target', measure: at('hardTextsPerfect'), target: 1 },
   { key: 'roleplay-1', name: 'In character', description: 'Finish a role-play conversation', category: 'SPEAKING', tier: 'BRONZE', icon: 'Drama', measure: at('scenariosDone'), target: 1 },
   { key: 'roleplay-all', name: 'Ready for anything', description: 'Finish every role-play scenario', category: 'SPEAKING', tier: 'GOLD', icon: 'Drama', measure: at('scenariosDone'), target: SCENARIOS.length },
   { key: 'shadow-1', name: 'Echo', description: 'Finish a shadowing lesson', category: 'SPEAKING', tier: 'BRONZE', icon: 'Repeat2', measure: at('shadowingLessons'), target: 1 },

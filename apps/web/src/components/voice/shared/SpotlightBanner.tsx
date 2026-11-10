@@ -99,7 +99,7 @@ export const SpotlightBanner: React.FC<SpotlightBannerProps> = ({
                   <span
                     key={v}
                     className="px-2 py-0.5 rounded-full text-[11px]"
-                    style={{ background: "rgba(99,102,241,0.14)", color: THEME.colors.accent.primaryLight }}
+                    style={{ background: "rgba(79,102,200,0.14)", color: THEME.colors.accent.primaryLight }}
                   >
                     {v}
                   </span>

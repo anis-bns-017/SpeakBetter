@@ -79,7 +79,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery, skipToken } from "@tanstack/react-query";
 
 import {
   useVoiceRoom,
@@ -378,7 +378,7 @@ export const RoomDropZone: React.FC<{
           className="fixed inset-0 z-[90] flex items-center justify-center pointer-events-none"
           style={{
             background:
-              "radial-gradient(circle at center, rgba(129,140,248,0.22), var(--sx-bg-10-10-20-550))",
+              "radial-gradient(circle at center, rgba(142,163,232,0.22), var(--sx-bg-10-10-20-550))",
             backdropFilter: "blur(10px)",
           }}
         >
@@ -392,7 +392,7 @@ export const RoomDropZone: React.FC<{
                 "linear-gradient(180deg, var(--sx-bg-24-24-42-850), var(--sx-bg-14-14-26-850))",
               border: `1.5px dashed ${THEME.colors.accent.primary}`,
               boxShadow:
-                "0 30px 80px -20px rgba(129,140,248,0.45), inset 0 0 60px rgba(129,140,248,0.08)",
+                "0 30px 80px -20px rgba(142,163,232,0.45), inset 0 0 60px rgba(142,163,232,0.08)",
             }}
           >
             <motion.div
@@ -483,7 +483,7 @@ export const ConnectionBanner: React.FC<{
               color,
               background:
                 kind === "info"
-                  ? "rgba(129,140,248,0.1)"
+                  ? "rgba(142,163,232,0.1)"
                   : "rgba(251,191,36,0.1)",
               borderBottom: `1px solid ${THEME.colors.border.primary}`,
             }}
@@ -673,7 +673,7 @@ const RoomCard: React.FC<{
         }}
       />
       <div
-        className="relative p-5 rounded-3xl border transition-shadow overflow-hidden group-hover:border-transparent group-hover:shadow-[0_25px_60px_-25px_rgba(129,140,248,0.5)]"
+        className="relative p-5 rounded-3xl border transition-shadow overflow-hidden group-hover:border-transparent group-hover:shadow-[0_25px_60px_-25px_rgba(142,163,232,0.5)]"
         style={{
           background:
             "linear-gradient(180deg, var(--sx-bg-20-20-34-970), var(--sx-bg-12-12-22-970))",
@@ -743,9 +743,9 @@ const RoomCard: React.FC<{
                 <span
                   className="text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold uppercase tracking-wider"
                   style={{
-                    background: "rgba(129,140,248,0.12)",
+                    background: "rgba(142,163,232,0.12)",
                     color: THEME.colors.accent.tertiary,
-                    border: "1px solid rgba(129,140,248,0.25)",
+                    border: "1px solid rgba(142,163,232,0.25)",
                   }}
                 >
                   <span
@@ -779,7 +779,7 @@ const RoomCard: React.FC<{
                       key={lang}
                       className="px-1.5 py-0.5 rounded"
                       style={{
-                        background: "rgba(167,139,250,0.1)",
+                        background: "rgba(170,162,228,0.1)",
                         color: THEME.colors.accent.tertiary,
                       }}
                     >
@@ -790,7 +790,7 @@ const RoomCard: React.FC<{
                     <span
                       className="px-1.5 py-0.5 rounded"
                       style={{
-                        background: "rgba(167,139,250,0.1)",
+                        background: "rgba(170,162,228,0.1)",
                         color: THEME.colors.accent.tertiary,
                       }}
                     >
@@ -832,7 +832,7 @@ const RoomCard: React.FC<{
                   <div
                     className="w-7 h-7 rounded-full ring-2 ring-[var(--sx-border-0a0a14)] flex items-center justify-center text-[9px] font-bold"
                     style={{
-                      background: "rgba(129,140,248,0.2)",
+                      background: "rgba(142,163,232,0.2)",
                       color: THEME.colors.accent.tertiary,
                     }}
                   >
@@ -870,7 +870,7 @@ const RoomCard: React.FC<{
                 boxShadow:
                   isUserInside || isFull
                     ? "none"
-                    : "0 10px 24px -10px rgba(129,140,248,0.8)",
+                    : "0 10px 24px -10px rgba(142,163,232,0.8)",
               }}
             >
               {isUserInside ? (
@@ -1096,8 +1096,8 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           <div
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[11px] font-medium uppercase tracking-wider"
             style={{
-              borderColor: "rgba(129,140,248,0.25)",
-              background: "rgba(129,140,248,0.08)",
+              borderColor: "rgba(142,163,232,0.25)",
+              background: "rgba(142,163,232,0.08)",
               color: THEME.colors.accent.tertiary,
             }}
           >
@@ -1204,7 +1204,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
               ? THEME.colors.accent.primary
               : THEME.colors.border.primary,
             background: showFilters
-              ? "rgba(129,140,248,0.1)"
+              ? "rgba(142,163,232,0.1)"
               : glassInput.background,
             color: showFilters
               ? THEME.colors.accent.tertiary
@@ -1262,7 +1262,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                   : "var(--sx-bg-255-255-255-40)",
                 color: selected ? "var(--sx-text-ffffff)" : THEME.colors.text.secondary,
                 boxShadow: selected
-                  ? "0 6px 16px -6px rgba(129,140,248,0.8)"
+                  ? "0 6px 16px -6px rgba(142,163,232,0.8)"
                   : "none",
               }}
             >
@@ -1369,8 +1369,8 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
               className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5"
               style={{
                 background:
-                  "linear-gradient(135deg, rgba(129,140,248,0.15), rgba(236,72,153,0.1))",
-                border: "1px solid rgba(129,140,248,0.2)",
+                  "linear-gradient(135deg, rgba(142,163,232,0.15), rgba(236,72,153,0.1))",
+                border: "1px solid rgba(142,163,232,0.2)",
               }}
             >
               <Radio
@@ -1635,7 +1635,7 @@ const ClapDock: React.FC<{
           aria-hidden
           className="pointer-events-none absolute inset-0 rounded-full"
           style={{
-            boxShadow: `0 0 ${8 + audioLevel * 24}px ${audioLevel * 4}px rgba(129,140,248,${0.15 + audioLevel * 0.25})`,
+            boxShadow: `0 0 ${8 + audioLevel * 24}px ${audioLevel * 4}px rgba(142,163,232,${0.15 + audioLevel * 0.25})`,
           }}
           animate={{ opacity: [0.4, 0.8, 0.4] }}
           transition={{ duration: 0.6, repeat: Infinity }}
@@ -1662,7 +1662,7 @@ const ClapDock: React.FC<{
                 background:
                   streak >= 5
                     ? `linear-gradient(135deg, ${THEME.colors.accent.warning}, var(--sx-bg-f97316))`
-                    : "rgba(129,140,248,0.2)",
+                    : "rgba(142,163,232,0.2)",
                 color: "var(--sx-text-ffffff)",
               }}
             >
@@ -1775,9 +1775,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const pinMessageMutation = usePinVoiceMessage();
   const leaveRoomMutation = useLeaveVoiceRoom();
 
+  // Read-only view of the messages cache that useRoomMessages fills; skipToken says "never fetch from here"
   const { data: cachedMessages } = useQuery<VoiceMessage[]>({
     queryKey: ["voice-messages", roomId],
-    enabled: false,
+    queryFn: skipToken,
   });
 
   const {

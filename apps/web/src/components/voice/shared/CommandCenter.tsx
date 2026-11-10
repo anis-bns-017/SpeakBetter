@@ -165,10 +165,10 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
               className="rounded-xl border px-3 py-3 text-center transition-all hover:scale-[1.02] active:scale-95"
               style={{
                 background: isActive
-                  ? "rgba(99,102,241,0.12)"
+                  ? "rgba(79,102,200,0.12)"
                   : "var(--sx-bg-255-255-255-20)",
                 borderColor: isActive
-                  ? "rgba(99,102,241,0.35)"
+                  ? "rgba(79,102,200,0.35)"
                   : THEME.colors.border.primary,
               }}
               title={action.hint}

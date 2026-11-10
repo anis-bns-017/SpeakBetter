@@ -33,6 +33,7 @@ import {
 } from "../components/voice/lobby/CreateRoomModal";
 import { RoomCard } from "../components/voice/lobby/RoomCard";
 import { useRoomInterests, useToggleRoomInterest } from "../hooks/useNotifications";
+import { LobbyBackdrop } from "../components/voice/lobby/LobbyBackdrop";
 import { LobbyHero } from "../components/voice/lobby/LobbyHero";
 import {
   StatsStrip,
@@ -586,71 +587,52 @@ export const VoicePage = () => {
       className="relative min-h-screen font-sans overflow-x-hidden"
       style={{ background: COLORS.void }}
     >
-      {/* Ambient glow behind the lobby */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[520px]"
-        style={{
-          background: `radial-gradient(60% 80% at 15% 0%, color-mix(in srgb, ${COLORS.purple} 12.2%, transparent) 0%, transparent 70%), radial-gradient(50% 70% at 90% 5%, color-mix(in srgb, ${COLORS.live} 9.4%, transparent) 0%, transparent 70%)`,
-        }}
-      />
+      <LobbyBackdrop />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {!showRoomView && (
           <>
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+            <div className="vr-enter mb-7 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
               <div>
                 <span
-                  className="text-[11px] font-mono tracking-widest uppercase px-2.5 py-1 rounded-full inline-flex items-center gap-1.5"
+                  className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em]"
                   style={{ background: COLORS.liveDim, color: COLORS.live }}
                 >
                   <span className="relative flex h-1.5 w-1.5">
-                    <span
-                      className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
-                      style={{ background: COLORS.live }}
-                    />
-                    <span
-                      className="relative inline-flex rounded-full h-1.5 w-1.5"
-                      style={{ background: COLORS.live }}
-                    />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ background: COLORS.live }} />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: COLORS.live }} />
                   </span>
-                  Live Conversations
+                  Live conversations
                 </span>
-                <h1
-                  className="font-serif text-3xl sm:text-4xl mt-3"
-                  style={{ color: COLORS.textPrimary }}
-                >
-                  Voice Rooms
+                <h1 className="mt-3 text-[34px] font-semibold leading-[1.05] tracking-tight sm:text-[46px]" style={{ color: COLORS.textPrimary }}>
+                  Voice rooms
                 </h1>
-                <p className="text-sm mt-1" style={{ color: COLORS.textMuted }}>
+                <p className="mt-2 text-[15px]" style={{ color: COLORS.textMuted }}>
                   Practise speaking with real people, any time of day.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={() => navigate("/call")}
-                title="Talk one-to-one with someone at your level"
-                className="inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold transition-colors hover:bg-white/5"
-                style={{ borderColor: COLORS.live, color: COLORS.live }}
-              >
-                <Phone className="h-4 w-4" />
-                Random call
-              </button>
-              <button
-                onClick={openCreate}
-                title="Create room (N)"
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full font-semibold text-sm transition-all hover:scale-105"
-                style={{
-                  background: `linear-gradient(135deg, ${COLORS.spotlight}, var(--sx-bg-ffc857))`,
-                  color: COLORS.void,
-                  boxShadow: `0 10px 30px -10px ${COLORS.spotlight}`,
-                }}
-              >
-                <Plus className="w-4 h-4" />
-                Create Room
-              </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/call")}
+                  title="Talk one-to-one with someone at your level"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full border px-5 text-sm font-semibold transition-colors hover:bg-slate-900/[0.04] dark:hover:bg-white/5"
+                  style={{ borderColor: COLORS.borderLight, color: COLORS.textPrimary, background: "var(--sx-bg-28-20-48-600)" }}
+                >
+                  <Phone className="h-4 w-4" style={{ color: COLORS.live }} />
+                  Random call
+                </button>
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  title="Create room (N)"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-indigo-600 px-6 text-sm font-semibold text-white shadow-md transition-transform hover:scale-[1.03] hover:bg-indigo-700 active:scale-[0.98] dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create room
+                </button>
               </div>
             </div>
 

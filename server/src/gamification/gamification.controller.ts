@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BadgesService } from './badges.service';
@@ -17,6 +17,12 @@ export class GamificationController {
   @ApiOperation({ summary: 'Every badge, which ones you have, and how close you are to the rest' })
   achievements(@Req() req: any) {
     return this.badges.list(req.user.id);
+  }
+
+  @Put('achievements/:key/pin')
+  @ApiOperation({ summary: 'Pin or unpin one of your badges to the top of your profile: { pinned: boolean }' })
+  pin(@Req() req: any, @Param('key') key: string, @Body() body: { pinned?: boolean }) {
+    return this.badges.setPinned(req.user.id, key, body?.pinned !== false);
   }
 
   @Get('leagues/current')

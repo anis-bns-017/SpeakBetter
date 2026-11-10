@@ -98,7 +98,7 @@ const THEME = {
 } as const;
 
 const OWN_BUBBLE_GRADIENT =
-  "linear-gradient(135deg, rgba(99,102,241,0.95), rgba(139,92,246,0.92))";
+  "linear-gradient(135deg, rgba(79,102,200,0.95), rgba(139,129,216,0.92))";
 
 // ============================================================
 // Types
@@ -510,7 +510,7 @@ function renderRichText(text: string, searchQuery: string, onAccent: boolean): R
   const tokenRe = /(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`|https?:\/\/[^\s<]+|(?<![\w@])@[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*)/gi;
   const linkColor = onAccent ? "#ffffff" : THEME.colors.accent.cyan;
   const mentionColor = onAccent ? "#ffffff" : THEME.colors.accent.secondary;
-  const mentionBg = onAccent ? "var(--sx-bg-255-255-255-180)" : "rgba(167,139,250,0.14)";
+  const mentionBg = onAccent ? "var(--sx-bg-255-255-255-180)" : "rgba(170,162,228,0.14)";
 
   const pushPlain = (chunk: string, keyBase: string) => {
     if (!chunk) return;
@@ -788,7 +788,7 @@ const AttachmentList: React.FC<{ attachments: Attachment[]; onOpenImage?: (attac
       if (att.type === "audio") {
         return (
           <div key={att.id} className="col-span-full flex items-center gap-2 p-2 rounded-xl" style={{ background: "var(--sx-bg-0-0-0-200)" }}>
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(129,140,248,0.18)" }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(142,163,232,0.18)" }}>
               <Music className="w-4 h-4" style={{ color: THEME.colors.accent.primary }} />
             </div>
             <div className="min-w-0 flex-1">
@@ -1014,7 +1014,7 @@ const MessageBubble = React.memo(function MessageBubble({
   const toolbarVisible = (hovered || popoverOpen) && !isEditing && !isSending;
 
   const bubbleBackground = isHighlighted
-    ? "rgba(129,140,248,0.22)"
+    ? "rgba(142,163,232,0.22)"
     : isOwn
       ? OWN_BUBBLE_GRADIENT
       : mentionsMe
@@ -1024,7 +1024,7 @@ const MessageBubble = React.memo(function MessageBubble({
   const bubbleBorder = message.isPinned
     ? "rgba(251,191,36,0.55)"
     : isHighlighted
-      ? "rgba(129,140,248,0.5)"
+      ? "rgba(142,163,232,0.5)"
       : isOwn
         ? "transparent"
         : mentionsMe
@@ -1075,7 +1075,7 @@ const MessageBubble = React.memo(function MessageBubble({
         )}
 
         <div
-          className={cn("relative border transition-shadow", compact ? "px-3 py-1.5" : "px-3.5 py-2", isHighlighted && "shadow-[0_0_24px_rgba(129,140,248,0.25)]")}
+          className={cn("relative border transition-shadow", compact ? "px-3 py-1.5" : "px-3.5 py-2", isHighlighted && "shadow-[0_0_24px_rgba(142,163,232,0.25)]")}
           style={{
             background: bubbleBackground,
             borderColor: bubbleBorder,
@@ -1097,7 +1097,7 @@ const MessageBubble = React.memo(function MessageBubble({
               className="w-full text-left mb-1.5 pl-2 pr-2 py-1 border-l-[3px] rounded-md transition-colors hover:brightness-125"
               style={{
                 borderColor: onAccent ? "var(--sx-border-255-255-255-700)" : THEME.colors.accent.primary,
-                background: onAccent ? "var(--sx-bg-0-0-0-180)" : "rgba(129,140,248,0.08)",
+                background: onAccent ? "var(--sx-bg-0-0-0-180)" : "rgba(142,163,232,0.08)",
               }}
               title="Jump to the original message"
             >
@@ -1211,8 +1211,8 @@ const MessageBubble = React.memo(function MessageBubble({
                   onClick={() => isSaved && actions.react(message, emoji)}
                   className="flex items-center gap-1 h-6 px-2 rounded-full text-xs border transition-transform hover:scale-105 active:scale-95"
                   style={{
-                    background: reacted ? "rgba(129,140,248,0.22)" : "var(--sx-bg-255-255-255-50)",
-                    borderColor: reacted ? "rgba(129,140,248,0.55)" : THEME.colors.border.primary,
+                    background: reacted ? "rgba(142,163,232,0.22)" : "var(--sx-bg-255-255-255-50)",
+                    borderColor: reacted ? "rgba(142,163,232,0.55)" : THEME.colors.border.primary,
                   }}
                   title={tip}
                   aria-label={tip}
@@ -1475,7 +1475,7 @@ const MentionSuggestions: React.FC<{
         onClick={() => onSelect(name)}
         onMouseEnter={() => onHover(i)}
         className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm"
-        style={{ color: THEME.colors.text.primary, background: i === activeIndex ? "rgba(129,140,248,0.16)" : "transparent" }}
+        style={{ color: THEME.colors.text.primary, background: i === activeIndex ? "rgba(142,163,232,0.16)" : "transparent" }}
       >
         <UserAvatar name={name} size={24} />
         <span className="truncate">{name}</span>
@@ -1606,9 +1606,9 @@ const ImageLightbox: React.FC<{
 };
 
 const DropOverlay: React.FC = () => (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-2 z-[65] rounded-2xl flex items-center justify-center pointer-events-none" style={{ background: "rgba(99,102,241,0.16)", border: `2px dashed ${THEME.colors.accent.primary}`, backdropFilter: "blur(3px)" }}>
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-2 z-[65] rounded-2xl flex items-center justify-center pointer-events-none" style={{ background: "rgba(79,102,200,0.16)", border: `2px dashed ${THEME.colors.accent.primary}`, backdropFilter: "blur(3px)" }}>
     <div className="text-center">
-      <div className="w-12 h-12 rounded-2xl mx-auto mb-2 flex items-center justify-center" style={{ background: "rgba(129,140,248,0.22)" }}>
+      <div className="w-12 h-12 rounded-2xl mx-auto mb-2 flex items-center justify-center" style={{ background: "rgba(142,163,232,0.22)" }}>
         <Upload className="w-6 h-6" style={{ color: THEME.colors.accent.primary }} />
       </div>
       <div className="text-sm font-semibold" style={{ color: THEME.colors.text.primary }}>Drop to share</div>
@@ -2170,9 +2170,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     node.scrollIntoView({ behavior: "smooth", block: "center" });
     node.animate(
       [
-        { backgroundColor: "rgba(129,140,248,0)" },
-        { backgroundColor: "rgba(129,140,248,0.18)" },
-        { backgroundColor: "rgba(129,140,248,0)" },
+        { backgroundColor: "rgba(142,163,232,0)" },
+        { backgroundColor: "rgba(142,163,232,0.18)" },
+        { backgroundColor: "rgba(142,163,232,0)" },
       ],
       { duration: 1400, easing: "ease-out" },
     );
@@ -2308,14 +2308,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       {/* Header */}
       <div className="h-14 px-3.5 border-b flex items-center justify-between gap-2 shrink-0" style={{ borderColor: THEME.colors.border.primary }}>
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, rgba(129,140,248,0.22), rgba(167,139,250,0.12))" }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, rgba(142,163,232,0.22), rgba(170,162,228,0.12))" }}>
             <MessagesSquare className="w-[18px] h-[18px]" style={{ color: THEME.colors.accent.primary }} />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-semibold tracking-tight" style={{ color: THEME.colors.text.primary }}>Room chat</span>
               {visibleCount > 0 && (
-                <span className="text-[11px] px-1.5 py-px rounded-full tabular-nums font-semibold" style={{ background: "rgba(129,140,248,0.16)", color: "var(--sx-text-c7d2fe)" }}>{visibleCount}</span>
+                <span className="text-[11px] px-1.5 py-px rounded-full tabular-nums font-semibold" style={{ background: "rgba(142,163,232,0.16)", color: "var(--sx-text-c7d2fe)" }}>{visibleCount}</span>
               )}
             </div>
             <div className="flex items-center gap-1.5 text-[11px]" style={{ color: THEME.colors.text.muted }}>
@@ -2463,7 +2463,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         >
           {filteredMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-full text-center px-6 py-10">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: "linear-gradient(135deg, rgba(129,140,248,0.18), rgba(167,139,250,0.08))" }}>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: "linear-gradient(135deg, rgba(142,163,232,0.18), rgba(170,162,228,0.08))" }}>
                 {showPinnedOnly ? <Pin className="w-6 h-6" style={{ color: THEME.colors.accent.warning }} /> : normalizedSearch ? <Search className="w-6 h-6" style={{ color: THEME.colors.accent.primary }} /> : <MessagesSquare className="w-6 h-6" style={{ color: THEME.colors.accent.primary }} />}
               </div>
               <p className="text-sm font-semibold" style={{ color: THEME.colors.text.primary }}>
@@ -2603,7 +2603,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         <AnimatePresence>
           {replyTo && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-              <div className="flex items-center gap-2.5 mb-2 pl-3 pr-1 py-1.5 rounded-xl border-l-[3px]" style={{ borderColor: THEME.colors.accent.primary, background: "rgba(129,140,248,0.08)" }}>
+              <div className="flex items-center gap-2.5 mb-2 pl-3 pr-1 py-1.5 rounded-xl border-l-[3px]" style={{ borderColor: THEME.colors.accent.primary, background: "rgba(142,163,232,0.08)" }}>
                 <Reply className="w-4 h-4 shrink-0" style={{ color: THEME.colors.accent.primary }} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] font-semibold" style={{ color: THEME.colors.accent.secondary }}>Replying to {resolveSenderName(replyTo)}</div>

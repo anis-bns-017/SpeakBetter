@@ -237,7 +237,7 @@ const StageParticles: React.FC = () => {
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(167, 139, 250, ${p.opacity})`;
+        ctx.fillStyle = `rgba(170,162,228, ${p.opacity})`;
         ctx.fill();
       });
 
@@ -426,7 +426,7 @@ const SpeakerAvatar: React.FC<{
             animate={{ opacity: 1, scale: 1 }}
             className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[8px] font-medium whitespace-nowrap"
             style={{
-              background: "rgba(167, 139, 250, 0.9)",
+              background: "rgba(170,162,228, 0.9)",
               color: "var(--sx-text-ffffff)",
             }}
           >
@@ -726,7 +726,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
         <div className="text-center max-w-sm">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{ background: "rgba(167, 139, 250, 0.1)" }}
+            style={{ background: "rgba(170,162,228, 0.1)" }}
           >
             <Radio
               className="w-8 h-8"
@@ -1055,7 +1055,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
           >
             <div
               className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"
-              style={{ background: "rgba(167, 139, 250, 0.1)" }}
+              style={{ background: "rgba(170,162,228, 0.1)" }}
             >
               <Mic
                 className="w-10 h-10"

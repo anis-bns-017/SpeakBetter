@@ -53,7 +53,7 @@ export const UpcomingRooms: React.FC<{ limit?: number }> = ({ limit = 3 }) => {
                 className={`h-8 px-2.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1 shrink-0 transition-colors ${
                   room.interested
                     ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                    : "border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                    : "border border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
                 }`}
               >
                 {room.interested ? <BellRing className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}

@@ -39,7 +39,7 @@ export const BlockedPage = () => {
     <div className="min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface p-6 rounded-2xl border border-line shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
               <ShieldAlert className="w-6 h-6" />
@@ -76,7 +76,7 @@ export const BlockedPage = () => {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between animate-pulse"
+                className="bg-surface p-4 rounded-2xl border border-line flex items-center justify-between animate-pulse"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-slate-200" />
@@ -91,7 +91,7 @@ export const BlockedPage = () => {
           </div>
         ) : isError ? (
           /* Error State */
-          <div className="bg-white p-12 rounded-2xl border border-slate-100 text-center space-y-3">
+          <div className="bg-surface p-12 rounded-2xl border border-line text-center space-y-3">
             <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto">
               <AlertCircle className="w-6 h-6" />
             </div>
@@ -104,7 +104,7 @@ export const BlockedPage = () => {
           </div>
         ) : !data || data.length === 0 ? (
           /* Empty State */
-          <div className="bg-white p-12 rounded-2xl border border-slate-100 text-center space-y-3">
+          <div className="bg-surface p-12 rounded-2xl border border-line text-center space-y-3">
             <div className="w-14 h-14 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mx-auto">
               <UserX className="w-7 h-7" />
             </div>
@@ -117,7 +117,7 @@ export const BlockedPage = () => {
           </div>
         ) : filteredUsers.length === 0 ? (
           /* Search No Results */
-          <div className="bg-white p-8 rounded-2xl border border-slate-100 text-center space-y-2">
+          <div className="bg-surface p-8 rounded-2xl border border-line text-center space-y-2">
             <p className="text-slate-600 font-medium">
               No blocked users match "{searchQuery}"
             </p>
@@ -134,7 +134,7 @@ export const BlockedPage = () => {
               return (
                 <div
                   key={block.id}
-                  className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-slate-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  className="bg-surface p-4 rounded-2xl border border-line shadow-sm hover:border-line transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
                   <div className="flex items-center gap-3">
                     {/* User Avatar */}

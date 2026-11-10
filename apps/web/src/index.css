@@ -3,6 +3,8 @@
 @import "./styles/dark-fallback.css";
 /* Voice rooms, calls and Discover: their palettes in light, dark and navy */
 @import "./styles/stage-palette.css";
+/* Voice room motion: aurora, edge light, speaker halos */
+@import "./styles/voice-stage.css";
 
 /*
  * Themes: light, dark and navy (see src/lib/theme.ts). The `dark` class on <html> turns on every dark:

@@ -116,7 +116,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
             style={{
               borderColor: THEME.colors.border.primary,
               background:
-                "linear-gradient(135deg, rgba(129,140,248,0.14), rgba(167,139,250,0.06))",
+                "linear-gradient(135deg, rgba(142,163,232,0.14), rgba(170,162,228,0.06))",
             }}
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -192,7 +192,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                     className="rounded-xl border p-3"
                     style={{
                       background:
-                        "linear-gradient(135deg, rgba(129,140,248,0.08), rgba(167,139,250,0.03))",
+                        "linear-gradient(135deg, rgba(142,163,232,0.08), rgba(170,162,228,0.03))",
                       borderColor: THEME.colors.border.primary,
                     }}
                   >
@@ -204,7 +204,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                             suggestion.category === "icebreaker"
                               ? "rgba(34,211,238,0.15)"
                               : suggestion.category === "topic"
-                                ? "rgba(129,140,248,0.15)"
+                                ? "rgba(142,163,232,0.15)"
                                 : "rgba(251,191,36,0.15)",
                           color:
                             suggestion.category === "icebreaker"
@@ -379,7 +379,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                             key={w}
                             className="text-[11px] px-1.5 py-0.5 rounded-md"
                             style={{
-                              background: "rgba(129,140,248,0.12)",
+                              background: "rgba(142,163,232,0.12)",
                               color: THEME.colors.accent.primary,
                             }}
                           >
@@ -423,7 +423,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                   style={{
                     borderColor: THEME.colors.border.primary,
                     color: THEME.colors.accent.primary,
-                    background: "rgba(129,140,248,0.06)",
+                    background: "rgba(142,163,232,0.06)",
                   }}
                 >
                   <Zap className="w-3.5 h-3.5" />

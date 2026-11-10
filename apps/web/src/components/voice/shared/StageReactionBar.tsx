@@ -74,11 +74,11 @@ export const StageReactionBar: React.FC<StageReactionBarProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", damping: 24, stiffness: 280 }}
-        className="pointer-events-auto flex items-center gap-1 rounded-full border px-2 py-1.5 shadow-2xl backdrop-blur-xl"
+        className="pointer-events-auto flex items-center gap-1 rounded-full border px-2.5 py-2 shadow-2xl backdrop-blur-2xl"
         style={{
           background: "var(--sx-bg-18-18-32-820)",
           borderColor: "var(--sx-border-255-255-255-120)",
-          boxShadow: "0 8px 32px var(--sx-shadow-0-0-0-450)",
+          boxShadow: "0 16px 44px -12px var(--sx-shadow-0-0-0-600), inset 0 1px 0 rgb(255 255 255 / 0.08)",
         }}
       >
         {/* Expanded mode */}
@@ -93,15 +93,19 @@ export const StageReactionBar: React.FC<StageReactionBarProps> = ({
               className="flex items-center gap-0.5 max-w-[min(88vw,620px)] overflow-x-auto scrollbar-none px-1"
             >
               {ALL_EMOJIS.map((emoji) => (
-                <button
+                <motion.button
                   key={emoji}
                   type="button"
                   onClick={() => handleSend(emoji)}
                   disabled={disabled}
-                  className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-xl hover:bg-white/10 hover:scale-110 active:scale-95 transition-all disabled:opacity-40"
+                  aria-label={`Send ${emoji} reaction`}
+                  whileHover={{ scale: 1.3, y: -6 }}
+                  whileTap={{ scale: 0.88 }}
+                  transition={{ type: "spring", stiffness: 520, damping: 18 }}
+                  className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-[22px] hover:bg-white/[0.08] disabled:opacity-40"
                 >
                   {emoji}
-                </button>
+                </motion.button>
               ))}
             </motion.div>
           ) : (
@@ -114,15 +118,19 @@ export const StageReactionBar: React.FC<StageReactionBarProps> = ({
               className="flex items-center gap-0.5"
             >
               {QUICK_EMOJIS.map((emoji) => (
-                <button
+                <motion.button
                   key={emoji}
                   type="button"
                   onClick={() => handleSend(emoji)}
                   disabled={disabled}
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-xl hover:bg-white/10 hover:scale-110 active:scale-95 transition-all disabled:opacity-40"
+                  aria-label={`Send ${emoji} reaction`}
+                  whileHover={{ scale: 1.3, y: -6 }}
+                  whileTap={{ scale: 0.88 }}
+                  transition={{ type: "spring", stiffness: 520, damping: 18 }}
+                  className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-[22px] hover:bg-white/[0.08] disabled:opacity-40"
                 >
                   {emoji}
-                </button>
+                </motion.button>
               ))}
             </motion.div>
           )}
@@ -135,6 +143,8 @@ export const StageReactionBar: React.FC<StageReactionBarProps> = ({
           className="ml-1 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors shrink-0"
           style={{ color: "var(--sx-text-255-255-255-600)" }}
           title={expanded ? "Show fewer reactions" : "More reactions"}
+          aria-label={expanded ? "Show fewer reactions" : "More reactions"}
+          aria-expanded={expanded}
         >
           {expanded ? (
             <X className="w-4 h-4" />

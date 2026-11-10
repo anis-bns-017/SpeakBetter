@@ -308,7 +308,7 @@ export const AttachmentPreviewModal: React.FC<
                   <div className="text-center">
                     <div
                       className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
-                      style={{ background: "rgba(129,140,248,0.14)" }}
+                      style={{ background: "rgba(142,163,232,0.14)" }}
                     >
                       <FileIcon
                         className="w-7 h-7"
@@ -340,7 +340,7 @@ export const AttachmentPreviewModal: React.FC<
                     exit={{ opacity: 0 }}
                     className="absolute inset-0 flex items-center justify-center z-10"
                     style={{
-                      background: "rgba(129,140,248,0.18)",
+                      background: "rgba(142,163,232,0.18)",
                       backdropFilter: "blur(4px)",
                       border: `2px dashed ${THEME.colors.accent.primary}`,
                     }}

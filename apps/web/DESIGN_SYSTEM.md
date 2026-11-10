@@ -85,13 +85,22 @@ plus colour (`<Badge>`).
 ## 7. Components (`src/components/ui`)
 
 `Button` (primary, secondary, soft, ghost, danger; sm/md/lg), `IconButton` (44px, label required), `Card`
-(default, tint, inset), `PageHeader` (flat tinted icon tile + serif title + one-line subtitle + actions),
+(default, tint, inset), `PageHeader` (section label in the section colour, a 34/46px serif title, one line of context, actions on the right, closed by a hairline),
 `SectionHeader`, `EmptyState`, `Field` + `Input` / `Textarea` / `Select` (visible label, helper or error tied
 with `aria-describedby`), `Chip` (filter pill, `aria-pressed`), `Tabs` (arrow-key navigation), `Badge`, `Stat`,
 `Skeleton`. Frame for sign-in screens: `components/common/AuthShell.tsx`.
 
 Rules: one primary button per screen; every input has a visible label; empty states say what to do next;
 destructive actions use `danger` and ask first; loading buttons use `loading` (disabled + spinner + `aria-busy`).
+
+### Shell rules
+
+- Sidebar: calm and flat. No ambient blobs, light beams or shimmer. The active item is a white pill with a hairline
+  and a flat tile in its section colour (Home lapis, Speak rose, Learn emerald). One solid lapis "Start speaking" button.
+- Page start: always `PageHeader`. Hero panels (Dashboard today, Progress, Writing, Pronunciation, Recap, Packs "start
+  here") are solid `bg-indigo-900` with a white-on-lapis hairline ring, never a multi-colour gradient.
+- Filter chips: selected = lapis fill, unselected = `border-line bg-surface`. Dashboard numbers sit in one divided
+  strip, not six separate cards.
 
 ## 8. Interaction and motion
 
@@ -128,3 +137,32 @@ import { PageHeader, Card, Button, Chip, Tabs, Field, Input, Stat, Badge } from 
 ```
 
 Page wrapper: `min-h-screen bg-page py-8 px-4 sm:px-6 lg:px-8` then `max-w-6xl mx-auto space-y-5`.
+
+## 12. Voice room "stage"
+
+The room is the product's showpiece, so it is the most animated screen. All motion lives in `src/styles/voice-stage.css`
+and uses only `transform` and `opacity`; every animation stops under `prefers-reduced-motion` (the light stays, the
+movement goes). Colours are `--vr-*` variables, so light, dark and navy all work.
+
+- **Backdrop** (`RoomBackdrop`): three slow aurora orbs (Lapis, Orchid, a touch of Saffron), twelve rising motes, film
+  grain and a vignette. It brightens while anyone is speaking.
+- **Panels** (`RoomCard`): deep glass with a conic edge of light that travels around the border (`.vr-edge`, 16s loop).
+- **Entrance:** header, stage and dock rise in one after another (`.vr-enter`, 700ms, staggered 120ms).
+- **Speakers:** a breathing aura, a turning conic ring and two ripples that follow the live voice level
+  (`.vr-halo-*`). People on stage get 104px avatars, the audience 56px.
+- **Dock:** a glass capsule. The mic is a 56px hero button with a breathing aura while you are live (`.vr-aura`).
+- **Small touches:** a calm expanding live dot (`.vr-live-dot`), a tiny equalizer beside "speaking", a sheen on the Clap
+  button, springy reaction emoji, all with labels for screen readers.
+- Rules: nothing animates layout properties; ambient motion stays below the content (z-order); no emoji as status text.
+
+## 13. Voice lobby
+
+The lobby (`/voice`) is the doorway to the stage, so it shares the room's light (`LobbyBackdrop`: the same slow aurora
+orbs, softened and faded out toward the bottom) and its entrance (`.vr-enter`: header, hero and stats rise in turn).
+
+- **Header:** live pill, 34/46px serif title, one line of context. Primary action is the solid Lapis "Create room"; "Random call" is the quiet secondary.
+- **Hero:** the busiest live room (or an invitation to start one) on a 28px panel with the travelling edge of light (`.vr-edge`). Its Join button takes the room type's colour; with no live room, the solid Lapis "Create a room".
+- **Stats:** one divided strip with serif numbers, like the dashboard, not four separate cards.
+- **Room cards:** 24px radius, a faint wash in the room type's colour, a 3px accent line, serif room title, 44px join and share buttons. Pin star is 40px.
+- **Filters:** selected state is Lapis (`COLORS.primary`, `--lobby-primary`: indigo-600 in light, indigo-300 in dark and navy). Search and selects are 44px tall.
+- **Colours:** the lobby and room read the `--sx-*` stage palette. Light is the warm paper set (`#F7F5F1` page, white cards, warm ink); dark and navy use the Lapis family. Light accents are mixed 62% toward black so white-ish text on them and tinted pills clear 4.5:1.
