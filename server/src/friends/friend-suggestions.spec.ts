@@ -34,6 +34,23 @@ describe('friend suggestion ranking', () => {
     expect(s.matchScore).toBe(5 + 3);
   });
 
+  it('shows language names, not codes, and matches a code to its name', () => {
+    // Sign-up stores codes ("en"); older profiles hold names ("English")
+    const coded = { nativeLanguage: 'bn', learningLanguages: ['English'] };
+    const teacher = scoreSuggestion(coded, person('t', { nativeLanguage: 'en', learningLanguages: [] }), NOW);
+    expect(teacher.reason).toBe("Native English speaker — you're learning it");
+    expect(teacher.matchScore).toBeGreaterThanOrEqual(5);
+
+    const exchange = scoreSuggestion(coded, person('x', { nativeLanguage: 'EN', learningLanguages: ['Bangla'] }), NOW);
+    expect(exchange.reason).toBe('Perfect language exchange — English for Bangla');
+
+    const learner = scoreSuggestion(coded, person('l', { nativeLanguage: 'fr', learningLanguages: ['bn'] }), NOW);
+    expect(learner.reason).toBe('Learning Bangla — your native language');
+
+    const fellow = scoreSuggestion({ learningLanguages: ['en'] }, person('f', { nativeLanguage: 'xx', learningLanguages: ['en'] }), NOW);
+    expect(fellow.reason).toBe('Also learning English');
+  });
+
   it('breaks ties by recent activity and rewards being active', () => {
     const ranked = rankSuggestions(me, [
       person('lastMonth', { lastActive: hoursAgo(24 * 30) }),

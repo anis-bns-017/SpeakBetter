@@ -43,15 +43,16 @@ import {
 import { CEFR_CODES, CEFR_INFO } from "../lib/cefr";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { speechCaptionsSupported, useSpeechCaptions } from "../components/call/useSpeechCaptions";
+import { tr, msg } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
 
 const SKILL_META: Record<PlacementSkill, { label: string; icon: LucideIcon; tone: string; hint: string }> = {
-  GRAMMAR: { label: "Grammar", icon: PenLine, tone: "bg-violet-500/10 text-violet-500", hint: "Choose the correct form" },
-  VOCABULARY: { label: "Vocabulary", icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-500", hint: "Choose the right word" },
-  READING: { label: "Reading", icon: Layers, tone: "bg-sky-500/10 text-sky-500", hint: "Read, then answer" },
-  LISTENING: { label: "Listening", icon: Headphones, tone: "bg-amber-500/10 text-amber-500", hint: "Listen, then answer" },
+  GRAMMAR: { label: msg("Grammar"), icon: PenLine, tone: "bg-violet-500/10 text-violet-500", hint: msg("Choose the correct form") },
+  VOCABULARY: { label: msg("Vocabulary"), icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-500", hint: msg("Choose the right word") },
+  READING: { label: msg("Reading"), icon: Layers, tone: "bg-sky-500/10 text-sky-500", hint: msg("Read, then answer") },
+  LISTENING: { label: msg("Listening"), icon: Headphones, tone: "bg-amber-500/10 text-amber-500", hint: msg("Listen, then answer") },
 };
 
 const SPEAKING_PROMPT = "Tell us about your last holiday, or a place you would love to visit and why.";
@@ -76,10 +77,9 @@ const Intro: React.FC<{
       <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center shadow-md shadow-indigo-500/15">
         <Sparkles className="w-7 h-7 text-white" />
       </div>
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-5">Find your English level</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-5">{tr("Find your English level")}</h1>
       <p className="text-slate-600 dark:text-slate-300 mt-2">
-        {total} questions, about 8 minutes. We adjust the difficulty as you go, then place you from A1 to C2.
-      </p>
+        {total} {" "}{tr("questions, about 8 minutes. We adjust the difficulty as you go, then place you from A1 to C2.")}</p>
     </div>
 
     <div className={`${card} p-5 mt-8 grid grid-cols-2 gap-3`}>
@@ -91,8 +91,8 @@ const Intro: React.FC<{
               <Icon className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</p>
-              <p className="text-xs text-slate-500">{hint}</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{tr(label)}</p>
+              <p className="text-xs text-slate-500">{tr(hint)}</p>
             </div>
           </div>
         );
@@ -100,9 +100,9 @@ const Intro: React.FC<{
     </div>
 
     <ul className="mt-6 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-      <li className="flex gap-2"><Check className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" /> Don't guess — choose “I don't know” when you're unsure. It gives a more accurate level.</li>
-      <li className="flex gap-2"><Check className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" /> Use headphones or turn your sound on for the listening questions.</li>
-      <li className="flex gap-2"><Check className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" /> No dictionaries or translators. It's only for you, and you can retake it once a day.</li>
+      <li className="flex gap-2"><Check className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" /> {" "}{tr("Don't guess — choose “I don't know” when you're unsure. It gives a more accurate level.")}</li>
+      <li className="flex gap-2"><Check className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" /> {" "}{tr("Use headphones or turn your sound on for the listening questions.")}</li>
+      <li className="flex gap-2"><Check className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" /> {" "}{tr("No dictionaries or translators. It's only for you, and you can retake it once a day.")}</li>
     </ul>
 
     <button
@@ -112,7 +112,7 @@ const Intro: React.FC<{
       className="mt-8 w-full h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold flex items-center justify-center gap-2 transition-colors"
     >
       {starting ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-      {resumeAt !== null ? `Continue — question ${resumeAt + 1} of ${total}` : "Start the test"}
+      {resumeAt !== null ? tr("Continue — question {value} of {total}", { value: resumeAt + 1, total }) : tr("Start the test")}
     </button>
   </div>
 );
@@ -172,7 +172,7 @@ const Question: React.FC<{
         <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${meta.tone}`}>
           <Icon className="w-4 h-4" />
         </span>
-        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{meta.label}</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{tr(meta.label)}</span>
       </div>
 
       {question.passage && (
@@ -191,20 +191,19 @@ const Question: React.FC<{
               className="h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/[0.05] disabled:opacity-50"
             >
               <Volume2 className={`w-4 h-4 ${playing ? "animate-pulse text-indigo-500" : ""}`} />
-              {playing ? "Playing…" : plays === 0 ? "Play audio" : plays >= MAX_PLAYS ? "No plays left" : "Play again"}
-              <span className="text-xs font-normal text-slate-400">{MAX_PLAYS - plays} left</span>
+              {playing ? tr("Playing…") : plays === 0 ? tr("Play audio") : plays >= MAX_PLAYS ? tr("No plays left") : tr("Play again")}
+              <span className="text-xs font-normal text-slate-400">{MAX_PLAYS - plays} {" "}{tr("left")}</span>
             </button>
           ) : (
             <p className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-sm text-amber-800 dark:text-amber-200">
-              Audio isn't supported in this browser, so here is the text: “{question.audio}”
-            </p>
+              {tr("Audio isn't supported in this browser, so here is the text: “{audio}”", { audio: question.audio })}</p>
           )}
         </div>
       )}
 
       <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mt-5 leading-snug">{question.prompt}</h2>
 
-      <div role="radiogroup" aria-label="Answer options" className="mt-4 space-y-2.5">
+      <div role="radiogroup" aria-label={tr("Answer options")} className="mt-4 space-y-2.5">
         {question.options.map((option, index) => {
           const active = selected === index;
           return (
@@ -240,8 +239,7 @@ const Question: React.FC<{
           disabled={busy}
           className="h-11 px-4 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50"
         >
-          I don't know
-        </button>
+          {tr("I don't know")}</button>
         <button
           type="button"
           onClick={() => submit(false)}
@@ -249,11 +247,11 @@ const Question: React.FC<{
           className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-semibold flex items-center gap-2 transition-colors"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {progress.answered + 1 === progress.total ? "Finish" : "Next"}
+          {progress.answered + 1 === progress.total ? tr("Finish") : tr("Next")}
           {!busy && <ArrowRight className="w-4 h-4" />}
         </button>
       </div>
-      <p className="hidden sm:block text-center text-[11px] text-slate-400 mt-3">Press 1–4 to choose, Enter to continue</p>
+      <p className="hidden sm:block text-center text-[11px] text-slate-400 mt-3">{tr("Press 1–4 to choose, Enter to continue")}</p>
     </div>
   );
 };
@@ -268,7 +266,7 @@ const Quiz: React.FC<{
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 lg:py-12">
       <div className="flex items-center justify-between text-sm mb-2">
         <span className="font-semibold text-slate-900 dark:text-slate-100">
-          Question {progress.answered + 1} <span className="text-slate-400 font-normal">of {progress.total}</span>
+          {tr("Question")}{" "}{progress.answered + 1} <span className="text-slate-400 font-normal">{tr("of")}{" "}{progress.total}</span>
         </span>
         <span className="text-slate-400 tabular-nums">{pct}%</span>
       </div>
@@ -330,14 +328,14 @@ const SpeakingCard: React.FC<{ attemptId: string; saved: SpeakingSample | null }
       setHeard("");
       setInterim("");
       if (!text) {
-        toast.error("We didn't hear anything. Check your microphone and try again.");
+        toast.error(tr("We didn't hear anything. Check your microphone and try again."));
         return;
       }
       try {
         setSample(await sendSample({ attemptId, transcript: text, seconds: Math.max(1, elapsed) }));
         setAnalysed(text);
       } catch {
-        toast.error("Couldn't analyse your speaking sample. Please try again.");
+        toast.error(tr("Couldn't analyse your speaking sample. Please try again."));
       }
     },
     [attemptId, sendSample],
@@ -360,8 +358,8 @@ const SpeakingCard: React.FC<{ attemptId: string; saved: SpeakingSample | null }
   if (!supported) {
     return (
       <div className={`${card} p-5`}>
-        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Speaking sample</p>
-        <p className="text-sm text-slate-500 mt-1">Speech recognition works in Chrome and Edge. Open the test there to add a spoken sample.</p>
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{tr("Speaking sample")}</p>
+        <p className="text-sm text-slate-500 mt-1">{tr("Speech recognition works in Chrome and Edge. Open the test there to add a spoken sample.")}</p>
       </div>
     );
   }
@@ -373,23 +371,22 @@ const SpeakingCard: React.FC<{ attemptId: string; saved: SpeakingSample | null }
           <Mic className="w-5 h-5" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Add a speaking sample <span className="text-slate-400 font-normal">(optional)</span></p>
-          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{SPEAKING_PROMPT} Speak for about 30 seconds.</p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{tr("Add a speaking sample")}{" "}<span className="text-slate-400 font-normal">{tr("(optional)")}</span></p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{SPEAKING_PROMPT} {" "}{tr("Speak for about 30 seconds.")}</p>
         </div>
       </div>
 
       {recording && (
         <div className="mt-4 p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.04] text-sm text-slate-600 dark:text-slate-300 min-h-[3.5rem]">
           <span className="inline-flex items-center gap-2 text-xs font-semibold text-rose-500 mb-1">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /> Listening · {seconds}s
-          </span>
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /> {" "}{tr("Listening · {seconds}s", { seconds })}</span>
           <p>
             {heard || interim ? (
               <>
                 {heard} <span className="text-slate-400">{interim}</span>
               </>
             ) : (
-              <span className="text-slate-400">Start speaking… your words appear here as you talk.</span>
+              <span className="text-slate-400">{tr("Start speaking… your words appear here as you talk.")}</span>
             )}
           </p>
         </div>
@@ -397,52 +394,46 @@ const SpeakingCard: React.FC<{ attemptId: string; saved: SpeakingSample | null }
       {error && <p className="mt-3 text-sm text-rose-500">{error}</p>}
       {analysing && (
         <p className="mt-4 text-sm text-slate-500 flex items-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin" /> Analysing what you said…
-        </p>
+          <Loader2 className="w-4 h-4 animate-spin" /> {" "}{tr("Analysing what you said…")}</p>
       )}
 
       {sample && !recording && !analysing && (
         <div className="mt-4 space-y-3">
           {sample.tooShort ? (
             <p className="text-sm text-amber-600 dark:text-amber-400">
-              We only heard {sample.words} word{sample.words === 1 ? "" : "s"}, and we need at least 15 to give feedback.
-              Try again and speak for about 30 seconds.
-            </p>
+              {tr("We only heard {words} word{value}, and we need at least 15 to give feedback. Try again and speak for about 30 seconds.", { words: sample.words, value: sample.words === 1 ? "" : "s" })}</p>
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: "Fluency", value: sample.fluency === null ? "—" : `${sample.fluency}/100` },
-                  { label: "Pace", value: sample.wpm === null ? "—" : `${sample.wpm} wpm` },
-                  { label: "Fillers", value: `${sample.fillersPer100}/100 words` },
-                  { label: "Words", value: String(sample.words) },
+                  { label: msg("Fluency"), value: sample.fluency === null ? "—" : `${sample.fluency}/100` },
+                  { label: msg("Pace"), value: sample.wpm === null ? "—" : `${sample.wpm} wpm` },
+                  { label: msg("Fillers"), value: `${sample.fillersPer100}/100 words` },
+                  { label: msg("Words"), value: String(sample.words) },
                 ].map((s) => (
                   <div key={s.label} className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.04]">
                     <p className="text-lg font-bold text-slate-900 dark:text-white tabular-nums">{s.value}</p>
-                    <p className="text-xs text-slate-500">{s.label}</p>
+                    <p className="text-xs text-slate-500">{tr(s.label)}</p>
                   </div>
                 ))}
               </div>
               {(sample.fluency === null || sample.wpm === null) && (
                 <p className="text-xs text-slate-500">
-                  “—” means the sample was too short for that score. Fluency needs about 25 words, pace needs 20 words over at least 15 seconds.
-                </p>
+                  {tr("“—” means the sample was too short for that score. Fluency needs about 25 words, pace needs 20 words over at least 15 seconds.")}</p>
               )}
               {sample.richWords.length > 0 && (
-                <p className="text-xs text-slate-500">Longer words you used: {sample.richWords.join(", ")}</p>
+                <p className="text-xs text-slate-500">{tr("Longer words you used:")}{" "}{sample.richWords.join(", ")}</p>
               )}
             </>
           )}
           {analysed && (
             <details className="text-xs text-slate-500">
-              <summary className="cursor-pointer select-none">What we heard</summary>
+              <summary className="cursor-pointer select-none">{tr("What we heard")}</summary>
               <p className="mt-1.5 p-3 rounded-xl bg-slate-50 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300">{analysed}</p>
             </details>
           )}
           <p className="text-xs text-slate-400">
-            Your browser turns your voice into text, and we measure the text: how fast you talk, filler words (um, like, you know), repeated words and word variety.
-            This doesn't judge grammar or pronunciation, and it doesn't change your level.
-          </p>
+            {tr("Your browser turns your voice into text, and we measure the text: how fast you talk, filler words (um, like, you know), repeated words and word variety. This doesn't judge grammar or pronunciation, and it doesn't change your level.")}</p>
         </div>
       )}
 
@@ -453,8 +444,7 @@ const SpeakingCard: React.FC<{ attemptId: string; saved: SpeakingSample | null }
             onClick={() => finish(seconds)}
             className="h-11 px-5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold flex items-center gap-2"
           >
-            <Square className="w-4 h-4" /> Stop and analyse
-          </button>
+            <Square className="w-4 h-4" /> {" "}{tr("Stop and analyse")}</button>
         ) : (
           <button
             type="button"
@@ -470,7 +460,7 @@ const SpeakingCard: React.FC<{ attemptId: string; saved: SpeakingSample | null }
             className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold flex items-center gap-2"
           >
             {analysing ?<Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
-            {sample && !sample.tooShort ? "Record again" : "Start speaking"}
+            {sample && !sample.tooShort ? tr("Record again") : tr("Start speaking")}
           </button>
         )}
       </div>
@@ -503,8 +493,8 @@ const Result: React.FC<{
   );
 
   const steps: Array<{ to: string; title: string; desc: string; icon: LucideIcon; tone: string }> = [
-    { to: "/voice", title: "Join a voice room", desc: "Practise live with people around your level", icon: AudioLines, tone: "bg-indigo-500/10 text-indigo-500" },
-    { to: "/call", title: "Try a random call", desc: "A 1:1 chat with someone at a similar level", icon: Phone, tone: "bg-rose-500/10 text-rose-500" },
+    { to: "/voice", title: msg("Join a voice room"), desc: msg("Practise live with people around your level"), icon: AudioLines, tone: "bg-indigo-500/10 text-indigo-500" },
+    { to: "/call", title: msg("Try a random call"), desc: msg("A 1:1 chat with someone at a similar level"), icon: Phone, tone: "bg-rose-500/10 text-rose-500" },
     { to: "/flashcards", title: `Review your ${SKILL_META[result.weakest].label.toLowerCase()}`, desc: `${SKILL_META[result.weakest].label} is your weakest skill`, icon: Layers, tone: "bg-sky-500/10 text-sky-500" },
   ];
 
@@ -516,19 +506,19 @@ const Result: React.FC<{
         className={`relative overflow-hidden rounded-3xl p-7 sm:p-9 text-white bg-gradient-to-br ${info.gradient} shadow-xl`}
       >
         <div className="absolute -top-20 -right-12 w-64 h-64 rounded-full bg-white/15 blur-3xl pointer-events-none" />
-        <p className="relative text-xs font-semibold uppercase tracking-[0.16em] text-white/80">Your English level</p>
+        <p className="relative text-xs font-semibold uppercase tracking-[0.16em] text-white/80">{tr("Your English level")}</p>
         <div className="relative flex items-end gap-4 mt-2">
           <span className="text-6xl sm:text-7xl font-bold tracking-tight leading-none">{result.level}</span>
           <span className="text-xl font-semibold pb-1.5">{info.name}</span>
         </div>
-        <p className="relative text-white/90 mt-4 max-w-lg">{info.summary}</p>
+        <p className="relative text-white/90 mt-4 max-w-lg">{tr(info.summary)}</p>
         <p className="relative text-sm text-white/75 mt-3">
-          {result.correct} of {result.total} correct · {confidenceNote}
+          {result.correct} {" "}{tr("of {total} correct ·", { total: result.total })}{" "}{confidenceNote}
         </p>
       </motion.section>
 
       <section className={`${card} p-5 sm:p-6`}>
-        <h2 className="text-base font-semibold text-slate-900 dark:text-white">Skill by skill</h2>
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white">{tr("Skill by skill")}</h2>
         <div className="mt-4 space-y-4">
           {(Object.keys(SKILL_META) as PlacementSkill[]).map((skill) => {
             const meta = SKILL_META[skill];
@@ -543,9 +533,9 @@ const Result: React.FC<{
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium text-slate-800 dark:text-slate-100">
-                      {meta.label}
-                      {skill === result.strongest && <span className="ml-2 text-[11px] font-semibold text-emerald-600">Strongest</span>}
-                      {skill === result.weakest && <span className="ml-2 text-[11px] font-semibold text-amber-600">To improve</span>}
+                      {tr(meta.label)}
+                      {skill === result.strongest && <span className="ml-2 text-[11px] font-semibold text-emerald-600">{tr("Strongest")}</span>}
+                      {skill === result.weakest && <span className="ml-2 text-[11px] font-semibold text-amber-600">{tr("To improve")}</span>}
                     </span>
                     <span className="text-slate-500 tabular-nums">
                       <span className="font-semibold text-slate-800 dark:text-slate-100">{r.level}</span> · {r.correct}/{r.total}
@@ -564,7 +554,7 @@ const Result: React.FC<{
       <SpeakingCard attemptId={attemptId} saved={speaking} />
 
       <section className={`${card} p-5 sm:p-6`}>
-        <h2 className="text-base font-semibold text-slate-900 dark:text-white">Where to next</h2>
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white">{tr("Where to next")}</h2>
         <div className="mt-3 grid sm:grid-cols-3 gap-3">
           {steps.map((s) => {
             const Icon = s.icon;
@@ -577,8 +567,8 @@ const Result: React.FC<{
                 <span className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${s.tone}`}>
                   <Icon className="w-[18px] h-[18px]" />
                 </span>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{s.title}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{s.desc}</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{tr(s.title)}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{tr(s.desc)}</p>
               </Link>
             );
           })}
@@ -586,12 +576,18 @@ const Result: React.FC<{
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link to="/dashboard" className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold flex items-center gap-2">
-          Go to dashboard <ArrowRight className="w-4 h-4" />
-        </Link>
+        {inWelcome() ? (
+          <Link to="/welcome" className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold flex items-center gap-2">
+            {tr("Continue setting up")}{" "}<ArrowRight className="w-4 h-4" />
+          </Link>
+        ) : (
+          <Link to="/dashboard" className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold flex items-center gap-2">
+            {tr("Go to dashboard")}{" "}<ArrowRight className="w-4 h-4" />
+          </Link>
+        )}
         {retakeAt ? (
           <span className="text-sm text-slate-500 flex items-center gap-1.5">
-            <Clock className="w-4 h-4" /> You can retake it {formatWhen(retakeAt)}
+            <Clock className="w-4 h-4" /> {" "}{tr("You can retake it")}{" "}{formatWhen(retakeAt)}
           </span>
         ) : (
           <button
@@ -600,8 +596,7 @@ const Result: React.FC<{
             disabled={retaking}
             className="h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/[0.05] disabled:opacity-60"
           >
-            {retaking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} Retake the test
-          </button>
+            {retaking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} {" "}{tr("Retake the test")}</button>
         )}
       </div>
     </div>
@@ -611,6 +606,15 @@ const Result: React.FC<{
 // ============================================================
 // Page
 // ============================================================
+
+/** True while the first-day guide is in progress (it keeps its answers in sessionStorage) */
+const inWelcome = () => {
+  try {
+    return !!sessionStorage.getItem("sb.welcome");
+  } catch {
+    return false;
+  }
+};
 
 export const PlacementPage: React.FC = () => {
   const { data: status, isLoading, isError, refetch } = usePlacementStatus();
@@ -627,10 +631,10 @@ export const PlacementPage: React.FC = () => {
       setProgress(await start.mutateAsync());
     } catch (err) {
       if (isAxiosError(err) && err.response?.status === 429) {
-        toast.error("You can retake the test once a day. Come back tomorrow!");
+        toast.error(tr("You can retake the test once a day. Come back tomorrow!"));
         void refetch();
       } else {
-        toast.error("Couldn't start the test. Please try again.");
+        toast.error(tr("Couldn't start the test. Please try again."));
       }
     }
   }, [start, refetch]);
@@ -655,7 +659,7 @@ export const PlacementPage: React.FC = () => {
           setProgress(reply);
         }
       } catch {
-        toast.error("Couldn't save that answer. Please try again.");
+        toast.error(tr("Couldn't save that answer. Please try again."));
       }
     },
     [answer, progress],
@@ -672,10 +676,9 @@ export const PlacementPage: React.FC = () => {
   if (isError || !status) {
     return (
       <div className="max-w-xl mx-auto px-6 py-24 text-center">
-        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">We couldn't load the placement test</p>
+        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tr("We couldn't load the placement test")}</p>
         <button type="button" onClick={() => refetch()} className="mt-5 px-4 h-10 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
-          Try again
-        </button>
+          {tr("Try again")}</button>
       </div>
     );
   }

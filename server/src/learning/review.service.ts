@@ -6,6 +6,7 @@ import { MISTAKE_PATTERNS, isPattern, patternFor, type MistakePattern } from './
 import { NEW_CARD, type Rating } from './srs';
 import { DEFAULT_RETENTION, isRetention, previewAll, recallNow, retrievability, review as fsrsReview, RETENTION_OPTIONS, type ReviewState } from './fsrs';
 import { cardState, cardUpdate, wordState, wordUpdate } from './review.memory';
+import { MemoryModelService } from './memory-model.service';
 
 /** Corrections that arrive faster than this in a day stop making cards, so one chatty room can't bury the deck */
 export const AUTO_CARDS_PER_DAY = 30;
@@ -77,6 +78,8 @@ export class ReviewService {
   constructor(
     private prisma: PrismaService,
     private activity: ActivityService,
+    // Each learner's own scheduling weights (tests that leave it out get the standard ones)
+    private memory: MemoryModelService = new MemoryModelService(prisma),
   ) {}
 
   // ---------------- cards from corrections ----------------
@@ -236,7 +239,7 @@ export class ReviewService {
     const now = new Date();
     const limit = Math.min(Math.max(Math.floor(options.limit ?? QUEUE_DEFAULT) || QUEUE_DEFAULT, 1), QUEUE_MAX);
     await this.ensureReviews(userId);
-    const retention = await this.getRetention(userId);
+    const [retention, weights] = await Promise.all([this.getRetention(userId), this.memory.weightsFor(userId)]);
     const percent = (state: ReviewState) => {
       const r = recallNow(state, now);
       return r === null ? null : Math.round(r * 100);
@@ -284,7 +287,7 @@ export class ReviewService {
           patternLabel: pattern ? MISTAKE_PATTERNS[pattern].label : null,
           isNew: r.reviewCount === 0,
           dueAt: r.dueAt,
-          preview: previewAll(state, now, retention),
+          preview: previewAll(state, now, retention, weights),
           recall: percent(state),
         };
       }),
@@ -302,7 +305,7 @@ export class ReviewService {
           patternLabel: null,
           isNew: w.reviewCount === 0,
           dueAt: w.dueAt,
-          preview: previewAll(state, now, retention),
+          preview: previewAll(state, now, retention, weights),
           recall: percent(state),
         };
       }),
@@ -353,8 +356,9 @@ export class ReviewService {
   async getStats(userId: string, now = new Date()) {
     await this.ensureReviews(userId);
     const since = new Date(now.getTime() - 30 * DAY_MS);
-    const [retention, cards, words, logs] = await Promise.all([
+    const [retention, model, cards, words, logs] = await Promise.all([
       this.getRetention(userId),
+      this.memory.summary(userId).catch(() => null),
       this.prisma.flashcardReview.findMany({
         where: { userId, flashcard: { userId } },
         select: { stability: true, difficulty: true, easeFactor: true, interval: true, reviewCount: true, lapses: true, lastReviewedAt: true, dueAt: true },
@@ -403,6 +407,8 @@ export class ReviewService {
       averageRecall: recalls.length ? Math.round((recalls.reduce((a, b) => a + b, 0) / recalls.length) * 100) : null,
       forecast,
       last30: { reviews: logs.length, remembered, retention: logs.length ? Math.round((remembered / logs.length) * 100) : null },
+      /** Whether the schedule follows this learner's own memory yet */
+      model,
     };
   }
 
@@ -431,13 +437,15 @@ export class ReviewService {
 
   async answer(userId: string, input: { type: 'card' | 'word'; id: string; rating: Rating }) {
     const now = new Date();
-    const retention = await this.getRetention(userId);
+    const [retention, weights] = await Promise.all([this.getRetention(userId), this.memory.weightsFor(userId)]);
+    // Now and then this starts a background refit of the learner's own weights
+    this.memory.noteAnswer(userId);
 
     if (input.type === 'word') {
       const word = await this.prisma.voiceSavedWord.findFirst({ where: { id: input.id, userId } });
       if (!word) throw new NotFoundException('Word not found');
       const before = wordState(word);
-      const next = fsrsReview(before, input.rating, now, retention);
+      const next = fsrsReview(before, input.rating, now, retention, weights);
       const updated = await this.prisma.voiceSavedWord.update({ where: { id: word.id }, data: wordUpdate(next, now, input.rating, word.box) });
       await this.logReview(userId, 'word', word.id, input.rating, before, next.memory, now);
       if (input.rating !== 'again') await this.activity.recordCappedActivity(userId, XP_REWARDS.flashcardReview, 'FLASHCARD_REVIEW', REVIEW_XP_DAILY_CAP);
@@ -449,7 +457,7 @@ export class ReviewService {
     const review = await this.prisma.flashcardReview.findFirst({ where: { flashcardId: card.id, userId } });
 
     const before: ReviewState = review ? cardState(review) : { memory: null, lastReviewedAt: null, reviewCount: 0, lapses: 0, interval: 0 };
-    const next = fsrsReview(before, input.rating, now, retention);
+    const next = fsrsReview(before, input.rating, now, retention, weights);
     const data = cardUpdate(next, now);
     const saved = review
       ? await this.prisma.flashcardReview.update({ where: { id: review.id }, data })

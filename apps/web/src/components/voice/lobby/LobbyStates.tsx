@@ -5,12 +5,13 @@ import { ChevronDown, Mic, Plus, SearchX } from "lucide-react";
 import type { VoiceRoom } from "../../../hooks/useVoice";
 import { COLORS } from "./lobbyTheme";
 import { timeSince } from "./lobbyUtils";
+import { tr } from "../../../i18n/core";
 
 export const LobbySkeleton: React.FC<{ list: boolean }> = ({ list }) => (
   <div
     className={list ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"}
     aria-busy="true"
-    aria-label="Loading rooms"
+    aria-label={tr("Loading rooms")}
   >
     {[1, 2, 3].map((i) => (
       <div
@@ -50,12 +51,12 @@ export const LobbyEmpty: React.FC<{
       )}
     </div>
     <h3 className="text-xl font-semibold mb-2" style={{ color: COLORS.textPrimary }}>
-      {filtered ? "No rooms match" : "No active rooms yet"}
+      {filtered ? tr("No rooms match") : tr("No active rooms yet")}
     </h3>
     <p className="max-w-sm text-sm mb-6" style={{ color: COLORS.textMuted }}>
       {filtered
-        ? "Try a different search, or clear your filters to see every live room."
-        : "There are no live conversations right now. Create a room and start speaking with others."}
+        ? tr("Try a different search, or clear your filters to see every live room.")
+        : tr("There are no live conversations right now. Create a room and start speaking with others.")}
     </p>
     <div className="flex items-center gap-3">
       {filtered && (
@@ -64,8 +65,7 @@ export const LobbyEmpty: React.FC<{
           className="px-5 py-3 rounded-full font-semibold border transition-colors hover:bg-white/5"
           style={{ borderColor: COLORS.borderLight, color: COLORS.textPrimary }}
         >
-          Clear filters
-        </button>
+          {tr("Clear filters")}</button>
       )}
       <button
         onClick={onCreate}
@@ -73,8 +73,7 @@ export const LobbyEmpty: React.FC<{
         style={{ background: COLORS.spotlight, color: COLORS.void }}
       >
         <Plus className="w-5 h-5" />
-        Create Room
-      </button>
+        {tr("Create Room")}</button>
     </div>
   </motion.div>
 );
@@ -88,7 +87,7 @@ export const EndedRooms: React.FC<{ rooms: VoiceRoom[] }> = ({ rooms }) => {
           className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
           style={{ color: COLORS.textMuted }}
         >
-          <span className="text-sm font-medium">Ended Rooms</span>
+          <span className="text-sm font-medium">{tr("Ended Rooms")}</span>
           <span className="text-xs bg-white/5 px-2 py-0.5 rounded-full">{rooms.length}</span>
           <ChevronDown className="w-4 h-4 group-open:rotate-180 transition-transform" />
         </summary>
@@ -105,15 +104,14 @@ export const EndedRooms: React.FC<{ rooms: VoiceRoom[] }> = ({ rooms }) => {
                     {room.name}
                   </h4>
                   <p className="text-xs" style={{ color: COLORS.textSecondary }}>
-                    Ended {timeSince(room.updatedAt)}
+                    {tr("Ended")}{" "}{timeSince(room.updatedAt)}
                   </p>
                 </div>
                 <span
                   className="text-xs px-2 py-1 rounded-full"
                   style={{ background: COLORS.border, color: COLORS.textMuted }}
                 >
-                  Ended
-                </span>
+                  {tr("Ended")}</span>
               </div>
             </div>
           ))}

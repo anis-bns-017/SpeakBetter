@@ -27,6 +27,7 @@ import {
   TYPE_ACCENTS,
   TYPE_LABELS,
 } from "./lobbyTheme";
+import { tr, msg } from "../../../i18n/core";
 
 export interface CreateRoomForm {
   name: string;
@@ -53,10 +54,10 @@ const EMPTY_FORM: CreateRoomForm = {
 };
 
 const ROOM_TYPES = [
-  { value: "OPEN", label: "Open", icon: Users, desc: "Anyone can join" },
-  { value: "PRIVATE", label: "Private", icon: Lock, desc: "Password protected" },
-  { value: "STAGE", label: "Stage", icon: Radio, desc: "Speaker focused" },
-  { value: "SCHEDULED", label: "Scheduled", icon: Calendar, desc: "Plan ahead" },
+  { value: "OPEN", label: msg("Open"), icon: Users, desc: msg("Anyone can join") },
+  { value: "PRIVATE", label: msg("Private"), icon: Lock, desc: msg("Password protected") },
+  { value: "STAGE", label: msg("Stage"), icon: Radio, desc: msg("Speaker focused") },
+  { value: "SCHEDULED", label: msg("Scheduled"), icon: Calendar, desc: msg("Plan ahead") },
 ] as const;
 
 /** `datetime-local` wants local time without a zone: "2026-11-01T18:30" */
@@ -122,20 +123,20 @@ export const CreateRoomModal: React.FC<{
 
   const handleNext = () => {
     if (step === 1 && !form.name.trim()) {
-      toast.error("Please enter a room name");
+      toast.error(tr("Please enter a room name"));
       return;
     }
     if (step === 2 && form.type === "PRIVATE" && form.password.length < 4) {
-      toast.error("Password must be at least 4 characters");
+      toast.error(tr("Password must be at least 4 characters"));
       return;
     }
     if (step === 2 && form.type === "SCHEDULED") {
       if (!scheduledIso) {
-        toast.error("Pick when the room starts");
+        toast.error(tr("Pick when the room starts"));
         return;
       }
       if (new Date(scheduledIso).getTime() < currentTimeMs()) {
-        toast.error("The start time must be in the future");
+        toast.error(tr("The start time must be in the future"));
         return;
       }
     }
@@ -165,7 +166,7 @@ export const CreateRoomModal: React.FC<{
       <motion.div
         role="dialog"
         aria-modal="true"
-        aria-label="Create a voice room"
+        aria-label={tr("Create a voice room")}
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -191,11 +192,9 @@ export const CreateRoomModal: React.FC<{
                   className="font-serif text-lg"
                   style={{ color: COLORS.textPrimary }}
                 >
-                  Create a Voice Room
-                </h2>
+                  {tr("Create a Voice Room")}</h2>
                 <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                  Step {step} of 3
-                </p>
+                  {tr("Step {step} of 3", { step })}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -204,8 +203,8 @@ export const CreateRoomModal: React.FC<{
                   onClick={onMinimize}
                   className="p-2 rounded-xl transition-colors hover:bg-white/5"
                   style={{ color: COLORS.textMuted }}
-                  title="Minimize"
-                  aria-label="Minimize"
+                  title={tr("Minimize")}
+                  aria-label={tr("Minimize")}
                 >
                   <Minimize2 className="w-4 h-4" />
                 </button>
@@ -214,8 +213,8 @@ export const CreateRoomModal: React.FC<{
                 onClick={onClose}
                 className="p-2 rounded-xl transition-colors hover:bg-white/5"
                 style={{ color: COLORS.textMuted }}
-                title="Close"
-                aria-label="Close"
+                title={tr("Close")}
+                aria-label={tr("Close")}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -245,8 +244,7 @@ export const CreateRoomModal: React.FC<{
                   className="text-xs font-semibold uppercase tracking-wider mb-2"
                   style={{ color: COLORS.textMuted }}
                 >
-                  Start from a template
-                </p>
+                  {tr("Start from a template")}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {ROOM_TEMPLATES.map((template) => (
                     <button
@@ -258,7 +256,7 @@ export const CreateRoomModal: React.FC<{
                         background: COLORS.surfaceRaised,
                         borderColor: COLORS.border,
                       }}
-                      title={template.hint}
+                      title={tr(template.hint)}
                     >
                       <span className="text-lg leading-none" aria-hidden="true">
                         {template.emoji}
@@ -267,13 +265,13 @@ export const CreateRoomModal: React.FC<{
                         className="block text-xs font-semibold mt-1.5"
                         style={{ color: COLORS.textPrimary }}
                       >
-                        {template.label}
+                        {tr(template.label)}
                       </span>
                       <span
                         className="block text-[11px] leading-tight mt-0.5"
                         style={{ color: COLORS.textMuted }}
                       >
-                        {template.hint}
+                        {tr(template.hint)}
                       </span>
                     </button>
                   ))}
@@ -286,15 +284,14 @@ export const CreateRoomModal: React.FC<{
                   className="block text-sm font-medium mb-1.5"
                   style={{ color: COLORS.textPrimary }}
                 >
-                  Room Name *
-                </label>
+                  {tr("Room Name *")}</label>
                 <input
                   id="room-name"
                   type="text"
                   value={form.name}
                   maxLength={80}
                   onChange={(e) => patch({ name: e.target.value })}
-                  placeholder="e.g., Spanish Conversation Practice"
+                  placeholder={tr("e.g., Spanish Conversation Practice")}
                   className="w-full px-4 py-3 rounded-xl border outline-none text-sm transition-all focus:border-[#F5A623]"
                   style={inputStyle}
                   autoFocus
@@ -307,13 +304,12 @@ export const CreateRoomModal: React.FC<{
                   className="block text-sm font-medium mb-1.5"
                   style={{ color: COLORS.textPrimary }}
                 >
-                  Description
-                </label>
+                  {tr("Description")}</label>
                 <textarea
                   id="room-description"
                   value={form.description}
                   onChange={(e) => patch({ description: e.target.value })}
-                  placeholder="What will this room be about?"
+                  placeholder={tr("What will this room be about?")}
                   rows={3}
                   className="w-full px-4 py-3 rounded-xl border outline-none text-sm resize-none focus:border-[#F5A623]"
                   style={inputStyle}
@@ -325,8 +321,7 @@ export const CreateRoomModal: React.FC<{
                   className="block text-sm font-medium mb-2"
                   style={{ color: COLORS.textPrimary }}
                 >
-                  Topics (select multiple)
-                </p>
+                  {tr("Topics (select multiple)")}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {TOPICS.map((topic) => {
                     const Icon = topic.icon;
@@ -368,8 +363,7 @@ export const CreateRoomModal: React.FC<{
                     className="block text-sm font-medium mb-1.5"
                     style={{ color: COLORS.textPrimary }}
                   >
-                    Room Type
-                  </p>
+                    {tr("Room Type")}</p>
                   <div className="space-y-2">
                     {ROOM_TYPES.map((type) => {
                       const Icon = type.icon;
@@ -402,13 +396,13 @@ export const CreateRoomModal: React.FC<{
                                   : COLORS.textPrimary,
                               }}
                             >
-                              {type.label}
+                              {tr(type.label)}
                             </span>
                             <p
                               className="text-[11px]"
                               style={{ color: COLORS.textMuted }}
                             >
-                              {type.desc}
+                              {tr(type.desc)}
                             </p>
                           </div>
                           {selected && (
@@ -429,8 +423,7 @@ export const CreateRoomModal: React.FC<{
                     className="block text-sm font-medium mb-1.5"
                     style={{ color: COLORS.textPrimary }}
                   >
-                    Max Participants
-                  </label>
+                    {tr("Max Participants")}</label>
                   <input
                     id="room-max"
                     type="number"
@@ -449,8 +442,7 @@ export const CreateRoomModal: React.FC<{
                     className="block text-sm font-medium mt-4 mb-1.5"
                     style={{ color: COLORS.textPrimary }}
                   >
-                    Language
-                  </label>
+                    {tr("Language")}</label>
                   <select
                     id="room-language"
                     value={form.language}
@@ -474,8 +466,7 @@ export const CreateRoomModal: React.FC<{
                     className="block text-sm font-medium mb-1.5"
                     style={{ color: COLORS.textPrimary }}
                   >
-                    Starts at *
-                  </label>
+                    {tr("Starts at *")}</label>
                   <input
                     id="room-start"
                     type="datetime-local"
@@ -486,8 +477,7 @@ export const CreateRoomModal: React.FC<{
                     style={{ ...inputStyle, colorScheme: "dark" }}
                   />
                   <p className="text-xs mt-1.5" style={{ color: COLORS.textMuted }}>
-                    People will see a countdown and can add it to their calendar.
-                  </p>
+                    {tr("People will see a countdown and can add it to their calendar.")}</p>
                 </div>
               )}
 
@@ -498,8 +488,7 @@ export const CreateRoomModal: React.FC<{
                     className="block text-sm font-medium mb-1.5"
                     style={{ color: COLORS.textPrimary }}
                   >
-                    Room Password *
-                  </label>
+                    {tr("Room Password *")}</label>
                   <div className="relative">
                     <KeyRound
                       className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2"
@@ -510,7 +499,7 @@ export const CreateRoomModal: React.FC<{
                       type={showPassword ? "text" : "password"}
                       value={form.password}
                       onChange={(e) => patch({ password: e.target.value })}
-                      placeholder="At least 4 characters"
+                      placeholder={tr("At least 4 characters")}
                       minLength={4}
                       className="w-full pl-10 pr-10 py-3 rounded-xl border outline-none text-sm"
                       style={inputStyle}
@@ -520,7 +509,7 @@ export const CreateRoomModal: React.FC<{
                       onClick={() => setShowPassword((p) => !p)}
                       className="absolute right-3 top-1/2 -translate-y-1/2"
                       style={{ color: COLORS.textMuted }}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-label={showPassword ? tr("Hide password") : tr("Show password")}
                     >
                       {showPassword ? (
                         <EyeOff className="w-4 h-4" />
@@ -530,8 +519,7 @@ export const CreateRoomModal: React.FC<{
                     </button>
                   </div>
                   <p className="text-xs mt-1.5" style={{ color: COLORS.textMuted }}>
-                    Anyone joining will need this password.
-                  </p>
+                    {tr("Anyone joining will need this password.")}</p>
                 </div>
               )}
             </motion.div>
@@ -560,11 +548,11 @@ export const CreateRoomModal: React.FC<{
                       className="text-lg font-semibold truncate"
                       style={{ color: COLORS.textPrimary }}
                     >
-                      {form.name || "Untitled Room"}
+                      {form.name || tr("Untitled Room")}
                     </h3>
                     {form.description && (
                       <p className="text-sm mt-1" style={{ color: COLORS.textMuted }}>
-                        {form.description}
+                        {tr(form.description)}
                       </p>
                     )}
                     <div className="flex flex-wrap gap-2 mt-3">
@@ -604,8 +592,8 @@ export const CreateRoomModal: React.FC<{
                 <Sparkles className="w-4 h-4" style={{ color: COLORS.spotlight }} />
                 <span>
                   {form.type === "SCHEDULED"
-                    ? "Your room will appear in the lobby with a countdown."
-                    : "Your room will be live and ready for others to join!"}
+                    ? tr("Your room will appear in the lobby with a countdown.")
+                    : tr("Your room will be live and ready for others to join!")}
                 </span>
               </div>
             </motion.div>
@@ -622,8 +610,7 @@ export const CreateRoomModal: React.FC<{
                 className="px-4 py-2.5 text-sm font-medium rounded-xl transition-colors hover:bg-white/5"
                 style={{ color: COLORS.textMuted }}
               >
-                Back
-              </button>
+                {tr("Back")}</button>
             ) : (
               <div />
             )}
@@ -635,8 +622,7 @@ export const CreateRoomModal: React.FC<{
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-sm transition-all hover:scale-105"
                 style={{ background: COLORS.spotlight, color: COLORS.void }}
               >
-                Continue
-                <ArrowRight className="w-4 h-4" />
+                {tr("Continue")}<ArrowRight className="w-4 h-4" />
               </button>
             ) : (
               <button
@@ -648,13 +634,11 @@ export const CreateRoomModal: React.FC<{
                 {isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Creating…
-                  </>
+                    {tr("Creating…")}</>
                 ) : (
                   <>
                     <PartyPopper className="w-4 h-4" />
-                    Create Room
-                  </>
+                    {tr("Create Room")}</>
                 )}
               </button>
             )}

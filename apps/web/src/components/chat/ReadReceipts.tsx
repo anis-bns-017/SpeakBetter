@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { ReadReceipt } from '@speakbetter/types';
 import { Check, CheckCheck, Eye, Users } from 'lucide-react';
+import { tr } from "../../i18n/core";
 
 interface ReadReceiptsProps {
   receipts?: ReadReceipt[];
@@ -40,13 +41,13 @@ export const ReadReceipts: React.FC<ReadReceiptsProps> = ({
         onMouseLeave={() => setShowTooltip(false)}
         onFocus={() => setShowTooltip(true)}
         onBlur={() => setShowTooltip(false)}
-        aria-label={`Read receipt status: ${readCount} of ${expectedReadersCount} read`}
+        aria-label={tr("Read receipt status: {readCount} of {expectedReadersCount} read", { readCount, expectedReadersCount })}
         className="inline-flex items-center gap-1 focus:outline-none transition-opacity hover:opacity-80"
       >
         {isAllRead ? (
           <div className="flex items-center gap-1 text-blue-400">
             <CheckCheck className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-semibold tracking-tight">Read</span>
+            <span className="text-[11px] font-semibold tracking-tight">{tr("Read")}</span>
           </div>
         ) : readCount > 0 ? (
           <div className="flex items-center gap-1 text-white/80">
@@ -58,7 +59,7 @@ export const ReadReceipts: React.FC<ReadReceiptsProps> = ({
         ) : (
           <div className="flex items-center gap-1 text-white/60">
             <Check className="w-3.5 h-3.5" />
-            <span className="text-[11px]">Delivered</span>
+            <span className="text-[11px]">{tr("Delivered")}</span>
           </div>
         )}
       </button>
@@ -73,7 +74,7 @@ export const ReadReceipts: React.FC<ReadReceiptsProps> = ({
               ) : (
                 <Users className="w-3.5 h-3.5 text-slate-400" />
               )}
-              <span>{isAllRead ? 'Read by everyone' : 'Message Status'}</span>
+              <span>{isAllRead ? tr("Read by everyone") : tr("Message Status")}</span>
             </div>
             <span className="text-[11px] text-slate-400 font-mono">
               {readCount}/{expectedReadersCount}
@@ -113,8 +114,7 @@ export const ReadReceipts: React.FC<ReadReceiptsProps> = ({
             </div>
           ) : (
             <div className="mt-2 text-center text-[11px] text-slate-400 py-1">
-              Delivered to all participants
-            </div>
+              {tr("Delivered to all participants")}</div>
           )}
         </div>
       )}

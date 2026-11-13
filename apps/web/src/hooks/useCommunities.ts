@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api/client';
 import { toast } from 'sonner';
+import { type ApiError } from "../lib/api/errors";
+import { tr } from "../i18n/core";
 
 export interface Community {
   id: string;
@@ -77,18 +79,24 @@ export interface CommunityBan {
 
 // ---------- API ----------
 
+/** What the forms send (the server validates and fills in the rest) */
+export type CommunityInput = Partial<Omit<Community, 'id' | 'type'>> & { name: string; type?: string };
+export type ChannelInput = Partial<Omit<Channel, 'id' | 'type'>> & { name: string; type?: string };
+export type ThreadInput = { title: string; content?: string; [field: string]: unknown };
+export type RoleInput = Partial<Omit<CommunityRole, 'id'>> & { name: string };
+
 export const communityApi = {
   getCommunities: () => apiClient.get<{ owned: Community[]; joined: Community[]; recommended: Community[] }>('/communities'),
   getCommunity: (communityId: string) => apiClient.get<Community>(`/communities/${communityId}`),
-  createCommunity: (data: any) => apiClient.post<Community>('/communities', data),
-  updateCommunity: (communityId: string, data: any) => apiClient.put<Community>(`/communities/${communityId}`, data),
+  createCommunity: (data: CommunityInput) => apiClient.post<Community>('/communities', data),
+  updateCommunity: (communityId: string, data: Partial<CommunityInput>) => apiClient.put<Community>(`/communities/${communityId}`, data),
   deleteCommunity: (communityId: string) => apiClient.delete(`/communities/${communityId}`),
 
-  createChannel: (communityId: string, data: any) => apiClient.post<Channel>(`/communities/${communityId}/channels`, data),
-  updateChannel: (communityId: string, channelId: string, data: any) => apiClient.put<Channel>(`/communities/${communityId}/channels/${channelId}`, data),
+  createChannel: (communityId: string, data: ChannelInput) => apiClient.post<Channel>(`/communities/${communityId}/channels`, data),
+  updateChannel: (communityId: string, channelId: string, data: Partial<ChannelInput>) => apiClient.put<Channel>(`/communities/${communityId}/channels/${channelId}`, data),
   deleteChannel: (communityId: string, channelId: string) => apiClient.delete(`/communities/${communityId}/channels/${channelId}`),
 
-  createThread: (channelId: string, data: any) => apiClient.post<Thread>(`/communities/channels/${channelId}/threads`, data),
+  createThread: (channelId: string, data: ThreadInput) => apiClient.post<Thread>(`/communities/channels/${channelId}/threads`, data),
   getThreads: (channelId: string) => apiClient.get<Thread[]>(`/communities/channels/${channelId}/threads`),
   getThread: (threadId: string) => apiClient.get<Thread>(`/communities/threads/${threadId}`),
 
@@ -98,8 +106,8 @@ export const communityApi = {
   removeMember: (communityId: string, userId: string) => apiClient.delete(`/communities/${communityId}/members/${userId}`),
   updateMemberRole: (communityId: string, userId: string, data: { role: string }) => apiClient.put(`/communities/${communityId}/members/${userId}/role`, data),
 
-  createRole: (communityId: string, data: any) => apiClient.post<CommunityRole>(`/communities/${communityId}/roles`, data),
-  updateRole: (communityId: string, roleId: string, data: any) => apiClient.put<CommunityRole>(`/communities/${communityId}/roles/${roleId}`, data),
+  createRole: (communityId: string, data: RoleInput) => apiClient.post<CommunityRole>(`/communities/${communityId}/roles`, data),
+  updateRole: (communityId: string, roleId: string, data: Partial<RoleInput>) => apiClient.put<CommunityRole>(`/communities/${communityId}/roles/${roleId}`, data),
   deleteRole: (communityId: string, roleId: string) => apiClient.delete(`/communities/${communityId}/roles/${roleId}`),
 
   banMember: (communityId: string, data: { userId: string; reason?: string; expiresAt?: string }) => apiClient.post(`/communities/${communityId}/bans`, data),
@@ -135,16 +143,16 @@ export const useCommunity = (communityId: string) => {
 export const useCreateCommunity = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: CommunityInput) => {
       const response = await communityApi.createCommunity(data);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communities'] });
-      toast.success('Community created!');
+      toast.success(tr("Community created!"));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create community');
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to create community"));
     },
   });
 };
@@ -159,10 +167,10 @@ export const useJoinCommunity = () => {
     onSuccess: (_, communityId) => {
       queryClient.invalidateQueries({ queryKey: ['communities'] });
       queryClient.invalidateQueries({ queryKey: ['community', communityId] });
-      toast.success('Joined community!');
+      toast.success(tr("Joined community!"));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to join community');
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to join community"));
     },
   });
 };
@@ -177,7 +185,7 @@ export const useLeaveCommunity = () => {
     onSuccess: (_, communityId) => {
       queryClient.invalidateQueries({ queryKey: ['communities'] });
       queryClient.invalidateQueries({ queryKey: ['community', communityId] });
-      toast.success('Left community');
+      toast.success(tr("Left community"));
     },
   });
 };
@@ -185,13 +193,13 @@ export const useLeaveCommunity = () => {
 export const useCreateChannel = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ communityId, data }: { communityId: string; data: any }) => {
+    mutationFn: async ({ communityId, data }: { communityId: string; data: ChannelInput }) => {
       const response = await communityApi.createChannel(communityId, data);
       return response.data;
     },
     onSuccess: (_, { communityId }) => {
       queryClient.invalidateQueries({ queryKey: ['community', communityId] });
-      toast.success('Channel created');
+      toast.success(tr("Channel created"));
     },
   });
 };
@@ -199,13 +207,13 @@ export const useCreateChannel = () => {
 export const useCreateThread = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ channelId, data }: { channelId: string; data: any }) => {
+    mutationFn: async ({ channelId, data }: { channelId: string; data: ThreadInput }) => {
       const response = await communityApi.createThread(channelId, data);
       return response.data;
     },
     onSuccess: (_, { channelId }) => {
       queryClient.invalidateQueries({ queryKey: ['threads', channelId] });
-      toast.success('Thread created');
+      toast.success(tr("Thread created"));
     },
   });
 };
@@ -235,13 +243,13 @@ export const useThread = (threadId: string) => {
 export const useCreateInvite = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ communityId, data }: { communityId: string; data?: any }) => {
+    mutationFn: async ({ communityId, data }: { communityId: string; data?: Parameters<typeof communityApi.createInvite>[1] }) => {
       const response = await communityApi.createInvite(communityId, data);
       return response.data;
     },
     onSuccess: (_, { communityId }) => {
       queryClient.invalidateQueries({ queryKey: ['community', communityId] });
-      toast.success('Invite created!');
+      toast.success(tr("Invite created!"));
     },
   });
 };
@@ -255,10 +263,10 @@ export const useJoinByInvite = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communities'] });
-      toast.success('Joined community via invite!');
+      toast.success(tr("Joined community via invite!"));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Invalid invite');
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Invalid invite"));
     },
   });
 };

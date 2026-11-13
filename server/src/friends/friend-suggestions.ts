@@ -47,9 +47,28 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const norm = (s: string) => s.trim().toLowerCase();
 const set = (list?: string[] | null) => new Set((list ?? []).filter(Boolean).map(norm));
 
-/** Case-insensitive language/interest lists, keeping the candidate's own spelling */
+/** Profiles hold either a code ("en", from sign-up and the welcome guide) or a name ("English") */
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: 'English', bn: 'Bangla', hi: 'Hindi', ur: 'Urdu', ar: 'Arabic', es: 'Spanish', pt: 'Portuguese', zh: 'Chinese',
+  vi: 'Vietnamese', id: 'Indonesian', tr: 'Turkish', ru: 'Russian', fr: 'French', de: 'German', it: 'Italian',
+  ja: 'Japanese', ko: 'Korean',
+};
+
+/** A language as people read it: codes become names, names are kept as written */
+export const languageName = (value: string) => LANGUAGE_NAMES[norm(value)] ?? value.trim();
+
+/** One key per language, so "en", "EN" and "English" all match */
+const langKey = (value: string) => norm(languageName(value));
+const langSet = (list?: string[] | null) => new Set((list ?? []).filter(Boolean).map(langKey));
+
+/** Case-insensitive interest lists, keeping the candidate's own spelling */
 function overlap(mine: Set<string>, theirs?: string[] | null): string[] {
   return (theirs ?? []).filter((x) => x && mine.has(norm(x)));
+}
+
+/** Languages we share, written as names */
+function languageOverlap(mine: Set<string>, theirs?: string[] | null): string[] {
+  return (theirs ?? []).filter((x) => x && mine.has(langKey(x))).map(languageName);
 }
 
 export function scoreSuggestion(
@@ -59,13 +78,14 @@ export function scoreSuggestion(
 ): RankedSuggestion {
   const w = SUGGESTION_WEIGHTS;
   const their = candidate.profile ?? {};
-  const myLearning = set(me?.learningLanguages);
-  const myNative = me?.nativeLanguage ? norm(me.nativeLanguage) : null;
+  const myLearning = langSet(me?.learningLanguages);
+  const myNative = me?.nativeLanguage ? langKey(me.nativeLanguage) : null;
+  const myNativeName = me?.nativeLanguage ? languageName(me.nativeLanguage) : null;
 
-  const theirNative = their.nativeLanguage ?? null;
-  const theyTeachMe = !!theirNative && myLearning.has(norm(theirNative));
-  const iTeachThem = !!myNative && set(their.learningLanguages).has(myNative);
-  const sharedLearning = overlap(myLearning, their.learningLanguages);
+  const theirNative = their.nativeLanguage ? languageName(their.nativeLanguage) : null;
+  const theyTeachMe = !!theirNative && myLearning.has(langKey(theirNative));
+  const iTeachThem = !!myNative && langSet(their.learningLanguages).has(myNative);
+  const sharedLearning = languageOverlap(myLearning, their.learningLanguages);
   const sharedInterests = overlap(set(me?.interests), their.interests).slice(0, w.maxSharedInterests);
 
   let score = 0;
@@ -81,11 +101,11 @@ export function scoreSuggestion(
 
   let reason: string;
   if (theyTeachMe && iTeachThem) {
-    reason = `Perfect language exchange — ${theirNative} for ${me?.nativeLanguage}`;
+    reason = `Perfect language exchange — ${theirNative} for ${myNativeName}`;
   } else if (theyTeachMe) {
     reason = `Native ${theirNative} speaker — you're learning it`;
   } else if (iTeachThem) {
-    reason = `Learning ${me?.nativeLanguage} — your native language`;
+    reason = `Learning ${myNativeName} — your native language`;
   } else if (sharedLearning.length) {
     reason = `Also learning ${sharedLearning[0]}`;
   } else if (sharedInterests.length) {

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { Reaction } from '@speakbetter/types';
 import { Smile, ChevronDown, ChevronUp } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
+import { tr } from "../../i18n/core";
 
 interface ReactionsProps {
   reactions: Reaction[];
@@ -129,7 +130,7 @@ export const Reactions: React.FC<ReactionsProps> = ({
         >
           {expanded ? (
             <>
-              <span>Less</span>
+              <span>{tr("Less")}</span>
               <ChevronUp className="w-3 h-3" />
             </>
           ) : (
@@ -146,7 +147,7 @@ export const Reactions: React.FC<ReactionsProps> = ({
         <button
           type="button"
           onClick={() => setShowPicker((prev) => !prev)}
-          aria-label="Add reaction"
+          aria-label={tr("Add reaction")}
           className="flex items-center justify-center w-6 h-6 rounded-full border border-dashed border-gray-300 hover:border-gray-400 text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-all active:scale-95"
         >
           <Smile className="w-3.5 h-3.5" />

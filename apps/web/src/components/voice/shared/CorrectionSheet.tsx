@@ -4,7 +4,7 @@
  * Category pills + auto-filled original text + live preview.
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -21,6 +21,8 @@ import {
 import { toast } from "sonner";
 import { THEME } from "../VoiceRoomView.theme";
 import type { CorrectionCategory } from "../../../hooks/useVoiceCorrections";
+import { asApiError } from "../../../lib/api/errors";
+import { tr, msg } from "../../../i18n/core";
 
 interface CorrectionSheetProps {
   isOpen: boolean;
@@ -46,45 +48,45 @@ const CATEGORIES: {
 }[] = [
   {
     key: "grammar",
-    label: "Grammar",
+    label: msg("Grammar"),
     icon: BookOpen,
     color: "var(--sx-text-22d3ee)",
-    hint: "Word order, tenses, agreement",
+    hint: msg("Word order, tenses, agreement"),
   },
   {
     key: "vocabulary",
-    label: "Vocabulary",
+    label: msg("Vocabulary"),
     icon: Sparkles,
     color: "var(--sx-text-a78bfa)",
-    hint: "A better word for this context",
+    hint: msg("A better word for this context"),
   },
   {
     key: "pronunciation",
-    label: "Pronunciation",
+    label: msg("Pronunciation"),
     icon: Mic2,
     color: "var(--sx-text-fbbf24)",
-    hint: "Sound or stress issue",
+    hint: msg("Sound or stress issue"),
   },
   {
     key: "word-choice",
-    label: "Word choice",
+    label: msg("Word choice"),
     icon: MessageSquare,
     color: "var(--sx-text-34d399)",
-    hint: "More natural phrasing",
+    hint: msg("More natural phrasing"),
   },
   {
     key: "spelling",
-    label: "Spelling",
+    label: msg("Spelling"),
     icon: SpellCheck,
     color: "var(--sx-text-f472b6)",
-    hint: "Written form",
+    hint: msg("Written form"),
   },
   {
     key: "other",
-    label: "Other",
+    label: msg("Other"),
     icon: Sparkles,
     color: "var(--sx-text-94a3b8)",
-    hint: "Anything else",
+    hint: msg("Anything else"),
   },
 ];
 
@@ -101,14 +103,18 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
   const [note, setNote] = useState("");
   const [category, setCategory] = useState<CorrectionCategory>("grammar");
 
-  useEffect(() => {
-    if (isOpen) {
+  // Each time the sheet opens (or opens on another sentence) it starts fresh
+  const openKey = isOpen ? initialOriginal : null;
+  const [preparedFor, setPreparedFor] = useState<string | null>(null);
+  if (openKey !== preparedFor) {
+    setPreparedFor(openKey);
+    if (openKey !== null) {
       setOriginal(initialOriginal);
       setCorrected("");
       setNote("");
       setCategory("grammar");
     }
-  }, [isOpen, initialOriginal]);
+  }
 
   const canSubmit = useMemo(
     () =>
@@ -127,10 +133,11 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
         note: note.trim() || undefined,
         category,
       });
-      toast.success(`💬 Correction sent to ${targetName}`);
+      toast.success(tr("💬 Correction sent to {targetName}", { targetName }));
       onClose();
-    } catch (err: any) {
-      toast.error(err?.message || "Couldn't send correction");
+    } catch (caught) {
+      const err = asApiError(caught);
+      toast.error(err?.message || tr("Couldn't send correction"));
     }
   };
 
@@ -187,14 +194,13 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                     className="text-base font-bold truncate"
                     style={{ color: THEME.colors.text.primary }}
                   >
-                    Help {targetName}
+                    {tr("Help")}{" "}{targetName}
                   </h3>
                   <p
                     className="text-xs truncate"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    Polite, encouraging correction
-                  </p>
+                    {tr("Polite, encouraging correction")}</p>
                 </div>
               </div>
 
@@ -204,7 +210,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                 disabled={isSubmitting}
                 className="p-1.5 rounded-full hover:bg-white/10 transition-colors shrink-0 disabled:opacity-40"
                 style={{ color: THEME.colors.text.muted }}
-                aria-label="Close"
+                aria-label={tr("Close")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -217,8 +223,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                   className="text-[11px] font-semibold uppercase tracking-wider block mb-2"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  Category
-                </span>
+                  {tr("Category")}</span>
                 <div className="grid grid-cols-3 gap-1.5">
                   {CATEGORIES.map((c) => {
                     const Icon = c.icon;
@@ -237,7 +242,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                             ? `color-mix(in srgb, ${c.color} 40%, transparent)`
                             : THEME.colors.border.primary,
                         }}
-                        title={c.hint}
+                        title={tr(c.hint)}
                       >
                         <Icon
                           className="w-4 h-4"
@@ -255,7 +260,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                               : THEME.colors.text.secondary,
                           }}
                         >
-                          {c.label}
+                          {tr(c.label)}
                         </span>
                       </button>
                     );
@@ -270,8 +275,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                     className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    What they said
-                  </span>
+                    {tr("What they said")}</span>
                   <span
                     className="text-[9px] tabular-nums"
                     style={{ color: THEME.colors.text.muted }}
@@ -282,7 +286,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                 <textarea
                   value={original}
                   onChange={(e) => setOriginal(e.target.value.slice(0, 300))}
-                  placeholder={`Type what ${targetName} said, or paste from the transcript...`}
+                  placeholder={tr("Type what {targetName} said, or paste from the transcript...", { targetName })}
                   rows={2}
                   className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none border resize-none transition-all focus:ring-1"
                   style={{
@@ -317,8 +321,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                     className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.accent.success }}
                   >
-                    Better way
-                  </span>
+                    {tr("Better way")}</span>
                   <span
                     className="text-[9px] tabular-nums"
                     style={{ color: THEME.colors.text.muted }}
@@ -329,7 +332,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                 <textarea
                   value={corrected}
                   onChange={(e) => setCorrected(e.target.value.slice(0, 300))}
-                  placeholder="The corrected version"
+                  placeholder={tr("The corrected version")}
                   rows={2}
                   autoFocus
                   className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none border resize-none transition-all focus:ring-1"
@@ -351,13 +354,12 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                   className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  Why? (optional)
-                </span>
+                  {tr("Why? (optional)")}</span>
                 <input
                   type="text"
                   value={note}
                   onChange={(e) => setNote(e.target.value.slice(0, 160))}
-                  placeholder="e.g. In Spanish, adjectives come after the noun"
+                  placeholder={tr("e.g. In Spanish, adjectives come after the noun")}
                   className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border transition-all focus:ring-1"
                   style={{
                     background: THEME.colors.background.primary,
@@ -383,8 +385,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                     className="text-[9px] font-semibold uppercase tracking-wider block"
                     style={{ color: THEME.colors.accent.success }}
                   >
-                    Preview
-                  </span>
+                    {tr("Preview")}</span>
                   <p
                     className="text-xs line-through"
                     style={{ color: THEME.colors.text.muted }}
@@ -406,7 +407,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                       className="text-[11px] italic"
                       style={{ color: THEME.colors.text.muted }}
                     >
-                      {note}
+                      {tr(note)}
                     </p>
                   )}
                 </motion.div>
@@ -421,8 +422,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                   className="px-4 py-2.5 rounded-full text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-40"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  Cancel
-                </button>
+                  {tr("Cancel")}</button>
                 <button
                   type="button"
                   onClick={handleSubmit}
@@ -437,13 +437,11 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Sending…
-                    </>
+                      {tr("Sending…")}</>
                   ) : (
                     <>
                       <Send className="w-4 h-4" />
-                      Send correction
-                    </>
+                      {tr("Send correction")}</>
                   )}
                 </button>
               </div>
@@ -452,8 +450,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
                 className="text-[9px] text-center"
                 style={{ color: THEME.colors.text.muted }}
               >
-                Be kind — everyone is learning ✨
-              </p>
+                {tr("Be kind — everyone is learning ✨")}</p>
             </div>
           </motion.div>
         </motion.div>

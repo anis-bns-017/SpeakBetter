@@ -15,7 +15,7 @@
  *  - Connection type (wifi/4g/…)
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Wifi,
@@ -27,6 +27,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
+import { tr, msg } from "../../../i18n/core";
 
 export type ConnectionGrade =
   "excellent" | "good" | "fair" | "poor" | "unknown";
@@ -76,7 +77,7 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
   // ------------------------------------------------------------
   // 1. Latency probe — HEAD /favicon.ico (light, always present)
   // ------------------------------------------------------------
-  const probeLatency = async () => {
+  const probeLatency = useCallback(async () => {
     if (!baseUrl) return null;
     setIsProbing(true);
     const samples: number[] = [];
@@ -100,16 +101,15 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
 
     const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
     return avg;
-  };
+  }, [baseUrl]);
 
   // ------------------------------------------------------------
   // 2. Read Network Information API (Chromium only)
   // ------------------------------------------------------------
   const readNetworkInfo = () => {
-    const conn =
-      (navigator as any).connection ||
-      (navigator as any).mozConnection ||
-      (navigator as any).webkitConnection;
+    type NetworkInfo = { downlink?: number; effectiveType?: string; rtt?: number };
+    const nav = navigator as Navigator & { connection?: NetworkInfo; mozConnection?: NetworkInfo; webkitConnection?: NetworkInfo };
+    const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
     if (!conn) {
       return { downlinkMbps: null, effectiveType: null, rtt: null };
     }
@@ -218,7 +218,7 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [isOpen, liveKitQuality]);
+  }, [isOpen, liveKitQuality, probeLatency]);
 
   // ------------------------------------------------------------
   // Visual mapping
@@ -226,27 +226,27 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
   const gradeConfig = {
     excellent: {
       color: THEME.colors.accent.success,
-      label: "Excellent",
+      label: msg("Excellent"),
       icon: CheckCircle2,
     },
     good: {
       color: THEME.colors.accent.cyan,
-      label: "Good",
+      label: msg("Good"),
       icon: Signal,
     },
     fair: {
       color: THEME.colors.accent.warning,
-      label: "Fair",
+      label: msg("Fair"),
       icon: Activity,
     },
     poor: {
       color: THEME.colors.accent.error,
-      label: "Poor",
+      label: msg("Poor"),
       icon: AlertCircle,
     },
     unknown: {
       color: THEME.colors.text.muted,
-      label: "Measuring…",
+      label: msg("Measuring…"),
       icon: Loader2,
     },
   } as const;
@@ -286,14 +286,12 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
                   className="text-sm font-semibold truncate"
                   style={{ color: THEME.colors.text.primary }}
                 >
-                  Connection
-                </p>
+                  {tr("Connection")}</p>
                 <p
                   className="text-[11px] truncate"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  Live network quality
-                </p>
+                  {tr("Live network quality")}</p>
               </div>
             </div>
             <button
@@ -301,7 +299,7 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
               onClick={onClose}
               className="p-1.5 rounded-full hover:bg-white/10 transition-colors shrink-0"
               style={{ color: THEME.colors.text.muted }}
-              aria-label="Close"
+              aria-label={tr("Close")}
             >
               <X className="w-4 h-4" />
             </button>
@@ -324,7 +322,7 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
                   className="text-sm font-bold"
                   style={{ color: conf.color }}
                 >
-                  {conf.label}
+                  {tr(conf.label)}
                 </span>
                 {!snapshot.isOnline && (
                   <span
@@ -343,8 +341,8 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
                 style={{ color: THEME.colors.text.muted }}
               >
                 {snapshot.lastUpdated
-                  ? `Updated ${timeAgo(snapshot.lastUpdated)}`
-                  : "Measuring connection…"}
+                  ? tr("Updated {value}", { value: timeAgo(snapshot.lastUpdated) })
+                  : tr("Measuring connection…")}
               </p>
             </div>
           </div>
@@ -352,39 +350,39 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
           {/* Metrics grid */}
           <div className="p-3 grid grid-cols-2 gap-2">
             <MetricCell
-              label="Latency"
+              label={tr("Latency")}
               value={
                 snapshot.latencyMs !== null ? `${snapshot.latencyMs} ms` : "—"
               }
-              hint="Round-trip time"
+              hint={tr("Round-trip time")}
               color={colorForLatency(snapshot.latencyMs)}
             />
             <MetricCell
-              label="Jitter"
+              label={tr("Jitter")}
               value={
                 snapshot.jitterMs !== null ? `${snapshot.jitterMs} ms` : "—"
               }
-              hint="Variation in latency"
+              hint={tr("Variation in latency")}
               color={colorForJitter(snapshot.jitterMs)}
             />
             <MetricCell
-              label="Downlink"
+              label={tr("Downlink")}
               value={
                 snapshot.downlinkMbps !== null
                   ? `${snapshot.downlinkMbps.toFixed(1)} Mbps`
                   : "—"
               }
-              hint="Estimated speed"
+              hint={tr("Estimated speed")}
               color={THEME.colors.text.primary}
             />
             <MetricCell
-              label="Network"
+              label={tr("Network")}
               value={
                 snapshot.effectiveType
                   ? snapshot.effectiveType.toUpperCase()
                   : "—"
               }
-              hint="Connection type"
+              hint={tr("Connection type")}
               color={THEME.colors.text.primary}
             />
           </div>
@@ -398,10 +396,10 @@ export const RoomQualityPanel: React.FC<RoomQualityPanelProps> = ({
             }}
           >
             {snapshot.grade === "poor"
-              ? "⚠️ Try moving closer to your router or switching networks."
+              ? tr("⚠️ Try moving closer to your router or switching networks.")
               : snapshot.grade === "fair"
-                ? "Tips: close other tabs or pause downloads for smoother audio."
-                : "Connection looks healthy for voice."}
+                ? tr("Tips: close other tabs or pause downloads for smoother audio.")
+                : tr("Connection looks healthy for voice.")}
           </div>
         </motion.div>
       )}
@@ -425,13 +423,13 @@ const MetricCell: React.FC<{
       background: "var(--sx-bg-255-255-255-20)",
       borderColor: THEME.colors.border.primary,
     }}
-    title={hint}
+    title={tr(hint)}
   >
     <span
       className="text-[9px] font-medium uppercase tracking-wider truncate"
       style={{ color: THEME.colors.text.muted }}
     >
-      {label}
+      {tr(label)}
     </span>
     <span className="text-sm font-bold tabular-nums truncate" style={{ color }}>
       {value}

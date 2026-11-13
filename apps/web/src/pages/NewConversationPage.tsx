@@ -1,22 +1,23 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useSearchUsers } from '../hooks/useFriends';
+import { useAuth } from '../contexts/useAuth';
+import { useSearchUsers, type UserSearchResult } from '../hooks/useFriends';
 import { useCreatePrivateChat } from '../hooks/useChat';
 import { toast } from 'sonner';
 import { Search, UserPlus, User, X, ArrowLeft } from 'lucide-react';
+import { tr } from "../i18n/core";
 
 export const NewConversationPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<UserSearchResult[]>([]);
   const [isCreating, setIsCreating] = useState(false);
 
   const { data: searchResults, isLoading } = useSearchUsers(searchQuery);
   const createChat = useCreatePrivateChat();
 
-  const handleUserSelect = (selectedUser: any) => {
+  const handleUserSelect = (selectedUser: UserSearchResult) => {
     // Don't select yourself
     if (selectedUser.id === user?.id) return;
     
@@ -31,7 +32,7 @@ export const NewConversationPage = () => {
 
   const handleStartChat = async () => {
     if (selectedUsers.length === 0) {
-      toast.error('Select at least one user to chat with');
+      toast.error(tr("Select at least one user to chat with"));
       return;
     }
 
@@ -43,17 +44,17 @@ export const NewConversationPage = () => {
         navigate(`/chat/${chat.id}`);
       } else {
         // Create group chat (you can add this later)
-        toast.info('Group chat creation coming soon!');
+        toast.info(tr("Group chat creation coming soon!"));
         setIsCreating(false);
       }
-    } catch (error) {
-      toast.error('Failed to create chat');
+    } catch {
+      toast.error(tr("Failed to create chat"));
       setIsCreating(false);
     }
   };
 
   // Don't show yourself in search
-  const filteredResults = searchResults?.filter((u: any) => u.id !== user?.id) || [];
+  const filteredResults = searchResults?.filter((u) => u.id !== user?.id) || [];
 
   return (
     <div className="max-w-2xl mx-auto p-6">
@@ -65,7 +66,7 @@ export const NewConversationPage = () => {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold">New Conversation</h1>
+        <h1 className="text-2xl font-bold">{tr("New Conversation")}</h1>
       </div>
 
       {/* Search */}
@@ -74,7 +75,7 @@ export const NewConversationPage = () => {
           <Search className="w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by name or email..."
+            placeholder={tr("Search by name or email...")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 bg-transparent outline-none"
@@ -113,7 +114,7 @@ export const NewConversationPage = () => {
             disabled={isCreating || selectedUsers.length === 0}
             className="px-4 py-1.5 bg-blue-500 text-white rounded-full text-sm hover:bg-blue-600 disabled:opacity-50"
           >
-            {isCreating ? 'Creating...' : `Start Chat (${selectedUsers.length})`}
+            {isCreating ? tr("Creating...") : tr("Start Chat ({selectedUsers})", { selectedUsers: selectedUsers.length })}
           </button>
         </div>
       )}
@@ -122,15 +123,15 @@ export const NewConversationPage = () => {
       {searchQuery.length >= 2 && (
         <div className="space-y-2">
           {isLoading ? (
-            <div className="text-center text-gray-500 py-8">Searching...</div>
+            <div className="text-center text-gray-500 py-8">{tr("Searching...")}</div>
           ) : filteredResults.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
               <User className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-              <p>No users found</p>
-              <p className="text-sm">Try a different search term</p>
+              <p>{tr("No users found")}</p>
+              <p className="text-sm">{tr("Try a different search term")}</p>
             </div>
           ) : (
-            filteredResults.map((result: any) => {
+            filteredResults.map((result) => {
               const isSelected = selectedUsers.some((u) => u.id === result.id);
               return (
                 <div
@@ -173,8 +174,8 @@ export const NewConversationPage = () => {
       {searchQuery.length < 2 && (
         <div className="text-center py-12">
           <User className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-          <p className="text-gray-500">Search for people to chat with</p>
-          <p className="text-sm text-gray-400">Type at least 2 characters</p>
+          <p className="text-gray-500">{tr("Search for people to chat with")}</p>
+          <p className="text-sm text-gray-400">{tr("Type at least 2 characters")}</p>
         </div>
       )}
     </div>

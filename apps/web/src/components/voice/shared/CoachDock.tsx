@@ -15,6 +15,7 @@ import type {
   MissionPrivate,
   MissionPublic,
 } from "../../../hooks/useRoomCoach";
+import { tr, msg } from "../../../i18n/core";
 
 export type CaptionsStatus = "unsupported" | "muted" | "listening" | "blocked" | "network" | "no-mic";
 export type CoachTab = "me" | "mission" | "room" | "words";
@@ -49,12 +50,12 @@ const fmtClock = (ms: number) => {
 };
 
 const CAPTION_HINT: Record<CaptionsStatus, string> = {
-  listening: "🎙 Captions are listening to you",
-  muted: "🔇 Unmute to start captions",
-  unsupported: "Captions need Chrome or Edge",
-  blocked: "Allow the microphone for captions",
-  network: "Captions can't reach the speech service",
-  "no-mic": "No microphone found for captions",
+  listening: msg("🎙 Captions are listening to you"),
+  muted: msg("🔇 Unmute to start captions"),
+  unsupported: msg("Captions need Chrome or Edge"),
+  blocked: msg("Allow the microphone for captions"),
+  network: msg("Captions can't reach the speech service"),
+  "no-mic": msg("No microphone found for captions"),
 };
 
 const Tile: React.FC<{
@@ -74,7 +75,7 @@ const Tile: React.FC<{
       style={{ color: accent }}
     >
       <Icon className="w-3.5 h-3.5 shrink-0" />
-      <span className="truncate">{title}</span>
+      <span className="truncate">{tr(title)}</span>
     </button>
     {children}
   </div>
@@ -146,13 +147,12 @@ export const CoachDock: React.FC<CoachDockProps> = ({
           style={{ color: THEME.colors.text.secondary }}
         >
           <Gauge className="w-3.5 h-3.5" style={{ color: THEME.colors.accent.primaryLight }} />
-          Room coach
-          {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          {tr("Room coach")}{collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
         {collapsed && (
           <span className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-            {mission ? "🎯 mission running · " : ""}
-            {dueCount > 0 ? `📚 ${dueCount} to review` : ""}
+            {mission ? tr("🎯 mission running · ") : ""}
+            {dueCount > 0 ? tr("📚 {dueCount} to review", { dueCount }) : ""}
           </span>
         )}
       </div>
@@ -160,7 +160,7 @@ export const CoachDock: React.FC<CoachDockProps> = ({
       {!collapsed && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           {/* Fluency */}
-          <Tile icon={Gauge} title="Your fluency" accent={THEME.colors.accent.cyan} onClick={() => onOpen("me")}>
+          <Tile icon={Gauge} title={tr("Your fluency")} accent={THEME.colors.accent.cyan} onClick={() => onOpen("me")}>
             <div className="text-xl font-bold leading-none" style={{ color: THEME.colors.text.primary }}>
               {fluency ?? "—"}
               {fluency !== null && (
@@ -171,71 +171,66 @@ export const CoachDock: React.FC<CoachDockProps> = ({
             </div>
             <div className="text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
               {live && live.words > 0
-                ? `${live.wpm !== null ? `${live.wpm} wpm · ` : ""}${live.fillerCount} fillers · ${live.words} words`
-                : CAPTION_HINT[captions]}
+                ? tr("{value}{fillerCount} fillers · {words} words", { value: live.wpm !== null ? `${live.wpm} wpm · ` : "", fillerCount: live.fillerCount, words: live.words })
+                : tr(CAPTION_HINT[captions])}
             </div>
           </Tile>
 
           {/* Mission */}
-          <Tile icon={Target} title="Secret-word mission" accent={THEME.colors.accent.primaryLight} onClick={() => onOpen("mission")}>
+          <Tile icon={Target} title={tr("Secret-word mission")} accent={THEME.colors.accent.primaryLight} onClick={() => onOpen("mission")}>
             {mission ? (
               <>
                 <div className="text-xl font-bold leading-none" style={{ color: THEME.colors.accent.warning }}>
                   {fmtClock(mission.endsAt - now)}
                 </div>
                 <div className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-                  {mission.completed.length}/{mission.total} finished
-                  {myMission?.completed ? " · you're done ✅" : ""}
+                  {mission.completed.length}{tr("/{total} finished", { total: mission.total })}{myMission?.completed ? tr(" · you're done ✅") : ""}
                 </div>
-                <ActionButton onClick={() => onOpen("mission")}>Open my word</ActionButton>
+                <ActionButton onClick={() => onOpen("mission")}>{tr("Open my word")}</ActionButton>
               </>
             ) : canManage ? (
               <>
                 <div className="text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
-                  Everyone gets a private word to slip into the conversation.
-                </div>
+                  {tr("Everyone gets a private word to slip into the conversation.")}</div>
                 <ActionButton onClick={onStartMission} icon={Play}>
-                  Start a round (B1 · 5 min)
-                </ActionButton>
+                  {tr("Start a round (B1 · 5 min)")}</ActionButton>
               </>
             ) : (
               <div className="text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
-                No round yet — the host can start one.
-              </div>
+                {tr("No round yet — the host can start one.")}</div>
             )}
           </Tile>
 
           {/* Balance */}
-          <Tile icon={Users} title="Conversation balance" accent={THEME.colors.accent.success} onClick={() => onOpen("room")}>
+          <Tile icon={Users} title={tr("Conversation balance")} accent={THEME.colors.accent.success} onClick={() => onOpen("room")}>
             <div className="text-xl font-bold leading-none" style={{ color: THEME.colors.text.primary }}>
               {balance === null ? "—" : `${balance}%`}
             </div>
             <div className="text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
               {balance === null
-                ? "Shows after a minute of talking"
+                ? tr("Shows after a minute of talking")
                 : quietCount > 0
-                  ? `${quietCount} quiet voice${quietCount === 1 ? "" : "s"}`
-                  : "Everyone is getting a turn"}
+                  ? tr("{quietCount} quiet voice{value}", { quietCount, value: quietCount === 1 ? "" : "s" })
+                  : tr("Everyone is getting a turn")}
             </div>
             {canManage && (
               <ActionButton onClick={onSpotlight} icon={Focus} tone="warning">
-                {quietCount > 0 ? "Spotlight a quiet voice" : "Pick a topic card"}
+                {quietCount > 0 ? tr("Spotlight a quiet voice") : tr("Pick a topic card")}
               </ActionButton>
             )}
           </Tile>
 
           {/* Word bank */}
-          <Tile icon={BookMarked} title="Word bank" accent={THEME.colors.accent.pink} onClick={() => onOpen("words")}>
+          <Tile icon={BookMarked} title={tr("Word bank")} accent={THEME.colors.accent.pink} onClick={() => onOpen("words")}>
             <div className="text-xl font-bold leading-none" style={{ color: THEME.colors.text.primary }}>
               {savedCount}
               <span className="text-[11px] font-normal ml-1" style={{ color: THEME.colors.text.muted }}>
-                saved
-              </span>
+                {tr("saved")}</span>
             </div>
             <div className="text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
-              {savedCount === 0 ? "Tap a word in the captions to save it" : dueCount > 0 ? `${dueCount} ready to review` : "All reviewed for now"}
+              {savedCount === 0 ? tr("Tap a word in the captions to save it") : dueCount > 0 ? tr("{dueCount} ready to review", { dueCount }) : tr("All reviewed for now")}
             </div>
-            {dueCount > 0 && <ActionButton onClick={() => onOpen("words")}>Review now</ActionButton>}
+            {dueCount > 0 && <ActionButton onClick={() => onOpen("words")}>{tr("Review now")}</ActionButton>}
           </Tile>
         </div>
       )}

@@ -3,7 +3,6 @@
 import React, {
   useState,
   useEffect,
-  useMemo,
   useRef,
 } from "react";
 import {
@@ -12,7 +11,7 @@ import {
   useRemoveFromStage,
   useVoiceSocket,
 } from "../../hooks/useVoice";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import { toast } from "sonner";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import {
@@ -39,6 +38,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "../../lib/utils";
+import { tr } from "../../i18n/core";
 
 // ---- Types ----
 interface StageSpeakerProps {
@@ -495,7 +495,7 @@ const SpeakerAvatar: React.FC<{
         style={{ color: isMuted ? THEME.text.muted : THEME.text.secondary }}
       >
         {isMuted ? (
-          "🔇 Muted"
+          tr("🔇 Muted")
         ) : isSpeaking ? (
           <>
             <motion.span
@@ -504,12 +504,11 @@ const SpeakerAvatar: React.FC<{
             >
               🔊
             </motion.span>
-            speaking
-          </>
+            {tr("speaking")}</>
         ) : isLive ? (
-          "🎧 Listening"
+          tr("🎧 Listening")
         ) : (
-          "💤 Away"
+          tr("💤 Away")
         )}
       </span>
     </motion.div>
@@ -587,13 +586,11 @@ const ListenerCard: React.FC<{
               style={{ color: THEME.status.waiting }}
             >
               <Hand className="w-3 h-3" />
-              waiting
-            </motion.div>
+              {tr("waiting")}</motion.div>
           )}
         </div>
         <span className="text-[11px]" style={{ color: THEME.text.muted }}>
-          Joined{" "}
-          {formatDistanceToNow(new Date(listener.joinedAt), {
+          {tr("Joined{value}", { value: " " })}{formatDistanceToNow(new Date(listener.joinedAt), {
             addSuffix: true,
           })}
         </span>
@@ -617,7 +614,7 @@ const ListenerCard: React.FC<{
               {isPending ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
               ) : (
-                "Bring Up"
+                tr("Bring Up")
               )}
             </motion.button>
           )}
@@ -630,7 +627,7 @@ const ListenerCard: React.FC<{
               disabled={isFull || isPending}
               className="p-2 rounded-full transition-colors hover:bg-white/5 disabled:opacity-40"
               style={{ color: THEME.text.muted }}
-              title="Invite to stage"
+              title={tr("Invite to stage")}
             >
               {isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -646,7 +643,7 @@ const ListenerCard: React.FC<{
             onClick={onKick}
             className="p-2 rounded-full transition-colors hover:bg-red-500/20"
             style={{ color: THEME.text.muted }}
-            title="Remove from room"
+            title={tr("Remove from room")}
           >
             <UserX className="w-4 h-4" />
           </motion.button>
@@ -711,7 +708,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
             className="w-10 h-10 animate-spin mx-auto mb-3"
             style={{ color: THEME.aurora.primary }}
           />
-          <p style={{ color: THEME.text.muted }}>Raising the curtain...</p>
+          <p style={{ color: THEME.text.muted }}>{tr("Raising the curtain...")}</p>
         </div>
       </div>
     );
@@ -737,19 +734,16 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
             className="text-2xl font-serif mb-2"
             style={{ color: THEME.text.primary }}
           >
-            No Stage Here
-          </h2>
+            {tr("No Stage Here")}</h2>
           <p style={{ color: THEME.text.muted }}>
-            This room isn't set up as a stage.
-          </p>
+            {tr("This room isn't set up as a stage.")}</p>
           {onLeave && (
             <button
               onClick={onLeave}
               className="mt-6 px-6 py-3 rounded-full font-semibold text-sm transition-all hover:scale-105"
               style={{ background: THEME.aurora.primary, color: "var(--sx-text-ffffff)" }}
             >
-              Back to Rooms
-            </button>
+              {tr("Back to Rooms")}</button>
           )}
         </div>
       </div>
@@ -764,8 +758,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
         style={{ background: THEME.void }}
       >
         <p style={{ color: THEME.text.muted }}>
-          The stage hasn't been built yet.
-        </p>
+          {tr("The stage hasn't been built yet.")}</p>
       </div>
     );
   }
@@ -773,7 +766,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
   const speakerIds = stage.speakers || [];
   const speakers = speakerIds
     .map((id: string) => {
-      const participant = room.participants.find((p: any) => p.userId === id);
+      const participant = room.participants.find((p) => p.userId === id);
       if (!participant) return null;
       return {
         id: participant.id,
@@ -792,8 +785,8 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
     .filter(Boolean) as Speaker[];
 
   const listeners = room.participants
-    .filter((p: any) => p.role === "LISTENER")
-    .map((p: any) => ({
+    .filter((p) => p.role === "LISTENER")
+    .map((p) => ({
       id: p.id,
       userId: p.userId,
       name: p.user.name,
@@ -807,7 +800,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
 
   const isSpeaker = speakerIds.includes(user?.id || "");
   const isModerator = room.participants.some(
-    (p: any) =>
+    (p) =>
       p.userId === user?.id &&
       (p.role === "MODERATOR" || p.userId === room.creatorId),
   );
@@ -816,31 +809,24 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
   const raisedHandCount = listeners.filter((l) => l.raisedHand).length;
 
   // Filter listeners
-  const filteredListeners = useMemo(() => {
-    let filtered = listeners;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((l) => l.name.toLowerCase().includes(q));
-    }
-    if (filterRaised) {
-      filtered = filtered.filter((l) => l.raisedHand);
-    }
-    return filtered;
-  }, [listeners, searchQuery, filterRaised]);
+  const query = searchQuery.toLowerCase();
+  const filteredListeners = listeners.filter(
+    (l) => (!query || l.name.toLowerCase().includes(query)) && (!filterRaised || l.raisedHand),
+  );
 
   // Handlers
   const handleAddToStage = async (userId: string) => {
     if (isFull) {
-      toast.error("The stage is full — 5 speakers max");
+      toast.error(tr("The stage is full — 5 speakers max"));
       return;
     }
     setPendingUserId(userId);
     try {
       await addToStage.mutateAsync({ roomId, userId });
-      toast.success("✨ Invited to the stage!");
+      toast.success(tr("✨ Invited to the stage!"));
       refetch();
     } catch {
-      toast.error("Couldn't add them to the stage");
+      toast.error(tr("Couldn't add them to the stage"));
     } finally {
       setPendingUserId(null);
     }
@@ -850,10 +836,10 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
     setPendingUserId(userId);
     try {
       await removeFromStage.mutateAsync({ roomId, userId });
-      toast.success("Stepped off the stage");
+      toast.success(tr("Stepped off the stage"));
       refetch();
     } catch {
-      toast.error("Couldn't remove them from the stage");
+      toast.error(tr("Couldn't remove them from the stage"));
     } finally {
       setPendingUserId(null);
     }
@@ -861,10 +847,10 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
 
   const handleKickUser = async (_userId: string) => {
     try {
-      toast.success("User removed from room");
+      toast.success(tr("User removed from room"));
       refetch();
     } catch {
-      toast.error("Failed to remove user");
+      toast.error(tr("Failed to remove user"));
     }
   };
 
@@ -872,23 +858,23 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
     setIsRaisingHand(true);
     socket?.emit("voice:raise-hand", { roomId, raise: true });
     setShowHand(true);
-    toast.success("✋ Hand raised — you're in the queue!");
+    toast.success(tr("✋ Hand raised — you're in the queue!"));
     setTimeout(() => setIsRaisingHand(false), 2000);
   };
 
   const handleLowerHand = () => {
     socket?.emit("voice:raise-hand", { roomId, raise: false });
     setShowHand(false);
-    toast.success("Hand lowered");
+    toast.success(tr("Hand lowered"));
   };
 
   const handleMuteSpeaker = async (_userId: string) => {
-    toast.success("Speaker muted");
+    toast.success(tr("Speaker muted"));
     refetch();
   };
 
   const handleUnmuteSpeaker = async (_userId: string) => {
-    toast.success("Speaker unmuted");
+    toast.success(tr("Speaker unmuted"));
     refetch();
   };
 
@@ -947,13 +933,13 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                         : THEME.text.muted,
                   }}
                 />
-                {speakers.length > 0 ? "Live" : "Quiet"}
+                {speakers.length > 0 ? tr("Live") : tr("Quiet")}
               </span>
               <span
                 className="text-[11px] font-mono"
                 style={{ color: THEME.text.muted }}
               >
-                {stage.name || "Main Stage"}
+                {stage.name || tr("Main Stage")}
               </span>
               {isModerator && (
                 <span
@@ -963,8 +949,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                     color: "var(--sx-text-fcd34d)",
                   }}
                 >
-                  <ShieldCheck className="w-3 h-3" /> Moderator
-                </span>
+                  <ShieldCheck className="w-3 h-3" /> {" "}{tr("Moderator")}</span>
               )}
               {isHost && (
                 <span
@@ -974,8 +959,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                     color: "var(--sx-text-fbbf24)",
                   }}
                 >
-                  <CrownIcon className="w-3 h-3" /> Host
-                </span>
+                  <CrownIcon className="w-3 h-3" /> {" "}{tr("Host")}</span>
               )}
             </div>
             <h2
@@ -1000,7 +984,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
               {speakers.length}
             </span>
             <span>/ 5</span>
-            <span className="hidden sm:inline">speaking</span>
+            <span className="hidden sm:inline">{tr("speaking")}</span>
           </div>
 
           <div
@@ -1066,12 +1050,11 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
               className="text-2xl font-serif mb-2"
               style={{ color: THEME.text.primary }}
             >
-              The Stage is Empty
-            </h3>
+              {tr("The Stage is Empty")}</h3>
             <p style={{ color: THEME.text.muted }}>
               {isModerator
-                ? "Invite a listener up when you're ready."
-                : "Waiting for a speaker to step up."}
+                ? tr("Invite a listener up when you're ready.")
+                : tr("Waiting for a speaker to step up.")}
             </p>
             {isModerator && listeners.length > 0 && (
               <motion.button
@@ -1090,8 +1073,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                 }}
               >
                 <UserPlus className="w-4 h-4 inline mr-2" />
-                Invite First Speaker
-              </motion.button>
+                {tr("Invite First Speaker")}</motion.button>
             )}
           </motion.div>
         ) : (
@@ -1144,8 +1126,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                   style={{ borderColor: THEME.border }}
                 >
                   <span className="text-xs" style={{ color: THEME.text.muted }}>
-                    Stage Full
-                  </span>
+                    {tr("Stage Full")}</span>
                   <span
                     className="text-[11px]"
                     style={{ color: THEME.text.muted }}
@@ -1176,8 +1157,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4" style={{ color: THEME.text.muted }} />
             <h3 className="font-serif" style={{ color: THEME.text.primary }}>
-              Audience
-            </h3>
+              {tr("Audience")}</h3>
             <span
               className="text-xs font-mono"
               style={{ color: THEME.text.muted }}
@@ -1206,8 +1186,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                 style={{ color: THEME.status.waiting }}
               >
                 <Hand className="w-3.5 h-3.5" />
-                {raisedHandCount} waiting
-              </motion.div>
+                {raisedHandCount} {" "}{tr("waiting")}</motion.div>
             )}
 
             <div className="relative">
@@ -1219,7 +1198,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search audience..."
+                placeholder={tr("Search audience...")}
                 className="pl-8 pr-3 py-1.5 rounded-full text-xs outline-none border transition-all focus:border-purple-500"
                 style={{
                   background: "var(--sx-bg-255-255-255-50)",
@@ -1238,7 +1217,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                   : "hover:bg-white/5",
               )}
               style={{ color: filterRaised ? "var(--sx-text-fcd34d)" : THEME.text.muted }}
-              title="Filter by raised hand"
+              title={tr("Filter by raised hand")}
             >
               <Filter className="w-4 h-4" />
             </button>
@@ -1255,8 +1234,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
               {listeners.length === 0 ? (
                 <div className="text-center py-8">
                   <p style={{ color: THEME.text.muted }}>
-                    No one in the audience yet.
-                  </p>
+                    {tr("No one in the audience yet.")}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -1307,10 +1285,10 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
               <Hand className="w-4 h-4" />
             )}
             {showHand
-              ? "Hand Raised ✋"
+              ? tr("Hand Raised ✋")
               : isRaisingHand
-                ? "Raising..."
-                : "Raise Hand"}
+                ? tr("Raising...")
+                : tr("Raise Hand")}
           </motion.button>
         )}
 
@@ -1326,8 +1304,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
             }}
           >
             <X className="w-4 h-4" />
-            Lower Hand
-          </motion.button>
+            {tr("Lower Hand")}</motion.button>
         )}
 
         {isModerator && (
@@ -1340,9 +1317,9 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
                 if (waiting.length > 0 && !isFull) {
                   handleAddToStage(waiting[0].userId);
                 } else if (isFull) {
-                  toast.error("Stage is full");
+                  toast.error(tr("Stage is full"));
                 } else {
-                  toast.info("No one has raised their hand");
+                  toast.info(tr("No one has raised their hand"));
                 }
               }}
               disabled={isFull}
@@ -1353,15 +1330,14 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
               }}
             >
               <UserPlus className="w-4 h-4" />
-              Bring Next Up
-            </motion.button>
+              {tr("Bring Next Up")}</motion.button>
 
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
                 if (speakers.length === 0) {
-                  toast.info("No speakers on stage");
+                  toast.info(tr("No speakers on stage"));
                   return;
                 }
                 const lastSpeaker = speakers[speakers.length - 1];
@@ -1376,8 +1352,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
               }}
             >
               <UserX className="w-4 h-4" />
-              Remove Last
-            </motion.button>
+              {tr("Remove Last")}</motion.button>
           </>
         )}
       </footer>

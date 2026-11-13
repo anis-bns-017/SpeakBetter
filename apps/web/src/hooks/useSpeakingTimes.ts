@@ -30,8 +30,10 @@ export const useSpeakingTimes = (
   // Track previous speaking state per user to detect turn transitions
   const prevSpeaking = useRef<Record<string, boolean>>({});
 
-  // Update names/avatars whenever participant list changes
-  useEffect(() => {
+  // Update names/avatars whenever participant list changes (adjusted while rendering)
+  const [seenParticipants, setSeenParticipants] = useState<ParticipantLike[] | null>(null);
+  if (seenParticipants !== participants) {
+    setSeenParticipants(participants);
     setTimes((prev) => {
       const next = { ...prev };
       for (const p of participants) {
@@ -47,14 +49,13 @@ export const useSpeakingTimes = (
             turns: 0,
           };
         } else {
-          if (existing.name !== p.name) existing.name = p.name;
-          if (existing.avatarUrl !== p.avatarUrl)
-            existing.avatarUrl = p.avatarUrl;
+          if (existing.name !== p.name || existing.avatarUrl !== p.avatarUrl)
+            next[key] = { ...existing, name: p.name || existing.name, avatarUrl: p.avatarUrl };
         }
       }
       return next;
     });
-  }, [participants]);
+  }
 
   // Every second, increment speaking seconds for active speakers
   useEffect(() => {

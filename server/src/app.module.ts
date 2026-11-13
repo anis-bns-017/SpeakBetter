@@ -1,3 +1,4 @@
+import { AdminModule } from './admin/admin.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -75,6 +76,7 @@ import { BillingModule } from './billing/billing.module';
     DictionaryModule,
     BillingModule,
     CommunitiesModule,
+    AdminModule,
   ],
   providers: [PrismaService, { provide: APP_GUARD, useClass: JwtAuthGuard }],
 })

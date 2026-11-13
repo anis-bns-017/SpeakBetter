@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import {
   apiErrorMessage,
   chatApi,
@@ -11,7 +11,8 @@ import {
 } from "../../hooks/useChat";
 import { getDraft, onDraftChange } from "../../lib/chatDrafts";
 import { relockChat } from "../../lib/chatUnlock";
-import { ChatPinDialog, MUTE_OPTIONS, ReportDialog } from "./ChatDialogs";
+import { ChatPinDialog, ReportDialog } from "./ChatDialogs";
+import { MUTE_OPTIONS } from "./chatOptions";
 import {
   Lock,
   Unlock,
@@ -41,6 +42,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { tr, msg } from "../../i18n/core";
 
 interface ChatListProps {
   chats: Chat[];
@@ -70,14 +72,14 @@ const MEDIA_PREVIEW: Record<
   string,
   { icon: React.ElementType; label: string; color: string }
 > = {
-  IMAGE: { icon: ImageIcon, label: "Photo", color: "text-blue-500" },
-  VIDEO: { icon: ImageIcon, label: "Video", color: "text-red-500" },
-  AUDIO: { icon: Mic, label: "Audio", color: "text-purple-500" },
-  VOICE_NOTE: { icon: Mic, label: "Voice note", color: "text-indigo-500" },
-  FILE: { icon: FileText, label: "File", color: "text-orange-500" },
+  IMAGE: { icon: ImageIcon, label: msg("Photo"), color: "text-blue-500" },
+  VIDEO: { icon: ImageIcon, label: msg("Video"), color: "text-red-500" },
+  AUDIO: { icon: Mic, label: msg("Audio"), color: "text-purple-500" },
+  VOICE_NOTE: { icon: Mic, label: msg("Voice note"), color: "text-indigo-500" },
+  FILE: { icon: FileText, label: msg("File"), color: "text-orange-500" },
   GIF: { icon: ImageIcon, label: "GIF", color: "text-pink-500" },
-  STICKER: { icon: Sticker, label: "Sticker", color: "text-emerald-500" },
-  LOCATION: { icon: MapPin, label: "Location", color: "text-green-500" },
+  STICKER: { icon: Sticker, label: msg("Sticker"), color: "text-emerald-500" },
+  LOCATION: { icon: MapPin, label: msg("Location"), color: "text-green-500" },
 };
 
 // Animation variants
@@ -156,23 +158,22 @@ export const ChatList: React.FC<ChatListProps> = ({
     if (chat.isLocked) {
       return (
         <span className="inline-flex items-center gap-1 italic">
-          <Lock className="w-3 h-3" /> Locked chat
-        </span>
+          <Lock className="w-3 h-3" /> {" "}{tr("Locked chat")}</span>
       );
     }
     const draft = chat.id !== selectedChatId ? getDraft(chat.id) : "";
     if (draft) {
       return (
         <span className="line-clamp-1">
-          <span className="font-semibold text-rose-500">Draft: </span>
+          <span className="font-semibold text-rose-500">{tr("Draft:")}{" "}</span>
           {draft}
         </span>
       );
     }
     const msg = chat.messages?.[0];
-    if (!msg) return <span className="italic">No messages yet</span>;
+    if (!msg) return <span className="italic">{tr("No messages yet")}</span>;
     if (msg.type === "SYSTEM") return <span className="line-clamp-1 italic">{msg.content}</span>;
-    if (msg.isDeleted) return <span className="italic">Message deleted</span>;
+    if (msg.isDeleted) return <span className="italic">{tr("Message deleted")}</span>;
 
     const isOwn = msg.senderId === user?.id;
     const prefix =
@@ -200,7 +201,7 @@ export const ChatList: React.FC<ChatListProps> = ({
         <>
           {statusIcon}
           {prefix}
-          <span className="line-clamp-1">✏️ {isOwn ? "Sent a correction" : "Corrected your message"}</span>
+          <span className="line-clamp-1">✏️ {isOwn ? tr("Sent a correction") : tr("Corrected your message")}</span>
         </>
       );
     }
@@ -223,7 +224,7 @@ export const ChatList: React.FC<ChatListProps> = ({
         {prefix}
         <span className="inline-flex items-center gap-1">
           <Icon className={`w-3 h-3 shrink-0 ${media.color}`} />
-          {media.label}
+          {tr(media.label)}
         </span>
       </>
     );
@@ -247,7 +248,7 @@ export const ChatList: React.FC<ChatListProps> = ({
         case "mute":
           if (isMutedNow(chat.mutedUntil)) {
             await updateState.mutateAsync({ chatId, mutedUntil: null });
-            toast.success(`${name} unmuted`);
+            toast.success(tr("{name} unmuted", { name }));
           } else {
             setMuteMenuFor(chatId);
           }
@@ -256,13 +257,13 @@ export const ChatList: React.FC<ChatListProps> = ({
           if (chat.isLocked) {
             relockChat(chatId);
             await updateState.mutateAsync({ chatId, isLocked: false });
-            toast.success(`${name} unlocked`);
+            toast.success(tr("{name} unlocked", { name }));
           } else if (!privacy?.hasChatLockPin) {
             setPinSetupFor(chatId);
           } else {
             relockChat(chatId);
             await updateState.mutateAsync({ chatId, isLocked: true });
-            toast.success(`${name} locked`);
+            toast.success(tr("{name} locked", { name }));
           }
           break;
         case "mark-read":
@@ -270,14 +271,14 @@ export const ChatList: React.FC<ChatListProps> = ({
           queryClient.setQueryData<Chat[]>(["chats"], (old) =>
             old?.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)),
           );
-          toast.success(`${name} marked as read`);
+          toast.success(tr("{name} marked as read", { name }));
           break;
         case "clear":
           if (!window.confirm(`Clear all messages in ${name} for you? Others keep their copy.`)) break;
           await chatApi.clearHistory(chatId);
           queryClient.setQueryData(["messages", chatId], []);
           queryClient.invalidateQueries({ queryKey: ["chats"] });
-          toast.success(`${name} cleared for you`);
+          toast.success(tr("{name} cleared for you", { name }));
           break;
         case "report": {
           const other = getOtherParticipant(chat);
@@ -309,9 +310,9 @@ export const ChatList: React.FC<ChatListProps> = ({
     { icon: chat.isArchived ? ArchiveRestore : Archive, label: chat.isArchived ? "Unarchive" : "Archive", action: "archive" },
     { icon: isMutedNow(chat.mutedUntil) ? Bell : BellOff, label: isMutedNow(chat.mutedUntil) ? "Unmute" : "Mute", action: "mute" },
     { icon: chat.isLocked ? Unlock : Lock, label: chat.isLocked ? "Unlock chat" : "Lock chat", action: "lock" },
-    ...((chat.unreadCount ?? 0) > 0 ? [{ icon: EyeOff, label: "Mark as read", action: "mark-read" }] : []),
-    { icon: Eraser, label: "Clear history", action: "clear", danger: true },
-    ...(chat.type === "PRIVATE" ? [{ icon: Flag, label: "Report", action: "report", danger: true }] : []),
+    ...((chat.unreadCount ?? 0) > 0 ? [{ icon: EyeOff, label: msg("Mark as read"), action: "mark-read" }] : []),
+    { icon: Eraser, label: msg("Clear history"), action: "clear", danger: true },
+    ...(chat.type === "PRIVATE" ? [{ icon: Flag, label: msg("Report"), action: "report", danger: true }] : []),
   ];
 
   if (sortedChats.length === 0) {
@@ -326,8 +327,8 @@ export const ChatList: React.FC<ChatListProps> = ({
           <MessageCircle className="w-7 h-7 text-slate-400" />
         </motion.div>
         <div>
-          <p className="text-sm font-semibold text-slate-600">No conversations</p>
-          <p className="text-xs text-slate-400 mt-0.5">Start a new chat to connect</p>
+          <p className="text-sm font-semibold text-slate-600">{tr("No conversations")}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{tr("Start a new chat to connect")}</p>
         </div>
       </div>
     );
@@ -465,12 +466,12 @@ export const ChatList: React.FC<ChatListProps> = ({
                         </span>
                       )}
                       {isMutedNow(chat.mutedUntil) && (
-                        <BellOff className="w-3 h-3 text-slate-300 shrink-0" aria-label="Muted" />
+                        <BellOff className="w-3 h-3 text-slate-300 shrink-0" aria-label={tr("Muted")} />
                       )}
                       {chat.disappearingSeconds ? (
-                        <Timer className="w-3 h-3 text-indigo-300 shrink-0" aria-label="Disappearing messages on" />
+                        <Timer className="w-3 h-3 text-indigo-300 shrink-0" aria-label={tr("Disappearing messages on")} />
                       ) : null}
-                      {chat.isLocked && <Lock className="w-3 h-3 text-slate-300 shrink-0" aria-label="Locked" />}
+                      {chat.isLocked && <Lock className="w-3 h-3 text-slate-300 shrink-0" aria-label={tr("Locked")} />}
                     </div>
                     {lastMsg && (
                       <motion.span
@@ -563,7 +564,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                             }`}
                           >
                             <item.icon className={`w-3.5 h-3.5 ${item.danger ? "text-red-400" : "text-slate-400"}`} />
-                            {item.label}
+                            {tr(item.label)}
                           </motion.button>
                         ))}
                       </div>
@@ -581,19 +582,19 @@ export const ChatList: React.FC<ChatListProps> = ({
                       className="absolute right-0 top-full mt-1 z-10 min-w-[160px] bg-surface/95 backdrop-blur-xl rounded-2xl border border-line/80 shadow-2xl overflow-hidden py-1.5"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <p className="px-3.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Mute for</p>
+                      <p className="px-3.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{tr("Mute for")}</p>
                       {MUTE_OPTIONS.map((o) => (
                         <button
                           key={o.label}
                           type="button"
                           onClick={() => {
                             updateState.mutate({ chatId: chat.id, mutedUntil: o.value() });
-                            toast.success(`${name} muted`);
+                            toast.success(tr("{name} muted", { name }));
                             setMuteMenuFor(null);
                           }}
                           className="block w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50"
                         >
-                          {o.label}
+                          {tr(o.label)}
                         </button>
                       ))}
                     </motion.div>
@@ -612,7 +613,7 @@ export const ChatList: React.FC<ChatListProps> = ({
             onClose={() => setPinSetupFor(null)}
             onSaved={() => {
               updateState.mutate({ chatId: pinSetupFor, isLocked: true });
-              toast.success("Chat locked");
+              toast.success(tr("Chat locked"));
             }}
           />
         )}

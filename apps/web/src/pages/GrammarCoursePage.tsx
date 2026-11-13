@@ -8,6 +8,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, GraduationCap, Loader2, Sparkles } from "lucide-react";
 import { useGrammarLessons, type GrammarLevel } from "../hooks/useGrammar";
+import { tr } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -24,7 +25,7 @@ export const GrammarCoursePage: React.FC = () => {
     );
   }
   if (isError || !data) {
-    return <div className={`${card} max-w-xl mx-auto mt-16 p-8 text-center text-sm text-slate-500`}>Couldn't load the grammar lessons. Refresh to try again.</div>;
+    return <div className={`${card} max-w-xl mx-auto mt-16 p-8 text-center text-sm text-slate-500`}>{tr("Couldn't load the grammar lessons. Refresh to try again.")}</div>;
   }
 
   const level = picked ?? data.level;
@@ -38,10 +39,10 @@ export const GrammarCoursePage: React.FC = () => {
           <GraduationCap className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Grammar</h1>
-          <p className="text-sm text-slate-500">Learn the rule, then practise it. Mistakes come back later as flashcards.</p>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{tr("Grammar")}</h1>
+          <p className="text-sm text-slate-500">{tr("Learn the rule, then practise it. Mistakes come back later as flashcards.")}</p>
         </div>
-        <span className="text-xs text-slate-500 tabular-nums shrink-0">{data.done} of {data.lessons.length} passed</span>
+        <span className="text-xs text-slate-500 tabular-nums shrink-0">{data.done} {" "}{tr("of {length} passed", { length: data.lessons.length })}</span>
       </header>
 
       {recommended && (
@@ -54,17 +55,17 @@ export const GrammarCoursePage: React.FC = () => {
           </p>
           <div className="mt-2 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-lg font-bold">{recommended.title}</h2>
-              <p className="text-sm text-white/80 line-clamp-1">{recommended.summary}</p>
+              <h2 className="text-lg font-bold">{tr(recommended.title)}</h2>
+              <p className="text-sm text-white/80 line-clamp-1">{tr(recommended.summary)}</p>
             </div>
             <span className="inline-flex items-center gap-1.5 shrink-0 h-10 px-4 rounded-full bg-white text-indigo-700 text-sm font-semibold">
-              {recommended.tried ? "Try again" : "Start"} <ArrowRight className="w-4 h-4" />
+              {recommended.tried ? tr("Try again") : tr("Start")} <ArrowRight className="w-4 h-4" />
             </span>
           </div>
         </Link>
       )}
 
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Level">
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={tr("Level")}>
         {data.levels.map((l) => (
           <button
             key={l.level}
@@ -79,7 +80,7 @@ export const GrammarCoursePage: React.FC = () => {
             }`}
           >
             {l.level}
-            {l.level === data.level && <span className="opacity-70">· you</span>}
+            {l.level === data.level && <span className="opacity-70">{tr("· you")}</span>}
             <span className={`tabular-nums ${level === l.level ? "opacity-80" : "text-slate-400"}`}>
               {l.done}/{l.total}
             </span>
@@ -98,21 +99,21 @@ export const GrammarCoursePage: React.FC = () => {
                 </span>
               ) : l.tried ? (
                 <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-                  Best {l.bestScore}/{l.exercises}
+                  {tr("Best {bestScore}/", { bestScore: l.bestScore })}{l.exercises}
                 </span>
               ) : (
-                <span className="text-[11px] text-slate-400">{l.exercises} exercises</span>
+                <span className="text-[11px] text-slate-400">{l.exercises} {" "}{tr("exercises")}</span>
               )}
             </div>
-            <h2 className="mt-3 text-base font-bold text-slate-900 dark:text-white">{l.title}</h2>
-            <p className="mt-1 text-sm text-slate-500 line-clamp-2">{l.summary}</p>
-            {l.patternLabel && <p className="mt-3 text-[11px] text-slate-400">Fixes: {l.patternLabel.toLowerCase()}</p>}
+            <h2 className="mt-3 text-base font-bold text-slate-900 dark:text-white">{tr(l.title)}</h2>
+            <p className="mt-1 text-sm text-slate-500 line-clamp-2">{tr(l.summary)}</p>
+            {l.patternLabel && <p className="mt-3 text-[11px] text-slate-400">{tr("Fixes:")}{" "}{l.patternLabel.toLowerCase()}</p>}
           </Link>
         ))}
       </div>
 
       <p className="text-center text-xs text-slate-400">
-        Looking for a rule list? <Link to="/grammar/rules" className="underline hover:text-slate-600 dark:hover:text-slate-200">Rule reference</Link>
+        {tr("Looking for a rule list?")}{" "}<Link to="/grammar/rules" className="underline hover:text-slate-600 dark:hover:text-slate-200">{tr("Rule reference")}</Link>
       </p>
     </div>
   );

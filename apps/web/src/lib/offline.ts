@@ -5,13 +5,14 @@
  */
 
 import { apiClient } from "./api/client";
+import { API_URL } from "./api/serverUrl";
 
 const SAVED_AT_KEY = "sb.offline.savedAt";
 
 /** The API origin, handed to the service worker so it knows which requests are the API */
 export const apiOrigin = (): string => {
   try {
-    return new URL(import.meta.env.VITE_API_URL || "http://localhost:3000").origin;
+    return new URL(API_URL).origin;
   } catch {
     return "http://localhost:3000";
   }

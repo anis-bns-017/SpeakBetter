@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Copy, Download, Loader2, Share2, X } from "lucide-react";
 import { Button } from "../ui";
 import { cardFileName, cardShareText, CARD_HEIGHT, CARD_WIDTH, renderShareCard, type ShareCardData } from "../../lib/shareCard";
+import { tr, msg } from "../../i18n/core";
 
 export const ShareCardDialog: React.FC<{ card: ShareCardData; onClose: () => void }> = ({ card, onClose }) => {
   const [blob, setBlob] = useState<Blob | null>(null);
@@ -47,10 +48,10 @@ export const ShareCardDialog: React.FC<{ card: ShareCardData; onClose: () => voi
   const share = useCallback(async () => {
     if (!file) return;
     try {
-      await navigator.share({ files: [file], text: cardShareText(card), title: "SpeakBetter" });
+      await navigator.share({ files: [file], text: cardShareText(card), title: msg("SpeakBetter") });
     } catch (error) {
       // Closing the share sheet is not an error
-      if ((error as Error)?.name !== "AbortError") toast.error("Couldn't open the share sheet. Try Save image.");
+      if ((error as Error)?.name !== "AbortError") toast.error(tr("Couldn't open the share sheet. Try Save image."));
     }
   }, [file, card]);
 
@@ -68,9 +69,9 @@ export const ShareCardDialog: React.FC<{ card: ShareCardData; onClose: () => voi
     if (!blob) return;
     try {
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      toast.success("Picture copied. Paste it into a chat or post.");
+      toast.success(tr("Picture copied. Paste it into a chat or post."));
     } catch {
-      toast.error("Couldn't copy the picture. Try Save image.");
+      toast.error(tr("Couldn't copy the picture. Try Save image."));
     }
   };
 
@@ -79,7 +80,7 @@ export const ShareCardDialog: React.FC<{ card: ShareCardData; onClose: () => voi
       className="fixed inset-0 z-[170] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Share card"
+      aria-label={tr("Share card")}
       onMouseDown={(e) => {
         e.stopPropagation();
         if (e.target === e.currentTarget) onClose();
@@ -92,12 +93,12 @@ export const ShareCardDialog: React.FC<{ card: ShareCardData; onClose: () => voi
     >
       <div className="relative flex max-h-full w-full max-w-sm flex-col rounded-3xl border border-line bg-surface p-5 shadow-xl">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Share this</h2>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">{tr("Share this")}</h2>
           <button
             ref={closeRef}
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={tr("Close")}
             className="grid h-10 w-10 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5"
           >
             <X className="h-4 w-4" />
@@ -113,11 +114,10 @@ export const ShareCardDialog: React.FC<{ card: ShareCardData; onClose: () => voi
           ) : (
             <div className="grid h-full w-full place-items-center text-sm text-slate-500" role="status">
               {failed ? (
-                "Couldn't make the picture on this device."
+                tr("Couldn't make the picture on this device.")
               ) : (
                 <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Making your card
-                </span>
+                  <Loader2 className="h-4 w-4 animate-spin" /> {" "}{tr("Making your card")}</span>
               )}
             </div>
           )}
@@ -126,21 +126,18 @@ export const ShareCardDialog: React.FC<{ card: ShareCardData; onClose: () => voi
         <div className="mt-4 grid gap-2">
           {canShareFile && (
             <Button icon={Share2} onClick={share}>
-              Share
-            </Button>
+              {tr("Share")}</Button>
           )}
           <div className="grid grid-cols-2 gap-2">
             <Button variant={canShareFile ? "secondary" : "primary"} icon={Download} onClick={save} disabled={!url}>
-              Save image
-            </Button>
+              {tr("Save image")}</Button>
             {canCopy && (
               <Button variant="secondary" icon={Copy} onClick={copy} disabled={!blob}>
-                Copy
-              </Button>
+                {tr("Copy")}</Button>
             )}
           </div>
         </div>
-        <p className="mt-3 text-center text-xs text-slate-500">The picture is made on your device. Nothing is uploaded.</p>
+        <p className="mt-3 text-center text-xs text-slate-500">{tr("The picture is made on your device. Nothing is uploaded.")}</p>
       </div>
     </div>,
     document.body,
@@ -160,7 +157,7 @@ export const ShareCardButton: React.FC<{
   return (
     <>
       <Button variant={variant} size={size} icon={Share2} onClick={() => setOpen(true)} className={className}>
-        {label}
+        {tr(label)}
       </Button>
       {open && <ShareCardDialog card={card} onClose={close} />}
     </>

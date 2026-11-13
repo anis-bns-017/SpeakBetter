@@ -5,9 +5,12 @@
  * own theme. On phones the brand panel shrinks to a header bar so the form is the first thing you see.
  */
 
+import { useT } from "../../i18n";
+import { LANGUAGES } from "../../i18n/core";
 import React from "react";
 import type { LucideIcon } from "lucide-react";
 import { LogoMark } from "./SpeakBetterLogo";
+import { tr } from "../../i18n/core";
 
 export interface AuthFeature {
   icon: LucideIcon;
@@ -25,29 +28,31 @@ export const AuthShell: React.FC<{
   features: AuthFeature[];
   stats?: Array<{ value: string; label: string }>;
   children: React.ReactNode;
-}> = ({ eyebrow, title, blurb, features, stats, children }) => (
+}> = ({ eyebrow, title, blurb, features, stats, children }) => {
+  const { t, lang, setLang } = useT();
+  return (
   <div className="min-h-dvh bg-page lg:grid lg:grid-cols-[1.05fr_1fr]">
     {/* Brand panel */}
     <aside className="relative hidden overflow-hidden bg-indigo-950 text-white lg:flex lg:flex-col lg:justify-between lg:gap-10 lg:p-12 xl:p-16">
       <div className="flex items-center gap-3">
         <LogoMark size={44} />
-        <span className="font-display text-[22px] font-semibold">SpeakBetter</span>
+        <span className="font-display text-[22px] font-semibold">{tr("SpeakBetter")}</span>
       </div>
 
       <div className="max-w-xl">
-        <p className="t-eyebrow text-indigo-200">{eyebrow}</p>
+        <p className="t-eyebrow text-indigo-200">{t(eyebrow)}</p>
         <p className="font-display mt-4 text-5xl font-semibold leading-[1.08] xl:text-6xl">{title}</p>
-        <p className="mt-5 max-w-md text-base leading-relaxed text-indigo-100/90">{blurb}</p>
+        <p className="mt-5 max-w-md text-base leading-relaxed text-indigo-100/90">{t(blurb)}</p>
 
         <ul className="mt-9 grid gap-x-8 gap-y-5 sm:grid-cols-2">
-          {features.map(({ icon: Icon, title: t, text }) => (
-            <li key={t} className="flex gap-3">
+          {features.map(({ icon: Icon, title: name, text }) => (
+            <li key={name} className="flex gap-3">
               <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-inset ring-white/15">
                 <Icon className="h-[18px] w-[18px] text-indigo-100" aria-hidden />
               </span>
               <span>
-                <span className="block text-sm font-semibold">{t}</span>
-                {text && <span className="mt-0.5 block text-[13px] leading-snug text-indigo-200">{text}</span>}
+                <span className="block text-sm font-semibold">{t(name)}</span>
+                {text && <span className="mt-0.5 block text-[13px] leading-snug text-indigo-200">{t(text)}</span>}
               </span>
             </li>
           ))}
@@ -68,8 +73,8 @@ export const AuthShell: React.FC<{
           <dl className="mt-6 flex gap-10 border-t border-white/15 pt-5">
             {stats.map((s) => (
               <div key={s.label}>
-                <dd className="font-display text-2xl font-semibold tabular-nums">{s.value}</dd>
-                <dt className="text-xs text-indigo-200">{s.label}</dt>
+                <dd className="font-display text-2xl font-semibold tabular-nums">{t(s.value)}</dd>
+                <dt className="text-xs text-indigo-200">{t(s.label)}</dt>
               </div>
             ))}
           </dl>
@@ -78,12 +83,27 @@ export const AuthShell: React.FC<{
     </aside>
 
     {/* Form panel */}
-    <main id="main" className="flex min-h-dvh flex-col items-center justify-center px-4 py-8 sm:px-8">
+    <main id="main" className="relative flex min-h-dvh flex-col items-center justify-center px-4 py-8 sm:px-8">
+      {/* Pick the app's language before signing in */}
+      <div role="group" aria-label={tr("Language / ভাষা")} className="absolute right-4 top-4 flex rounded-xl border border-line bg-surface p-0.5 text-[13px] font-semibold">
+        {LANGUAGES.map((l) => (
+          <button
+            key={l.code}
+            type="button"
+            aria-pressed={lang === l.code}
+            onClick={() => setLang(l.code)}
+            className={`h-8 rounded-lg px-3 ${lang === l.code ? "bg-indigo-600 text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"}`}
+          >
+            {l.native}
+          </button>
+        ))}
+      </div>
       <div className="mb-7 flex items-center gap-3 lg:hidden">
         <LogoMark size={40} />
-        <span className="font-display text-xl font-semibold text-slate-900 dark:text-white">SpeakBetter</span>
+        <span className="font-display text-xl font-semibold text-slate-900 dark:text-white">{tr("SpeakBetter")}</span>
       </div>
       <div className="w-full max-w-[440px]">{children}</div>
     </main>
   </div>
-);
+  );
+};

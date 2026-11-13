@@ -27,6 +27,7 @@ import {
   participantCount,
 } from "./lobbyUtils";
 import { Equalizer } from "./Equalizer";
+import { tr } from "../../../i18n/core";
 
 interface RoomCardProps {
   room: VoiceRoom;
@@ -143,8 +144,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                     style={{ background: "rgba(239, 68, 68, 0.2)", color: COLORS.danger }}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                    Recording
-                  </span>
+                    {tr("Recording")}</span>
                 )}
               </div>
               {room.description && !isList && (
@@ -152,11 +152,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                   className="text-sm mt-1 line-clamp-2"
                   style={{ color: COLORS.textMuted }}
                 >
-                  {room.description}
+                  {tr(room.description)}
                 </p>
               )}
               <p className="text-[11px] mt-1" style={{ color: COLORS.textSecondary }}>
-                Hosted by {room.creator?.name || "someone"}
+                {tr("Hosted by")}{" "}{room.creator?.name || tr("someone")}
               </p>
             </div>
 
@@ -164,8 +164,8 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               <button
                 onClick={onToggleFavorite}
                 aria-pressed={isFavorite}
-                aria-label={isFavorite ? "Unpin room" : "Pin room"}
-                title={isFavorite ? "Unpin room" : "Pin room"}
+                aria-label={isFavorite ? tr("Unpin room") : tr("Pin room")}
+                title={isFavorite ? tr("Unpin room") : tr("Pin room")}
                 className="grid h-10 w-10 place-items-center rounded-full transition-colors hover:bg-slate-900/[0.05] dark:hover:bg-white/5"
                 style={{ color: isFavorite ? COLORS.spotlight : COLORS.textMuted }}
               >
@@ -176,7 +176,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 style={{ background: `color-mix(in srgb, ${accent} 13.3%, transparent)`, color: accent }}
               >
                 <TypeIcon className="w-3 h-3" />
-                {typeConfig.label}
+                {tr(typeConfig.label)}
               </span>
             </div>
           </div>
@@ -220,7 +220,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                         borderColor: COLORS.surface,
                         color: "#fff",
                       }}
-                      title={p.user?.name || "Unknown"}
+                      title={p.user?.name || tr("Unknown")}
                     >
                       {initials(p.user?.name || "?")}
                     </div>
@@ -249,7 +249,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               style={{ background: `color-mix(in srgb, ${status.color} 13.3%, transparent)`, color: status.color }}
             >
               <StatusIcon className="w-3 h-3" />
-              {status.label}
+              {tr(status.label)}
             </span>
           </div>
 
@@ -261,7 +261,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               aria-valuenow={count}
               aria-valuemin={0}
               aria-valuemax={max}
-              aria-label="Room capacity"
+              aria-label={tr("Room capacity")}
             >
               <div
                 className="h-full rounded-full transition-all"
@@ -288,10 +288,10 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                   aria-pressed={!!reminder?.mine}
                   className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-colors hover:bg-white/5"
                   style={{ color: reminder?.mine ? TYPE_ACCENTS.SCHEDULED : COLORS.textMuted }}
-                  title={reminder?.mine ? "You'll be reminded 10 minutes before" : "Get a reminder 10 minutes before it starts"}
+                  title={reminder?.mine ? tr("You'll be reminded 10 minutes before") : tr("Get a reminder 10 minutes before it starts")}
                 >
                   {reminder?.mine ? <BellRing className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
-                  {reminder?.mine ? "Reminder set" : "Remind me"}
+                  {reminder?.mine ? tr("Reminder set") : tr("Remind me")}
                   {reminder && reminder.count > 0 && <span className="opacity-70">· {reminder.count}</span>}
                 </button>
               )}
@@ -299,11 +299,10 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 onClick={() => downloadRoomCalendar(room)}
                 className={`${onToggleReminder && !isCreator ? "" : "ml-auto "}inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] whitespace-nowrap transition-colors hover:bg-white/5`}
                 style={{ color: COLORS.textMuted }}
-                title="Add to calendar"
+                title={tr("Add to calendar")}
               >
                 <CalendarPlus className="w-3.5 h-3.5" />
-                Add to calendar
-              </button>
+                {tr("Add to calendar")}</button>
             </div>
           )}
         </div>
@@ -342,16 +341,15 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
             >
               <Square className="w-3.5 h-3.5" />
-              End Room
-            </button>
+              {tr("End Room")}</button>
           )}
 
           <button
             onClick={onCopyLink}
             className="grid h-11 w-11 place-items-center rounded-full transition-colors hover:bg-slate-900/[0.05] dark:hover:bg-white/5"
             style={{ color: COLORS.textMuted }}
-            title="Share room"
-            aria-label="Copy room link"
+            title={tr("Share room")}
+            aria-label={tr("Copy room link")}
           >
             <Share2 className="w-4 h-4" />
           </button>

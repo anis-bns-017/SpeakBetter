@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Gauge, Loader2, Plus } from "lucide-react";
 import { dictError, useSaveManyDictWords, useWordMap } from "../../hooks/useDictionary";
 import { LEVEL_STYLE, card } from "./dictStyles";
+import { tr } from "../../i18n/core";
 
 /** One hue, light to dark (dark mode: dark to light), so more known reads as stronger */
 const shade = (share: number) =>
@@ -43,10 +44,9 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
   if (isError || !data) {
     return (
       <div className={`${card} p-8 text-center text-sm text-slate-500`}>
-        Couldn't load your word map.{" "}
+        {tr("Couldn't load your word map.")}{" "}
         <button type="button" className="font-semibold text-indigo-600 hover:underline" onClick={() => refetch()}>
-          Try again
-        </button>
+          {tr("Try again")}</button>
       </div>
     );
   }
@@ -59,7 +59,7 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
     saveMany.mutate(
       data.next.map((w) => w.id),
       {
-        onSuccess: (r) => toast.success(`${r.added} ${r.added === 1 ? "word" : "words"} added to My words. They'll come up in review.`),
+        onSuccess: (r) => toast.success(tr("{added} {value} added to My words. They'll come up in review.", { added: r.added, value: r.added === 1 ? "word" : "words" })),
         onError: (e) => toast.error(dictError(e, "Couldn't save them")),
       },
     );
@@ -70,13 +70,12 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
         {/* All the words */}
         <section className={`${card} p-5`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your {total.toLocaleString()} words</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Your {total} words", { total: total.toLocaleString() })}</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-              {known.toLocaleString()} of {total.toLocaleString()} known · each square is 100 words, most common first
-            </p>
+              {known.toLocaleString()} {" "}{tr("of {total} known · each square is 100 words, most common first", { total: total.toLocaleString() })}</p>
           </div>
           <div className="relative mt-4" onMouseLeave={() => setHover(null)}>
-            <div className="grid grid-cols-10 gap-[3px]" role="img" aria-label={`Word map: ${known} of ${total} words known`}>
+            <div className="grid grid-cols-10 gap-[3px]" role="img" aria-label={tr("Word map: {known} of {total} words known", { known, total })}>
               {data.cells.map((c, i) => {
                 const size = c.to - c.from + 1;
                 return (
@@ -87,39 +86,36 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
                     onFocus={() => setHover(i)}
                     onClick={() => openCell(c.from, c.to)}
                     className={`aspect-square rounded-[4px] ${shade(c.known / size)} ${c.saved ? "ring-1 ring-inset ring-sky-600/70" : ""} hover:ring-2 hover:ring-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-shadow`}
-                    aria-label={`Words ${c.from} to ${c.to}: ${c.known} known, ${c.saved} saved`}
+                    aria-label={tr("Words {from} to {to}: {known} known, {saved} saved", { from: c.from, to: c.to, known: c.known, saved: c.saved })}
                   />
                 );
               })}
             </div>
             {cell && (
               <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-10 rounded-lg bg-slate-900 dark:bg-white px-3 py-1.5 text-[11px] text-white dark:text-slate-900 shadow-lg whitespace-nowrap">
-                <span className="font-semibold">Words #{cell.from.toLocaleString()}–#{cell.to.toLocaleString()}</span> · {cell.known} known · {cell.saved} saved · click to see them
-              </div>
+                <span className="font-semibold">{tr("Words #{from}–#", { from: cell.from.toLocaleString() })}{cell.to.toLocaleString()}</span> {" "}{tr("· {known} known · {saved} saved · click to see them", { known: cell.known, saved: cell.saved })}</div>
             )}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
             <span className="flex items-center gap-1">
-              Known:
-              {LEGEND.map((s) => (
+              {tr("Known:")}{LEGEND.map((s) => (
                 <span key={s} className={`w-3.5 h-3.5 rounded-[3px] ${shade(s)}`} />
               ))}
               <span>0% → 100%</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-[3px] bg-slate-100 dark:bg-white/[0.05] ring-1 ring-inset ring-sky-600/70" /> has saved words
-            </span>
+              <span className="w-3.5 h-3.5 rounded-[3px] bg-slate-100 dark:bg-white/[0.05] ring-1 ring-inset ring-sky-600/70" /> {" "}{tr("has saved words")}</span>
           </div>
           <table className="sr-only">
-            <caption>Words known in each group of 100</caption>
+            <caption>{tr("Words known in each group of 100")}</caption>
             <tbody>
               {data.cells.map((c) => (
                 <tr key={c.from}>
                   <th>
-                    Words {c.from} to {c.to}
+                    {tr("Words {from} to", { from: c.from })}{" "}{c.to}
                   </th>
-                  <td>{c.known} known</td>
-                  <td>{c.saved} saved</td>
+                  <td>{c.known} {" "}{tr("known")}</td>
+                  <td>{c.saved} {" "}{tr("saved")}</td>
                 </tr>
               ))}
             </tbody>
@@ -129,11 +125,11 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
         {/* By band */}
         <section className={`${card} p-5`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">By 1,000 words</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("By 1,000 words")}</h2>
             <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-600" /> Known</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-sky-600" /> Saved</span>
-              {data.latestTest && <span className="flex items-center gap-1.5"><span className="w-0.5 h-3 bg-slate-800 dark:bg-slate-100" /> Size test estimate</span>}
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-600" /> {" "}{tr("Known")}</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-sky-600" /> {" "}{tr("Saved")}</span>
+              {data.latestTest && <span className="flex items-center gap-1.5"><span className="w-0.5 h-3 bg-slate-800 dark:bg-slate-100" /> {" "}{tr("Size test estimate")}</span>}
             </div>
           </div>
           <ul className="mt-3 space-y-2">
@@ -143,7 +139,7 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
               const savedPct = (b.saved / size) * 100;
               return (
                 <li key={b.band}>
-                  <button type="button" onClick={() => openCell(b.from, b.to)} className="w-full flex items-center gap-3 group text-left" aria-label={`Words ${b.from} to ${b.to}: ${b.known} known, ${b.saved} saved${b.tested != null ? `, test estimate ${Math.round(b.tested * 100)}%` : ""}`}>
+                  <button type="button" onClick={() => openCell(b.from, b.to)} className="w-full flex items-center gap-3 group text-left" aria-label={tr("Words {from} to {to}: {known} known, {saved} saved{value}", { from: b.from, to: b.to, known: b.known, saved: b.saved, value: b.tested != null ? `, test estimate ${Math.round(b.tested * 100)}%` : "" })}>
                     <span className="w-24 shrink-0 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
                       {b.from.toLocaleString()}–{b.to.toLocaleString()}
                     </span>
@@ -153,8 +149,7 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
                       {b.tested != null && <span className="absolute top-0 bottom-0 w-0.5 bg-slate-800 dark:bg-slate-100" style={{ left: `${b.tested * 100}%` }} />}
                     </span>
                     <span className="w-16 shrink-0 text-right text-[11px] font-semibold tabular-nums text-slate-700 dark:text-slate-200">
-                      {b.known.toLocaleString()} known
-                    </span>
+                      {b.known.toLocaleString()} {" "}{tr("known")}</span>
                   </button>
                 </li>
               );
@@ -164,7 +159,7 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
 
         {/* By level */}
         <section className={`${card} p-5`}>
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">By level</h2>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("By level")}</h2>
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
             {data.levels.map((l) => {
               const pct = l.total ? Math.round((l.known / l.total) * 100) : 0;
@@ -178,8 +173,7 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
                     <div className="h-full rounded-full bg-emerald-600" style={{ width: `${pct}%` }} />
                   </div>
                   <p className="mt-1 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
-                    {l.known.toLocaleString()} of {l.total.toLocaleString()} words
-                  </p>
+                    {l.known.toLocaleString()} {" "}{tr("of {total} words", { total: l.total.toLocaleString() })}</p>
                 </Link>
               );
             })}
@@ -192,14 +186,13 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
         {!data.latestTest && (
           <button type="button" onClick={onTest} className={`${card} w-full p-4 text-left hover:shadow-md transition-shadow`}>
             <p className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Gauge className="w-4 h-4 text-amber-500" /> Fill in your map in 5 minutes
-            </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">The size test marks the words you already know, so the map shows where you really are.</p>
+              <Gauge className="w-4 h-4 text-amber-500" /> {" "}{tr("Fill in your map in 5 minutes")}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{tr("The size test marks the words you already know, so the map shows where you really are.")}</p>
           </button>
         )}
         <section className={`${card} p-5`}>
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your next {data.next.length} words</h2>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">The most common words you haven't saved or marked yet{data.latestTest ? ", skipping what your test says you know" : ""}.</p>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Your next {length} words", { length: data.next.length })}</h2>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{tr("The most common words you haven't saved or marked yet{value}.", { value: data.latestTest ? tr(", skipping what your test says you know") : "" })}</p>
           <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/[0.05]">
             {data.next.map((w) => (
               <li key={w.id}>
@@ -215,8 +208,7 @@ export const WordMapView: React.FC<{ onTest: () => void }> = ({ onTest }) => {
           </ul>
           {data.next.length > 0 && (
             <button type="button" onClick={saveNext} disabled={saveMany.isPending} className="mt-3 w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
-              {saveMany.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Save all {data.next.length} to My words
-            </button>
+              {saveMany.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} {" "}{tr("Save all {length} to My words", { length: data.next.length })}</button>
           )}
         </section>
       </aside>

@@ -27,6 +27,7 @@ import {
   Pause,
 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
+import { tr } from "../../../i18n/core";
 
 export interface PendingAttachment {
   file: File;
@@ -65,37 +66,23 @@ export const AttachmentPreviewModal: React.FC<
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const dragCounter = useRef(0);
 
-  // Reset state on open
-  useEffect(() => {
-    if (isOpen) {
-      setCaption("");
+  // Opening the preview (or picking another file) starts fresh
+  const [openedWith, setOpenedWith] = useState<{ isOpen: boolean; file?: string } | null>(null);
+  const fileName = attachment?.file.name;
+  if (openedWith?.isOpen !== isOpen || openedWith?.file !== fileName) {
+    const reopened = isOpen && openedWith?.isOpen !== isOpen;
+    setOpenedWith({ isOpen, file: fileName });
+    setCaption("");
+    if (reopened) {
       setIsSending(false);
       setProgress(0);
       setIsDragging(false);
       setIsPlaying(false);
-      dragCounter.current = 0;
     }
+  }
+  useEffect(() => {
+    if (isOpen) dragCounter.current = 0;
   }, [isOpen]);
-
-  // Reset caption when attachment changes
-  useEffect(() => {
-    setCaption("");
-  }, [attachment?.file.name]);
-
-  // Escape to cancel
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !isSending) onCancel();
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !isSending) {
-        e.preventDefault();
-        handleSend();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, isSending, caption]);
 
   const handleSend = useCallback(async () => {
     if (isSending) return;
@@ -113,7 +100,7 @@ export const AttachmentPreviewModal: React.FC<
       setProgress(100);
       // Small delay so the user sees 100%
       await new Promise((r) => setTimeout(r, 250));
-    } catch (err) {
+    } catch {
       window.clearInterval(tick);
       setProgress(0);
       // Error toast handled by parent
@@ -121,6 +108,21 @@ export const AttachmentPreviewModal: React.FC<
       setIsSending(false);
     }
   }, [isSending, onSend, caption]);
+
+  // Escape to cancel
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isSending) onCancel();
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !isSending) {
+        e.preventDefault();
+        handleSend();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, isSending, onCancel, handleSend]);
+
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -216,7 +218,7 @@ export const AttachmentPreviewModal: React.FC<
                     className="text-sm font-semibold truncate"
                     style={{ color: THEME.colors.text.primary }}
                   >
-                    Send {kind === "file" ? "file" : kind}
+                    {tr("Send")}{" "}{kind === "file" ? tr("file") : kind}
                   </p>
                   <p
                     className="text-[11px] truncate"
@@ -233,7 +235,7 @@ export const AttachmentPreviewModal: React.FC<
                 disabled={isSending}
                 className="p-1.5 rounded-full hover:bg-white/10 transition-colors disabled:opacity-40 shrink-0"
                 style={{ color: THEME.colors.text.muted }}
-                aria-label="Cancel"
+                aria-label={tr("Cancel")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -279,7 +281,7 @@ export const AttachmentPreviewModal: React.FC<
                         background: `linear-gradient(135deg, ${THEME.colors.accent.primary}, ${THEME.colors.accent.secondary})`,
                         color: "var(--sx-text-ffffff)",
                       }}
-                      aria-label={isPlaying ? "Pause" : "Play"}
+                      aria-label={isPlaying ? tr("Pause") : tr("Play")}
                     >
                       {isPlaying ? (
                         <Pause className="w-5 h-5" />
@@ -288,8 +290,7 @@ export const AttachmentPreviewModal: React.FC<
                       )}
                     </button>
                     <div className="text-sm" style={{ color: THEME.colors.text.secondary }}>
-                      Audio preview
-                    </div>
+                      {tr("Audio preview")}</div>
                     <audio
                       ref={audioRef}
                       src={previewUrl}
@@ -325,7 +326,7 @@ export const AttachmentPreviewModal: React.FC<
                       className="text-xs mt-1"
                       style={{ color: THEME.colors.text.muted }}
                     >
-                      {sizeLabel} · {file.type || "Unknown type"}
+                      {sizeLabel} · {file.type || tr("Unknown type")}
                     </p>
                   </div>
                 </div>
@@ -354,8 +355,7 @@ export const AttachmentPreviewModal: React.FC<
                         className="text-sm font-semibold"
                         style={{ color: THEME.colors.text.primary }}
                       >
-                        Drop to replace
-                      </p>
+                        {tr("Drop to replace")}</p>
                     </div>
                   </motion.div>
                 )}
@@ -374,8 +374,7 @@ export const AttachmentPreviewModal: React.FC<
                     className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    Caption (optional)
-                  </span>
+                    {tr("Caption (optional)")}</span>
                   <span
                     className="text-[9px] tabular-nums"
                     style={{
@@ -393,7 +392,7 @@ export const AttachmentPreviewModal: React.FC<
                   onChange={(e) =>
                     setCaption(e.target.value.slice(0, maxLength + 20))
                   }
-                  placeholder="Say something about this…"
+                  placeholder={tr("Say something about this…")}
                   className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none border focus:ring-1 transition-all"
                   style={{
                     background: THEME.colors.background.primary,
@@ -434,8 +433,7 @@ export const AttachmentPreviewModal: React.FC<
                       className="text-[11px] mt-1.5 text-center"
                       style={{ color: THEME.colors.text.muted }}
                     >
-                      Uploading… {Math.round(progress)}%
-                    </p>
+                      {tr("Uploading… {value}%", { value: Math.round(progress) })}</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -464,8 +462,7 @@ export const AttachmentPreviewModal: React.FC<
                         style={{ color: THEME.colors.text.muted }}
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
-                        Replace
-                      </button>
+                        {tr("Replace")}</button>
                     </>
                   )}
                   <button
@@ -476,8 +473,7 @@ export const AttachmentPreviewModal: React.FC<
                     style={{ color: THEME.colors.accent.error }}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    Cancel
-                  </button>
+                    {tr("Cancel")}</button>
                 </div>
 
                 <button
@@ -494,13 +490,11 @@ export const AttachmentPreviewModal: React.FC<
                   {isSending ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Sending…
-                    </>
+                      {tr("Sending…")}</>
                   ) : (
                     <>
                       <Send className="w-4 h-4" />
-                      Send
-                    </>
+                      {tr("Send")}</>
                   )}
                 </button>
               </div>
@@ -509,8 +503,7 @@ export const AttachmentPreviewModal: React.FC<
                 className="text-[9px] text-center"
                 style={{ color: THEME.colors.text.muted }}
               >
-                <b>⌘/Ctrl + Enter</b> to send · <b>Esc</b> to cancel
-              </p>
+                <b>{tr("⌘/Ctrl + Enter")}</b> {" "}{tr("to send ·")}{" "}<b>{tr("Esc")}</b> {" "}{tr("to cancel")}</p>
             </div>
           </motion.div>
         </motion.div>

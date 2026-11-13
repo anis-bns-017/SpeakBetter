@@ -70,8 +70,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence, LayoutGroup, useReducedMotion } from "framer-motion";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { toast } from "sonner";
+import { tr, msg } from "../i18n/core";
 
 // ============================================================
 // Static color map for quick actions — Tailwind needs literal
@@ -141,11 +142,11 @@ const ShimmerBox: React.FC<{ className?: string }> = ({ className = "" }) => (
 type FilterTab = "all" | "unread" | "groups" | "direct" | "archived";
 
 const FILTER_TABS: { key: FilterTab; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "unread", label: "Unread" },
-  { key: "groups", label: "Groups" },
-  { key: "direct", label: "Direct" },
-  { key: "archived", label: "Archived" },
+  { key: "all", label: msg("All") },
+  { key: "unread", label: msg("Unread") },
+  { key: "groups", label: msg("Groups") },
+  { key: "direct", label: msg("Direct") },
+  { key: "archived", label: msg("Archived") },
 ];
 
 // ============================================================
@@ -155,9 +156,9 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
 type SortKey = "recent" | "unread" | "name";
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "recent", label: "Most Recent" },
-  { value: "unread", label: "Unread First" },
-  { value: "name", label: "Name (A–Z)" },
+  { value: "recent", label: msg("Most Recent") },
+  { value: "unread", label: msg("Unread First") },
+  { value: "name", label: msg("Name (A–Z)") },
 ];
 
 // ============================================================
@@ -198,7 +199,10 @@ export const ChatPage: React.FC = () => {
   // ----------------------------------------------------------
   // Sync selection from URL
   // ----------------------------------------------------------
-  useEffect(() => {
+  const urlKey = `${location.search}|${urlChatId ?? ""}`;
+  const [syncedUrlKey, setSyncedUrlKey] = useState<string | null>(null);
+  if (urlKey !== syncedUrlKey) {
+    setSyncedUrlKey(urlKey);
     const params = new URLSearchParams(location.search);
     const chatId = params.get("chatId");
     const communityId = params.get("communityId");
@@ -216,21 +220,21 @@ export const ChatPage: React.FC = () => {
       setSelectedChatId(null);
       setSelectedCommunityId(null);
     }
-  }, [location.search, urlChatId]);
+  }
 
   // ----------------------------------------------------------
   // Real counts — computed from chats data
   // ----------------------------------------------------------
   const unreadCount = useMemo(
     () =>
-      (chats || []).filter((c: any) => (c.unreadCount || 0) > 0).length,
+      (chats || []).filter((c) => (c.unreadCount || 0) > 0).length,
     [chats],
   );
 
   const onlineCount = useMemo(
     () =>
-      (chats || []).filter((c: any) =>
-        c.participants?.some((p: any) => p.isOnline),
+      (chats || []).filter((c) =>
+        c.participants?.some((p) => p.isOnline),
       ).length,
     [chats],
   );
@@ -242,11 +246,11 @@ export const ChatPage: React.FC = () => {
     if (!chats) return [];
     if (!searchQuery.trim()) return chats;
     const q = searchQuery.toLowerCase();
-    return chats.filter((chat: any) => {
+    return chats.filter((chat) => {
       if (chat.name?.toLowerCase().includes(q)) return true;
       if (chat.type === "PRIVATE") {
         const other = chat.participants?.find(
-          (p: any) => p.userId !== user?.id,
+          (p) => p.userId !== user?.id,
         );
         if (other?.user?.name?.toLowerCase().includes(q)) return true;
       }
@@ -259,15 +263,15 @@ export const ChatPage: React.FC = () => {
   // ----------------------------------------------------------
   const tabFiltered = useMemo(() => {
     // Archived chats live only in the Archived tab
-    if (filterTab === "archived") return searchFiltered.filter((c: any) => c.isArchived);
-    const active = searchFiltered.filter((c: any) => !c.isArchived);
+    if (filterTab === "archived") return searchFiltered.filter((c) => c.isArchived);
+    const active = searchFiltered.filter((c) => !c.isArchived);
     switch (filterTab) {
       case "unread":
-        return active.filter((c: any) => (c.unreadCount || 0) > 0);
+        return active.filter((c) => (c.unreadCount || 0) > 0);
       case "groups":
-        return active.filter((c: any) => c.type === "GROUP");
+        return active.filter((c) => c.type === "GROUP");
       case "direct":
-        return active.filter((c: any) => c.type === "PRIVATE");
+        return active.filter((c) => c.type === "PRIVATE");
       default:
         return active;
     }
@@ -279,15 +283,15 @@ export const ChatPage: React.FC = () => {
   const sorted = useMemo(() => {
     const arr = [...tabFiltered];
     if (sortKey === "name") {
-      arr.sort((a: any, b: any) =>
+      arr.sort((a, b) =>
         (a.name || "").localeCompare(b.name || ""),
       );
     } else if (sortKey === "unread") {
       arr.sort(
-        (a: any, b: any) => (b.unreadCount || 0) - (a.unreadCount || 0),
+        (a, b) => (b.unreadCount || 0) - (a.unreadCount || 0),
       );
     } else {
-      arr.sort((a: any, b: any) => {
+      arr.sort((a, b) => {
         const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
         const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
         return tb - ta;
@@ -300,11 +304,11 @@ export const ChatPage: React.FC = () => {
   // Split into pinned + recent
   // ----------------------------------------------------------
   const pinnedChats = useMemo(
-    () => sorted.filter((c: any) => c.isPinned),
+    () => sorted.filter((c) => c.isPinned),
     [sorted],
   );
   const recentChats = useMemo(
-    () => sorted.filter((c: any) => !c.isPinned),
+    () => sorted.filter((c) => !c.isPinned),
     [sorted],
   );
 
@@ -334,7 +338,7 @@ export const ChatPage: React.FC = () => {
     setNotificationsEnabled((prev) => {
       const next = !prev;
       toast.success(
-        next ? "Notifications enabled" : "Notifications muted",
+        next ? tr("Notifications enabled") : tr("Notifications muted"),
         { duration: 1500 },
       );
       return next;
@@ -342,7 +346,7 @@ export const ChatPage: React.FC = () => {
   }, []);
 
   const handleMarkAllRead = useCallback(() => {
-    toast.success("Marked all conversations as read", { duration: 1500 });
+    toast.success(tr("Marked all conversations as read"), { duration: 1500 });
     // Wire to actual mutation when available
   }, []);
 
@@ -357,26 +361,26 @@ export const ChatPage: React.FC = () => {
   }[] = [
     {
       icon: User,
-      label: "New Chat",
+      label: msg("New Chat"),
       action: handleCreateNewChat,
       color: "indigo",
     },
     {
       icon: Users,
-      label: "New Group",
-      action: () => toast.info("Group creation coming soon"),
+      label: msg("New Group"),
+      action: () => toast.info(tr("Group creation coming soon")),
       color: "violet",
     },
     {
       icon: Hash,
-      label: "Join Channel",
-      action: () => toast.info("Channel joining coming soon"),
+      label: msg("Join Channel"),
+      action: () => toast.info(tr("Channel joining coming soon")),
       color: "pink",
     },
     {
       icon: Star,
-      label: "Saved",
-      action: () => toast.info("Saved messages coming soon"),
+      label: msg("Saved"),
+      action: () => toast.info(tr("Saved messages coming soon")),
       color: "amber",
     },
   ];
@@ -467,12 +471,12 @@ export const ChatPage: React.FC = () => {
   // ----------------------------------------------------------
   const tabCounts = useMemo(() => {
     if (!chats) return { all: 0, unread: 0, groups: 0, direct: 0, archived: 0 };
-    const active = chats.filter((c: any) => !c.isArchived);
+    const active = chats.filter((c) => !c.isArchived);
     return {
       all: active.length,
-      unread: active.filter((c: any) => (c.unreadCount || 0) > 0).length,
-      groups: active.filter((c: any) => c.type === "GROUP").length,
-      direct: active.filter((c: any) => c.type === "PRIVATE").length,
+      unread: active.filter((c) => (c.unreadCount || 0) > 0).length,
+      groups: active.filter((c) => c.type === "GROUP").length,
+      direct: active.filter((c) => c.type === "PRIVATE").length,
       archived: chats.length - active.length,
     };
   }, [chats]);
@@ -523,12 +527,11 @@ export const ChatPage: React.FC = () => {
               </div>
               <div className="min-w-0">
                 <h1 className="text-lg font-bold text-slate-800 truncate flex items-center gap-2 dark:text-slate-100">
-                  Messages
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400 dark:text-indigo-300" />
+                  {tr("Messages")}<Sparkles className="w-3.5 h-3.5 text-indigo-400 dark:text-indigo-300" />
                 </h1>
                 <p className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 dark:text-slate-500">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  {sorted.length} active conversation{sorted.length !== 1 ? "s" : ""}
+                  {sorted.length} {" "}{tr("active conversation")}{sorted.length !== 1 ? "s" : ""}
                 </p>
               </div>
             </motion.div>
@@ -541,7 +544,7 @@ export const ChatPage: React.FC = () => {
                   type="button"
                   onClick={handleMarkAllRead}
                   className="p-2.5 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
-                  title="Mark all as read"
+                  title={tr("Mark all as read")}
                 >
                   <CheckCheck className="w-4 h-4" />
                 </motion.button>
@@ -553,7 +556,7 @@ export const ChatPage: React.FC = () => {
                 type="button"
                 onClick={handleToggleNotifications}
                 className="p-2.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all dark:hover:text-indigo-400 dark:hover:bg-indigo-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                title={notificationsEnabled ? "Mute notifications" : "Enable notifications"}
+                title={notificationsEnabled ? tr("Mute notifications") : tr("Enable notifications")}
               >
                 {notificationsEnabled ? (
                   <Bell className="w-4 h-4" />
@@ -568,7 +571,7 @@ export const ChatPage: React.FC = () => {
                 type="button"
                 onClick={handleCreateNewChat}
                 className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/15 hover:shadow-indigo-500/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                title="New Conversation (N)"
+                title={tr("New Conversation (N)")}
               >
                 <Plus className="w-4 h-4" />
               </motion.button>
@@ -595,7 +598,7 @@ export const ChatPage: React.FC = () => {
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder="Search conversations…"
+                placeholder={tr("Search conversations…")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
@@ -618,7 +621,7 @@ export const ChatPage: React.FC = () => {
                   type="button"
                   onClick={() => setSearchQuery("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors dark:hover:text-slate-200 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                  aria-label="Clear search"
+                  aria-label={tr("Clear search")}
                 >
                   <X className="w-3.5 h-3.5" />
                 </motion.button>
@@ -631,7 +634,7 @@ export const ChatPage: React.FC = () => {
             <div
               className="flex items-center gap-1 bg-slate-100/80 dark:bg-white/5 rounded-xl p-1"
               role="tablist"
-              aria-label="Filter conversations"
+              aria-label={tr("Filter conversations")}
             >
               {FILTER_TABS.map((tab) => {
                 const isActive = filterTab === tab.key;
@@ -667,7 +670,7 @@ export const ChatPage: React.FC = () => {
                         color: isActive ? "#fff" : "rgb(148,163,184)",
                       }}
                     >
-                      {tab.label}
+                      {tr(tab.label)}
                       {count > 0 && (
                         <span
                           className={`text-[9px] tabular-nums px-1 rounded-full ${
@@ -705,7 +708,7 @@ export const ChatPage: React.FC = () => {
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 ${styles.container} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60`}
                   >
                     <Icon className={`w-3.5 h-3.5 ${styles.icon}`} />
-                    {action.label}
+                    {tr(action.label)}
                   </motion.button>
                 );
               })}
@@ -716,10 +719,10 @@ export const ChatPage: React.FC = () => {
                 type="button"
                 onClick={() => setShowSortMenu(!showSortMenu)}
                 className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:bg-slate-100 transition-colors dark:text-slate-400 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                title="Sort conversations"
+                title={tr("Sort conversations")}
               >
                 <span className="hidden sm:inline">
-                  {SORT_OPTIONS.find((s) => s.value === sortKey)?.label}
+                  {tr(SORT_OPTIONS.find((s) => s.value === sortKey)?.label)}
                 </span>
                 <ChevronDown
                   className={`w-3 h-3 transition-transform ${showSortMenu ? "rotate-180" : ""}`}
@@ -748,7 +751,7 @@ export const ChatPage: React.FC = () => {
                             : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
                         }`}
                       >
-                        {option.label}
+                        {tr(option.label)}
                         {sortKey === option.value && (
                           <CheckCheck className="w-3 h-3" />
                         )}
@@ -770,8 +773,7 @@ export const ChatPage: React.FC = () => {
                     <div className="px-4 py-1.5 flex items-center gap-2">
                       <Pin className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                        Pinned
-                      </span>
+                        {tr("Pinned")}</span>
                       <span className="text-[11px] text-slate-300 dark:text-slate-600">
                         {pinnedChats.length}
                       </span>
@@ -791,8 +793,7 @@ export const ChatPage: React.FC = () => {
                     {pinnedChats.length > 0 && (
                       <div className="px-4 py-1.5 flex items-center gap-2">
                         <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                          Recent
-                        </span>
+                          {tr("Recent")}</span>
                       </div>
                     )}
                     <ChatList
@@ -820,15 +821,15 @@ export const ChatPage: React.FC = () => {
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                     {searchQuery
-                      ? "No conversations match your search"
+                      ? tr("No conversations match your search")
                       : filterTab !== "all"
-                        ? `No ${filterTab} conversations`
-                        : "Start a new conversation"}
+                        ? tr("No {filterTab} conversations", { filterTab })
+                        : tr("Start a new conversation")}
                   </p>
                   <p className="text-xs text-slate-400 dark:text-slate-500">
                     {searchQuery
-                      ? "Try adjusting your search terms"
-                      : "Connect with friends and colleagues"}
+                      ? tr("Try adjusting your search terms")
+                      : tr("Connect with friends and colleagues")}
                   </p>
                 </div>
                 {!searchQuery && filterTab === "all" && (
@@ -840,8 +841,7 @@ export const ChatPage: React.FC = () => {
                     className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl shadow-md shadow-indigo-500/15 hover:shadow-indigo-500/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                   >
                     <Plus className="w-4 h-4" />
-                    New Conversation
-                  </motion.button>
+                    {tr("New Conversation")}</motion.button>
                 )}
                 {filterTab !== "all" && !searchQuery && (
                   <button
@@ -849,8 +849,7 @@ export const ChatPage: React.FC = () => {
                     onClick={() => setFilterTab("all")}
                     className="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 rounded"
                   >
-                    Show all conversations →
-                  </button>
+                    {tr("Show all conversations →")}</button>
                 )}
               </div>
             )}
@@ -867,12 +866,11 @@ export const ChatPage: React.FC = () => {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-slate-700 truncate dark:text-slate-200">
-                  {user?.name || "User"}
+                  {user?.name || tr("User")}
                 </p>
                 <p className="text-[11px] text-slate-400 flex items-center gap-1 dark:text-slate-500">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  Online
-                </p>
+                  {tr("Online")}</p>
               </div>
             </div>
             <div className="flex items-center gap-0.5">
@@ -883,7 +881,7 @@ export const ChatPage: React.FC = () => {
                 type="button"
                 onClick={toggleTheme}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors dark:hover:text-indigo-400 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                title={theme !== "light" ? "Switch to light" : "Switch to dark"}
+                title={theme !== "light" ? tr("Switch to light") : tr("Switch to dark")}
               >
                 {theme !== "light" ? (
                   <Sun className="w-4 h-4" />
@@ -897,7 +895,7 @@ export const ChatPage: React.FC = () => {
                 type="button"
                 onClick={() => setShowPrivacy(true)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:hover:text-slate-200 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                title="Chat privacy settings"
+                title={tr("Chat privacy settings")}
               >
                 <Settings className="w-4 h-4" />
               </motion.button>
@@ -906,10 +904,10 @@ export const ChatPage: React.FC = () => {
                 whileTap={reduced ? undefined : { scale: 0.9 }}
                 type="button"
                 onClick={() =>
-                  toast.info("Keyboard shortcuts: ⌘K search · N new chat · [/] cycle filters · Esc clear")
+                  toast.info(tr("Keyboard shortcuts: ⌘K search · N new chat · [/] cycle filters · Esc clear"))
                 }
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:hover:text-slate-200 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                title="Keyboard shortcuts"
+                title={tr("Keyboard shortcuts")}
               >
                 <Keyboard className="w-4 h-4" />
               </motion.button>
@@ -944,14 +942,14 @@ export const ChatPage: React.FC = () => {
                   className="flex items-center gap-2 p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  <span className="text-xs font-bold">Back</span>
+                  <span className="text-xs font-bold">{tr("Back")}</span>
                 </button>
                 <div className="flex items-center gap-2">
                   <motion.button
                     whileHover={reduced ? undefined : { scale: 1.05 }}
                     whileTap={reduced ? undefined : { scale: 0.9 }}
                     type="button"
-                    onClick={() => toast.info("Chat info")}
+                    onClick={() => toast.info(tr("Chat info"))}
                     className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all dark:hover:text-indigo-400 dark:hover:bg-indigo-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                   >
                     <User className="w-4 h-4" />
@@ -980,7 +978,7 @@ export const ChatPage: React.FC = () => {
                   className="flex items-center gap-2 p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  <span className="text-xs font-bold">Back</span>
+                  <span className="text-xs font-bold">{tr("Back")}</span>
                 </button>
               </div>
               <div className="flex-1 overflow-hidden">
@@ -1015,12 +1013,9 @@ export const ChatPage: React.FC = () => {
 
               <div className="space-y-2 max-w-sm">
                 <h3 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
-                  Welcome to Messages
-                </h3>
+                  {tr("Welcome to Messages")}</h3>
                 <p className="text-sm text-slate-500 leading-relaxed dark:text-slate-400">
-                  Select a conversation from the sidebar to start chatting,
-                  or create a new one to connect with someone.
-                </p>
+                  {tr("Select a conversation from the sidebar to start chatting, or create a new one to connect with someone.")}</p>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -1032,19 +1027,17 @@ export const ChatPage: React.FC = () => {
                   className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-2xl shadow-md shadow-indigo-500/15 hover:shadow-indigo-500/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                 >
                   <Plus className="w-4 h-4" />
-                  New Conversation
-                </motion.button>
+                  {tr("New Conversation")}</motion.button>
 
                 <motion.button
                   whileHover={reduced ? undefined : { scale: 1.05 }}
                   whileTap={reduced ? undefined : { scale: 0.95 }}
                   type="button"
-                  onClick={() => toast.info("Explore communities coming soon")}
+                  onClick={() => toast.info(tr("Explore communities coming soon"))}
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-2xl hover:border-slate-300 hover:shadow-md transition-all dark:bg-white/5 dark:border-white/10 dark:text-slate-200 dark:hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                 >
                   <Users className="w-4 h-4" />
-                  Explore Communities
-                </motion.button>
+                  {tr("Explore Communities")}</motion.button>
               </div>
 
               {/* Quick Stats — now with real counts */}
@@ -1054,8 +1047,7 @@ export const ChatPage: React.FC = () => {
                     {sorted.length}
                   </p>
                   <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                    Chats
-                  </p>
+                    {tr("Chats")}</p>
                 </div>
                 <div className="w-px h-8 bg-slate-200 dark:bg-white/10" />
                 <div className="text-center">
@@ -1063,8 +1055,7 @@ export const ChatPage: React.FC = () => {
                     {onlineCount}
                   </p>
                   <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                    Online
-                  </p>
+                    {tr("Online")}</p>
                 </div>
                 <div className="w-px h-8 bg-slate-200 dark:bg-white/10" />
                 <div className="text-center">
@@ -1072,8 +1063,7 @@ export const ChatPage: React.FC = () => {
                     {unreadCount}
                   </p>
                   <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                    Unread
-                  </p>
+                    {tr("Unread")}</p>
                 </div>
               </div>
             </div>
@@ -1083,12 +1073,8 @@ export const ChatPage: React.FC = () => {
 
       {/* Keyboard shortcuts hint */}
       <div className="fixed bottom-3 right-4 z-20 hidden md:flex items-center gap-2 text-[9px] px-3 py-1.5 rounded-full border pointer-events-none bg-white/80 backdrop-blur border-slate-200/60 text-slate-400 dark:bg-canvas/80 dark:border-white/10 dark:text-slate-500">
-        <kbd className="font-mono">⌘K</kbd> search ·
-        <kbd className="font-mono">N</kbd> new ·
-        <kbd className="font-mono">[</kbd>
-        <kbd className="font-mono">]</kbd> filters ·
-        <kbd className="font-mono">Esc</kbd> clear
-      </div>
+        <kbd className="font-mono">⌘K</kbd> {" "}{tr("search ·")}<kbd className="font-mono">N</kbd> {" "}{tr("new ·")}<kbd className="font-mono">[</kbd>
+        <kbd className="font-mono">]</kbd> {" "}{tr("filters ·")}<kbd className="font-mono">Esc</kbd> {" "}{tr("clear")}</div>
     </motion.div>
   );
 };

@@ -8,8 +8,8 @@ name: CI
 #                            that need PostgreSQL: see the postgres service below)
 #   web typecheck     FAIL   (~364 errors: 306 unused-local, ~58 real type errors)
 #
-# The web steps are therefore non-blocking so this pipeline is green on
-# day one. Flip `continue-on-error` to false for each step as you fix it.
+# Update 2026-11-11: web typecheck and build pass (0 errors), so both now block.
+# Update 2026-11-13: web lint is clean (0 problems) and now blocks too. Server lint stays non-blocking.
 
 on:
   push:
@@ -118,17 +118,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # TODO: currently ~364 type errors, so the `build` script
-      # (`tsc -b && vite build`) cannot succeed. Make this blocking once
-      # the errors are gone.
-      - name: Typecheck (non-blocking)
-        continue-on-error: true
+      - name: Typecheck
         run: pnpm --filter web exec tsc --noEmit -p tsconfig.app.json
 
-      - name: Build (non-blocking)
-        continue-on-error: true
+      - name: Build
         run: pnpm --filter web run build
 
-      - name: Lint (non-blocking)
-        continue-on-error: true
+      - name: Lint
         run: pnpm --filter web exec eslint .
+
+      - name: Test
+        run: pnpm --filter web run test

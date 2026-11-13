@@ -37,6 +37,7 @@ import { ShareCardButton } from "../components/gamification/ShareCardDialog";
 import type { ShareCardData } from "../lib/shareCard";
 import { TIER_STYLE } from "../components/gamification/tiers";
 import { getLevelProgress, getXpLevel } from "../lib/xpLevels";
+import { tr, msg } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -85,22 +86,21 @@ const Actions: React.FC<{ userId: string; name: string; relationship: ProfileRel
         setCopied(true);
         window.setTimeout(() => setCopied(false), 2000);
       } catch {
-        toast.error("Couldn't copy the link");
+        toast.error(tr("Couldn't copy the link"));
       }
     };
     return (
       <div className="flex flex-wrap gap-2">
         <Link to="/profile" className="h-10 px-4 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white">
-          <Pencil className="w-4 h-4" /> Edit profile
-        </Link>
+          <Pencil className="w-4 h-4" /> {" "}{tr("Edit profile")}</Link>
         <button
           type="button"
           onClick={copy}
           className="h-10 px-4 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
         >
-          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} {copied ? "Copied" : "Copy link"}
+          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} {copied ? tr("Copied") : tr("Copy link")}
         </button>
-        {progressCard && <ShareCardButton card={progressCard} label="Share my progress" />}
+        {progressCard && <ShareCardButton card={progressCard} label={tr("Share my progress")} />}
       </div>
     );
   }
@@ -111,30 +111,26 @@ const Actions: React.FC<{ userId: string; name: string; relationship: ProfileRel
       <FollowButton userId={userId} name={name} size="md" />
       {relationship.isFriend ? (
         <span className={quiet}>
-          <Users className="w-4 h-4" /> Friends
-        </span>
+          <Users className="w-4 h-4" /> {" "}{tr("Friends")}</span>
       ) : relationship.friendRequest === "sent" ? (
         <span className={quiet}>
-          <Clock className="w-4 h-4" /> Request sent
-        </span>
+          <Clock className="w-4 h-4" /> {" "}{tr("Request sent")}</span>
       ) : relationship.friendRequest === "received" ? (
         <Link to="/friends" className="h-10 px-4 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
-          <UserPlus className="w-4 h-4" /> Respond to request
-        </Link>
+          <UserPlus className="w-4 h-4" /> {" "}{tr("Respond to request")}</Link>
       ) : (
         <button
           type="button"
           disabled={sendRequest.isPending}
           onClick={() => sendRequest.mutate(userId, { onSuccess: () => {
-                toast.success(`Friend request sent to ${name}`);
+                toast.success(tr("Friend request sent to {name}", { name }));
                 // The profile shows "Request sent" once it is refetched
                 void queryClient.invalidateQueries({ queryKey: ["user-profile", userId] });
               },
             })}
           className="h-10 px-4 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] disabled:opacity-60"
         >
-          {sendRequest.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />} Add friend
-        </button>
+          {sendRequest.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />} {" "}{tr("Add friend")}</button>
       )}
     </div>
   );
@@ -143,7 +139,7 @@ const Actions: React.FC<{ userId: string; name: string; relationship: ProfileRel
 const Tile: React.FC<{ icon: React.ReactNode; label: string; value: React.ReactNode; sub?: React.ReactNode }> = ({ icon, label, value, sub }) => (
   <div className={`${card} p-4`}>
     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 flex items-center gap-1.5">
-      {icon} {label}
+      {icon} {tr(label)}
     </p>
     <p className="mt-1.5 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{value}</p>
     {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
@@ -165,9 +161,9 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
             <div>
               <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
                 <span className="truncate">{p.name}</span>
-                {p.isVerified && <BadgeCheck className="w-5 h-5 text-sky-500 shrink-0" aria-label="Verified" />}
+                {p.isVerified && <BadgeCheck className="w-5 h-5 text-sky-500 shrink-0" aria-label={tr("Verified")} />}
                 {p.level && (
-                  <span className="rounded-full px-2.5 py-0.5 text-xs font-bold bg-violet-500/10 text-violet-600 dark:text-violet-300" title="English level">
+                  <span className="rounded-full px-2.5 py-0.5 text-xs font-bold bg-violet-500/10 text-violet-600 dark:text-violet-300" title={tr("English level")}>
                     {p.level}
                   </span>
                 )}
@@ -186,14 +182,14 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
               {(p.nativeLanguage || p.learningLanguages.length > 0) && (
                 <li className="inline-flex items-center gap-1.5">
                   <Languages className="w-3.5 h-3.5" />
-                  {p.nativeLanguage && <>Speaks {nameOf("language", p.nativeLanguage)}</>}
+                  {p.nativeLanguage && <>{tr("Speaks")}{" "}{nameOf("language", p.nativeLanguage)}</>}
                   {p.nativeLanguage && p.learningLanguages.length > 0 && " · "}
-                  {p.learningLanguages.length > 0 && <>Learning {p.learningLanguages.map((l) => nameOf("language", l)).join(", ")}</>}
+                  {p.learningLanguages.length > 0 && <>{tr("Learning")}{" "}{p.learningLanguages.map((l) => nameOf("language", l)).join(", ")}</>}
                 </li>
               )}
               <li className="inline-flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" /> Joined {joined}
-                {p.lastActive && <> · active {ago(p.lastActive)}</>}
+                <Clock className="w-3.5 h-3.5" /> {" "}{tr("Joined")}{" "}{joined}
+                {p.lastActive && <> {" "}{tr("· active")}{" "}{ago(p.lastActive)}</>}
               </li>
             </ul>
 
@@ -219,7 +215,7 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Tile
           icon={<Zap className="w-3.5 h-3.5 text-violet-500" />}
-          label={`Level ${level}`}
+          label={tr("Level {level}", { level })}
           value={p.stats.xp.toLocaleString()}
           sub={
             <span className="block mt-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.08] overflow-hidden" aria-hidden>
@@ -229,36 +225,36 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
         />
         <Tile
           icon={<Flame className="w-3.5 h-3.5 text-orange-500" />}
-          label="Streak"
+          label={tr("Streak")}
           value={`${p.stats.streak}d`}
           sub={`Best ${p.stats.longestStreak} ${p.stats.longestStreak === 1 ? "day" : "days"}`}
         />
         <Tile
           icon={<Trophy className="w-3.5 h-3.5" style={{ color: p.league?.color }} />}
-          label="League"
+          label={tr("League")}
           value={p.league ? <span style={{ color: p.league.color }}>{p.league.name}</span> : "-"}
           sub={p.league ? `Best: ${p.league.best}` : "Not started"}
         />
         <Tile
           icon={<Users className="w-3.5 h-3.5 text-sky-500" />}
-          label="Followers"
+          label={tr("Followers")}
           value={p.stats.followers}
           sub={`${p.stats.following} following · ${p.stats.friends} ${p.stats.friends === 1 ? "friend" : "friends"}`}
         />
       </div>
 
       <section className={`${card} p-5`}>
-        <h2 className="text-sm font-bold text-slate-900 dark:text-white">Learning so far</h2>
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Learning so far")}</h2>
         <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
           {[
-            { icon: GraduationCap, label: "Grammar lessons", value: p.stats.lessonsPassed, tone: "text-violet-500" },
-            { icon: BookOpen, label: "Texts read", value: p.stats.textsRead, tone: "text-teal-500" },
-            { icon: Megaphone, label: "Daily challenges", value: p.stats.challengeAnswers, tone: "text-rose-500" },
+            { icon: GraduationCap, label: msg("Grammar lessons"), value: p.stats.lessonsPassed, tone: "text-violet-500" },
+            { icon: BookOpen, label: msg("Texts read"), value: p.stats.textsRead, tone: "text-teal-500" },
+            { icon: Megaphone, label: msg("Daily challenges"), value: p.stats.challengeAnswers, tone: "text-rose-500" },
           ].map(({ icon: Icon, label, value, tone }) => (
             <div key={label} className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] py-3 px-2">
               <Icon className={`w-5 h-5 mx-auto ${tone}`} />
               <dd className="mt-1 text-xl font-bold tabular-nums text-slate-900 dark:text-white">{value}</dd>
-              <dt className="text-[11px] text-slate-500">{label}</dt>
+              <dt className="text-[11px] text-slate-500">{tr(label)}</dt>
             </div>
           ))}
         </dl>
@@ -267,21 +263,21 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
       <section className={`${card} p-5`}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-            Badges <span className="font-normal text-slate-400">· {p.badges.earned} of {p.badges.total}</span>
+            {tr("Badges")}{" "}<span className="font-normal text-slate-400">{tr("· {earned} of", { earned: p.badges.earned })}{" "}{p.badges.total}</span>
           </h2>
           {p.badges.earned > p.badges.showcase.length && (
             <button type="button" onClick={() => setShowAll((v) => !v)} className="text-xs font-semibold text-indigo-600 dark:text-indigo-300 hover:underline">
-              {showAll ? "Show fewer" : `See all ${p.badges.earned}`}
+              {showAll ? tr("Show fewer") : tr("See all {earned}", { earned: p.badges.earned })}
             </button>
           )}
         </div>
         {p.relationship.isMe && p.badges.earned > 0 && (
           <p className="mt-1 text-xs text-slate-500">
-            Pinned badges come first. <Link to="/leagues?tab=badges" className="font-semibold text-indigo-700 hover:underline dark:text-indigo-300">Choose which to pin</Link>
+            {tr("Pinned badges come first.")}{" "}<Link to="/leagues?tab=badges" className="font-semibold text-indigo-700 hover:underline dark:text-indigo-300">{tr("Choose which to pin")}</Link>
           </p>
         )}
         {badges.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">{p.relationship.isMe ? "Earn your first badge by practising today." : "No badges yet."}</p>
+          <p className="mt-3 text-sm text-slate-500">{p.relationship.isMe ? tr("Earn your first badge by practising today.") : tr("No badges yet.")}</p>
         ) : (
           <ul className="mt-4 grid grid-cols-3 sm:grid-cols-6 gap-3">
             {badges.map((b) => (
@@ -291,12 +287,12 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
                   {b.pinned && (
                     <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-indigo-600 text-white ring-2 ring-white dark:ring-slate-900">
                       <Pin className="h-2.5 w-2.5" aria-hidden />
-                      <span className="sr-only">Pinned</span>
+                      <span className="sr-only">{tr("Pinned")}</span>
                     </span>
                   )}
                 </span>
                 <span className="text-[11px] font-semibold leading-tight text-slate-800 dark:text-slate-100">{b.name}</span>
-                <span className="text-[11px]" style={{ color: TIER_STYLE[b.tier].ring }}>{TIER_STYLE[b.tier].label}</span>
+                <span className="text-[11px]" style={{ color: TIER_STYLE[b.tier].ring }}>{tr(TIER_STYLE[b.tier].label)}</span>
               </li>
             ))}
           </ul>
@@ -305,7 +301,7 @@ const Profile: React.FC<{ p: FullProfile }> = ({ p }) => {
 
       {p.interests.length > 0 && (
         <section className={`${card} p-5`}>
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Interests</h2>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Interests")}</h2>
           <ul className="mt-3 flex flex-wrap gap-2">
             {p.interests.map((i) => (
               <li key={i} className="rounded-full px-3 py-1 text-xs font-medium bg-slate-100 dark:bg-white/[0.07] text-slate-700 dark:text-slate-200">
@@ -326,8 +322,7 @@ export const PublicProfilePage: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 lg:py-10 space-y-4">
       <button type="button" onClick={() => window.history.back()} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-        <ArrowLeft className="w-4 h-4" /> Back
-      </button>
+        <ArrowLeft className="w-4 h-4" /> {" "}{tr("Back")}</button>
 
       {isLoading && (
         <div className="flex justify-center py-24">
@@ -337,11 +332,10 @@ export const PublicProfilePage: React.FC = () => {
 
       {(isError || (!isLoading && !data)) && (
         <div className={`${card} p-8 text-center`}>
-          <p className="text-base font-semibold text-slate-900 dark:text-white">Profile not found</p>
-          <p className="mt-1 text-sm text-slate-500">This person may have left, or you can't see their profile.</p>
+          <p className="text-base font-semibold text-slate-900 dark:text-white">{tr("Profile not found")}</p>
+          <p className="mt-1 text-sm text-slate-500">{tr("This person may have left, or you can't see their profile.")}</p>
           <Link to="/friends" className="mt-4 inline-block text-sm font-semibold text-indigo-600 dark:text-indigo-300 hover:underline">
-            Find people
-          </Link>
+            {tr("Find people")}</Link>
         </div>
       )}
 
@@ -352,8 +346,7 @@ export const PublicProfilePage: React.FC = () => {
           </div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white">{data.name}</h1>
           <p className="text-sm text-slate-500 inline-flex items-center gap-1.5">
-            <Lock className="w-4 h-4" /> This profile is private. Friends can see it.
-          </p>
+            <Lock className="w-4 h-4" /> {" "}{tr("This profile is private. Friends can see it.")}</p>
           <div className="flex justify-center">
             <Actions userId={data.id} name={data.name} relationship={data.relationship} />
           </div>

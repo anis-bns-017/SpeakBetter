@@ -10,6 +10,7 @@ import { Loader2, UserX, X } from "lucide-react";
 import { toast } from "sonner";
 import { useRoomBans } from "../../../hooks/useRoomBans";
 import { THEME } from "../VoiceRoomView.theme";
+import { tr } from "../../../i18n/core";
 
 interface BanListPanelProps {
   isOpen: boolean;
@@ -38,8 +39,8 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
 
   const handleUnban = (userId: string, name: string) => {
     unban.mutate(userId, {
-      onSuccess: () => toast.success(`${name} can join this room again`),
-      onError: () => toast.error(`Could not lift the ban on ${name}`),
+      onSuccess: () => toast.success(tr("{name} can join this room again", { name })),
+      onError: () => toast.error(tr("Could not lift the ban on {name}", { name })),
     });
   };
 
@@ -56,7 +57,7 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Removed from this room"
+            aria-label={tr("Removed from this room")}
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -74,8 +75,7 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
                   className="text-base font-bold"
                   style={{ color: THEME.colors.text.primary }}
                 >
-                  Removed from this room
-                </h3>
+                  {tr("Removed from this room")}</h3>
                 <p
                   className="text-xs truncate"
                   style={{ color: THEME.colors.text.muted }}
@@ -88,7 +88,7 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
                 onClick={onClose}
                 className="p-1.5 rounded-full hover:bg-white/10 transition-colors shrink-0"
                 style={{ color: THEME.colors.text.muted }}
-                aria-label="Close"
+                aria-label={tr("Close")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -100,15 +100,13 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
                   className="flex items-center justify-center gap-2 py-8 text-xs"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  <Loader2 className="w-4 h-4 animate-spin" /> Loading...
-                </div>
+                  <Loader2 className="w-4 h-4 animate-spin" /> {" "}{tr("Loading...")}</div>
               )}
 
               {isError && (
                 <div className="py-8 text-center text-xs">
                   <p style={{ color: THEME.colors.text.muted }}>
-                    Could not load the list.
-                  </p>
+                    {tr("Could not load the list.")}</p>
                   <button
                     type="button"
                     onClick={() => refetch()}
@@ -118,8 +116,7 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
                       color: THEME.colors.text.primary,
                     }}
                   >
-                    Try again
-                  </button>
+                    {tr("Try again")}</button>
                 </div>
               )}
 
@@ -129,7 +126,7 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
                   style={{ color: THEME.colors.text.muted }}
                 >
                   <UserX className="w-6 h-6" />
-                  <p>Nobody has been removed from this room.</p>
+                  <p>{tr("Nobody has been removed from this room.")}</p>
                 </div>
               )}
 
@@ -175,8 +172,7 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
                         className="text-[11px] truncate"
                         style={{ color: THEME.colors.text.muted }}
                       >
-                        Removed {formatWhen(ban.createdAt)}
-                        {ban.reason ? ` · ${ban.reason}` : ""}
+                        {tr("Removed {value}", { value: formatWhen(ban.createdAt) })}{ban.reason ? ` · ${ban.reason}` : ""}
                       </p>
                     </div>
                     <button
@@ -189,7 +185,7 @@ export const BanListPanel: React.FC<BanListPanelProps> = ({
                         color: THEME.colors.accent.primary,
                       }}
                     >
-                      {pending ? "Lifting..." : "Allow back"}
+                      {pending ? tr("Lifting...") : tr("Allow back")}
                     </button>
                   </div>
                 );

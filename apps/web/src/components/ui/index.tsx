@@ -9,6 +9,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ChevronDown, Loader2, type LucideIcon } from "lucide-react";
+import { tr, msg } from "../../i18n/core";
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(" ");
 
@@ -81,8 +82,8 @@ export const IconButton = React.forwardRef<
     <button
       ref={ref}
       type={type}
-      aria-label={label}
-      title={label}
+      aria-label={tr(label)}
+      title={tr(label)}
       disabled={disabled || loading}
       className={cx(
         "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl touch-manipulation transition-[background-color,transform] duration-150 active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none",
@@ -135,11 +136,11 @@ export const Card: React.FC<React.HTMLAttributes<HTMLDivElement> & { interactive
 
 /** Section colours for the label above a page title: Home lapis, Speak rose, Learn emerald, plus a few for tools */
 const EYEBROW: Record<string, { text: string; label: string }> = {
-  indigo: { text: "text-indigo-700 dark:text-indigo-300", label: "Overview" },
-  rose: { text: "text-rose-700 dark:text-rose-300", label: "Speak" },
-  emerald: { text: "text-emerald-700 dark:text-emerald-300", label: "Learn" },
-  sky: { text: "text-sky-700 dark:text-sky-300", label: "Reference" },
-  amber: { text: "text-amber-800 dark:text-amber-300", label: "Explore" },
+  indigo: { text: "text-indigo-700 dark:text-indigo-300", label: msg("Overview") },
+  rose: { text: "text-rose-700 dark:text-rose-300", label: msg("Speak") },
+  emerald: { text: "text-emerald-700 dark:text-emerald-300", label: msg("Learn") },
+  sky: { text: "text-sky-700 dark:text-sky-300", label: msg("Reference") },
+  amber: { text: "text-amber-800 dark:text-amber-300", label: msg("Explore") },
 };
 
 /**
@@ -161,7 +162,7 @@ export const PageHeader: React.FC<{
       <div className="min-w-0 max-w-3xl flex-1">
         <p className={cx("t-eyebrow inline-flex items-center gap-2", e.text)}>
           <Icon className="h-4 w-4" aria-hidden />
-          {eyebrow ?? e.label}
+          {tr(eyebrow) ?? tr(e.label)}
         </p>
         <h1 className="mt-2.5 text-[34px] leading-[1.04] text-slate-900 sm:text-[46px] dark:text-white">{title}</h1>
         {subtitle && <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">{subtitle}</p>}
@@ -175,7 +176,7 @@ export const PageHeader: React.FC<{
 export const SectionHeader: React.FC<{ title: string; hint?: React.ReactNode; action?: { label: string; to: string } }> = ({ title, hint, action }) => (
   <div className="mb-3 flex items-end justify-between gap-3">
     <div className="min-w-0">
-      <h2 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+      <h2 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{tr(title)}</h2>
       {hint && <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{hint}</p>}
     </div>
     {action && (
@@ -186,7 +187,7 @@ export const SectionHeader: React.FC<{ title: string; hint?: React.ReactNode; ac
           FOCUS,
         )}
       >
-        {action.label} <ArrowRight className="w-3.5 h-3.5" aria-hidden />
+        {tr(action.label)} <ArrowRight className="w-3.5 h-3.5" aria-hidden />
       </Link>
     )}
   </div>
@@ -201,8 +202,8 @@ export const EmptyState: React.FC<{ icon: LucideIcon; title: string; text?: stri
     <div className="mx-auto w-12 h-12 rounded-2xl bg-surface ring-1 ring-inset ring-slate-200 dark:ring-white/10 text-slate-500 dark:text-slate-400 flex items-center justify-center">
       <Icon className="w-6 h-6" aria-hidden />
     </div>
-    <h2 className="mt-3 text-base font-bold text-slate-900 dark:text-white">{title}</h2>
-    {text && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 max-w-sm mx-auto">{text}</p>}
+    <h2 className="mt-3 text-base font-bold text-slate-900 dark:text-white">{tr(title)}</h2>
+    {text && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 max-w-sm mx-auto">{tr(text)}</p>}
     {action && <div className="mt-4 flex justify-center">{action}</div>}
   </Card>
 );
@@ -225,7 +226,7 @@ export const Field: React.FC<{
 }> = ({ label, htmlFor, hint, error, required, children, className }) => (
   <div className={className}>
     <label htmlFor={htmlFor} className="mb-1.5 block text-[13px] font-semibold text-slate-800 dark:text-slate-200">
-      {label}
+      {tr(label)}
       {required && <span className="ml-0.5 text-red-600 dark:text-red-400" aria-hidden> *</span>}
     </label>
     {children}
@@ -235,7 +236,7 @@ export const Field: React.FC<{
       </p>
     ) : hint ? (
       <p id={`${htmlFor}-hint`} className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
-        {hint}
+        {tr(hint)}
       </p>
     ) : null}
   </div>
@@ -363,7 +364,7 @@ export function Tabs<T extends string>({
   return (
     <div
       role="tablist"
-      aria-label={label}
+      aria-label={tr(label)}
       onKeyDown={onKeyDown}
       className={cx("inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-line bg-slate-100/70 p-1 dark:bg-white/[0.04]", className)}
     >
@@ -387,7 +388,7 @@ export function Tabs<T extends string>({
             )}
           >
             {Icon && <Icon className="w-4 h-4" aria-hidden />}
-            {t.label}
+            {tr(t.label)}
             {t.count !== undefined && <span className="tabular-nums text-[11px] text-slate-500 dark:text-slate-400">{t.count}</span>}
           </button>
         );
@@ -435,7 +436,7 @@ export const Stat: React.FC<{ label: string; value: React.ReactNode; hint?: Reac
   <div className={className}>
     <p className="t-eyebrow flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
       {Icon && <Icon className="w-3.5 h-3.5" aria-hidden />}
-      {label}
+      {tr(label)}
     </p>
     <p className="font-display mt-1 text-[28px] font-semibold leading-none tabular-nums text-slate-900 dark:text-white">{value}</p>
     {hint && <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">{hint}</p>}

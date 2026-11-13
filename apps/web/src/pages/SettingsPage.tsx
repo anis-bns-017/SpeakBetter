@@ -2,9 +2,15 @@ import { useSettings } from '../hooks/useSettings';
 import { SettingsForm } from '../components/settings/SettingsForm';
 import { Sliders, AlertCircle, RefreshCw } from 'lucide-react';
 import { PageHeader } from '../components/ui';
+import { DeleteAccountCard } from '../components/settings/DeleteAccountCard';
+import { SessionsCard } from '../components/settings/SessionsCard';
+import { LanguageCard } from '../components/settings/LanguageCard';
+import { useT } from '../i18n';
+import { tr } from "../i18n/core";
 
 export const SettingsPage = () => {
   const { settings, isLoading, error } = useSettings();
+  const { t } = useT();
 
   if (isLoading) {
     return <SettingsSkeleton />;
@@ -19,10 +25,9 @@ export const SettingsPage = () => {
           </div>
           <div className="space-y-1">
             <h3 className="text-base font-bold text-slate-800">
-              Failed to Load Settings
-            </h3>
+              {tr("Failed to Load Settings")}</h3>
             <p className="text-xs text-slate-500">
-              {error?.toString() || "We couldn't fetch your account preferences. Please try again."}
+              {error?.toString() || tr("We couldn't fetch your account preferences. Please try again.")}
             </p>
           </div>
           <button
@@ -30,7 +35,7 @@ export const SettingsPage = () => {
             className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Retry</span>
+            <span>{tr("Retry")}</span>
           </button>
         </div>
       </div>
@@ -43,15 +48,21 @@ export const SettingsPage = () => {
         <PageHeader
           icon={Sliders}
           tone="indigo"
-          eyebrow="Account"
-          title="Settings"
-          subtitle="Manage your profile preferences, notifications, and app experience."
+          eyebrow={t("Account")}
+          title={t("Settings")}
+          subtitle={t("Manage your profile preferences, notifications, and app experience.")}
         />
+
+        <LanguageCard />
 
         {/* Main Settings Form Container */}
         <div className="bg-surface p-6 sm:p-8 rounded-3xl border border-line shadow-sm">
           <SettingsForm settings={settings} />
         </div>
+
+        <SessionsCard />
+
+        <DeleteAccountCard />
       </div>
     </div>
   );

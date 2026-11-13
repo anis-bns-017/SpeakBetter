@@ -15,6 +15,7 @@ import {
   Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { tr } from "../../i18n/core";
 
 export interface User {
   id: string;
@@ -79,10 +80,10 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
 
     try {
       await onUpdate({ isMuted: nextState });
-      toast.success(nextState ? 'Chat muted' : 'Chat unmuted');
+      toast.success(nextState ? tr("Chat muted") : tr("Chat unmuted"));
     } catch {
       setIsMuted(previousState);
-      toast.error('Failed to update notification settings');
+      toast.error(tr("Failed to update notification settings"));
     } finally {
       setIsMuteLoading(false);
     }
@@ -96,10 +97,10 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
 
     try {
       await onUpdate({ isPinned: nextState });
-      toast.success(nextState ? 'Chat pinned' : 'Chat unpinned');
+      toast.success(nextState ? tr("Chat pinned") : tr("Chat unpinned"));
     } catch {
       setIsPinned(previousState);
-      toast.error('Failed to update pin settings');
+      toast.error(tr("Failed to update pin settings"));
     } finally {
       setIsPinLoading(false);
     }
@@ -112,9 +113,9 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
     setActionLoadingId(userId);
     try {
       await onRemoveParticipant(userId);
-      toast.success(`${userName} removed`);
+      toast.success(tr("{userName} removed", { userName }));
     } catch {
-      toast.error(`Failed to remove ${userName}`);
+      toast.error(tr("Failed to remove {userName}", { userName }));
     } finally {
       setActionLoadingId(null);
     }
@@ -127,10 +128,10 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
     setActionLoadingId('leave');
     try {
       await onLeaveChat();
-      toast.success('Left chat successfully');
+      toast.success(tr("Left chat successfully"));
       onClose();
     } catch {
-      toast.error('Failed to leave chat');
+      toast.error(tr("Failed to leave chat"));
     } finally {
       setActionLoadingId(null);
     }
@@ -143,10 +144,10 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
     setActionLoadingId('delete');
     try {
       await onDeleteChat();
-      toast.success('Chat deleted successfully');
+      toast.success(tr("Chat deleted successfully"));
       onClose();
     } catch {
-      toast.error('Failed to delete chat');
+      toast.error(tr("Failed to delete chat"));
     } finally {
       setActionLoadingId(null);
     }
@@ -158,11 +159,11 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
     setActionLoadingId('add-users');
     try {
       await onAddParticipants(selectedUsersToAdd);
-      toast.success('Participants added successfully');
+      toast.success(tr("Participants added successfully"));
       setShowAddUsersModal(false);
       setSelectedUsersToAdd([]);
     } catch {
-      toast.error('Failed to add participants');
+      toast.error(tr("Failed to add participants"));
     } finally {
       setActionLoadingId(null);
     }
@@ -178,11 +179,11 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
     <div className="w-80 bg-white border-l border-gray-200 h-full flex flex-col shadow-sm relative">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white sticky top-0 z-10">
-        <h3 className="font-semibold text-gray-900 text-base">Chat Settings</h3>
+        <h3 className="font-semibold text-gray-900 text-base">{tr("Chat Settings")}</h3>
         <button
           onClick={onClose}
           className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          aria-label="Close settings"
+          aria-label={tr("Close settings")}
         >
           <X className="w-4 h-4" />
         </button>
@@ -199,7 +200,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-gray-900 truncate">{chatName}</div>
               <div className="text-xs text-gray-500 capitalize">
-                {chatType === 'PRIVATE' ? 'Private Direct Message' : 'Group Chat'} • {participants.length} member{participants.length !== 1 ? 's' : ''}
+                {chatType === 'PRIVATE' ? tr("Private Direct Message") : tr("Group Chat")} {" "}{tr("• {length} member", { length: participants.length })}{participants.length !== 1 ? 's' : ''}
               </div>
             </div>
           </div>
@@ -218,7 +219,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
               ) : (
                 <Bell className="w-4 h-4 text-gray-500" />
               )}
-              <span>{isMuted ? 'Unmute' : 'Mute'} Notifications</span>
+              <span>{isMuted ? tr("Unmute") : tr("Mute")} {" "}{tr("Notifications")}</span>
             </div>
             {isMuteLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />}
           </button>
@@ -234,7 +235,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
               ) : (
                 <Pin className="w-4 h-4 text-gray-500" />
               )}
-              <span>{isPinned ? 'Unpin' : 'Pin'} Chat</span>
+              <span>{isPinned ? tr("Unpin") : tr("Pin")} {" "}{tr("Chat")}</span>
             </div>
             {isPinLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />}
           </button>
@@ -244,16 +245,14 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Members ({participants.length})
-            </span>
+              {tr("Members ({length})", { length: participants.length })}</span>
             {isOwner && chatType === 'GROUP' && onAddParticipants && (
               <button
                 onClick={() => setShowAddUsersModal(true)}
                 className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
               >
                 <UserPlus className="w-3.5 h-3.5" />
-                Add Member
-              </button>
+                {tr("Add Member")}</button>
             )}
           </div>
 
@@ -281,19 +280,18 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
                     )}
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-gray-800 truncate flex items-center gap-1">
-                        {p.user?.name || 'Unknown User'}
-                        {isSelf && <span className="text-xs text-gray-400 font-normal">(You)</span>}
+                        {p.user?.name || tr("Unknown User")}
+                        {isSelf && <span className="text-xs text-gray-400 font-normal">{tr("(You)")}</span>}
                       </div>
                       <div className="flex items-center gap-1 text-[11px] text-gray-500 capitalize">
                         {p.role === 'owner' && (
                           <span className="inline-flex items-center gap-0.5 text-amber-600 font-medium">
-                            <ShieldCheck className="w-3 h-3" /> Owner
-                          </span>
+                            <ShieldCheck className="w-3 h-3" /> {" "}{tr("Owner")}</span>
                         )}
                         {p.role === 'admin' && (
-                          <span className="text-blue-600 font-medium">Admin</span>
+                          <span className="text-blue-600 font-medium">{tr("Admin")}</span>
                         )}
-                        {p.role === 'member' && <span>Member</span>}
+                        {p.role === 'member' && <span>{tr("Member")}</span>}
                       </div>
                     </div>
                   </div>
@@ -304,7 +302,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
                       onClick={() => handleRemoveMember(p.userId, p.user?.name || 'user')}
                       disabled={isRemovingThisUser}
                       className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                      title={`Remove ${p.user?.name}`}
+                      title={tr("Remove {name}", { name: p.user?.name })}
                     >
                       {isRemovingThisUser ? (
                         <Loader2 className="w-4 h-4 animate-spin text-red-500" />
@@ -329,7 +327,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
             >
               <div className="flex items-center gap-3">
                 <LogOut className="w-4 h-4" />
-                <span>Leave Chat</span>
+                <span>{tr("Leave Chat")}</span>
               </div>
               {actionLoadingId === 'leave' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             </button>
@@ -343,7 +341,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
             >
               <div className="flex items-center gap-3">
                 <Trash2 className="w-4 h-4" />
-                <span>Delete Chat</span>
+                <span>{tr("Delete Chat")}</span>
               </div>
               {actionLoadingId === 'delete' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             </button>
@@ -355,7 +353,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
       {showAddUsersModal && (
         <div className="absolute inset-0 bg-white z-20 flex flex-col p-4 animate-in fade-in duration-150">
           <div className="flex items-center justify-between mb-3 border-b pb-2">
-            <h4 className="font-semibold text-sm text-gray-900">Add Members</h4>
+            <h4 className="font-semibold text-sm text-gray-900">{tr("Add Members")}</h4>
             <button
               onClick={() => {
                 setShowAddUsersModal(false);
@@ -372,7 +370,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
             <Search className="w-4 h-4 text-gray-400 absolute left-2.5 top-2.5" />
             <input
               type="text"
-              placeholder="Search users..."
+              placeholder={tr("Search users...")}
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -412,7 +410,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
                 );
               })
             ) : (
-              <div className="text-center text-xs text-gray-400 py-6">No eligible users found</div>
+              <div className="text-center text-xs text-gray-400 py-6">{tr("No eligible users found")}</div>
             )}
           </div>
 
@@ -422,8 +420,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
               onClick={() => setShowAddUsersModal(false)}
               className="flex-1 py-1.5 border border-gray-200 rounded-md text-xs text-gray-600 hover:bg-gray-50 font-medium"
             >
-              Cancel
-            </button>
+              {tr("Cancel")}</button>
             <button
               onClick={handleConfirmAddUsers}
               disabled={selectedUsersToAdd.length === 0 || actionLoadingId === 'add-users'}
@@ -432,7 +429,7 @@ export const ChatSettings: React.FC<ChatSettingsProps> = ({
               {actionLoadingId === 'add-users' ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                `Add (${selectedUsersToAdd.length})`
+                tr("Add ({selectedUsersToAdd})", { selectedUsersToAdd: selectedUsersToAdd.length })
               )}
             </button>
           </div>

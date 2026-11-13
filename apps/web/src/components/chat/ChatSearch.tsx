@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Message } from '@speakbetter/types';
 import { Search, X, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 import { useDebounce } from '../../hooks/useDebounce';
+import { tr } from "../../i18n/core";
 
 interface ChatSearchProps {
   chatId: string;
@@ -161,7 +162,7 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
           }}
           onKeyDown={handleKeyDown}
           onFocus={() => query.trim().length >= 2 && setShowResults(true)}
-          placeholder="Search in chat..."
+          placeholder={tr("Search in chat...")}
           className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
           autoFocus
         />
@@ -179,7 +180,7 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
               type="button"
               onClick={() => setSelectedIndex((prev) => (prev - 1 + results.length) % results.length)}
               className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
-              title="Previous match"
+              title={tr("Previous match")}
             >
               <ChevronUp className="w-3.5 h-3.5" />
             </button>
@@ -187,7 +188,7 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
               type="button"
               onClick={() => setSelectedIndex((prev) => (prev + 1) % results.length)}
               className="p-0.5 hover:bg-gray-200 rounded text-gray-500"
-              title="Next match"
+              title={tr("Next match")}
             >
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
@@ -200,7 +201,7 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
             type="button"
             onClick={clearSearch}
             className="p-0.5 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600"
-            title="Clear search"
+            title={tr("Clear search")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -211,7 +212,7 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
             type="button"
             onClick={onClose}
             className="p-0.5 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-600"
-            title="Close search bar"
+            title={tr("Close search bar")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -228,12 +229,11 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
           {isLoading ? (
             <div className="p-4 text-center text-gray-500 text-sm flex items-center justify-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-              <span>Searching messages...</span>
+              <span>{tr("Searching messages...")}</span>
             </div>
           ) : results.length === 0 ? (
             <div className="p-4 text-center text-gray-500 text-sm">
-              No messages matching &ldquo;{query}&rdquo;
-            </div>
+              {tr("No messages matching “{query}”", { query })}</div>
           ) : (
             results.map((message, index) => {
               const isSelected = index === selectedIndex;

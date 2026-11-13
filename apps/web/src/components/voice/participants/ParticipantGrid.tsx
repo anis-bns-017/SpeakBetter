@@ -6,9 +6,15 @@ import { cn } from "../../../lib/utils";
 import { THEME } from "../VoiceRoomView.theme";
 import { ParticipantCard } from "./ParticipantCard";
 import { EmptyParticipantState } from "../shared/EmptyParticipantState";
+import type { RoomParticipant } from "../VoiceRoomView.types";
+import { tr } from "../../../i18n/core";
+
+/** The room view may not know yet whether someone is online */
+type GridParticipant = Pick<RoomParticipant, "id" | "userId" | "name"> &
+  Partial<Omit<RoomParticipant, "id" | "userId" | "name" | "role">> & { role?: string };
 
 interface ParticipantGridProps {
-  participants: any[];
+  participants: GridParticipant[];
   isHost: boolean;
   isModerator: boolean;
   currentUserId?: string;
@@ -46,12 +52,12 @@ const STAGE_ROLES = new Set(["HOST", "MODERATOR", "SPEAKER", "STAGE_SPEAKER"]);
 const SectionLabel: React.FC<{ title: string; count: number; hint?: string }> = ({ title, count, hint }) => (
   <div className="col-span-full flex items-center gap-2.5 mt-3">
     <span className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: THEME.colors.text.secondary }}>
-      {title}
+      {tr(title)}
     </span>
     <span className="text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full" style={{ background: "var(--sx-bg-255-255-255-60)", color: THEME.colors.text.secondary }}>
       {count}
     </span>
-    {hint && <span className="text-xs" style={{ color: THEME.colors.text.muted }}>{hint}</span>}
+    {hint && <span className="text-xs" style={{ color: THEME.colors.text.muted }}>{tr(hint)}</span>}
     <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${THEME.colors.border.primary}, transparent)` }} />
   </div>
 );
@@ -83,12 +89,12 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   onInviteToStage,
   onMoveToAudience,
 }) => {
-  const isOnStage = (p: any) =>
+  const isOnStage = (p: GridParticipant) =>
     hostId === p.id || STAGE_ROLES.has(String(p.role || "").toUpperCase());
   // Dynamic language list from participants
   const roomLanguages = useMemo(() => {
     const set = new Set<string>();
-    participants.forEach((p: any) => {
+    participants.forEach((p) => {
       if (p.nativeLanguage) set.add(String(p.nativeLanguage));
       if (p.learningLanguage) set.add(String(p.learningLanguage));
     });
@@ -98,26 +104,26 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   const [langFilter, setLangFilter] = React.useState<string>("all");
 
   const filteredParticipants = participants
-    .filter((p: any) => {
+    .filter((p) => {
       const query = searchQuery.trim().toLowerCase();
       if (!query) return true;
       return [p.name, p.nativeLanguage, p.learningLanguage, p.country, p.level]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query));
     })
-    .filter((p: any) => {
+    .filter((p) => {
       if (filter === "online") return p.isOnline === true;
       if (filter === "speaking") return p.isSpeaking === true;
       if (filter === "raised") return p.raisedHand === true;
       return true;
     })
-    .filter((p: any) => {
+    .filter((p) => {
       if (langFilter === "all") return true;
       return (
         p.nativeLanguage === langFilter || p.learningLanguage === langFilter
       );
     })
-    .sort((a: any, b: any) => {
+    .sort((a, b) => {
       const aHost = hostId === a.id || a.role === "HOST";
       const bHost = hostId === b.id || b.role === "HOST";
       if (aHost !== bHost) return aHost ? -1 : 1;
@@ -127,9 +133,9 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
     });
 
   const stageParticipants = isStageRoom ? filteredParticipants.filter(isOnStage) : filteredParticipants;
-  const audienceParticipants = isStageRoom ? filteredParticipants.filter((p: any) => !isOnStage(p)) : [];
+  const audienceParticipants = isStageRoom ? filteredParticipants.filter((p) => !isOnStage(p)) : [];
 
-  const renderCard = (p: any, size: "sm" | "md" | "lg" = "md") => {
+  const renderCard = (p: GridParticipant, size: "sm" | "md" | "lg" = "md") => {
     const isParticipantHost = hostId === p.id || p.role === "HOST";
     const isCurrentUser = p.id === currentUserId;
     const onStage = isOnStage(p);
@@ -163,7 +169,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   };
 
   const onlineParticipants = participants.filter(
-    (p: any) => p.isOnline === true,
+    (p) => p.isOnline === true,
   );
 
   return (
@@ -194,8 +200,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
               className="text-sm font-medium"
               style={{ color: THEME.colors.text.primary }}
             >
-              {participants.length} in room
-            </span>
+              {participants.length} {" "}{tr("in room")}</span>
             <span
               className="text-[11px] px-2 py-0.5 rounded-full"
               style={{
@@ -203,8 +208,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                 color: THEME.colors.status.online,
               }}
             >
-              {onlineParticipants.length} online
-            </span>
+              {onlineParticipants.length} {" "}{tr("online")}</span>
           </div>
 
           <div className="flex items-center gap-1">
@@ -235,7 +239,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                 ? THEME.colors.accent.primary
                 : THEME.colors.text.muted,
             }}
-            title="Search participants"
+            title={tr("Search participants")}
           >
             <Search className="w-4 h-4" />
           </button>
@@ -251,7 +255,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
             <input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search by name, language, country..."
+              placeholder={tr("Search by name, language, country...")}
               className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none"
               style={{
                 background: THEME.colors.background.primary,
@@ -270,8 +274,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
             className="text-[11px] font-medium"
             style={{ color: THEME.colors.text.muted }}
           >
-            Languages
-          </span>
+            {tr("Languages")}</span>
           <button
             type="button"
             onClick={() => setLangFilter("all")}
@@ -292,8 +295,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
               }`,
             }}
           >
-            All
-          </button>
+            {tr("All")}</button>
           {roomLanguages.slice(0, 8).map((lang: string) => (
             <button
               type="button"
@@ -354,27 +356,26 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
           </div>
         ) : isStageRoom ? (
           <>
-            <SectionLabel title="On stage" count={stageParticipants.length} />
-            {stageParticipants.map((p: any) => renderCard(p, "lg"))}
+            <SectionLabel title={tr("On stage")} count={stageParticipants.length} />
+            {stageParticipants.map((p) => renderCard(p, "lg"))}
             <SectionLabel
-              title="Audience"
+              title={tr("Audience")}
               count={audienceParticipants.length}
               hint={
-                isModerator && audienceParticipants.some((p: any) => p.raisedHand)
-                  ? "Raised hands are listed first"
+                isModerator && audienceParticipants.some((p) => p.raisedHand)
+                  ? tr("Raised hands are listed first")
                   : undefined
               }
             />
             {audienceParticipants.length === 0 ? (
               <p className="col-span-full text-xs py-2" style={{ color: THEME.colors.text.muted }}>
-                Everyone here is on stage.
-              </p>
+                {tr("Everyone here is on stage.")}</p>
             ) : (
-              audienceParticipants.map((p: any) => renderCard(p, "sm"))
+              audienceParticipants.map((p) => renderCard(p, "sm"))
             )}
           </>
         ) : (
-          filteredParticipants.map((p: any) => renderCard(p, "md"))
+          filteredParticipants.map((p) => renderCard(p, "md"))
         )}
       </div>
     </section>

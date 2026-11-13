@@ -41,6 +41,7 @@ import {
   type WritingPiece,
 } from "../hooks/useWriting";
 import { ISSUE_STYLE, KIND } from "../components/writing/writingStyles";
+import { tr } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -80,7 +81,7 @@ const ScoreRing: React.FC<{ score: number | null; size?: number }> = ({ score, s
       </svg>
       <span className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-xl font-bold tabular-nums text-slate-900 dark:text-white leading-none">{score ?? "–"}</span>
-        <span className="text-[11px] text-slate-400 mt-0.5">score</span>
+        <span className="text-[11px] text-slate-400 mt-0.5">{tr("score")}</span>
       </span>
     </div>
   );
@@ -88,7 +89,7 @@ const ScoreRing: React.FC<{ score: number | null; size?: number }> = ({ score, s
 
 /** Words against the task's range: amber below, green inside, rose above */
 const WordMeter: React.FC<{ words: number; min?: number; max?: number }> = ({ words, min, max }) => {
-  if (!min || !max) return <span className="text-xs text-slate-500 tabular-nums">{words} words</span>;
+  if (!min || !max) return <span className="text-xs text-slate-500 tabular-nums">{words} {" "}{tr("words")}</span>;
   const pct = Math.min(100, (words / max) * 100);
   const tone = words < min ? "bg-amber-500" : words > max ? "bg-rose-500" : "bg-emerald-500";
   const hint = words < min ? `${min - words} more to go` : words > max ? `${words - max} over` : "In range";
@@ -99,7 +100,7 @@ const WordMeter: React.FC<{ words: number; min?: number; max?: number }> = ({ wo
         <div className="absolute inset-y-0 w-px bg-slate-400/60" style={{ left: `${(min / max) * 100}%` }} />
       </div>
       <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400 whitespace-nowrap">
-        {words} · {hint}
+        {words} · {tr(hint)}
       </span>
     </div>
   );
@@ -156,14 +157,14 @@ const IssueCard: React.FC<{
       <button type="button" onClick={onOpen} className="w-full text-left">
         <span className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full shrink-0 ${style.dot}`} />
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{style.label}</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{tr(style.label)}</span>
         </span>
         <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm">
-          <span className="line-through decoration-rose-400/70 text-slate-500 dark:text-slate-400">{issue.text || "(space)"}</span>
+          <span className="line-through decoration-rose-400/70 text-slate-500 dark:text-slate-400">{tr(issue.text) || tr("(space)")}</span>
           {issue.replacements[0] !== undefined && (
             <>
               <span className="text-slate-300 dark:text-slate-600">→</span>
-              <span className="font-semibold text-emerald-700 dark:text-emerald-400">{issue.replacements[0] || "(remove)"}</span>
+              <span className="font-semibold text-emerald-700 dark:text-emerald-400">{issue.replacements[0] || tr("(remove)")}</span>
             </>
           )}
         </span>
@@ -178,16 +179,14 @@ const IssueCard: React.FC<{
               onClick={() => onApply(r)}
               className="h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold inline-flex items-center gap-1"
             >
-              <Check className="w-3.5 h-3.5" /> Use “{r || "remove"}”
-            </button>
+              <Check className="w-3.5 h-3.5" /> {" "}{tr("Use “{value}”", { value: r || tr("remove") })}</button>
           ))}
           <button
             type="button"
             onClick={onIgnore}
             className="h-8 px-3 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05] inline-flex items-center gap-1"
           >
-            <X className="w-3.5 h-3.5" /> Ignore
-          </button>
+            <X className="w-3.5 h-3.5" /> {" "}{tr("Ignore")}</button>
         </div>
       )}
     </li>
@@ -237,7 +236,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
   }, [text, variant, readOnly, save]);
 
   const runCheck = () => {
-    if (!words) return toast.info("Write something first.");
+    if (!words) return toast.info(tr("Write something first."));
     check.mutate(
       { text, variant },
       {
@@ -248,7 +247,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
           setScoreStale(false);
           setSelected(r.issues[0]?.id ?? null);
           setMode("review");
-          if (!r.issues.length) toast.success("No problems found. Nice writing!", { icon: "✨" });
+          if (!r.issues.length) toast.success(tr("No problems found. Nice writing!"), { icon: "✨" });
         },
         onError: (e) => toast.error(errorText(e, "Couldn't check your writing. Try again.")),
       },
@@ -318,23 +317,22 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 lg:py-8 space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <Link to="/writing" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100">
-          <ArrowLeft className="w-4 h-4" /> Writing studio
-        </Link>
+          <ArrowLeft className="w-4 h-4" /> {" "}{tr("Writing studio")}</Link>
         <span className="text-slate-300 dark:text-slate-600">/</span>
-        <h1 className="text-lg font-bold text-slate-900 dark:text-white truncate">{piece.title}</h1>
+        <h1 className="text-lg font-bold text-slate-900 dark:text-white truncate">{tr(piece.title)}</h1>
         {kind && (
           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${kind.tone}`}>
-            <KindIcon className="w-3 h-3" /> {kind.label} · {piece.level}
+            <KindIcon className="w-3 h-3" /> {tr(kind.label)} · {piece.level}
           </span>
         )}
         {!readOnly && (
           <span className="ml-auto flex items-center gap-3">
-            <span className="text-xs text-slate-400">{saved === "saving" ? "Saving…" : saved === "saved" ? "Saved" : ""}</span>
+            <span className="text-xs text-slate-400">{saved === "saving" ? tr("Saving…") : saved === "saved" ? tr("Saved") : ""}</span>
             <button
               type="button"
               onClick={() =>
                 confirmDelete
-                  ? remove.mutate(piece.id, { onSuccess: () => navigate("/writing"), onError: () => toast.error("Couldn't delete the draft.") })
+                  ? remove.mutate(piece.id, { onSuccess: () => navigate("/writing"), onError: () => toast.error(tr("Couldn't delete the draft.")) })
                   : setConfirmDelete(true)
               }
               onBlur={() => setConfirmDelete(false)}
@@ -342,7 +340,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
                 confirmDelete ? "bg-rose-500 text-white" : "text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:text-slate-400 dark:hover:bg-rose-500/10"
               }`}
             >
-              <Trash2 className="w-3.5 h-3.5" /> {confirmDelete ? "Click again to delete" : "Delete draft"}
+              <Trash2 className="w-3.5 h-3.5" /> {confirmDelete ? tr("Click again to delete") : tr("Delete draft")}
             </button>
           </span>
         )}
@@ -352,23 +350,18 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
         <section className="rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-md shadow-emerald-500/15 flex flex-wrap items-center gap-5">
           <PartyPopper className="w-10 h-10 shrink-0" />
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-bold">Finished! {result.score !== null ? `You scored ${result.score}.` : ""}</h2>
+            <h2 className="text-xl font-bold">{tr("Finished!")}{" "}{result.score !== null ? tr("You scored {score}.", { score: result.score }) : ""}</h2>
             <p className="text-sm text-white/85 mt-1">
-              {result.wordCount} words
-              {result.xp ? ` · +${result.xp} XP` : " · XP is for your first two pieces each day"}
-              {result.cardsAdded ? ` · ${result.cardsAdded} of your mistakes added to your review cards` : ""}
-              {!result.checked ? " · the checker was busy, so this piece has no score" : ""}
+              {result.wordCount} {" "}{tr("words{value}{value2}", { value: result.xp ? ` · +${result.xp} XP` : tr(" · XP is for your first two pieces each day"), value2: result.cardsAdded ? ` · ${result.cardsAdded} of your mistakes added to your review cards` : "" })}{!result.checked ? tr(" · the checker was busy, so this piece has no score") : ""}
             </p>
           </div>
           <div className="flex gap-2">
             {result.cardsAdded > 0 && (
               <Link to="/flashcards" className="h-10 px-4 rounded-xl bg-white/15 hover:bg-white/25 text-sm font-semibold inline-flex items-center gap-1.5">
-                <Layers className="w-4 h-4" /> Review them
-              </Link>
+                <Layers className="w-4 h-4" /> {" "}{tr("Review them")}</Link>
             )}
             <Link to="/writing" className="h-10 px-4 rounded-xl bg-white text-emerald-700 text-sm font-semibold inline-flex items-center gap-1.5">
-              <PenLine className="w-4 h-4" /> Write another
-            </Link>
+              <PenLine className="w-4 h-4" /> {" "}{tr("Write another")}</Link>
           </div>
         </section>
       )}
@@ -385,8 +378,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
                 <div className="mt-4 grid sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5 flex items-center gap-1">
-                      <Lightbulb className="w-3.5 h-3.5" /> Tips
-                    </p>
+                      <Lightbulb className="w-3.5 h-3.5" /> {" "}{tr("Tips")}</p>
                     <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300 list-disc pl-4">
                       {prompt.tips.map((t) => (
                         <li key={t}>{t}</li>
@@ -394,7 +386,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
                     </ul>
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Useful phrases{readOnly ? "" : " · tap to add"}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">{tr("Useful phrases")}{readOnly ? "" : tr(" · tap to add")}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {prompt.phrases.map((ph) => (
                         <button
@@ -418,7 +410,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
             <div className="flex flex-wrap items-center gap-3 mb-3">
               <WordMeter words={words} min={prompt?.minWords} max={prompt?.maxWords} />
               <div className="ml-auto flex items-center gap-2">
-                <div role="radiogroup" aria-label="Spelling" className="flex rounded-lg bg-slate-100 dark:bg-white/[0.06] p-0.5 text-[11px] font-semibold">
+                <div role="radiogroup" aria-label={tr("Spelling")} className="flex rounded-lg bg-slate-100 dark:bg-white/[0.06] p-0.5 text-[11px] font-semibold">
                   {(["en-GB", "en-US"] as SpellingVariant[]).map((v) => (
                     <button
                       key={v}
@@ -427,7 +419,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
                       aria-checked={variant === v}
                       disabled={readOnly}
                       onClick={() => setVariant(v)}
-                      title={v === "en-GB" ? "British spelling: colour, practise" : "American spelling: color, practice"}
+                      title={v === "en-GB" ? tr("British spelling: colour, practise") : tr("American spelling: color, practice")}
                       className={`h-7 px-2.5 rounded-md transition-colors ${
                         variant === v ? "bg-white text-slate-900 shadow-sm dark:bg-white/15 dark:text-white" : "text-slate-500 dark:text-slate-400"
                       }`}
@@ -442,8 +434,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
                     onClick={() => setMode("write")}
                     className="h-8 px-3 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.05] inline-flex items-center gap-1"
                   >
-                    <PenLine className="w-3.5 h-3.5" /> Edit text
-                  </button>
+                    <PenLine className="w-3.5 h-3.5" /> {" "}{tr("Edit text")}</button>
                 )}
               </div>
             </div>
@@ -462,7 +453,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
                     runCheck();
                   }
                 }}
-                placeholder={prompt ? "Start writing here…" : "Write about anything: your day, a message you need to send, your homework…"}
+                placeholder={prompt ? tr("Start writing here…") : tr("Write about anything: your day, a message you need to send, your homework…")}
                 spellCheck={false}
                 autoFocus
                 maxLength={4000}
@@ -473,7 +464,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
                 {text ? (
                   <MarkedText text={text} issues={issues ?? []} selected={selected} onSelect={openIssue} />
                 ) : (
-                  <p className="text-sm text-slate-400">Nothing written.</p>
+                  <p className="text-sm text-slate-400">{tr("Nothing written.")}</p>
                 )}
               </div>
             )}
@@ -487,19 +478,18 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
                   className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold inline-flex items-center gap-2"
                 >
                   {check.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <SpellCheck className="w-4 h-4" />}
-                  {issues ? "Check again" : "Check my writing"}
+                  {issues ? tr("Check again") : tr("Check my writing")}
                 </button>
                 <button
                   type="button"
                   onClick={done}
                   disabled={finish.isPending || words < 10}
-                  title={words < 10 ? "Write at least 10 words to finish" : undefined}
+                  title={words < 10 ? tr("Write at least 10 words to finish") : undefined}
                   className="h-11 px-5 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] disabled:opacity-50 inline-flex items-center gap-2"
                 >
                   {finish.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  Finish
-                </button>
-                <span className="text-[11px] text-slate-400 hidden sm:inline">Ctrl + Enter to check</span>
+                  {tr("Finish")}</button>
+                <span className="text-[11px] text-slate-400 hidden sm:inline">{tr("Ctrl + Enter to check")}</span>
               </div>
             )}
             {readOnly && prompt && (
@@ -508,13 +498,12 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
                 onClick={() =>
                   startAgain.mutate(prompt.id, {
                     onSuccess: (p) => navigate(`/writing/${p.id}`),
-                    onError: () => toast.error("Couldn't start again. Try once more."),
+                    onError: () => toast.error(tr("Couldn't start again. Try once more.")),
                   })
                 }
                 className="mt-4 h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] inline-flex items-center gap-2"
               >
-                <RotateCcw className="w-4 h-4" /> Write it again
-              </button>
+                <RotateCcw className="w-4 h-4" /> {" "}{tr("Write it again")}</button>
             )}
           </section>
         </div>
@@ -529,20 +518,20 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
                 <p className="text-sm font-bold text-slate-900 dark:text-white">
                   {issues === null
                     ? readOnly
-                      ? "Finished"
-                      : "Not checked yet"
+                      ? tr("Finished")
+                      : tr("Not checked yet")
                     : issues.length === 0
                       ? scoreStale
-                        ? "All fixed"
-                        : "Looks great"
-                      : `${issues.length} thing${issues.length === 1 ? "" : "s"} to look at`}
+                        ? tr("All fixed")
+                        : tr("Looks great")
+                      : tr("{issues} thing{value} to look at", { issues: issues.length, value: issues.length === 1 ? "" : "s" })}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {issues === null && !readOnly
-                    ? "Check when you are ready; nothing is marked until you do."
+                    ? tr("Check when you are ready; nothing is marked until you do.")
                     : scoreStale
-                      ? "You made fixes. Check again to update your score."
-                      : "Tap an underlined word to see why."}
+                      ? tr("You made fixes. Check again to update your score.")
+                      : tr("Tap an underlined word to see why.")}
                 </p>
               </div>
             </div>
@@ -550,7 +539,7 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
               <div className="mt-4 grid grid-cols-2 gap-1.5">
                 {KINDS.map((k) => (
                   <span key={k} className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold flex items-center justify-between ${ISSUE_STYLE[k].chip}`}>
-                    {ISSUE_STYLE[k].label} <span className="tabular-nums">{counts[k]}</span>
+                    {tr(ISSUE_STYLE[k].label)} <span className="tabular-nums">{counts[k]}</span>
                   </span>
                 ))}
               </div>
@@ -578,11 +567,10 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
           {!readOnly && (
             <p className="text-[11px] text-slate-400 dark:text-slate-500 px-1 flex gap-1.5">
               <Zap className="w-3.5 h-3.5 shrink-0" />
-              Finishing gives XP and turns the mistakes from your first check into review cards, so you practise exactly what you got wrong.
-            </p>
+              {tr("Finishing gives XP and turns the mistakes from your first check into review cards, so you practise exactly what you got wrong.")}</p>
           )}
           {piece.checker.publicServer && (
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 px-1">Checks use LanguageTool's free online service, so your text is sent to their servers to be checked.</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 px-1">{tr("Checks use LanguageTool's free online service, so your text is sent to their servers to be checked.")}</p>
           )}
         </aside>
       </div>
@@ -603,10 +591,9 @@ export const WritingEditorPage: React.FC = () => {
   if (isError || !data) {
     return (
       <div className={`${card} max-w-xl mx-auto mt-16 p-8 text-center`}>
-        <p className="text-sm text-slate-500">This piece of writing could not be found.</p>
+        <p className="text-sm text-slate-500">{tr("This piece of writing could not be found.")}</p>
         <Link to="/writing" className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 dark:text-indigo-300">
-          <ArrowLeft className="w-4 h-4" /> Writing studio
-        </Link>
+          <ArrowLeft className="w-4 h-4" /> {" "}{tr("Writing studio")}</Link>
       </div>
     );
   }

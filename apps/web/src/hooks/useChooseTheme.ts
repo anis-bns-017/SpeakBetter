@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../lib/api/client";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { useTheme } from "../contexts/ThemeContext";
 import type { ThemePreference } from "../lib/theme";
 import type { Settings } from "./useSettings";

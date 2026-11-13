@@ -1,6 +1,7 @@
 // apps/web/src/hooks/useVoiceTranscription.ts
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
+import { getRecognitionCtor, type Recognition, type RecognitionEvent } from "../lib/speechRecognition";
 
 /**
  * Why captions are not listening, when the browser's speech recognition stops:
@@ -53,18 +54,11 @@ export const useVoiceTranscription = ({
   const [problem, setProblem] = useState<CaptionProblem>(null);
   /** Network failures in a row, to back off instead of hammering the speech service */
   const failuresRef = useRef(0);
-  const [isSupported, setIsSupported] = useState(false);
+  // Known up front: the browser either has speech recognition or it doesn't
+  const [isSupported] = useState(() => getRecognitionCtor() !== null);
 
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<Recognition | null>(null);
   const shouldRunRef = useRef(false);
-
-  // -----------------------------------------------------------
-  // Support detection
-  // -----------------------------------------------------------
-  useEffect(() => {
-    const w = window as any;
-    setIsSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
-  }, []);
 
   // -----------------------------------------------------------
   // Emit local transcription to socket
@@ -131,8 +125,7 @@ export const useVoiceTranscription = ({
   }, []);
 
   const startRecognition = useCallback(() => {
-    const w = window as any;
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    const SR = getRecognitionCtor();
     if (!SR) return;
 
     if (recognitionRef.current) {
@@ -154,7 +147,7 @@ export const useVoiceTranscription = ({
       shouldRunRef.current = true;
     };
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: RecognitionEvent) => {
       failuresRef.current = 0;
       setProblem(null);
       let interim = "";
@@ -181,7 +174,7 @@ export const useVoiceTranscription = ({
       }
     };
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: { error: string }) => {
       // "no-speech" is normal — just keep going
       if (event.error === "no-speech" || event.error === "aborted") return;
       console.warn("Speech recognition error:", event.error);
@@ -232,6 +225,8 @@ export const useVoiceTranscription = ({
   useEffect(() => {
     if (!isSupported || !userId) return;
     if (isMuted) {
+      // Stops the browser's recognizer (an outside system) and marks it stopped
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       stopRecognition();
     } else {
       startRecognition();

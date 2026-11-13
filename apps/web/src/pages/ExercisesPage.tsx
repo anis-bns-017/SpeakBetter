@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Layers,
 } from "lucide-react";
+import { tr } from "../i18n/core";
 
 export const ExercisesPage = () => {
   const [language, setLanguage] = useState("");
@@ -26,7 +27,7 @@ export const ExercisesPage = () => {
   const submitMutation = useSubmitExercise();
 
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   const handleSubmit = async (exerciseId: string) => {
@@ -43,7 +44,7 @@ export const ExercisesPage = () => {
       setAnswers({});
       refetch();
     } catch {
-      toast.error("Submission failed. Please try again.");
+      toast.error(tr("Submission failed. Please try again."));
     } finally {
       setSubmittingId(null);
     }
@@ -72,11 +73,9 @@ export const ExercisesPage = () => {
           </div>
           <div>
             <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">
-              Interactive Exercises
-            </h1>
+              {tr("Interactive Exercises")}</h1>
             <p className="text-sm text-slate-500">
-              Practice reading, grammar, and vocabulary skills to level up your language mastery.
-            </p>
+              {tr("Practice reading, grammar, and vocabulary skills to level up your language mastery.")}</p>
           </div>
         </div>
 
@@ -84,7 +83,7 @@ export const ExercisesPage = () => {
         <div className="bg-surface p-4 rounded-2xl border border-line shadow-sm space-y-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
             <Filter className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Filter Exercises</span>
+            <span>{tr("Filter Exercises")}</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -95,11 +94,11 @@ export const ExercisesPage = () => {
                 onChange={(e) => setLanguage(e.target.value)}
                 className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none"
               >
-                <option value="">All Languages</option>
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
+                <option value="">{tr("All Languages")}</option>
+                <option value="en">{tr("English")}</option>
+                <option value="es">{tr("Spanish")}</option>
+                <option value="fr">{tr("French")}</option>
+                <option value="de">{tr("German")}</option>
               </select>
               <Globe className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -111,13 +110,13 @@ export const ExercisesPage = () => {
                 onChange={(e) => setType(e.target.value)}
                 className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none"
               >
-                <option value="">All Types</option>
-                <option value="GRAMMAR">Grammar</option>
-                <option value="VOCABULARY">Vocabulary</option>
-                <option value="READING">Reading</option>
-                <option value="LISTENING">Listening</option>
-                <option value="WRITING">Writing</option>
-                <option value="SPEAKING">Speaking</option>
+                <option value="">{tr("All Types")}</option>
+                <option value="GRAMMAR">{tr("Grammar")}</option>
+                <option value="VOCABULARY">{tr("Vocabulary")}</option>
+                <option value="READING">{tr("Reading")}</option>
+                <option value="LISTENING">{tr("Listening")}</option>
+                <option value="WRITING">{tr("Writing")}</option>
+                <option value="SPEAKING">{tr("Speaking")}</option>
               </select>
               <BookOpen className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -129,10 +128,10 @@ export const ExercisesPage = () => {
                 onChange={(e) => setDifficulty(e.target.value)}
                 className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none"
               >
-                <option value="">All Levels</option>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
+                <option value="">{tr("All Levels")}</option>
+                <option value="beginner">{tr("Beginner")}</option>
+                <option value="intermediate">{tr("Intermediate")}</option>
+                <option value="advanced">{tr("Advanced")}</option>
               </select>
               <Sparkles className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -164,11 +163,9 @@ export const ExercisesPage = () => {
               <AlertCircle className="w-6 h-6" />
             </div>
             <h3 className="text-lg font-semibold text-slate-800">
-              Failed to load exercises
-            </h3>
+              {tr("Failed to load exercises")}</h3>
             <p className="text-sm text-slate-500">
-              We couldn't retrieve the exercises. Please check your network connection and try again.
-            </p>
+              {tr("We couldn't retrieve the exercises. Please check your network connection and try again.")}</p>
           </div>
         ) : !data || data.length === 0 ? (
           /* Empty State */
@@ -177,11 +174,9 @@ export const ExercisesPage = () => {
               <Layers className="w-7 h-7" />
             </div>
             <h3 className="text-lg font-semibold text-slate-800">
-              No exercises found
-            </h3>
+              {tr("No exercises found")}</h3>
             <p className="text-sm text-slate-500 max-w-sm mx-auto">
-              Try adjusting your filter settings above to explore different languages or skill levels.
-            </p>
+              {tr("Try adjusting your filter settings above to explore different languages or skill levels.")}</p>
           </div>
         ) : (
           /* Exercise Cards */
@@ -202,10 +197,10 @@ export const ExercisesPage = () => {
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-bold text-slate-800">
-                        {ex.title}
+                        {tr(ex.title)}
                       </h3>
                       <p className="text-sm text-slate-600 mt-1">
-                        {ex.description}
+                        {tr(ex.description)}
                       </p>
                     </div>
 
@@ -238,11 +233,10 @@ export const ExercisesPage = () => {
                       {/* Answer Field */}
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">
-                          Your Answer
-                        </label>
+                          {tr("Your Answer")}</label>
                         <input
                           type="text"
-                          placeholder="Type your answer here..."
+                          placeholder={tr("Type your answer here...")}
                           value={answers[ex.id] || ""}
                           onChange={(e) =>
                             setAnswers({ ...answers, [ex.id]: e.target.value })
@@ -263,12 +257,12 @@ export const ExercisesPage = () => {
                           {isSubmitting ? (
                             <>
                               <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Submitting...</span>
+                              <span>{tr("Submitting...")}</span>
                             </>
                           ) : (
                             <>
                               <Send className="w-3.5 h-3.5" />
-                              <span>Submit Exercise</span>
+                              <span>{tr("Submit Exercise")}</span>
                             </>
                           )}
                         </button>
@@ -277,8 +271,7 @@ export const ExercisesPage = () => {
                           disabled={isSubmitting}
                           className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-xs transition-all"
                         >
-                          Cancel
-                        </button>
+                          {tr("Cancel")}</button>
                       </div>
                     </div>
                   ) : (
@@ -288,7 +281,7 @@ export const ExercisesPage = () => {
                         onClick={() => setSelectedExercise(ex.id)}
                         className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white font-semibold rounded-xl text-xs transition-all"
                       >
-                        <span>Start Exercise</span>
+                        <span>{tr("Start Exercise")}</span>
                       </button>
                     </div>
                   )}

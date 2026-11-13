@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
+import { tr } from "../../i18n/core";
 
 interface VoiceMessageProps {
   audioUrl: string;
@@ -284,7 +285,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
         setInternalIsPlaying(true);
         onPlay?.();
         setError(null);
-      } catch (err) {
+      } catch {
         setError("Unable to play audio");
         setInternalIsPlaying(false);
       }
@@ -462,10 +463,9 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
 
   // Cleanup
   useEffect(() => {
+    const animation = animationRef;
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      if (animation.current) cancelAnimationFrame(animation.current);
     };
   }, []);
 
@@ -502,8 +502,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
             animate={{ scale: 1 }}
             className="absolute -top-1 -right-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[8px] px-2 py-0.5 rounded-full shadow-md shadow-amber-500/15 flex items-center gap-1"
           >
-            📌 Pinned
-          </motion.div>
+            {tr("📌 Pinned")}</motion.div>
         )}
 
         {/* Background Decoration */}
@@ -542,8 +541,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                   {senderName}
                   {isOwn && (
                     <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-white/20 text-white/80 font-normal">
-                      You
-                    </span>
+                      {tr("You")}</span>
                   )}
                 </span>
                 {timestamp && (
@@ -583,7 +581,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                 className={`${config.button} rounded-full flex items-center justify-center flex-shrink-0 transition-all ${styles.button} ${
                   isLoading ? "opacity-50 cursor-not-allowed" : ""
                 } shadow-lg`}
-                aria-label={isPlaying ? "Pause" : "Play"}
+                aria-label={isPlaying ? tr("Pause") : tr("Play")}
               >
                 {isLoading ? (
                   <Loader2 className={`${config.icon} animate-spin`} />
@@ -691,7 +689,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                         ? "bg-white/20 text-white hover:bg-white/30"
                         : "bg-gray-200/70 text-gray-700 hover:bg-gray-300/70"
                     }`}
-                    title="Playback speed"
+                    title={tr("Playback speed")}
                   >
                     {PLAYBACK_SPEEDS[speedIndex]}×
                   </motion.button>
@@ -704,7 +702,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   className={`p-0.5 rounded transition-all ${isLooping ? "text-indigo-400" : styles.text} opacity-60 hover:opacity-100`}
-                  title={isLooping ? "Loop off" : "Loop on"}
+                  title={isLooping ? tr("Loop off") : tr("Loop on")}
                 >
                   {isLooping ? (
                     <RepeatOnce className="w-3 h-3" />
@@ -722,7 +720,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                       type="button"
                       onClick={() => handleKeySeek("backward")}
                       className={`p-0.5 rounded transition-all ${styles.text} opacity-60 hover:opacity-100`}
-                      title="Skip backward 5s"
+                      title={tr("Skip backward 5s")}
                     >
                       <SkipBack className="w-3 h-3" />
                     </motion.button>
@@ -732,7 +730,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                       type="button"
                       onClick={() => handleKeySeek("forward")}
                       className={`p-0.5 rounded transition-all ${styles.text} opacity-60 hover:opacity-100`}
-                      title="Skip forward 5s"
+                      title={tr("Skip forward 5s")}
                     >
                       <SkipForward className="w-3 h-3" />
                     </motion.button>
@@ -794,8 +792,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
               >
                 <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />
                 <span className={`text-[9px] ${styles.text} opacity-60`}>
-                  Transcribing...
-                </span>
+                  {tr("Transcribing...")}</span>
               </motion.div>
             )}
           </div>
@@ -871,7 +868,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                   onClick={onDownload}
                   disabled={isDownloading}
                   className={`p-1.5 rounded-lg transition-all ${styles.text} opacity-60 hover:opacity-100 disabled:opacity-30`}
-                  title="Download"
+                  title={tr("Download")}
                 >
                   {isDownloading ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -886,7 +883,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                   whileTap={{ scale: 0.9 }}
                   onClick={onShare}
                   className={`p-1.5 rounded-lg transition-all ${styles.text} opacity-60 hover:opacity-100`}
-                  title="Share"
+                  title={tr("Share")}
                 >
                   <Share2 className="w-3.5 h-3.5" />
                 </motion.button>
@@ -897,7 +894,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                   whileTap={{ scale: 0.9 }}
                   onClick={onDelete}
                   className="p-1.5 rounded-lg transition-all text-red-400 hover:bg-red-500/10 opacity-60 hover:opacity-100"
-                  title="Delete"
+                  title={tr("Delete")}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </motion.button>
@@ -907,7 +904,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setIsExpanded(!isExpanded)}
                 className={`p-1.5 rounded-lg transition-all ${styles.text} opacity-50 hover:opacity-100`}
-                title={isExpanded ? "Collapse" : "Expand"}
+                title={isExpanded ? tr("Collapse") : tr("Expand")}
               >
                 {isExpanded ? (
                   <Minimize2 className="w-3 h-3" />
@@ -935,8 +932,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({
               }}
               className="text-indigo-400 hover:underline font-medium"
             >
-              Retry
-            </button>
+              {tr("Retry")}</button>
           </motion.div>
         )}
       </motion.div>

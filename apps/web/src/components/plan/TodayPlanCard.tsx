@@ -27,6 +27,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useSetDailyGoal, useTodayPlan, type PlanTask } from "../../hooks/usePlan";
+import { useT } from "../../i18n";
+import type { Vars } from "../../i18n/core";
 
 const KIND: Record<PlanTask["kind"], { icon: LucideIcon; tone: string }> = {
   LEVEL: { icon: Target, tone: "bg-fuchsia-500/10 text-fuchsia-500" },
@@ -54,24 +56,45 @@ const UNIT: Record<PlanTask["unit"], [string, string]> = {
   exercises: ["exercise", "exercises"],
 };
 
-const progressText = (t: PlanTask) => {
-  if (t.done) return "Done";
-  if (t.unit === "test") return `${t.minutes} min`;
-  return `${t.progress} / ${t.target} ${UNIT[t.unit][t.target === 1 ? 0 : 1]}`;
+type Tr = (text: string, vars?: Vars) => string;
+
+const progressText = (task: PlanTask, t: Tr) => {
+  if (task.done) return t("Done");
+  if (task.unit === "test") return t("{n} min", { n: task.minutes });
+  return `${task.progress} / ${task.target} ${t(UNIT[task.unit][task.target === 1 ? 0 : 1])}`;
+};
+
+/** Task text comes from the server in English; the ones with numbers in them are matched to a template first */
+const PLAN_TEMPLATES: Array<[RegExp, string]> = [
+  [/^Review (\d+) cards?$/, "Review {n} cards"],
+  [/^Speak for (\d+) minutes?$/, "Speak for {n} minutes"],
+  [/^Say (\d+) things out loud and get a score$/, "Say {n} things out loud and get a score"],
+  [/^Say (\d+) things · focus on (.+)$/, "Say {n} things · focus on {x}"],
+  [/^Includes your (.+) mistakes$/, "Includes your {n} mistakes"],
+];
+
+const planText = (text: string, t: Tr, lang: string) => {
+  if (lang === "en") return text;
+  for (const [pattern, template] of PLAN_TEMPLATES) {
+    const m = text.match(pattern);
+    if (m) return t(template, { n: m[1], x: m[2] ?? "" });
+  }
+  return t(text);
 };
 
 export const TodayPlanCard: React.FC<{ className?: string }> = ({ className = "" }) => {
   const { data: plan, isLoading, isError, refetch } = useTodayPlan();
   const setGoal = useSetDailyGoal();
+  const { t, lang } = useT();
   const celebrated = useRef<string | null>(null);
 
   // One cheer per day, the moment the last task is ticked off
   useEffect(() => {
     if (plan?.bonusJustEarned && celebrated.current !== plan.day) {
       celebrated.current = plan.day;
-      toast.success(`Today's plan is done! +${plan.bonusXp} XP`, { icon: "🎉" });
+      toast.success(t("Today's plan is done! +{xp} XP", { xp: plan.bonusXp }), { icon: "🎉" });
     }
-  }, [plan?.bonusJustEarned, plan?.day, plan?.bonusXp]);
+  }, [plan?.bonusJustEarned, plan?.day, plan?.bonusXp, t]);
 
   const card =
     "rounded-3xl border border-line bg-surface shadow-sm";
@@ -92,9 +115,9 @@ export const TodayPlanCard: React.FC<{ className?: string }> = ({ className = ""
   if (isError || !plan) {
     return (
       <section className={`${card} p-6 text-center ${className}`}>
-        <p className="text-sm text-slate-500">Today's plan didn't load.</p>
+        <p className="text-sm text-slate-500">{t("Today's plan didn't load.")}</p>
         <button type="button" onClick={() => refetch()} className="mt-3 h-9 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold">
-          Try again
+          {t("Try again")}
         </button>
       </section>
     );
@@ -107,19 +130,19 @@ export const TodayPlanCard: React.FC<{ className?: string }> = ({ className = ""
     <section className={`${card} p-6 ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">Today's plan</h2>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">{t("Today's plan")}</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             {complete
-              ? `All done for today. +${plan.bonusXp} XP`
-              : `${plan.done} of ${plan.total} done · about ${plan.minutesPlanned} minutes`}
+              ? t("All done for today. +{xp} XP", { xp: plan.bonusXp })
+              : t("{done} of {total} done · about {minutes} minutes", { done: plan.done, total: plan.total, minutes: plan.minutesPlanned })}
             {plan.streak > 0 && (
               <span className="ml-2 inline-flex items-center gap-0.5 text-orange-500 font-semibold">
-                <Flame className="w-3.5 h-3.5" /> {plan.streak} day{plan.streak === 1 ? "" : "s"}
+                <Flame className="w-3.5 h-3.5" /> {plan.streak === 1 ? t("1 day") : t("{n} days", { n: plan.streak })}
               </span>
             )}
           </p>
         </div>
-        <div className="flex items-center gap-1 rounded-xl bg-slate-100 dark:bg-white/[0.05] p-1" role="radiogroup" aria-label="Minutes a day">
+        <div className="flex items-center gap-1 rounded-xl bg-slate-100 dark:bg-white/[0.05] p-1" role="radiogroup" aria-label={t("Minutes a day")}>
           {plan.goalOptions.map((m) => (
             <button
               key={m}
@@ -127,14 +150,14 @@ export const TodayPlanCard: React.FC<{ className?: string }> = ({ className = ""
               role="radio"
               aria-checked={plan.goalMinutes === m}
               disabled={setGoal.isPending}
-              onClick={() => plan.goalMinutes !== m && setGoal.mutate(m, { onError: () => toast.error("Couldn't change your daily goal") })}
+              onClick={() => plan.goalMinutes !== m && setGoal.mutate(m, { onError: () => toast.error(t("Couldn't change your daily goal")) })}
               className={`h-7 px-2.5 rounded-lg text-xs font-semibold transition-colors ${
                 plan.goalMinutes === m
                   ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
-              {m} min
+              {t("{n} min", { n: m })}
             </button>
           ))}
           {setGoal.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 mx-1" />}
@@ -149,34 +172,36 @@ export const TodayPlanCard: React.FC<{ className?: string }> = ({ className = ""
         <div className="mt-4 flex items-center gap-3 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3">
           <PartyPopper className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <p className="text-sm text-emerald-800 dark:text-emerald-200">
-            Brilliant! Come back tomorrow for a new plan{plan.streak > 1 ? ` and make it ${plan.streak + 1} days in a row` : ""}.
+            {plan.streak > 1
+              ? t("Brilliant! Come back tomorrow for a new plan and make it {n} days in a row.", { n: plan.streak + 1 })
+              : t("Brilliant! Come back tomorrow for a new plan.")}
           </p>
         </div>
       )}
 
       <ul className="mt-3 space-y-1.5">
-        {plan.tasks.map((t) => {
-          const { icon: Icon, tone } = KIND[t.kind];
+        {plan.tasks.map((task) => {
+          const { icon: Icon, tone } = KIND[task.kind];
           return (
-            <li key={t.id}>
+            <li key={task.id}>
               <Link
-                to={t.to}
+                to={task.to}
                 className={`group flex items-center gap-3.5 p-3 rounded-2xl border border-transparent transition-colors ${
-                  t.done ? "opacity-70" : "hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+                  task.done ? "opacity-70" : "hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/[0.03]"
                 }`}
               >
                 <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tone}`}>
                   <Icon className="w-5 h-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={`block text-sm font-semibold truncate ${t.done ? "line-through text-slate-400" : "text-slate-900 dark:text-slate-100"}`}>
-                    {t.title}
+                  <span className={`block text-sm font-semibold truncate ${task.done ? "line-through text-slate-400" : "text-slate-900 dark:text-slate-100"}`}>
+                    {planText(task.title, t, lang)}
                   </span>
-                  <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">{t.detail}</span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">{planText(task.detail, t, lang)}</span>
                 </span>
-                <span className="text-xs font-semibold tabular-nums shrink-0 text-slate-500 dark:text-slate-400 hidden sm:block">{progressText(t)}</span>
-                {t.done ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" aria-label="Done" />
+                <span className="text-xs font-semibold tabular-nums shrink-0 text-slate-500 dark:text-slate-400 hidden sm:block">{progressText(task, t)}</span>
+                {task.done ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" aria-label={t("Done")} />
                 ) : (
                   <span className="flex items-center gap-1 shrink-0">
                     <Circle className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:hidden" aria-hidden />

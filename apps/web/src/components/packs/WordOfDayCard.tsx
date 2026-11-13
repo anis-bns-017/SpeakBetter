@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { ArrowRight, Check, CheckCircle2, Loader2, Plus, Sparkles, Volume2, XCircle } from "lucide-react";
 import { useSavePackWords, useWordOfDay } from "../../hooks/useVocabPacks";
 import { canSpeak, speak } from "../../lib/speech";
+import { useT } from "../../i18n";
+import { tr } from "../../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -47,6 +49,7 @@ const Example: React.FC<{ sentence: string; word: string }> = ({ sentence, word 
 
 export const WordOfDayCard: React.FC = () => {
   const { data, isLoading, isError } = useWordOfDay();
+  const { t } = useT();
   const save = useSavePackWords(data?.packId ?? "");
   // Keyed by day, so a card left open past midnight asks again for the new word
   const [guesses, setGuesses] = useState<Record<string, number>>({});
@@ -72,15 +75,15 @@ export const WordOfDayCard: React.FC = () => {
 
   const saveWord = () =>
     save.mutate([data.wordId], {
-      onSuccess: () => toast.success(`"${data.word}" is in your review`),
-      onError: () => toast.error("Couldn't save that. Try again."),
+      onSuccess: () => toast.success(t("\"{word}\" is in your review", { word: data.word })),
+      onError: () => toast.error(t("Couldn't save that. Try again.")),
     });
 
   return (
     <section className={`${card} p-6`} aria-labelledby="word-of-day-title">
       <div className="flex items-center justify-between gap-2">
         <p id="word-of-day-title" className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-600 dark:text-amber-400 inline-flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5" /> Word of the day
+          <Sparkles className="w-3.5 h-3.5" /> {t("Word of the day")}
         </p>
         <span className="rounded-full px-2 py-0.5 text-[11px] font-bold bg-slate-100 dark:bg-white/[0.07] text-slate-500">{data.level}</span>
       </div>
@@ -89,7 +92,7 @@ export const WordOfDayCard: React.FC = () => {
         <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{data.word}</h2>
         <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide bg-slate-100 dark:bg-white/[0.07] text-slate-500">{data.pos}</span>
         {canSpeak() && (
-          <button type="button" onClick={() => void speak(data.word, { rate: 0.85 })} aria-label={`Listen to ${data.word}`} className="text-slate-400 hover:text-indigo-600">
+          <button type="button" onClick={() => void speak(data.word, { rate: 0.85 })} aria-label={tr("Listen to {word}", { word: data.word })} className="text-slate-400 hover:text-indigo-600">
             <Volume2 className="w-5 h-5" />
           </button>
         )}
@@ -97,8 +100,8 @@ export const WordOfDayCard: React.FC = () => {
 
       {!answered ? (
         <>
-          <p className="mt-3 text-sm text-slate-500">Do you know what it means?</p>
-          <div className="mt-2 space-y-2" role="radiogroup" aria-label={`Meaning of ${data.word}`}>
+          <p className="mt-3 text-sm text-slate-500">{t("Do you know what it means?")}</p>
+          <div className="mt-2 space-y-2" role="radiogroup" aria-label={t("Meaning of {word}", { word: data.word })}>
             {data.options.map((option, i) => (
               <button
                 key={option}
@@ -117,7 +120,7 @@ export const WordOfDayCard: React.FC = () => {
         <div className="mt-3 space-y-2">
           <p className={`text-sm font-semibold inline-flex items-center gap-1.5 ${right ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} role="status">
             {right ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-            {right ? "You knew it!" : "Now you know it:"}
+            {right ? t("You knew it!") : t("Now you know it:")}
           </p>
           <p className="text-sm text-slate-700 dark:text-slate-200">{data.meaning}</p>
           <p className="text-sm text-slate-500 italic">
@@ -129,7 +132,7 @@ export const WordOfDayCard: React.FC = () => {
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         {data.saved ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            <Check className="w-4 h-4" /> In your review
+            <Check className="w-4 h-4" /> {t("In your review")}
           </span>
         ) : (
           <button
@@ -138,11 +141,11 @@ export const WordOfDayCard: React.FC = () => {
             disabled={save.isPending}
             className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
           >
-            {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Save to review
+            {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} {t("Save to review")}
           </button>
         )}
         <Link to={`/packs/${data.packId}`} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-          From {data.packTitle} <ArrowRight className="w-3.5 h-3.5" />
+          {t("From {pack}", { pack: data.packTitle })} <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
     </section>

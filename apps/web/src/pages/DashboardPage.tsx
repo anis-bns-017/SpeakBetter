@@ -44,7 +44,7 @@ import {
   Bot,
   type LucideIcon,
 } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { EnableAlertsBanner } from "../components/notifications/EnableAlertsBanner";
 import { useSidebar } from "../contexts/SidebarContext";
 import { useDashboard, type DashboardData } from "../hooks/useLearning";
@@ -59,6 +59,10 @@ import { FriendChallengesCard } from "../components/challenges/FriendChallengesC
 import { CEFR_INFO, isCefr, type CefrCode } from "../lib/cefr";
 import { useSuggestions, useSendFriendRequest } from "../hooks/useFriends";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
+import { EchoMascot, type EchoMood } from "../components/dashboard/EchoMascot";
+import { FirstStepsCard } from "../components/dashboard/FirstStepsCard";
+import { useT } from "../i18n";
+import { tr, msg } from "../i18n/core";
 
 // ============================================================
 // Helpers
@@ -95,16 +99,19 @@ const Skeleton: React.FC<{ className?: string }> = ({ className }) => (
   <div className={`animate-pulse rounded-xl bg-slate-200/70 dark:bg-white/[0.06] ${className ?? ""}`} />
 );
 
-const SectionTitle: React.FC<{ title: string; action?: { label: string; to: string } }> = ({ title, action }) => (
+const SectionTitle: React.FC<{ title: string; action?: { label: string; to: string } }> = ({ title, action }) => {
+  const { t } = useT();
+  return (
   <div className="flex items-center justify-between mb-4">
-    <h2 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+    <h2 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{t(title)}</h2>
     {action && (
       <Link to={action.to} className="min-h-8 rounded-md text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:underline inline-flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
-        {action.label} <ArrowRight className="w-3.5 h-3.5" />
+        {t(action.label)} <ArrowRight className="w-3.5 h-3.5" />
       </Link>
     )}
   </div>
-);
+  );
+};
 
 /** Daily XP goal ring */
 const GoalRing: React.FC<{ value: number; goal: number; reduced: boolean }> = ({ value, goal, reduced }) => {
@@ -148,7 +155,7 @@ const GoalRing: React.FC<{ value: number; goal: number; reduced: boolean }> = ({
 };
 
 /** Last 7 days of XP as bars */
-const WeekBars: React.FC<{ days: Array<{ date: string; xp: number }>; reduced: boolean }> = ({ days, reduced }) => {
+const WeekBars: React.FC<{ days: Array<{ date: string; xp: number }>; reduced: boolean; locale?: string }> = ({ days, reduced, locale }) => {
   const max = Math.max(10, ...days.map((d) => d.xp));
   return (
     <div className="flex items-end gap-2 h-24">
@@ -167,7 +174,7 @@ const WeekBars: React.FC<{ days: Array<{ date: string; xp: number }>; reduced: b
               />
             </div>
             <span className={`text-[11px] ${isToday ? "font-bold text-slate-900 dark:text-slate-100" : "text-slate-400"}`}>
-              {date.toLocaleDateString(undefined, { weekday: "narrow" })}
+              {date.toLocaleDateString(locale, { weekday: "narrow" })}
             </span>
           </div>
         );
@@ -178,6 +185,7 @@ const WeekBars: React.FC<{ days: Array<{ date: string; xp: number }>; reduced: b
 
 /** 12-week activity heatmap from real XP per day */
 const ActivityHeatmap: React.FC<{ activity: DashboardData["activity"] }> = ({ activity }) => {
+  const { t, lang } = useT();
   // Pad the start so columns are whole weeks starting on Sunday
   const first = activity.length ? new Date(`${activity[0].date}T00:00:00`) : new Date();
   const padded: Array<{ date: string; xp: number } | null> = [...Array(first.getDay()).fill(null), ...activity];
@@ -199,7 +207,7 @@ const ActivityHeatmap: React.FC<{ activity: DashboardData["activity"] }> = ({ ac
             <div
               key={d.date}
               className={`w-[13px] h-[13px] rounded-[3px] ${shades[level(d.xp)]}`}
-              title={`${new Date(`${d.date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}: ${d.xp} XP`}
+              title={`${new Date(`${d.date}T00:00:00`).toLocaleDateString(lang === "bn" ? "bn-BD" : undefined, { month: "short", day: "numeric" })}: ${d.xp} XP`}
             />
           ) : (
             <div key={`pad-${i}`} className="w-[13px] h-[13px]" />
@@ -207,9 +215,9 @@ const ActivityHeatmap: React.FC<{ activity: DashboardData["activity"] }> = ({ ac
         )}
       </div>
       <div className="flex items-center gap-1.5 mt-3 text-[11px] text-slate-400">
-        Less
+        {t("Less")}
         {shades.map((s) => <span key={s} className={`w-[11px] h-[11px] rounded-[3px] ${s}`} />)}
-        More
+        {t("More")}
       </div>
     </div>
   );
@@ -226,6 +234,7 @@ interface Stat {
 
 const StatTile: React.FC<{ stat: Stat; index: number }> = ({ stat, index }) => {
   const Icon = stat.icon;
+  const { t } = useT();
   return (
     <motion.div variants={fadeUp} initial="hidden" animate="show" custom={index}>
       <Link
@@ -236,31 +245,31 @@ const StatTile: React.FC<{ stat: Stat; index: number }> = ({ stat, index }) => {
           <Icon className="w-[18px] h-[18px]" />
         </div>
         <p className="font-display text-[28px] font-semibold leading-none text-slate-900 dark:text-slate-100 tabular-nums">{stat.value}</p>
-        <p className="t-eyebrow mt-2 text-slate-600 dark:text-slate-300">{stat.label}</p>
-        {stat.sub && <p className="text-[11.5px] text-slate-400 dark:text-slate-500 mt-1">{stat.sub}</p>}
+        <p className="t-eyebrow mt-2 text-slate-600 dark:text-slate-300">{t(stat.label)}</p>
+        {stat.sub && <p className="text-[11.5px] text-slate-400 dark:text-slate-500 mt-1">{tr(stat.sub)}</p>}
       </Link>
     </motion.div>
   );
 };
 
 const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon; tone: string }> = [
-  { to: "/voice", title: "Voice Rooms", desc: "Live speaking practice", icon: AudioLines, tone: "text-indigo-700 bg-indigo-500/10 dark:text-indigo-300" },
-  { to: "/ai-partner", title: "AI Partner", desc: "Talk any time", icon: Bot, tone: "text-violet-700 bg-violet-500/10 dark:text-violet-300" },
-  { to: "/chat", title: "Chat", desc: "Message partners", icon: MessageCircle, tone: "text-rose-700 bg-rose-500/10 dark:text-rose-300" },
-  { to: "/communities", title: "Communities", desc: "Groups by interest", icon: Hash, tone: "text-teal-700 bg-teal-500/10 dark:text-teal-300" },
-  { to: "/discover", title: "Discover", desc: "Trending rooms", icon: Compass, tone: "text-amber-700 bg-amber-500/10 dark:text-amber-300" },
-  { to: "/library", title: "Library", desc: "Read & listen", icon: Library, tone: "text-teal-700 bg-teal-500/10 dark:text-teal-300" },
-  { to: "/writing", title: "Writing", desc: "Write & get it checked", icon: PenLine, tone: "text-indigo-700 bg-indigo-500/10 dark:text-indigo-300" },
-  { to: "/words", title: "My words", desc: "Your word bank", icon: BookOpen, tone: "text-emerald-700 bg-emerald-500/10 dark:text-emerald-300" },
-  { to: "/packs", title: "Word packs", desc: "Themed word sets", icon: Package, tone: "text-amber-700 bg-amber-500/10 dark:text-amber-300" },
-  { to: "/dictation", title: "Dictation", desc: "Listen and type", icon: Headphones, tone: "text-sky-700 bg-sky-500/10 dark:text-sky-300" },
-  { to: "/shadowing", title: "Shadowing", desc: "Listen and repeat", icon: Repeat2, tone: "text-fuchsia-700 bg-fuchsia-500/10 dark:text-fuchsia-300" },
-  { to: "/roleplay", title: "Role-play", desc: "Real conversations", icon: Drama, tone: "text-orange-700 bg-orange-500/10 dark:text-orange-300" },
-  { to: "/flashcards", title: "Flashcards", desc: "Spaced repetition", icon: Layers, tone: "text-sky-700 bg-sky-500/10 dark:text-sky-300" },
-  { to: "/pronunciation", title: "Pronunciation", desc: "Say it, get a score", icon: Mic, tone: "text-cyan-700 bg-cyan-500/10 dark:text-cyan-300" },
-  { to: "/challenge", title: "Daily challenge", desc: "One question a day", icon: Megaphone, tone: "text-rose-700 bg-rose-500/10 dark:text-rose-300" },
-  { to: "/grammar", title: "Grammar", desc: "Lessons & drills", icon: GraduationCap, tone: "text-violet-700 bg-violet-500/10 dark:text-violet-300" },
-  { to: "/exercises", title: "Exercises", desc: "Quizzes & drills", icon: Dumbbell, tone: "text-orange-700 bg-orange-500/10 dark:text-orange-300" },
+  { to: "/voice", title: msg("Voice Rooms"), desc: msg("Live speaking practice"), icon: AudioLines, tone: "text-indigo-700 bg-indigo-500/10 dark:text-indigo-300" },
+  { to: "/ai-partner", title: msg("AI Partner"), desc: msg("Talk any time"), icon: Bot, tone: "text-violet-700 bg-violet-500/10 dark:text-violet-300" },
+  { to: "/chat", title: msg("Chat"), desc: msg("Message partners"), icon: MessageCircle, tone: "text-rose-700 bg-rose-500/10 dark:text-rose-300" },
+  { to: "/communities", title: msg("Communities"), desc: msg("Groups by interest"), icon: Hash, tone: "text-teal-700 bg-teal-500/10 dark:text-teal-300" },
+  { to: "/discover", title: msg("Discover"), desc: msg("Trending rooms"), icon: Compass, tone: "text-amber-700 bg-amber-500/10 dark:text-amber-300" },
+  { to: "/library", title: msg("Library"), desc: msg("Read & listen"), icon: Library, tone: "text-teal-700 bg-teal-500/10 dark:text-teal-300" },
+  { to: "/writing", title: msg("Writing"), desc: msg("Write & get it checked"), icon: PenLine, tone: "text-indigo-700 bg-indigo-500/10 dark:text-indigo-300" },
+  { to: "/words", title: msg("My words"), desc: msg("Your word bank"), icon: BookOpen, tone: "text-emerald-700 bg-emerald-500/10 dark:text-emerald-300" },
+  { to: "/packs", title: msg("Word packs"), desc: msg("Themed word sets"), icon: Package, tone: "text-amber-700 bg-amber-500/10 dark:text-amber-300" },
+  { to: "/dictation", title: msg("Dictation"), desc: msg("Listen and type"), icon: Headphones, tone: "text-sky-700 bg-sky-500/10 dark:text-sky-300" },
+  { to: "/shadowing", title: msg("Shadowing"), desc: msg("Listen and repeat"), icon: Repeat2, tone: "text-fuchsia-700 bg-fuchsia-500/10 dark:text-fuchsia-300" },
+  { to: "/roleplay", title: msg("Role-play"), desc: msg("Real conversations"), icon: Drama, tone: "text-orange-700 bg-orange-500/10 dark:text-orange-300" },
+  { to: "/flashcards", title: msg("Flashcards"), desc: msg("Spaced repetition"), icon: Layers, tone: "text-sky-700 bg-sky-500/10 dark:text-sky-300" },
+  { to: "/pronunciation", title: msg("Pronunciation"), desc: msg("Say it, get a score"), icon: Mic, tone: "text-cyan-700 bg-cyan-500/10 dark:text-cyan-300" },
+  { to: "/challenge", title: msg("Daily challenge"), desc: msg("One question a day"), icon: Megaphone, tone: "text-rose-700 bg-rose-500/10 dark:text-rose-300" },
+  { to: "/grammar", title: msg("Grammar"), desc: msg("Lessons & drills"), icon: GraduationCap, tone: "text-violet-700 bg-violet-500/10 dark:text-violet-300" },
+  { to: "/exercises", title: msg("Exercises"), desc: msg("Quizzes & drills"), icon: Dumbbell, tone: "text-orange-700 bg-orange-500/10 dark:text-orange-300" },
 ];
 
 // ============================================================
@@ -269,6 +278,7 @@ const EXPLORE: Array<{ to: string; title: string; desc: string; icon: LucideIcon
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const { t, lang } = useT();
   const navigate = useNavigate();
   const reduced = Boolean(useReducedMotion());
   const { openPalette } = useSidebar();
@@ -280,6 +290,8 @@ const DashboardPage: React.FC = () => {
   const sendRequest = useSendFriendRequest();
   // People you just sent a request to (suggestions don't refetch until you come back)
   const [requestedIds, setRequestedIds] = useState<Set<string>>(() => new Set());
+  // While Echo talks, the hero's waveform moves with it
+  const [echoTalking, setEchoTalking] = useState(false);
 
   const liveRooms = useMemo(
     () => (Array.isArray(trending) ? trending : []).filter((r) => r && r.isLive !== false && (r.participantCount ?? 0) > 0).slice(0, 4),
@@ -291,7 +303,7 @@ const DashboardPage: React.FC = () => {
   }, [suggestionsData]);
 
   const firstName = (user?.name || "there").split(" ")[0];
-  const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const today = new Date().toLocaleDateString(lang === "bn" ? "bn-BD" : undefined, { weekday: "long", month: "long", day: "numeric" });
 
   // ---------------- Loading / error ----------------
   if (isLoading) {
@@ -312,11 +324,10 @@ const DashboardPage: React.FC = () => {
   if (isError || !data) {
     return (
       <div className="max-w-xl mx-auto px-6 py-24 text-center">
-        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">We couldn't load your dashboard</p>
-        <p className="text-sm text-slate-500 mt-1">Check your connection and try again.</p>
+        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t("We couldn't load your dashboard")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("Check your connection and try again.")}</p>
         <button type="button" onClick={() => refetch()} className="mt-5 px-4 h-10 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
-          Try again
-        </button>
+          {tr("Try again")}</button>
       </div>
     );
   }
@@ -342,20 +353,43 @@ const DashboardPage: React.FC = () => {
   })();
 
   const statusLine = goalDone
-    ? "Daily goal complete — brilliant work today! 🎉"
+    ? t("Daily goal complete — brilliant work today! 🎉")
     : data.streak.practicedToday
-      ? `${data.xp.dailyGoal - data.xp.today} XP to go for today's goal`
+      ? t("{n} XP to go for today's goal", { n: data.xp.dailyGoal - data.xp.today })
       : data.streak.current > 0
-        ? `Practice today to keep your ${data.streak.current}-day streak 🔥`
-        : "Let's make today your first practice day";
+        ? t("Practice today to keep your {n}-day streak 🔥", { n: data.streak.current })
+        : t("Let's make today your first practice day");
+
+  // Echo's mood follows the learner's day
+  const hour = new Date().getHours();
+  const atRisk = data.streak.current > 0 && !data.streak.practicedToday;
+  const echoMood: EchoMood = goalDone ? "cheer" : hour >= 23 || hour < 5 ? "sleepy" : atRisk ? "hopeful" : "idle";
+  const echoGreeting = goalDone
+    ? t("Daily goal done! Everything else today is a bonus.")
+    : echoMood === "sleepy"
+      ? t("Still up, {name}? One short review, then sleep.", { name: firstName })
+      : isNewLearner
+        ? t("Hi {name}, I'm Echo! Start by just listening in a live room.", { name: firstName })
+        : atRisk
+          ? t("Hi {name}! A few minutes keeps your {n}-day streak going.", { name: firstName, n: data.streak.current })
+          : t("Hi {name}! Ready to say something new today?", { name: firstName });
+  const echoLines = [
+    ...(goalDone ? [] : [t("{n} XP to today's goal. Speaking earns it fastest.", { n: Math.max(0, data.xp.dailyGoal - data.xp.today) })]),
+    ...(data.flashcards.due > 0 ? [data.flashcards.due === 1 ? t("1 card is waiting in Review.") : t("{n} cards are waiting in Review.", { n: data.flashcards.due })] : []),
+    t("Say one sentence out loud right now. Any sentence."),
+    t("Mistakes are just practice with feedback."),
+    t("Ten minutes a day beats an hour on Sunday."),
+    t("Shadowing tip: copy the rhythm first, the words second."),
+    t("New word? Use it in a sentence today and it sticks."),
+  ];
 
   const stats: Stat[] = [
-    { label: `Level ${level}`, value: data.xp.total.toLocaleString(), sub: xpToNext > 0 ? `${xpToNext.toLocaleString()} XP to level ${level + 1}` : "Max level", icon: Trophy, tone: "bg-violet-500/10 text-violet-700 dark:text-violet-300", to: "/progress" },
-    { label: "Day streak", value: String(data.streak.current), sub: `Best: ${data.streak.longest} day${data.streak.longest === 1 ? "" : "s"}`, icon: Flame, tone: "bg-orange-500/10 text-orange-700 dark:text-orange-300", to: "/progress" },
-    { label: "Minutes spoken", value: String(data.voice.speakingMinutes), sub: `${data.voice.speakingMinutesThisWeek} this week`, icon: Mic, tone: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300", to: "/voice" },
-    { label: "Rooms joined", value: String(data.voice.roomsJoined), sub: `${data.voice.roomsThisWeek} this week`, icon: Users, tone: "bg-sky-500/10 text-sky-700 dark:text-sky-300", to: "/voice" },
-    { label: "Corrections learned", value: String(data.corrections.accepted), sub: `${data.corrections.given} given to others`, icon: Wand2, tone: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300", to: "/progress" },
-    { label: "Words saved", value: data.words.total.toLocaleString(), sub: `${data.words.thisWeek} this week`, icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", to: "/words" },
+    { label: t("Level {n}", { n: level }), value: data.xp.total.toLocaleString(), sub: xpToNext > 0 ? t("{xp} XP to level {n}", { xp: xpToNext.toLocaleString(), n: level + 1 }) : t("Max level"), icon: Trophy, tone: "bg-violet-500/10 text-violet-700 dark:text-violet-300", to: "/progress" },
+    { label: msg("Day streak"), value: String(data.streak.current), sub: data.streak.longest === 1 ? t("Best: 1 day") : t("Best: {n} days", { n: data.streak.longest }), icon: Flame, tone: "bg-orange-500/10 text-orange-700 dark:text-orange-300", to: "/progress" },
+    { label: msg("Minutes spoken"), value: String(data.voice.speakingMinutes), sub: t("{n} this week", { n: data.voice.speakingMinutesThisWeek }), icon: Mic, tone: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300", to: "/voice" },
+    { label: msg("Rooms joined"), value: String(data.voice.roomsJoined), sub: t("{n} this week", { n: data.voice.roomsThisWeek }), icon: Users, tone: "bg-sky-500/10 text-sky-700 dark:text-sky-300", to: "/voice" },
+    { label: msg("Corrections learned"), value: String(data.corrections.accepted), sub: t("{n} given to others", { n: data.corrections.given }), icon: Wand2, tone: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300", to: "/progress" },
+    { label: msg("Words saved"), value: data.words.total.toLocaleString(), sub: t("{n} this week", { n: data.words.thisWeek }), icon: BookOpen, tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", to: "/words" },
   ];
 
   return (
@@ -365,16 +399,16 @@ const DashboardPage: React.FC = () => {
         <div>
           <p className="t-eyebrow text-slate-600 dark:text-slate-400">{today}</p>
           <h1 className="text-[32px] sm:text-[44px] leading-[1.05] font-semibold text-slate-900 dark:text-white mt-2">
-            {greeting()}, {firstName} 👋
+            {t(greeting())}, {firstName}
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{statusLine}</p>
           {cefr && (
             <Link
               to="/placement"
-              title="See your level breakdown"
+              title={t("See your level breakdown")}
               className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-xs font-semibold ${CEFR_INFO[cefr].chip}`}
             >
-              <Target className="w-3.5 h-3.5" /> {cefr} · {CEFR_INFO[cefr].name}
+              <Target className="w-3.5 h-3.5" /> {cefr} · {t(CEFR_INFO[cefr].name)}
             </Link>
           )}
         </div>
@@ -383,12 +417,14 @@ const DashboardPage: React.FC = () => {
           onClick={openPalette}
           className="hidden sm:flex items-center gap-2 h-10 pl-3 pr-2 rounded-xl border border-line bg-surface text-sm text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/20 transition-colors"
         >
-          <Search className="w-4 h-4" /> Jump to anything
+          <Search className="w-4 h-4" /> {t("Jump to anything")}
           <kbd className="ml-3 rounded-md border border-slate-200 dark:border-white/10 px-1.5 py-0.5 text-[11px] font-sans">{IS_MAC ? "⌘" : "Ctrl"} K</kbd>
         </button>
       </motion.header>
 
       <EnableAlertsBanner />
+
+      <FirstStepsCard data={data} createdAt={user?.createdAt} hasLevel={!!cefr || !!data.profile.level} />
 
       {/* ================= Hero: today + this week ================= */}
       <div className="grid lg:grid-cols-3 gap-5">
@@ -397,26 +433,31 @@ const DashboardPage: React.FC = () => {
           initial="hidden"
           animate="show"
           custom={1}
-          className="lg:col-span-2 relative overflow-hidden rounded-3xl p-6 sm:p-7 text-white bg-indigo-900 ring-1 ring-inset ring-white/10 shadow-md"
+          className="@container lg:col-span-2 relative overflow-hidden rounded-3xl p-6 sm:p-7 text-white bg-indigo-900 ring-1 ring-inset ring-white/10 shadow-md"
         >
-          {/* A frozen speech waveform: the product is your voice */}
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 flex h-14 items-end gap-[5px] px-7 opacity-60">
+          {/* A speech waveform: the product is your voice. It speaks along with Echo. */}
+          <div aria-hidden className={`pointer-events-none absolute inset-x-0 bottom-0 flex h-14 items-end gap-[5px] px-7 opacity-60 ${echoTalking ? "echo-talking" : ""}`}>
             {[22, 38, 30, 56, 44, 72, 52, 88, 62, 100, 70, 84, 56, 70, 46, 60, 40, 52, 32, 44, 26, 34, 20, 28, 16, 22, 14, 18, 12, 16, 10, 14].map((h, i) => (
-              <span key={i} className={`flex-1 max-w-[7px] rounded-full ${i % 8 === 4 ? "bg-amber-300/70" : "bg-white/15"}`} style={{ height: `${h}%` }} />
+              <span
+                key={i}
+                className={`echo-bar flex-1 max-w-[7px] rounded-full ${i % 8 === 4 ? "bg-amber-300/70" : "bg-white/15"}`}
+                style={{ height: `${h}%`, animationDelay: `${-((i * 137) % 900)}ms` }}
+              />
             ))}
           </div>
 
-          <div className="relative flex flex-col sm:flex-row sm:items-center gap-6">
+          {/* Laid out by the card's own width: narrow puts Echo in the corner, wide gives Echo and the streak a column */}
+          <div className="relative flex flex-col @xl:flex-row @xl:items-center gap-6">
             <GoalRing value={data.xp.today} goal={data.xp.dailyGoal} reduced={reduced} />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">Today's goal</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">{t("Today's goal")}</p>
               <h2 className="text-2xl font-bold mt-1 leading-snug">
-                {isNewLearner ? `Your ${learning} journey starts here` : goalDone ? "Goal smashed!" : "Earn today's XP by speaking"}
+                {isNewLearner ? t("Your {language} journey starts here", { language: t(learning) }) : goalDone ? t("Goal smashed!") : t("Earn today's XP by speaking")}
               </h2>
               <p className="text-sm text-white/80 mt-1.5 max-w-md">
                 {isNewLearner
-                  ? "Join a live room and just listen at first. When you're ready, raise your hand and say hello."
-                  : "Speaking earns 4 XP a minute, corrections 3–5 XP, flashcards 2 XP each."}
+                  ? t("Join a live room and just listen at first. When you're ready, raise your hand and say hello.")
+                  : t("Speaking earns 4 XP a minute, corrections 3–5 XP, flashcards 2 XP each.")}
               </p>
 
               <div className="flex flex-wrap items-center gap-2.5 mt-5">
@@ -425,24 +466,31 @@ const DashboardPage: React.FC = () => {
                   onClick={() => navigate(liveRooms[0] ? `/voice/${liveRooms[0].id}` : "/voice")}
                   className="h-11 px-5 rounded-xl bg-white text-indigo-800 font-semibold text-sm flex items-center gap-2 shadow-sm hover:bg-indigo-50 transition-colors"
                 >
-                  <Mic className="w-4 h-4" /> {liveRooms[0] ? "Join a live room" : "Start speaking"}
+                  <Mic className="w-4 h-4" /> {liveRooms[0] ? t("Join a live room") : t("Start speaking")}
                 </button>
                 {data.flashcards.due > 0 && (
                   <button type="button" onClick={() => navigate("/flashcards")} className="h-11 px-4 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-sm flex items-center gap-2 transition-colors">
-                    <Layers className="w-4 h-4" /> Review {data.flashcards.due} card{data.flashcards.due === 1 ? "" : "s"}
+                    <Layers className="w-4 h-4" /> {data.flashcards.due === 1 ? t("Review 1 card") : t("Review {n} cards", { n: data.flashcards.due })}
                   </button>
                 )}
               </div>
             </div>
 
-            <div className="hidden xl:flex flex-col items-center justify-center w-28 shrink-0 rounded-2xl bg-white/10 py-4">
-              <Flame className={`w-8 h-8 ${data.streak.current > 0 ? "text-amber-300 fill-amber-300/40" : "text-white/40"}`} />
-              <p className="font-display text-[34px] font-semibold leading-none tabular-nums mt-1">{data.streak.current}</p>
-              <p className="text-[11px] text-white/70">day streak</p>
-              <div className="flex gap-1 mt-2.5">
-                {lastSeven.map((d) => (
-                  <span key={d.date} className={`w-2 h-2 rounded-full ${d.xp > 0 ? "bg-amber-300" : "bg-white/20"}`} title={d.date} />
-                ))}
+
+            {/* Echo, with the streak it looks after */}
+            <div className="absolute right-0 top-0 w-[92px] @xl:static @xl:w-[136px] shrink-0 flex flex-col items-center">
+              <EchoMascot mood={echoMood} greeting={echoGreeting} lines={echoLines} reduced={reduced} onTalkingChange={setEchoTalking} className="w-full" />
+              <div className="hidden @xl:flex flex-col items-center -mt-1">
+                <p className="flex items-center gap-1.5">
+                  <Flame aria-hidden className={`w-4 h-4 ${data.streak.current > 0 ? "text-amber-300 fill-amber-300/40" : "text-white/40"}`} />
+                  <span className="font-display text-[22px] font-semibold leading-none tabular-nums">{data.streak.current}</span>
+                  <span className="text-[11px] text-white/70">{t("day streak")}</span>
+                </p>
+                <div className="flex gap-1 mt-2">
+                  {lastSeven.map((d) => (
+                    <span key={d.date} className={`w-2 h-2 rounded-full ${d.xp > 0 ? "bg-amber-300" : "bg-white/20"}`} title={d.date} />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -451,7 +499,7 @@ const DashboardPage: React.FC = () => {
         <motion.section variants={fadeUp} initial="hidden" animate="show" custom={2} className={`${card} p-6`}>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">This week</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{t("This week")}</p>
               <p className="font-display text-[34px] font-semibold leading-none text-slate-900 dark:text-white mt-1.5 tabular-nums">
                 {data.xp.thisWeek.toLocaleString()} <span className="text-base font-semibold text-slate-400">XP</span>
               </p>
@@ -464,12 +512,12 @@ const DashboardPage: React.FC = () => {
             )}
             {weekChange === null && data.xp.thisWeek > 0 && (
               <span className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">
-                <Zap className="w-3.5 h-3.5" /> New
+                <Zap className="w-3.5 h-3.5" /> {t("New")}
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">vs {data.xp.lastWeek.toLocaleString()} XP last week</p>
-          <div className="mt-5"><WeekBars days={lastSeven} reduced={reduced} /></div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t("vs {xp} XP last week", { xp: data.xp.lastWeek.toLocaleString() })}</p>
+          <div className="mt-5"><WeekBars days={lastSeven} reduced={reduced} locale={lang === "bn" ? "bn-BD" : undefined} /></div>
         </motion.section>
       </div>
 
@@ -489,16 +537,16 @@ const DashboardPage: React.FC = () => {
         <WordOfDayCard />
         <FriendChallengesCard />
         <motion.section variants={fadeUp} initial="hidden" animate="show" custom={5} className={`${card} p-6`}>
-          <SectionTitle title="Live now" action={{ label: "All rooms", to: "/voice" }} />
+          <SectionTitle title={tr("Live now")} action={{ label: msg("All rooms"), to: "/voice" }} />
           {liveRooms.length === 0 ? (
             <div className="text-center py-6">
               <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 flex items-center justify-center mx-auto mb-3">
                 <Radio className="w-6 h-6" />
               </div>
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">No rooms live right now</p>
-              <p className="text-xs text-slate-500 mt-1">Start one — others will join you.</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("No rooms live right now")}</p>
+              <p className="text-xs text-slate-500 mt-1">{t("Start one — others will join you.")}</p>
               <button type="button" onClick={() => navigate("/voice")} className="mt-4 h-9 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
-                Start a room
+                {t("Start a room")}
               </button>
             </div>
           ) : (
@@ -519,10 +567,10 @@ const DashboardPage: React.FC = () => {
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{room.name}</span>
                     <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
-                      {room.participantCount} in room{room.language ? ` · ${room.language}` : ""}{room.creator?.name ? ` · ${room.creator.name}` : ""}
+                      {t("{n} in room", { n: room.participantCount })}{room.language ? ` · ${room.language}` : ""}{room.creator?.name ? ` · ${room.creator.name}` : ""}
                     </span>
                   </span>
-                  <span className="h-8 px-3 rounded-lg bg-indigo-600 text-white text-xs font-semibold flex items-center opacity-90 group-hover:opacity-100">Join</span>
+                  <span className="h-8 px-3 rounded-lg bg-indigo-600 text-white text-xs font-semibold flex items-center opacity-90 group-hover:opacity-100">{t("Join")}</span>
                 </button>
               ))}
             </div>
@@ -537,24 +585,24 @@ const DashboardPage: React.FC = () => {
       {/* ================= Activity + corrections ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         <motion.section variants={fadeUp} initial="hidden" animate="show" custom={6} className={`${card} p-6 lg:col-span-3 overflow-hidden`}>
-          <SectionTitle title="Your practice, last 12 weeks" action={{ label: "Progress", to: "/progress" }} />
+          <SectionTitle title={tr("Your practice, last 12 weeks")} action={{ label: msg("Progress"), to: "/progress" }} />
           <div className="flex flex-wrap items-end gap-x-10 gap-y-5">
             <div className="overflow-x-auto max-w-full pb-1"><ActivityHeatmap activity={data.activity} /></div>
             <div className="space-y-3">
               <div>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">{activeDays}</p>
-                <p className="text-xs text-slate-500">active days</p>
+                <p className="text-xs text-slate-500">{t("active days")}</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">{data.streak.longest}</p>
-                <p className="text-xs text-slate-500">longest streak</p>
+                <p className="text-xs text-slate-500">{t("longest streak")}</p>
               </div>
             </div>
           </div>
           <div className="mt-5">
             <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="font-semibold text-slate-700 dark:text-slate-300">Level {level}</span>
-              <span className="text-slate-500">{xpToNext > 0 ? `${xpToNext.toLocaleString()} XP to level ${level + 1}` : "Max level"}</span>
+              <span className="font-semibold text-slate-700 dark:text-slate-300">{t("Level {n}", { n: level })}</span>
+              <span className="text-slate-500">{xpToNext > 0 ? t("{xp} XP to level {n}", { xp: xpToNext.toLocaleString(), n: level + 1 }) : t("Max level")}</span>
             </div>
             <div className="h-2 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden">
               <motion.div
@@ -568,15 +616,15 @@ const DashboardPage: React.FC = () => {
         </motion.section>
 
         <motion.section variants={fadeUp} initial="hidden" animate="show" custom={7} className={`${card} p-6 lg:col-span-2`}>
-          <SectionTitle title="Learned from the community" />
+          <SectionTitle title={tr("Learned from the community")} />
           {data.corrections.recent.length === 0 ? (
             <div className="py-4">
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                When someone in a voice room corrects your English and you accept it, it shows up here so you can review it.
+                {t("When someone in a voice room corrects your English and you accept it, it shows up here so you can review it.")}
               </p>
               <div className="mt-4 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 p-4 text-sm">
-                <p className="text-slate-400 line-through">I am agree with you</p>
-                <p className="text-emerald-600 dark:text-emerald-400 font-medium mt-1">I agree with you</p>
+                <p className="text-slate-400 line-through">{tr("I am agree with you")}</p>
+                <p className="text-emerald-600 dark:text-emerald-400 font-medium mt-1">{tr("I agree with you")}</p>
               </div>
             </div>
           ) : (
@@ -585,9 +633,9 @@ const DashboardPage: React.FC = () => {
                 <div key={c.id} className="rounded-2xl bg-slate-50 dark:bg-white/[0.03] p-3.5">
                   <p className="text-sm text-slate-400 line-through decoration-rose-400/70">{c.original}</p>
                   <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">{c.corrected}</p>
-                  {c.note && <p className="text-xs text-slate-500 mt-1.5">{c.note}</p>}
+                  {c.note && <p className="text-xs text-slate-500 mt-1.5">{tr(c.note)}</p>}
                   <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1.5">
-                    <span className="capitalize">{c.category.replace("-", " ")}</span> · from {c.authorName}
+                    <span className="capitalize">{c.category.replace("-", " ")}</span> {" "}{tr("· from")}{" "}{c.authorName}
                     {c.resolvedAt && <><Clock className="w-3 h-3 ml-1" /> {new Date(c.resolvedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</>}
                   </p>
                 </div>
@@ -600,7 +648,7 @@ const DashboardPage: React.FC = () => {
       {/* ================= Partners ================= */}
       {suggestions.length > 0 && (
         <motion.section variants={fadeUp} initial="hidden" animate="show" custom={8} className={`${card} p-6`}>
-          <SectionTitle title="Practice partners for you" action={{ label: "See more", to: "/suggestions" }} />
+          <SectionTitle title={tr("Practice partners for you")} action={{ label: msg("See more"), to: "/suggestions" }} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {suggestions.map((person) => (
               <div key={person.id} className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200/80 dark:border-white/[0.07]">
@@ -608,9 +656,9 @@ const DashboardPage: React.FC = () => {
                   {person.avatarUrl ? <img src={person.avatarUrl} alt="" className="w-full h-full object-cover" /> : (person.name || "?").charAt(0).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{person.name || "Learner"}</span>
+                  <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{person.name || t("Learner")}</span>
                   <span className="block text-xs text-slate-500 truncate" title={person.reason}>
-                    {person.reason || (person.profile?.nativeLanguage ? `Speaks ${person.profile.nativeLanguage}` : "Language learner")}
+                    {person.reason || (person.profile?.nativeLanguage ? t("Speaks {language}", { language: person.profile.nativeLanguage }) : t("Language learner"))}
                   </span>
                 </span>
                 <button
@@ -622,8 +670,8 @@ const DashboardPage: React.FC = () => {
                     })
                   }
                   className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-40 transition-colors"
-                  aria-label={`Add ${person.name || "this person"} as a friend`}
-                  title={requestedIds.has(person.id) ? "Request sent" : "Add friend"}
+                  aria-label={tr("Add {value} as a friend", { value: person.name || "this person" })}
+                  title={requestedIds.has(person.id) ? t("Request sent") : t("Add friend")}
                 >
                   {requestedIds.has(person.id) ? <Check className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                 </button>
@@ -635,7 +683,7 @@ const DashboardPage: React.FC = () => {
 
       {/* ================= Explore ================= */}
       <motion.section variants={fadeUp} initial="hidden" animate="show" custom={9}>
-        <SectionTitle title="Explore" />
+        <SectionTitle title={tr("Explore")} />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {EXPLORE.map((item) => {
             const Icon = item.icon;
@@ -649,8 +697,8 @@ const DashboardPage: React.FC = () => {
                   <Icon className="w-5 h-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{item.title}</span>
-                  <span className="block text-xs text-slate-500 truncate">{item.desc}</span>
+                  <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{t(item.title)}</span>
+                  <span className="block text-xs text-slate-500 truncate">{t(item.desc)}</span>
                 </span>
               </Link>
             );

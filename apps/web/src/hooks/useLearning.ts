@@ -139,7 +139,7 @@ export const useExercises = (params: {
 export const useSubmitExercise = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { exerciseId: string; answers: any[]; metadata?: any }) => {
+    mutationFn: async (data: { exerciseId: string; answers: unknown[]; metadata?: Record<string, unknown> }) => {
       const response = await apiClient.post('/learning/exercises/submit', data);
       return response.data;
     },

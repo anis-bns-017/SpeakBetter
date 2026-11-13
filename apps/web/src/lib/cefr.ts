@@ -1,3 +1,4 @@
+import { msg } from "../i18n/core";
 // apps/web/src/lib/cefr.ts
 // One place for what a CEFR level (A1–C2) means and how it looks across the app.
 
@@ -10,37 +11,37 @@ export const isCefr = (value: unknown): value is CefrCode =>
 export const CEFR_INFO: Record<CefrCode, { name: string; summary: string; gradient: string; chip: string }> = {
   A1: {
     name: "Beginner",
-    summary: "You understand and use familiar everyday words and very simple sentences.",
+    summary: msg("You understand and use familiar everyday words and very simple sentences."),
     gradient: "from-emerald-500 to-teal-500",
     chip: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
   },
   A2: {
     name: "Elementary",
-    summary: "You handle simple, routine exchanges and talk about your background and immediate needs.",
+    summary: msg("You handle simple, routine exchanges and talk about your background and immediate needs."),
     gradient: "from-sky-500 to-cyan-500",
     chip: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
   },
   B1: {
     name: "Intermediate",
-    summary: "You can deal with most travel situations and describe experiences, plans and opinions.",
+    summary: msg("You can deal with most travel situations and describe experiences, plans and opinions."),
     gradient: "from-indigo-500 to-blue-500",
     chip: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
   },
   B2: {
     name: "Upper-intermediate",
-    summary: "You follow complex ideas and talk with native speakers fluently, without much strain.",
+    summary: msg("You follow complex ideas and talk with native speakers fluently, without much strain."),
     gradient: "from-violet-500 to-purple-500",
     chip: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
   },
   C1: {
     name: "Advanced",
-    summary: "You express yourself fluently and precisely, and understand demanding, longer texts.",
+    summary: msg("You express yourself fluently and precisely, and understand demanding, longer texts."),
     gradient: "from-fuchsia-500 to-pink-500",
     chip: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-300",
   },
   C2: {
     name: "Proficient",
-    summary: "You understand virtually everything and express subtle shades of meaning with ease.",
+    summary: msg("You understand virtually everything and express subtle shades of meaning with ease."),
     gradient: "from-amber-500 to-orange-500",
     chip: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
   },

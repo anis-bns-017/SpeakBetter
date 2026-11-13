@@ -13,6 +13,7 @@ import { useAnswerLibrary, useLibraryText, useSaveLibraryWord, type QuestionType
 import { canListen, useListenOnce, useSubmitAttempt } from "../hooks/usePronunciation";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { WordLookup, type WordSelection } from "../components/chat/WordLookup";
+import { tr } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -62,7 +63,7 @@ export const LibraryReaderPage: React.FC = () => {
   if (isError || !text) {
     return (
       <div className={`${card} max-w-xl mx-auto mt-16 p-8 text-center text-sm text-slate-500`}>
-        Couldn't load this text. <Link to="/library" className="text-indigo-600 underline">Back to the library</Link>
+        {tr("Couldn't load this text.")}{" "}<Link to="/library" className="text-indigo-600 underline">{tr("Back to the library")}</Link>
       </div>
     );
   }
@@ -74,9 +75,9 @@ export const LibraryReaderPage: React.FC = () => {
   const save = async (word: string) => {
     try {
       const r = await saveWord.mutateAsync(word);
-      toast.success(r.created ? `Saved "${word}" to your words` : `"${word}" is already in your words`);
+      toast.success(r.created ? tr("Saved \"{word}\" to your words", { word }) : tr("\"{word}\" is already in your words", { word }));
     } catch {
-      toast.error("Couldn't save that word. Try again.");
+      toast.error(tr("Couldn't save that word. Try again."));
     }
   };
 
@@ -122,7 +123,7 @@ export const LibraryReaderPage: React.FC = () => {
       });
       setShadowScores((s) => ({ ...s, [i]: r.score }));
     } catch {
-      toast.error("Couldn't score that. Try again.");
+      toast.error(tr("Couldn't score that. Try again."));
     } finally {
       setShadowing(null);
     }
@@ -138,9 +139,9 @@ export const LibraryReaderPage: React.FC = () => {
     try {
       const r = await check.mutateAsync(answers);
       setResult(r);
-      if (r.firstCompletion) toast.success(`Finished! +${r.xp} XP`);
+      if (r.firstCompletion) toast.success(tr("Finished! +{xp} XP", { xp: r.xp }));
     } catch (e) {
-      toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || "Couldn't check your answers");
+      toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || tr("Couldn't check your answers"));
     }
   };
 
@@ -150,15 +151,13 @@ export const LibraryReaderPage: React.FC = () => {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 lg:py-10 space-y-5">
       <Link to="/library" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-        <ArrowLeft className="w-4 h-4" /> Library
-      </Link>
+        <ArrowLeft className="w-4 h-4" /> {" "}{tr("Library")}</Link>
 
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-          {text.level} · {text.kind} · {text.topic} · {text.words} words · {text.minutes} min
-        </p>
-        <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{text.title}</h1>
-        <p className="mt-1 text-sm text-slate-500">{text.summary}</p>
+          {text.level} {" "}{tr("· {kind} · {topic} · {words} words · {minutes} min", { kind: text.kind, topic: text.topic, words: text.words, minutes: text.minutes })}</p>
+        <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{tr(text.title)}</h1>
+        <p className="mt-1 text-sm text-slate-500">{tr(text.summary)}</p>
       </header>
 
       {/* ---------- key words ---------- */}
@@ -166,10 +165,9 @@ export const LibraryReaderPage: React.FC = () => {
         <details className={`${card} group p-4 sm:p-5`} open>
           <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-bold text-slate-900 dark:text-white [&::-webkit-details-marker]:hidden">
             <KeyRound className="h-4 w-4 text-indigo-600 dark:text-indigo-300" aria-hidden />
-            Key words
-            <span className="font-normal text-slate-500">· {savedCount} of {text.vocab.length} saved</span>
-            <span className="ml-auto text-xs font-semibold text-indigo-700 group-open:hidden dark:text-indigo-300">Show</span>
-            <span className="ml-auto hidden text-xs font-semibold text-indigo-700 group-open:inline dark:text-indigo-300">Hide</span>
+            {tr("Key words")}<span className="font-normal text-slate-500">{tr("· {savedCount} of {length} saved", { savedCount, length: text.vocab.length })}</span>
+            <span className="ml-auto text-xs font-semibold text-indigo-700 group-open:hidden dark:text-indigo-300">{tr("Show")}</span>
+            <span className="ml-auto hidden text-xs font-semibold text-indigo-700 group-open:inline dark:text-indigo-300">{tr("Hide")}</span>
           </summary>
           <ul className="mt-3 divide-y divide-line">
             {text.vocab.map((w) => (
@@ -179,7 +177,7 @@ export const LibraryReaderPage: React.FC = () => {
                     type="button"
                     onClick={() => showSentence(w.sentence)}
                     className="text-left text-[15px] font-semibold text-slate-900 hover:underline dark:text-white"
-                    title="Show it in the text"
+                    title={tr("Show it in the text")}
                   >
                     {w.word}
                   </button>
@@ -189,7 +187,7 @@ export const LibraryReaderPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => void speak(w.word, { rate: 0.8 })}
-                    aria-label={`Hear ${w.word}`}
+                    aria-label={tr("Hear {word}", { word: w.word })}
                     className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-indigo-700 dark:hover:bg-white/5"
                   >
                     <Volume2 className="h-4 w-4" aria-hidden />
@@ -199,7 +197,7 @@ export const LibraryReaderPage: React.FC = () => {
                   type="button"
                   onClick={() => void save(w.word)}
                   disabled={w.saved || saveWord.isPending}
-                  aria-label={w.saved ? `${w.word} is saved` : `Save ${w.word} to my words`}
+                  aria-label={w.saved ? tr("{word} is saved", { word: w.word }) : tr("Save {word} to my words", { word: w.word })}
                   className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors ${
                     w.saved
                       ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200"
@@ -207,7 +205,7 @@ export const LibraryReaderPage: React.FC = () => {
                   }`}
                 >
                   {w.saved ? <Check className="h-3.5 w-3.5" aria-hidden /> : <BookmarkPlus className="h-3.5 w-3.5" aria-hidden />}
-                  {w.saved ? "Saved" : "Save"}
+                  {w.saved ? tr("Saved") : tr("Save")}
                 </button>
               </li>
             ))}
@@ -221,12 +219,10 @@ export const LibraryReaderPage: React.FC = () => {
           <>
             {playing === null ? (
               <button type="button" onClick={() => void playFrom(0)} className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold inline-flex items-center gap-1.5">
-                <Play className="w-4 h-4" /> Listen to it all
-              </button>
+                <Play className="w-4 h-4" /> {" "}{tr("Listen to it all")}</button>
             ) : (
               <button type="button" onClick={stopPlaying} className="h-10 px-4 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold inline-flex items-center gap-1.5">
-                <Pause className="w-4 h-4" /> Stop
-              </button>
+                <Pause className="w-4 h-4" /> {" "}{tr("Stop")}</button>
             )}
             <button
               type="button"
@@ -236,13 +232,12 @@ export const LibraryReaderPage: React.FC = () => {
                 slow ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-200" : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300"
               }`}
             >
-              <Turtle className="w-4 h-4" /> Slower
-            </button>
+              <Turtle className="w-4 h-4" /> {" "}{tr("Slower")}</button>
           </>
         ) : (
-          <p className="text-xs text-slate-500">Your browser can't read aloud, but you can still read and answer.</p>
+          <p className="text-xs text-slate-500">{tr("Your browser can't read aloud, but you can still read and answer.")}</p>
         )}
-        <p className="text-xs text-slate-400 ml-auto">Tap any word to see what it means</p>
+        <p className="text-xs text-slate-400 ml-auto">{tr("Tap any word to see what it means")}</p>
       </div>
 
       {/* ---------- the text ---------- */}
@@ -282,9 +277,9 @@ export const LibraryReaderPage: React.FC = () => {
                 })}
               </div>
               <div className="flex items-center gap-0.5 shrink-0 pt-0.5">
-                {score !== undefined && <span className={`text-xs font-bold tabular-nums mr-1 ${scoreTone(score)}`} title="Your pronunciation score">{score}</span>}
+                {score !== undefined && <span className={`text-xs font-bold tabular-nums mr-1 ${scoreTone(score)}`} title={tr("Your pronunciation score")}>{score}</span>}
                 {canSpeak() && (
-                  <button type="button" onClick={() => void playFrom(i, true)} aria-label="Listen to this sentence" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-white/5">
+                  <button type="button" onClick={() => void playFrom(i, true)} aria-label={tr("Listen to this sentence")} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-white/5">
                     <Volume2 className="w-4 h-4" />
                   </button>
                 )}
@@ -293,8 +288,8 @@ export const LibraryReaderPage: React.FC = () => {
                     type="button"
                     onClick={() => void shadow(i)}
                     disabled={submitAttempt.isPending && shadowing !== i}
-                    aria-label={shadowing === i && listening ? "Stop" : "Say this sentence"}
-                    title="Repeat it after the voice and get a score"
+                    aria-label={shadowing === i && listening ? tr("Stop") : tr("Say this sentence")}
+                    title={tr("Repeat it after the voice and get a score")}
                     className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                       shadowing === i ? "bg-rose-500 text-white" : "text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-white/5"
                     }`}
@@ -312,10 +307,10 @@ export const LibraryReaderPage: React.FC = () => {
       {/* ---------- questions ---------- */}
       <section className={`${card} p-5 space-y-5`}>
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">Did you understand?</h2>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">{tr("Did you understand?")}</h2>
           {text.progress?.done && !result && (
             <span className="text-xs text-slate-500">
-              Best so far: {text.progress.bestScore}/{text.progress.total}
+              {tr("Best so far: {bestScore}/", { bestScore: text.progress.bestScore })}{text.progress.total}
             </span>
           )}
         </div>
@@ -324,7 +319,7 @@ export const LibraryReaderPage: React.FC = () => {
           const r = result?.results.find((x) => x.id === q.id);
           return (
             <fieldset key={q.id} className="space-y-2">
-              {QUESTION_LABEL[q.type] && <p className="t-eyebrow text-indigo-700 dark:text-indigo-300">{QUESTION_LABEL[q.type]}</p>}
+              {QUESTION_LABEL[q.type] && <p className="t-eyebrow text-indigo-700 dark:text-indigo-300">{tr(QUESTION_LABEL[q.type])}</p>}
               <legend className="text-sm font-semibold text-slate-900 dark:text-white">
                 {qi + 1}. {q.question}
               </legend>
@@ -360,8 +355,7 @@ export const LibraryReaderPage: React.FC = () => {
                 <p className="text-xs text-slate-600 dark:text-slate-300">
                   {r.explanation}{" "}
                   <button type="button" onClick={() => showSentence(r.sentence)} className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-                    Show in the text
-                  </button>
+                    {tr("Show in the text")}</button>
                 </p>
               )}
             </fieldset>
@@ -374,7 +368,7 @@ export const LibraryReaderPage: React.FC = () => {
               {result.score}/{result.total}
             </p>
             <p className="text-sm text-slate-600 dark:text-slate-300 flex-1 min-w-[10rem]">
-              {result.score === result.total ? "Perfect! You understood everything." : "Nice work. Check the highlighted answers above."}
+              {result.score === result.total ? tr("Perfect! You understood everything.") : tr("Nice work. Check the highlighted answers above.")}
             </p>
             <button
               type="button"
@@ -384,11 +378,10 @@ export const LibraryReaderPage: React.FC = () => {
               }}
               className="h-10 px-3 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5"
             >
-              <RotateCcw className="w-4 h-4" /> Try again
-            </button>
+              <RotateCcw className="w-4 h-4" /> {" "}{tr("Try again")}</button>
             {text.next && (
               <Link to={`/library/${text.next.id}`} className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold inline-flex items-center gap-1.5">
-                Next: {text.next.title} <ArrowRight className="w-4 h-4" />
+                {tr("Next:")}{" "}{tr(text.next.title)} <ArrowRight className="w-4 h-4" />
               </Link>
             )}
           </div>
@@ -399,8 +392,7 @@ export const LibraryReaderPage: React.FC = () => {
             disabled={!allAnswered || check.isPending}
             className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-2"
           >
-            {check.isPending && <Loader2 className="w-4 h-4 animate-spin" />} Check my answers
-          </button>
+            {check.isPending && <Loader2 className="w-4 h-4 animate-spin" />} {" "}{tr("Check my answers")}</button>
         )}
       </section>
 
@@ -408,9 +400,8 @@ export const LibraryReaderPage: React.FC = () => {
         <section className={`${card} space-y-3 p-5`}>
           <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
             <MessageCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-300" aria-hidden />
-            Talk about it
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">Use the new words out loud. Answer these with a partner, in a voice room, or on your own.</p>
+            {tr("Talk about it")}</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{tr("Use the new words out loud. Answer these with a partner, in a voice room, or on your own.")}</p>
           <ul className="space-y-2">
             {text.discuss.map((d) => (
               <li key={d} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:bg-white/[0.04] dark:text-slate-100">
@@ -419,8 +410,7 @@ export const LibraryReaderPage: React.FC = () => {
             ))}
           </ul>
           <Link to="/voice" className="inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/[0.06]">
-            <Mic className="h-4 w-4" aria-hidden /> Find a voice room
-          </Link>
+            <Mic className="h-4 w-4" aria-hidden /> {" "}{tr("Find a voice room")}</Link>
         </section>
       )}
 

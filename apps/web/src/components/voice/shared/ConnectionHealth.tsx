@@ -3,6 +3,7 @@
 import React from 'react';
 import { Wifi, WifiOff } from 'lucide-react';
 import { THEME } from '../VoiceRoomView.theme';
+import { tr } from "../../../i18n/core";
 
 interface ConnectionHealthProps {
   socketConnected: boolean;
@@ -24,11 +25,11 @@ export const ConnectionHealth: React.FC<ConnectionHealthProps> = ({
         borderColor: healthy ? 'rgba(52,211,153,0.2)' : 'rgba(251,191,36,0.2)',
         color: healthy ? THEME.colors.status.online : THEME.colors.accent.warning,
       }}
-      title={`Socket: ${socketConnected ? 'connected' : 'offline'} · Audio: ${liveKitConnected ? 'connected' : 'offline'}`}
+      title={tr("Socket: {value} · Audio: {value2}", { value: socketConnected ? 'connected' : 'offline', value2: liveKitConnected ? 'connected' : 'offline' })}
     >
       {healthy ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
       <span>
-        {isMockMode ? 'Demo audio' : healthy ? 'Connected' : 'Reconnecting'}
+        {isMockMode ? tr("Demo audio") : healthy ? tr("Connected") : tr("Reconnecting")}
       </span>
     </div>
   );

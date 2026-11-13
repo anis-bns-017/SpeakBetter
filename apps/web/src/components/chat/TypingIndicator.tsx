@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MoreHorizontal } from 'lucide-react';
+import { tr, msg } from "../../i18n/core";
 
 interface TypingIndicatorProps {
   users: string[];
@@ -19,13 +20,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
   variant = 'light',
   onUserClick,
 }) => {
-  const [, setVisibleUsers] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
-
-  // Animate users entering and leaving
-  useEffect(() => {
-    setVisibleUsers(users);
-  }, [users]);
 
   if (users.length === 0) return null;
 
@@ -120,7 +115,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
         className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl rounded-bl-md border w-fit max-w-full ${styles.container} ${className}`}
         role="status"
         aria-live="polite"
-        aria-label={text}
+        aria-label={tr(text)}
       >
         {/* Avatars */}
         {showAvatars && (
@@ -145,7 +140,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
                 transition={{ delay: maxVisible * 0.1 }}
                 className="w-6 h-6 rounded-full bg-slate-300 text-slate-600 flex items-center justify-center text-[8px] font-bold border-2 border-white cursor-pointer hover:bg-slate-400 transition-colors"
                 onClick={() => setIsExpanded(!isExpanded)}
-                title={`${users.length - maxVisible} more users`}
+                title={tr("{value} more users", { value: users.length - maxVisible })}
               >
                 +{users.length - maxVisible}
               </motion.div>
@@ -188,7 +183,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
         {/* Text */}
         <div className="flex items-center gap-1.5">
           <span className={`text-xs font-medium ${styles.text} truncate max-w-[200px]`}>
-            {text}
+            {tr(text)}
           </span>
           
           {/* Expand/contract button for long lists */}
@@ -196,7 +191,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className={`p-0.5 rounded hover:bg-opacity-20 hover:bg-slate-500 transition-colors ${styles.text}`}
-              title={isExpanded ? 'Show fewer' : 'Show all'}
+              title={isExpanded ? tr("Show fewer") : tr("Show all")}
             >
               <MoreHorizontal className="w-3 h-3" />
             </button>
@@ -213,8 +208,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
           >
             <div className="flex flex-col gap-1">
               <p className="text-[11px] font-semibold text-slate-500 px-1 pb-1 border-b border-slate-100">
-                Currently typing ({users.length})
-              </p>
+                {tr("Currently typing ({length})", { length: users.length })}</p>
               {users.map((user) => (
                 <button
                   key={user}
@@ -263,7 +257,7 @@ export const GroupTypingIndicator: React.FC<GroupTypingIndicatorProps> = ({
       />
       {groupName && (
         <div className="absolute -bottom-2 left-4 text-[8px] text-slate-400 bg-surface px-1.5 py-0.5 rounded-full border border-line">
-          {groupName} {totalMembers && `· ${totalMembers} members`}
+          {groupName} {totalMembers && tr("· {totalMembers} members", { totalMembers })}
         </div>
       )}
     </div>
@@ -289,9 +283,9 @@ export const TypingIndicatorWithStatus: React.FC<TypingIndicatorWithStatusProps>
   };
 
   const statusText = {
-    active: 'Active now',
-    idle: 'Idle',
-    away: 'Away',
+    active: msg("Active now"),
+    idle: msg("Idle"),
+    away: msg("Away"),
   };
 
   if (users.length === 0) return null;
@@ -303,67 +297,11 @@ export const TypingIndicatorWithStatus: React.FC<TypingIndicatorWithStatusProps>
         <div className="flex items-center gap-1.5 mt-1">
           <span className={`w-1.5 h-1.5 rounded-full ${statusColors[status]}`} />
           <span className="text-[11px] text-slate-400">
-            {statusText[status]}
+            {tr(statusText[status])}
             {lastActive && ` · ${new Date(lastActive).toLocaleTimeString()}`}
           </span>
         </div>
       )}
     </div>
   );
-};
-
-// Hook for managing typing users
-export const useTypingUsers = (maxUsers: number = 10) => {
-  const [typingUsers, setTypingUsers] = useState<Map<string, number>>(new Map());
-
-  const addTypingUser = (userId: string) => {
-    setTypingUsers(prev => {
-      const newMap = new Map(prev);
-      newMap.set(userId, Date.now());
-      return newMap;
-    });
-  };
-
-  const removeTypingUser = (userId: string) => {
-    setTypingUsers(prev => {
-      const newMap = new Map(prev);
-      newMap.delete(userId);
-      return newMap;
-    });
-  };
-
-  // Auto-remove users who haven't typed for 3 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setTypingUsers(prev => {
-        const newMap = new Map(prev);
-        let hasChanges = false;
-        for (const [userId, timestamp] of newMap) {
-          if (now - timestamp > 3000) {
-            newMap.delete(userId);
-            hasChanges = true;
-          }
-        }
-        return hasChanges ? newMap : prev;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const getUserNames = (userMap: Map<string, string>) => {
-    return Array.from(typingUsers.keys())
-      .map(id => userMap.get(id) || id)
-      .slice(0, maxUsers);
-  };
-
-  return {
-    typingUsers,
-    addTypingUser,
-    removeTypingUser,
-    getUserNames,
-    isUserTyping: (userId: string) => typingUsers.has(userId),
-    count: typingUsers.size,
-  };
 };

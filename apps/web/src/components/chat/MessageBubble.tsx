@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { format, formatDistanceToNow, isThisYear, isToday } from "date-fns";
 import type { Message } from "../../hooks/useChat";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import { CorrectionCard } from "./CorrectionCard";
 import { canSpeak, speak, stopSpeaking } from "../../lib/speech";
 import {
@@ -56,6 +56,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { apiErrorMessage, chatApi } from "../../hooks/useChat";
 import { cachedTranscript, rememberTranscript, transcribeOnDevice } from "../../lib/transcribe/onDevice";
+import { tr, msg } from "../../i18n/core";
 
 const formatBytes = (bytes: number) =>
   bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -98,15 +99,15 @@ interface MessageBubbleProps {
 }
 
 const COMMON_EMOJIS = [
-  { emoji: "❤️", label: "Love" },
-  { emoji: "👍", label: "Like" },
-  { emoji: "😂", label: "Laugh" },
-  { emoji: "😮", label: "Wow" },
-  { emoji: "😢", label: "Sad" },
-  { emoji: "🔥", label: "Fire" },
-  { emoji: "👏", label: "Clap" },
-  { emoji: "🎉", label: "Celebrate" },
-  { emoji: "🙏", label: "Pray" },
+  { emoji: "❤️", label: msg("Love") },
+  { emoji: "👍", label: msg("Like") },
+  { emoji: "😂", label: msg("Laugh") },
+  { emoji: "😮", label: msg("Wow") },
+  { emoji: "😢", label: msg("Sad") },
+  { emoji: "🔥", label: msg("Fire") },
+  { emoji: "👏", label: msg("Clap") },
+  { emoji: "🎉", label: msg("Celebrate") },
+  { emoji: "🙏", label: msg("Pray") },
   { emoji: "💯", label: "100" },
 ];
 
@@ -177,7 +178,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       await speak(text, { rate: slow ? 0.7 : 0.95 });
       setIsSpeaking(false);
     },
-    [isSpeaking, message.content, message.type],
+    [isSpeaking, message.content],
   );
 
   // Lightbox states
@@ -268,13 +269,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       message.content.trim().toLowerCase() === "voice message" ||
       message.content.trim().toLowerCase() === "🎤 voice message");
 
-  useEffect(() => {
+  // A different recording: start the player over (adjusted while rendering, not in an effect)
+  const [playerFor, setPlayerFor] = useState({ mediaSrc, storedDuration });
+  if (playerFor.mediaSrc !== mediaSrc || playerFor.storedDuration !== storedDuration) {
+    setPlayerFor({ mediaSrc, storedDuration });
     setProgress(0);
     setIsPlaying(false);
     setLoadError(false);
     setDuration(storedDuration);
     setIsLoading(false);
-  }, [mediaSrc, storedDuration]);
+  }
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -466,7 +470,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const playedBars = Math.floor(progress * WAVEFORM_BARS);
 
-  const MessageStatus = () => {
+  const renderMessageStatus = () => {
     if (!isOwn) return null;
     // The server also stores the sender's own receipt, so only others count as "Seen"
     const seenBy = message.readReceipts?.find((r) => r.userId !== message.senderId);
@@ -476,10 +480,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
           className="flex items-center gap-0.5"
-          title={seenBy.readAt ? `Seen ${formatDistanceToNow(new Date(seenBy.readAt), { addSuffix: true })}` : "Seen"}
+          title={seenBy.readAt ? tr("Seen {value}", { value: formatDistanceToNow(new Date(seenBy.readAt), { addSuffix: true }) }) : tr("Seen")}
         >
           <CheckCheck className="w-3.5 h-3.5 text-sky-400 stroke-[2.5]" />
-          <span className="text-[11px] font-medium text-sky-400/80">Seen</span>
+          <span className="text-[11px] font-medium text-sky-400/80">{tr("Seen")}</span>
         </motion.div>
       );
     }
@@ -548,13 +552,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           ),
         );
         if (!text) {
-          toast.error("Couldn't hear any words in this voice message");
+          toast.error(tr("Couldn't hear any words in this voice message"));
           return;
         }
         rememberTranscript(message.id, text);
         setTranscript(text);
       } catch (deviceError) {
-        toast.error((deviceError as Error)?.message || "Couldn't transcribe this voice message");
+        toast.error((deviceError as Error)?.message || tr("Couldn't transcribe this voice message"));
       }
     } finally {
       setTranscribing(null);
@@ -644,12 +648,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </span>
           <span>
             {isOwn
-              ? `View-once ${label}`
+              ? tr("View-once {label}", { label })
               : opened
-                ? "Opened"
-                : `Tap to view ${label}`}
+                ? tr("Opened")
+                : tr("Tap to view {label}", { label })}
             <span className="block text-[11px] font-normal opacity-70">
-              {isOwn ? (opened ? "Opened" : "Not opened yet") : opened ? `View-once ${label}` : "You can open it once"}
+              {isOwn ? (opened ? tr("Opened") : tr("Not opened yet")) : opened ? tr("View-once {label}", { label }) : tr("You can open it once")}
             </span>
           </span>
         </button>
@@ -706,8 +710,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         >
           <ImageIcon className="w-4 h-4 shrink-0" />
           <span>
-            {isVoiceNote || isAudio ? "Voice note" : isFile ? "File" : "Attachment"} unavailable — it didn't finish uploading
-          </span>
+            {isVoiceNote || isAudio ? tr("Voice note") : isFile ? tr("File") : tr("Attachment")} {" "}{tr("unavailable — it didn't finish uploading")}</span>
         </div>
       );
     }
@@ -796,7 +799,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             {loadError && (
               <div className="flex items-center gap-1.5 text-[11px] text-red-300 font-medium">
                 <AlertCircle className="w-3 h-3 shrink-0" />
-                <span>Audio failed to load</span>
+                <span>{tr("Audio failed to load")}</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -806,8 +809,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   }}
                   className="ml-auto flex items-center gap-1 px-2 py-0.5 bg-red-500/20 hover:bg-red-500/30 rounded-full transition-colors"
                 >
-                  <RefreshCw className="w-2.5 h-2.5" /> Retry
-                </button>
+                  <RefreshCw className="w-2.5 h-2.5" /> {" "}{tr("Retry")}</button>
               </div>
             )}
           </div>
@@ -835,7 +837,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           className={`flex items-center gap-2 text-[11px] font-medium italic ${isOwn ? "text-indigo-200" : "text-slate-500 dark:text-slate-400"}`}
         >
           <Music className="w-3.5 h-3.5" />
-          <span>Voice message unavailable</span>
+          <span>{tr("Voice message unavailable")}</span>
         </div>
       );
     }
@@ -850,13 +852,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {imageError ? (
             <div className="flex items-center gap-2 p-4 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl">
               <ImageIcon className="w-4 h-4" />
-              <span className="text-xs font-medium">Failed to load image</span>
+              <span className="text-xs font-medium">{tr("Failed to load image")}</span>
             </div>
           ) : (
             <>
               <img
                 src={mediaSrc}
-                alt="Attachment"
+                alt={tr("Attachment")}
                 className="w-full max-h-80 object-cover rounded-xl cursor-zoom-in transition-all duration-300 hover:scale-[1.02]"
                 onClick={() => {
                   setImageZoom(1);
@@ -877,8 +879,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     }}
                     className="text-[11px] font-medium text-white/90 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1.5 hover:bg-black/60 transition-all"
                   >
-                    <Maximize2 className="w-3 h-3" /> Expand
-                  </button>
+                    <Maximize2 className="w-3 h-3" /> {" "}{tr("Expand")}</button>
                 </div>
                 <button
                   type="button"
@@ -1034,8 +1035,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             className={`flex items-center gap-1.5 mb-1 text-[11px] font-semibold ${isOwn ? "justify-end" : "justify-start"}`}
           >
             <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 flex items-center gap-1">
-              <Pin className="w-2.5 h-2.5 fill-current" /> Pinned
-            </span>
+              <Pin className="w-2.5 h-2.5 fill-current" /> {" "}{tr("Pinned")}</span>
           </motion.div>
         )}
 
@@ -1063,8 +1063,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 type="button"
                 onClick={onReply}
                 className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
-                title="Reply"
-                aria-label="Reply"
+                title={tr("Reply")}
+                aria-label={tr("Reply")}
               >
                 <Reply className="w-3.5 h-3.5" />
               </button>
@@ -1073,8 +1073,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   type="button"
                   onClick={(e) => void toggleListen(e.shiftKey)}
                   className={`p-1.5 rounded-full transition-all ${isSpeaking ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15" : "hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-500"}`}
-                  title={isSpeaking ? "Stop" : "Listen (Shift+click for slow)"}
-                  aria-label={isSpeaking ? "Stop reading aloud" : "Read aloud"}
+                  title={isSpeaking ? tr("Stop") : tr("Listen (Shift+click for slow)")}
+                  aria-label={isSpeaking ? tr("Stop reading aloud") : tr("Read aloud")}
                 >
                   {isSpeaking ? <StopIcon className="w-3.5 h-3.5" /> : <ListenIcon className="w-3.5 h-3.5" />}
                 </button>
@@ -1084,8 +1084,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   type="button"
                   onClick={onCorrect}
                   className="p-1.5 hover:bg-violet-50 dark:hover:bg-violet-500/15 rounded-full text-slate-500 dark:text-slate-400 hover:text-violet-600 transition-all"
-                  title="Correct their English"
-                  aria-label="Correct this message"
+                  title={tr("Correct their English")}
+                  aria-label={tr("Correct this message")}
                 >
                   <SpellCheck2 className="w-3.5 h-3.5" />
                 </button>
@@ -1127,8 +1127,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   type="button"
                   onClick={onForward}
                   className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
-                  title="Forward"
-                  aria-label="Forward"
+                  title={tr("Forward")}
+                  aria-label={tr("Forward")}
                 >
                   <Forward className="w-3.5 h-3.5" />
                 </button>
@@ -1138,8 +1138,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   type="button"
                   onClick={onInfo}
                   className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
-                  title="Message info"
-                  aria-label="Message info"
+                  title={tr("Message info")}
+                  aria-label={tr("Message info")}
                 >
                   <Info className="w-3.5 h-3.5" />
                 </button>
@@ -1148,8 +1148,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 type="button"
                 onClick={onToggleSave}
                 className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all"
-                title={message.isSaved ? "Remove from saved" : "Save message"}
-                aria-label={message.isSaved ? "Remove from saved" : "Save message"}
+                title={message.isSaved ? tr("Remove from saved") : tr("Save message")}
+                aria-label={message.isSaved ? tr("Remove from saved") : tr("Save message")}
               >
                 {message.isSaved ? (
                   <BookmarkCheck className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />
@@ -1186,7 +1186,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   >
                     {emoji}
                     <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] bg-slate-800 text-white px-1.5 py-0.5 rounded opacity-0 group-hover/emoji:opacity-100 transition-opacity whitespace-nowrap">
-                      {label}
+                      {tr(label)}
                     </span>
                   </motion.button>
                 ))}
@@ -1197,8 +1197,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   onClick={() => setShowEmojiPicker(false)}
                   className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                 >
-                  Close
-                </button>
+                  {tr("Close")}</button>
               </div>
             </motion.div>
           )}
@@ -1210,7 +1209,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             whileHover={{ scale: 1.05, rotate: -2 }}
             transition={{ type: "spring", damping: 20 }}
             src={mediaSrc}
-            alt="sticker"
+            alt={tr("sticker")}
             className="w-36 h-36 object-contain drop-shadow-xl"
           />
         ) : isGif && mediaSrc ? (
@@ -1220,7 +1219,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           >
             <img
               src={mediaSrc}
-              alt="gif"
+              alt={tr("gif")}
               className="w-full max-h-64 object-cover"
             />
             <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 backdrop-blur-md text-white text-[9px] font-semibold rounded-full">
@@ -1241,13 +1240,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <div className={`flex items-center gap-2 text-[11px] font-semibold italic ${isOwn ? "text-indigo-100/80" : "text-slate-400"}`}>
                 {message.metadata?.forwarded && (
                   <span className="flex items-center gap-1">
-                    <Forward className="w-3 h-3" /> Forwarded
-                  </span>
+                    <Forward className="w-3 h-3" /> {" "}{tr("Forwarded")}</span>
                 )}
                 {mentionsMe && (
                   <span className="flex items-center gap-1 not-italic text-amber-600 dark:text-amber-400">
-                    <AtSign className="w-3 h-3" /> Mentioned you
-                  </span>
+                    <AtSign className="w-3 h-3" /> {" "}{tr("Mentioned you")}</span>
                 )}
               </div>
             )}
@@ -1270,7 +1267,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     {message.replyTo.sender?.name}
                   </span>
                   <p className="truncate font-normal opacity-90">
-                    {message.replyTo.content || "📎 Media attachment"}
+                    {message.replyTo.content || tr("📎 Media attachment")}
                   </p>
                 </div>
               </motion.div>
@@ -1311,10 +1308,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       {linkPreview.siteName}
                     </p>
                   )}
-                  {linkPreview.title && <p className="line-clamp-2 text-[12px] font-semibold">{linkPreview.title}</p>}
+                  {linkPreview.title && <p className="line-clamp-2 text-[12px] font-semibold">{tr(linkPreview.title)}</p>}
                   {linkPreview.description && (
                     <p className={`line-clamp-2 text-[11px] ${isOwn ? "text-indigo-100/80" : "text-slate-500 dark:text-slate-400"}`}>
-                      {linkPreview.description}
+                      {tr(linkPreview.description)}
                     </p>
                   )}
                 </div>
@@ -1343,14 +1340,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   {!transcript && (
                     <button type="button" onClick={runTranscribe} disabled={!!transcribing} className="flex items-center gap-1 hover:underline disabled:opacity-60">
                       {transcribing === "transcribe" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Captions className="h-3 w-3" />}
-                      {transcribeStatus ?? (transcribing === "transcribe" ? "Transcribing…" : "Transcribe")}
+                      {transcribeStatus ?? (transcribing === "transcribe" ? tr("Transcribing…") : tr("Transcribe"))}
                     </button>
                   )}
                   {transcript && !transcriptTranslation && (
                     <button type="button" onClick={runTranslateTranscript} disabled={!!transcribing} className="flex items-center gap-1 hover:underline disabled:opacity-60">
                       {transcribing === "translate" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Languages className="h-3 w-3" />}
-                      Translate
-                    </button>
+                      {tr("Translate")}</button>
                   )}
                 </div>
               </div>
@@ -1365,7 +1361,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 className={`flex items-center gap-1.5 text-[11px] font-semibold transition-all ${isOwn ? "text-indigo-200 hover:text-white" : "text-indigo-600 dark:text-indigo-400 hover:underline"}`}
               >
                 <Languages className="w-3 h-3" />
-                {showTranslation ? "Hide translation" : "See translation"}
+                {showTranslation ? tr("Hide translation") : tr("See translation")}
               </motion.button>
             )}
 
@@ -1388,7 +1384,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.expiresAt && (
                 <span
                   className="flex items-center opacity-80"
-                  title={`Disappears ${formatDistanceToNow(new Date(message.expiresAt), { addSuffix: true })}`}
+                  title={tr("Disappears {value}", { value: formatDistanceToNow(new Date(message.expiresAt), { addSuffix: true }) })}
                 >
                   <Timer className="w-3 h-3" />
                 </span>
@@ -1399,10 +1395,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     type="button"
                     onClick={() => editHistory.length && setShowEditHistory((v) => !v)}
                     className={`flex items-center gap-0.5 opacity-80 italic text-[9px] ${editHistory.length ? "hover:underline cursor-pointer" : "cursor-default"}`}
-                    title={editHistory.length ? "See edit history" : undefined}
+                    title={editHistory.length ? tr("See edit history") : undefined}
                   >
-                    <Pencil className="w-2.5 h-2.5" /> edited
-                  </button>
+                    <Pencil className="w-2.5 h-2.5" /> {" "}{tr("edited")}</button>
                   <AnimatePresence>
                     {showEditHistory && editHistory.length > 0 && (
                       <motion.div
@@ -1411,7 +1406,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         exit={{ opacity: 0, y: 4 }}
                         className={`absolute bottom-full z-30 mb-2 w-64 rounded-2xl border border-slate-200 bg-white p-3 text-left text-slate-700 shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 ${isOwn ? "right-0" : "left-0"}`}
                       >
-                        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Edit history</p>
+                        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">{tr("Edit history")}</p>
                         <ol className="max-h-48 space-y-2 overflow-y-auto">
                           {[...editHistory].reverse().map((v, i) => (
                             <li key={i} className="border-l-2 border-slate-200 pl-2 dark:border-slate-700">
@@ -1425,7 +1420,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </AnimatePresence>
                 </span>
               )}
-              {isOwn && <MessageStatus />}
+              {isOwn && renderMessageStatus()}
             </div>
             )}
           </motion.div>
@@ -1494,8 +1489,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             onContextMenu={(e) => e.preventDefault()}
           >
             <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/80">
-              <Eye className="h-3.5 w-3.5" /> View once — this closes for good
-            </div>
+              <Eye className="h-3.5 w-3.5" /> {" "}{tr("View once — this closes for good")}</div>
             <div onClick={(e) => e.stopPropagation()} className="max-h-[80vh] max-w-4xl select-none">
               {viewOnceMedia.type === "VIDEO" ? (
                 <video src={viewOnceMedia.url} autoPlay controls controlsList="nodownload" className="max-h-[80vh] rounded-2xl" />
@@ -1508,8 +1502,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               onClick={() => setViewOnceMedia(null)}
               className="rounded-full bg-white/15 px-5 py-2 text-sm font-semibold text-white hover:bg-white/25"
             >
-              Close
-            </button>
+              {tr("Close")}</button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1543,7 +1536,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               >
                 <motion.img
                   src={lightboxSrc || mediaSrc}
-                  alt="Full preview"
+                  alt={tr("Full preview")}
                   className="object-contain rounded-2xl select-none"
                   style={{
                     maxWidth: "100%",
@@ -1567,7 +1560,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none">
                 <div className="flex items-center gap-2 pointer-events-auto">
                   <span className="text-white/60 text-xs bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full">
-                    {message.sender?.name || "Unknown"}
+                    {message.sender?.name || tr("Unknown")}
                   </span>
                   <span className="text-white/40 text-xs bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full">
                     {format(messageTime, "PPpp")}
@@ -1580,7 +1573,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     type="button"
                     onClick={handleZoomOut}
                     className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-colors"
-                    title="Zoom Out"
+                    title={tr("Zoom Out")}
                   >
                     <ZoomOut className="w-4 h-4" />
                   </motion.button>
@@ -1590,7 +1583,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     type="button"
                     onClick={handleZoomIn}
                     className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-colors"
-                    title="Zoom In"
+                    title={tr("Zoom In")}
                   >
                     <ZoomIn className="w-4 h-4" />
                   </motion.button>
@@ -1600,7 +1593,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     type="button"
                     onClick={handleRotate}
                     className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-colors"
-                    title="Rotate"
+                    title={tr("Rotate")}
                   >
                     <RotateCw className="w-4 h-4" />
                   </motion.button>
@@ -1610,7 +1603,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     type="button"
                     onClick={handleResetImage}
                     className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-colors"
-                    title="Reset"
+                    title={tr("Reset")}
                   >
                     <Minimize2 className="w-4 h-4" />
                   </motion.button>
@@ -1622,7 +1615,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.9 }}
                     className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-colors"
-                    title="Download Image"
+                    title={tr("Download Image")}
                   >
                     <Download className="w-4 h-4" />
                   </motion.a>
@@ -1637,7 +1630,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       setImageRotation(0);
                     }}
                     className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-colors"
-                    title="Close"
+                    title={tr("Close")}
                   >
                     <X className="w-4 h-4" />
                   </motion.button>
@@ -1651,7 +1644,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               )}
 
               <div className="absolute bottom-4 left-4 text-white/40 text-xs bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full pointer-events-none">
-                {imageZoom > 1 ? "Drag to pan" : "Click to zoom in"}
+                {imageZoom > 1 ? tr("Drag to pan") : tr("Click to zoom in")}
               </div>
             </motion.div>
           </motion.div>

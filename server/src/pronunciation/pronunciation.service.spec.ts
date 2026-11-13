@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { practiceLevel, PronunciationService } from './pronunciation.service';
 
 function setup(options: { level?: string | null; pastMisses?: number } = {}) {
@@ -15,6 +15,8 @@ function setup(options: { level?: string | null; pastMisses?: number } = {}) {
       }),
       count: jest.fn().mockResolvedValue(options.pastMisses ?? 1),
       findMany: jest.fn(async () => created),
+      findFirst: jest.fn(async ({ where }) => created.find((a) => a.id === where.id && a.userId === where.userId) ?? null),
+      update: jest.fn(async ({ where, data }) => Object.assign(created.find((a) => a.id === where.id), data)),
     },
   };
   const activity: any = { recordCappedActivity: jest.fn().mockResolvedValue(undefined) };
@@ -154,5 +156,51 @@ describe('PronunciationService', () => {
     expect(progress.sounds.map((s) => s.key)).toEqual(['TH', 'V_W']);
     expect(progress.troubleWords).toEqual([{ word: 'think', count: 2, heardAs: 'sink' }]);
     expect(progress.recent).toHaveLength(3);
+  });
+
+  /** What the device reports for a recording: one clear frame per label, with silence between */
+  const heardAs = (...labels: string[]) => [3, ...labels.flatMap((label) => [[0.05, label, 0.93], 2])];
+
+  it('judges each sound of an attempt from what the device heard, and keeps it with the attempt', async () => {
+    const { service, prisma, created } = setup();
+    const attempt = await service.submitAttempt('u1', { target: 'I think.', heard: ['I sink'] });
+    const { sounds } = await service.checkSounds('u1', attempt.id, heardAs('aɪ', 's', 'ɪ', 'ŋ', 'k'));
+
+    expect(sounds?.words.map((w) => w.text)).toEqual(['I', 'think.']);
+    expect(sounds?.words[0].score).toBe(100);
+    expect(sounds?.words[1].phones?.[0]).toMatchObject({ p: 'θ', status: 'wrong', heard: 's' });
+    expect(sounds?.tips[0]).toMatchObject({ sound: 'TH', words: ['think'] });
+    expect(prisma.pronunciationAttempt.update).toHaveBeenCalledTimes(1);
+    // The word-level result is still there next to the new one
+    expect(created[0].result.words).toHaveLength(2);
+    expect(created[0].result.sounds.score).toBe(sounds?.score);
+  });
+
+  it('only checks your own attempts, and needs some speech', async () => {
+    const { service } = setup();
+    const attempt = await service.submitAttempt('u1', { target: 'think', heard: ['think'] });
+    await expect(service.checkSounds('someone-else', attempt.id, heardAs('θ'))).rejects.toThrow(NotFoundException);
+    await expect(service.checkSounds('u1', 'nope', heardAs('θ'))).rejects.toThrow(NotFoundException);
+    await expect(service.checkSounds('u1', attempt.id, [5])).rejects.toThrow(BadRequestException);
+    await expect(service.checkSounds('u1', attempt.id, 'junk')).rejects.toThrow(BadRequestException);
+  });
+
+  it('says nothing when the recording cannot be matched to the words', async () => {
+    const { service, prisma } = setup();
+    const attempt = await service.submitAttempt('u1', { target: 'I think three of them are thirsty', heard: ['x'] });
+    expect(await service.checkSounds('u1', attempt.id, heardAs('θ'))).toEqual({ sounds: null });
+    expect(prisma.pronunciationAttempt.update).not.toHaveBeenCalled();
+  });
+
+  it('lists the single sounds that keep going wrong in progress', async () => {
+    const { service } = setup();
+    for (let i = 0; i < 5; i++) {
+      const attempt = await service.submitAttempt('u1', { target: 'think', heard: ['sink'] });
+      await service.checkSounds('u1', attempt.id, heardAs('s', 'ɪ', 'ŋ', 'k'));
+    }
+    const progress = await service.getProgress('u1');
+    expect(progress.weakPhones).toEqual([
+      { p: 'θ', ipa: 'θ', hint: 'th as in think', tries: 5, accuracy: 0, heardAs: 's as in see' },
+    ]);
   });
 });

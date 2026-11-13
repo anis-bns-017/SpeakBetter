@@ -1,0 +1,103 @@
+/* Echo, the dashboard's practice buddy (components/dashboard/EchoMascot.tsx).
+   The steady loops live here as CSS (float, blink, antenna, sleepy z's, the hero waveform while Echo talks);
+   gestures and reactions (wave, cheer, squish, eyes that follow you) are Motion springs in the component.
+   Only transform and opacity move, and everything stops under prefers-reduced-motion. */
+
+.echo-svg * {
+  transform-box: fill-box;
+}
+
+/* Breathing float, and a ground shadow that shrinks as Echo rises */
+.echo-float {
+  transform-origin: 50% 100%;
+  animation: echo-float 3.6s ease-in-out infinite;
+}
+.echo-shadow {
+  transform-origin: 50% 50%;
+  animation: echo-shadow 3.6s ease-in-out infinite;
+}
+@keyframes echo-float {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50% { transform: translateY(-6px) scale(0.985, 1.015); }
+}
+@keyframes echo-shadow {
+  0%, 100% { transform: scaleX(1); opacity: 0.28; }
+  50% { transform: scaleX(0.82); opacity: 0.18; }
+}
+
+/* The antenna trails the body a beat behind (follow-through) */
+.echo-antenna {
+  transform-origin: 0% 100%;
+  animation: echo-antenna 3.6s ease-in-out infinite;
+  animation-delay: -0.45s;
+}
+@keyframes echo-antenna {
+  0%, 100% { transform: rotate(-7deg); }
+  50% { transform: rotate(9deg); }
+}
+.echo-hopeful .echo-antenna-dot {
+  animation: echo-pulse 1.6s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+@keyframes echo-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
+/* A quick blink every few seconds, with a double blink now and then */
+.echo-blink {
+  transform-origin: 50% 50%;
+  animation: echo-blink 5.2s infinite;
+}
+@keyframes echo-blink {
+  0%, 44%, 50%, 92%, 100% { transform: scaleY(1); }
+  46%, 48% { transform: scaleY(0.08); }
+  94%, 96% { transform: scaleY(0.08); }
+  95% { transform: scaleY(1); }
+}
+
+/* The mouth moves while Echo talks */
+.echo-talk {
+  transform-origin: 50% 0%;
+  animation: echo-talk 0.32s ease-in-out infinite alternate;
+}
+@keyframes echo-talk {
+  from { transform: scaleY(0.35); }
+  to { transform: scaleY(1); }
+}
+
+/* Sleepy z's drift up and fade */
+.echo-z {
+  opacity: 0;
+  transform-origin: 50% 50%;
+  animation: echo-z 3s ease-out infinite;
+}
+.echo-z:nth-of-type(2) { animation-delay: 1s; }
+.echo-z:nth-of-type(3) { animation-delay: 2s; }
+@keyframes echo-z {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(10px, -26px) scale(1.15); }
+}
+
+/* The hero's waveform comes alive while Echo talks */
+.echo-bar {
+  transform-origin: 50% 100%;
+  transition: transform 300ms ease-out;
+}
+.echo-talking .echo-bar {
+  animation: echo-bar 0.9s ease-in-out infinite;
+}
+@keyframes echo-bar {
+  0%, 100% { transform: scaleY(1); }
+  30% { transform: scaleY(1.45); }
+  60% { transform: scaleY(0.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .echo-float, .echo-shadow, .echo-antenna, .echo-blink, .echo-talk, .echo-z, .echo-talking .echo-bar,
+  .echo-hopeful .echo-antenna-dot {
+    animation: none;
+  }
+  .echo-z { opacity: 0.8; }
+}

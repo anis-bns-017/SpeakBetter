@@ -24,41 +24,17 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import {
   apiErrorMessage,
   chatApi,
   useChatPrivacy,
   useChats,
-  type Chat,
   type ChatPrivacySettings,
 } from "../../hooks/useChat";
-
-// ─── Shared options ───────────────────────────────────────────────
-
-export const MUTE_OPTIONS: Array<{ label: string; value: () => string }> = [
-  { label: "8 hours", value: () => new Date(Date.now() + 8 * 3600_000).toISOString() },
-  { label: "1 week", value: () => new Date(Date.now() + 7 * 24 * 3600_000).toISOString() },
-  { label: "Always", value: () => "always" },
-];
-
-export const DISAPPEARING_CHOICES = [
-  { seconds: 0, label: "Off" },
-  { seconds: 24 * 3600, label: "24 hours" },
-  { seconds: 7 * 24 * 3600, label: "7 days" },
-  { seconds: 90 * 24 * 3600, label: "90 days" },
-];
-
-export const disappearingLabel = (seconds?: number | null) =>
-  DISAPPEARING_CHOICES.find((c) => c.seconds === (seconds || 0))?.label ?? "Off";
-
-/** Display name for a chat from my point of view */
-export function chatDisplayName(chat: Chat, myId?: string) {
-  if (chat.type === "PRIVATE") {
-    return chat.participants.find((p) => p.userId !== myId)?.user?.name || "Unknown";
-  }
-  return chat.name || "Group Chat";
-}
+import { useNow } from "../../hooks/useNow";
+import { chatDisplayName } from "./chatOptions";
+import { tr, msg } from "../../i18n/core";
 
 // ─── Modal shell ──────────────────────────────────────────────────
 
@@ -86,7 +62,7 @@ export const ChatModal: React.FC<{
       <motion.div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={tr(title)}
         initial={{ y: 40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
@@ -96,11 +72,11 @@ export const ChatModal: React.FC<{
       >
         <div className="flex items-center gap-2.5 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
           {icon && <span className="text-indigo-500">{icon}</span>}
-          <h3 className="flex-1 text-[15px] font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+          <h3 className="flex-1 text-[15px] font-semibold text-slate-900 dark:text-slate-100">{tr(title)}</h3>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={tr("Close")}
             className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
           >
             <X className="h-4 w-4" />
@@ -134,7 +110,7 @@ export const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void
     type="button"
     role="switch"
     aria-checked={checked}
-    aria-label={label}
+    aria-label={tr(label)}
     disabled={disabled}
     onClick={() => onChange(!checked)}
     className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
@@ -170,7 +146,7 @@ export const ForwardDialog: React.FC<{ messageIds: string[]; onClose: () => void
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else if (next.size < 10) next.add(id);
-      else toast.info("You can forward to up to 10 chats at once");
+      else toast.info(tr("You can forward to up to 10 chats at once"));
       return next;
     });
 
@@ -193,17 +169,16 @@ export const ForwardDialog: React.FC<{ messageIds: string[]; onClose: () => void
 
   return (
     <ChatModal
-      title={`Forward ${messageIds.length > 1 ? `${messageIds.length} messages` : "message"}`}
+      title={tr("Forward {value}", { value: messageIds.length > 1 ? `${messageIds.length} messages` : "message" })}
       icon={<Send className="h-4 w-4" />}
       onClose={onClose}
       footer={
         <>
           <button type="button" className={secondaryButton} onClick={onClose}>
-            Cancel
-          </button>
+            {tr("Cancel")}</button>
           <button type="button" className={primaryButton} disabled={!selected.size || sending} onClick={forward}>
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Forward{selected.size ? ` (${selected.size})` : ""}
+            {tr("Forward")}{selected.size ? ` (${selected.size})` : ""}
           </button>
         </>
       }
@@ -214,7 +189,7 @@ export const ForwardDialog: React.FC<{ messageIds: string[]; onClose: () => void
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search chats…"
+          placeholder={tr("Search chats…")}
           className={`${inputClass} pl-9`}
         />
       </div>
@@ -248,7 +223,7 @@ export const ForwardDialog: React.FC<{ messageIds: string[]; onClose: () => void
             </button>
           );
         })}
-        {!filtered.length && <p className="py-6 text-center text-sm text-slate-400">No chats found</p>}
+        {!filtered.length && <p className="py-6 text-center text-sm text-slate-400">{tr("No chats found")}</p>}
       </div>
     </ChatModal>
   );
@@ -265,7 +240,7 @@ export const MessageInfoDialog: React.FC<{ messageId: string; onClose: () => voi
   const row = (icon: React.ReactNode, label: string, value?: string | null) => (
     <div className="flex items-center gap-3 py-2">
       <span className="text-slate-400">{icon}</span>
-      <span className="flex-1 text-sm text-slate-600 dark:text-slate-300">{label}</span>
+      <span className="flex-1 text-sm text-slate-600 dark:text-slate-300">{tr(label)}</span>
       <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
         {value ? format(new Date(value), "MMM d, HH:mm") : "—"}
       </span>
@@ -273,7 +248,7 @@ export const MessageInfoDialog: React.FC<{ messageId: string; onClose: () => voi
   );
 
   return (
-    <ChatModal title="Message info" icon={<CheckCheck className="h-4 w-4" />} onClose={onClose}>
+    <ChatModal title={tr("Message info")} icon={<CheckCheck className="h-4 w-4" />} onClose={onClose}>
       {isLoading && <Loader2 className="mx-auto my-6 h-5 w-5 animate-spin text-indigo-500" />}
       {error && <p className="py-4 text-sm text-red-500">{apiErrorMessage(error, "Couldn't load message info")}</p>}
       {info && (
@@ -285,7 +260,7 @@ export const MessageInfoDialog: React.FC<{ messageId: string; onClose: () => voi
             {info.expiresAt && (
               <div className="flex items-center gap-3 py-2">
                 <Timer className="h-4 w-4 text-slate-400" />
-                <span className="flex-1 text-sm text-slate-600 dark:text-slate-300">Disappears</span>
+                <span className="flex-1 text-sm text-slate-600 dark:text-slate-300">{tr("Disappears")}</span>
                 <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
                   {formatDistanceToNow(new Date(info.expiresAt), { addSuffix: true })}
                 </span>
@@ -295,12 +270,10 @@ export const MessageInfoDialog: React.FC<{ messageId: string; onClose: () => voi
 
           <div>
             <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-sky-500">
-              <CheckCheck className="h-3.5 w-3.5" /> Read by
-            </h4>
+              <CheckCheck className="h-3.5 w-3.5" /> {" "}{tr("Read by")}</h4>
             {info.receiptsHidden ? (
               <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                You turned off read receipts, so you can't see who read your messages.
-              </p>
+                {tr("You turned off read receipts, so you can't see who read your messages.")}</p>
             ) : info.readBy.length ? (
               <div className="space-y-1.5">
                 {info.readBy.map((r) => (
@@ -315,20 +288,18 @@ export const MessageInfoDialog: React.FC<{ messageId: string; onClose: () => voi
               </div>
             ) : (
               <p className="text-xs text-slate-400">
-                Not read yet. People who turned off read receipts never show here.
-              </p>
+                {tr("Not read yet. People who turned off read receipts never show here.")}</p>
             )}
           </div>
 
           {info.viewedBy && (
             <div>
               <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                <Eye className="h-3.5 w-3.5" /> View once
-              </h4>
+                <Eye className="h-3.5 w-3.5" /> {" "}{tr("View once")}</h4>
               <p className="text-xs text-slate-500">
                 {info.viewedBy.length
-                  ? `Opened ${formatDistanceToNow(new Date(info.viewedBy[info.viewedBy.length - 1].at), { addSuffix: true })}`
-                  : "Not opened yet"}
+                  ? tr("Opened {value}", { value: formatDistanceToNow(new Date(info.viewedBy[info.viewedBy.length - 1].at), { addSuffix: true }) })
+                  : tr("Not opened yet")}
               </p>
             </div>
           )}
@@ -347,7 +318,7 @@ const PinInput: React.FC<{ value: string; onChange: (v: string) => void; label: 
   autoFocus,
 }) => (
   <label className="block">
-    <span className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>
+    <span className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">{tr(label)}</span>
     <input
       type="password"
       inputMode="numeric"
@@ -387,16 +358,15 @@ export const ChatLockGate: React.FC<{ chatName: string; onUnlock: () => void }> 
         <Lock className="h-7 w-7" />
       </span>
       <div>
-        <p className="text-base font-semibold text-slate-800 dark:text-slate-100">{chatName} is locked</p>
-        <p className="mt-1 text-xs text-slate-500">Enter your chat lock PIN to open it</p>
+        <p className="text-base font-semibold text-slate-800 dark:text-slate-100">{chatName} {" "}{tr("is locked")}</p>
+        <p className="mt-1 text-xs text-slate-500">{tr("Enter your chat lock PIN to open it")}</p>
       </div>
       <div className="w-full">
         <PinInput value={pin} onChange={setPin} label="PIN" autoFocus />
       </div>
       <button type="submit" disabled={pin.length < 4 || checking} className={`${primaryButton} w-full justify-center`}>
         {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-        Unlock
-      </button>
+        {tr("Unlock")}</button>
     </form>
   );
 };
@@ -421,7 +391,7 @@ export const ChatPinDialog: React.FC<{ hasPin: boolean; onClose: () => void; onS
         mode === "remove" ? await chatApi.removePin(current) : await chatApi.setPin(pin, hasPin ? current : undefined);
       queryClient.setQueryData<ChatPrivacySettings>(["chat-privacy"], data);
       if (mode === "remove") queryClient.invalidateQueries({ queryKey: ["chats"] });
-      toast.success(mode === "remove" ? "Chat lock PIN removed — locked chats are unlocked" : "Chat lock PIN saved");
+      toast.success(mode === "remove" ? tr("Chat lock PIN removed — locked chats are unlocked") : tr("Chat lock PIN saved"));
       onSaved?.();
       onClose();
     } catch (error) {
@@ -438,24 +408,22 @@ export const ChatPinDialog: React.FC<{ hasPin: boolean; onClose: () => void; onS
 
   return (
     <ChatModal
-      title={hasPin ? "Chat lock PIN" : "Set a chat lock PIN"}
+      title={hasPin ? tr("Chat lock PIN") : tr("Set a chat lock PIN")}
       icon={<KeyRound className="h-4 w-4" />}
       onClose={onClose}
       footer={
         <>
           <button type="button" className={secondaryButton} onClick={onClose}>
-            Cancel
-          </button>
+            {tr("Cancel")}</button>
           <button type="button" className={primaryButton} disabled={!valid || saving} onClick={save}>
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {mode === "remove" ? "Remove PIN" : "Save PIN"}
+            {mode === "remove" ? tr("Remove PIN") : tr("Save PIN")}
           </button>
         </>
       }
     >
       <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
-        Locked chats hide their previews and need this 4–6 digit PIN to open.
-      </p>
+        {tr("Locked chats hide their previews and need this 4–6 digit PIN to open.")}</p>
       {hasPin && (
         <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
           {(["set", "remove"] as const).map((m) => (
@@ -467,18 +435,18 @@ export const ChatPinDialog: React.FC<{ hasPin: boolean; onClose: () => void; onS
                 mode === m ? "bg-white text-indigo-600 shadow-sm dark:bg-slate-900" : "text-slate-500"
               }`}
             >
-              {m === "set" ? "Change PIN" : "Remove PIN"}
+              {m === "set" ? tr("Change PIN") : tr("Remove PIN")}
             </button>
           ))}
         </div>
       )}
       <div className="space-y-3">
-        {hasPin && <PinInput value={current} onChange={setCurrent} label="Current PIN" autoFocus />}
+        {hasPin && <PinInput value={current} onChange={setCurrent} label={tr("Current PIN")} autoFocus />}
         {mode === "set" && (
           <>
-            <PinInput value={pin} onChange={setPin} label="New PIN" autoFocus={!hasPin} />
-            <PinInput value={confirm} onChange={setConfirm} label="Confirm new PIN" />
-            {confirm.length >= 4 && pin !== confirm && <p className="text-xs text-red-500">PINs don't match</p>}
+            <PinInput value={pin} onChange={setPin} label={tr("New PIN")} autoFocus={!hasPin} />
+            <PinInput value={confirm} onChange={setConfirm} label={tr("Confirm new PIN")} />
+            {confirm.length >= 4 && pin !== confirm && <p className="text-xs text-red-500">{tr("PINs don't match")}</p>}
           </>
         )}
       </div>
@@ -507,7 +475,7 @@ export const ReportDialog: React.FC<{
         reason,
         description: details.trim() || undefined,
       });
-      toast.success("Thanks — our team will review this report");
+      toast.success(tr("Thanks — our team will review this report"));
       onClose();
     } catch (error) {
       toast.error(apiErrorMessage(error, "Couldn't send the report"));
@@ -518,14 +486,13 @@ export const ReportDialog: React.FC<{
 
   return (
     <ChatModal
-      title={`Report ${target.label}`}
+      title={tr("Report {label}", { label: target.label })}
       icon={<Flag className="h-4 w-4 text-red-500" />}
       onClose={onClose}
       footer={
         <>
           <button type="button" className={secondaryButton} onClick={onClose}>
-            Cancel
-          </button>
+            {tr("Cancel")}</button>
           <button
             type="button"
             disabled={sending}
@@ -533,8 +500,7 @@ export const ReportDialog: React.FC<{
             className="inline-flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-50"
           >
             {sending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Report
-          </button>
+            {tr("Report")}</button>
         </>
       }
     >
@@ -560,7 +526,7 @@ export const ReportDialog: React.FC<{
         onChange={(e) => setDetails(e.target.value)}
         maxLength={1000}
         rows={3}
-        placeholder="Anything else we should know? (optional)"
+        placeholder={tr("Anything else we should know? (optional)")}
         className={`${inputClass} mt-3 resize-none`}
       />
     </ChatModal>
@@ -576,23 +542,23 @@ const PRIVACY_ROWS: Array<{
 }> = [
   {
     key: "showOnlineStatus",
-    title: "Online status",
-    description: "Show when you're online. If off, you won't see when others are online either.",
+    title: msg("Online status"),
+    description: msg("Show when you're online. If off, you won't see when others are online either."),
   },
   {
     key: "showLastSeen",
-    title: "Last seen",
-    description: "Show when you were last active. If off, you won't see other people's last seen.",
+    title: msg("Last seen"),
+    description: msg("Show when you were last active. If off, you won't see other people's last seen."),
   },
   {
     key: "sendReadReceipts",
-    title: "Read receipts",
-    description: "Show blue ticks when you read messages. If off, you won't see them from others.",
+    title: msg("Read receipts"),
+    description: msg("Show blue ticks when you read messages. If off, you won't see them from others."),
   },
   {
     key: "showTypingIndicator",
-    title: "Typing indicator",
-    description: "Show \"typing…\" while you write. If off, you won't see others typing.",
+    title: msg("Typing indicator"),
+    description: msg("Show \"typing…\" while you write. If off, you won't see others typing."),
   },
 ];
 
@@ -602,7 +568,7 @@ export const ChatPrivacyDialog: React.FC<{ onClose: () => void }> = ({ onClose }
 
   return (
     <>
-      <ChatModal title="Chat privacy" icon={<Shield className="h-4 w-4" />} onClose={onClose}>
+      <ChatModal title={tr("Chat privacy")} icon={<Shield className="h-4 w-4" />} onClose={onClose}>
         {isLoading || !privacy ? (
           <Loader2 className="mx-auto my-6 h-5 w-5 animate-spin text-indigo-500" />
         ) : (
@@ -611,11 +577,11 @@ export const ChatPrivacyDialog: React.FC<{ onClose: () => void }> = ({ onClose }
               {PRIVACY_ROWS.map((row) => (
                 <div key={row.key} className="flex items-start gap-4">
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{row.title}</p>
-                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{row.description}</p>
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{tr(row.title)}</p>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{tr(row.description)}</p>
                   </div>
                   <Toggle
-                    label={row.title}
+                    label={tr(row.title)}
                     checked={privacy[row.key]}
                     disabled={update.isPending}
                     onChange={(value) => update.mutate({ [row.key]: value })}
@@ -630,23 +596,22 @@ export const ChatPrivacyDialog: React.FC<{ onClose: () => void }> = ({ onClose }
                   <Lock className="h-4 w-4" />
                 </span>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Chat lock</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{tr("Chat lock")}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {privacy.hasChatLockPin
-                      ? "PIN is set. Lock chats from their menu."
-                      : "Set a PIN to lock private chats."}
+                      ? tr("PIN is set. Lock chats from their menu.")
+                      : tr("Set a PIN to lock private chats.")}
                   </p>
                 </div>
                 <button type="button" onClick={() => setShowPin(true)} className={secondaryButton}>
-                  {privacy.hasChatLockPin ? "Manage" : "Set PIN"}
+                  {privacy.hasChatLockPin ? tr("Manage") : tr("Set PIN")}
                 </button>
               </div>
             </div>
 
             <p className="flex items-start gap-2 text-[11px] text-slate-400">
               <EyeOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              These settings are mutual, like WhatsApp: what you hide from others, you also stop seeing from them.
-            </p>
+              {tr("These settings are mutual, like WhatsApp: what you hide from others, you also stop seeing from them.")}</p>
           </div>
         )}
       </ChatModal>
@@ -669,9 +634,9 @@ function quickTimes() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(9, 0, 0, 0);
   return [
-    { label: "In 1 hour", date: inHour },
+    { label: msg("In 1 hour"), date: inHour },
     { label: tonight.getDate() === now.getDate() ? "Tonight, 8:00 PM" : "Tomorrow, 8:00 PM", date: tonight },
-    { label: "Tomorrow, 9:00 AM", date: tomorrow },
+    { label: msg("Tomorrow, 9:00 AM"), date: tomorrow },
   ];
 }
 
@@ -680,11 +645,12 @@ export const ScheduleDialog: React.FC<{
   onClose: () => void;
   onSchedule: (sendAt: Date) => Promise<void>;
 }> = ({ text, onClose, onSchedule }) => {
-  const options = useMemo(quickTimes, []);
+  const [options] = useState(quickTimes);
+  const now = useNow(30_000);
   const [value, setValue] = useState(toLocalInput(options[0].date));
   const [saving, setSaving] = useState(false);
   const sendAt = new Date(value);
-  const valid = !Number.isNaN(sendAt.getTime()) && sendAt.getTime() > Date.now() + 60_000;
+  const valid = !Number.isNaN(sendAt.getTime()) && sendAt.getTime() > now + 60_000;
 
   const submit = async () => {
     setSaving(true);
@@ -698,23 +664,21 @@ export const ScheduleDialog: React.FC<{
 
   return (
     <ChatModal
-      title="Schedule message"
+      title={tr("Schedule message")}
       icon={<CalendarClock className="h-4 w-4" />}
       onClose={onClose}
       footer={
         <>
           <button type="button" className={secondaryButton} onClick={onClose}>
-            Cancel
-          </button>
+            {tr("Cancel")}</button>
           <button type="button" className={primaryButton} disabled={!valid || saving} onClick={submit}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />}
-            Schedule
-          </button>
+            {tr("Schedule")}</button>
         </>
       }
     >
       <p className="mb-4 line-clamp-3 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-        {text}
+        {tr(text)}
       </p>
       <div className="mb-3 flex flex-wrap gap-2">
         {options.map((o) => (
@@ -728,18 +692,18 @@ export const ScheduleDialog: React.FC<{
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
             }`}
           >
-            {o.label}
+            {tr(o.label)}
           </button>
         ))}
       </div>
       <input
         type="datetime-local"
         value={value}
-        min={toLocalInput(new Date(Date.now() + 2 * 60_000))}
+        min={toLocalInput(new Date(now + 2 * 60_000))}
         onChange={(e) => setValue(e.target.value)}
         className={inputClass}
       />
-      {!valid && <p className="mt-2 text-xs text-red-500">Pick a time at least a minute from now</p>}
+      {!valid && <p className="mt-2 text-xs text-red-500">{tr("Pick a time at least a minute from now")}</p>}
     </ChatModal>
   );
 };

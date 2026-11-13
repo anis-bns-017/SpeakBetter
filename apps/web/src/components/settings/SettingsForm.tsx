@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Bell,
@@ -34,6 +34,7 @@ import {
   useUpdateNotificationPreferences,
   type NotificationPreferences,
 } from "../../hooks/useNotifications";
+import { tr, msg } from "../../i18n/core";
 
 /**
  * SettingsForm
@@ -107,20 +108,6 @@ interface FormData {
   autoTranslateMessages: boolean;
 }
 
-const LANGUAGE_OPTIONS = [
-  { value: "en", label: "English", nativeLabel: "English" },
-  { value: "bn", label: "Bengali", nativeLabel: "বাংলা" },
-  { value: "es", label: "Spanish", nativeLabel: "Español" },
-  { value: "fr", label: "French", nativeLabel: "Français" },
-  { value: "de", label: "German", nativeLabel: "Deutsch" },
-  { value: "pt", label: "Portuguese", nativeLabel: "Português" },
-  { value: "ar", label: "Arabic", nativeLabel: "العربية" },
-  { value: "hi", label: "Hindi", nativeLabel: "हिन्दी" },
-  { value: "ja", label: "Japanese", nativeLabel: "日本語" },
-  { value: "ko", label: "Korean", nativeLabel: "한국어" },
-  { value: "zh", label: "Chinese", nativeLabel: "中文" },
-];
-
 const REMINDER_TIMES = [
   "06:00",
   "07:00",
@@ -191,9 +178,6 @@ const buildFormData = (settings: Settings): FormData => ({
       : Boolean(settings.autoTranslateMessages),
 });
 
-const getLanguageLabel = (language: string) =>
-  LANGUAGE_OPTIONS.find((item) => item.value === language)?.label || language;
-
 const formatTime = (time: string) => {
   if (!time) return "Not set";
 
@@ -224,7 +208,7 @@ const Toggle = ({
     type="button"
     role="switch"
     aria-checked={checked}
-    aria-label={label}
+    aria-label={tr(label)}
     disabled={disabled}
     onClick={() => onChange(!checked)}
     className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -265,8 +249,8 @@ const SettingRow = ({
       </div>
 
       <div className="min-w-0">
-        <p className="font-semibold text-slate-900">{title}</p>
-        <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p>
+        <p className="font-semibold text-slate-900">{tr(title)}</p>
+        <p className="mt-1 text-sm leading-5 text-slate-500">{tr(description)}</p>
       </div>
     </div>
 
@@ -274,7 +258,7 @@ const SettingRow = ({
       checked={checked}
       onChange={onChange}
       disabled={disabled}
-      label={title}
+      label={tr(title)}
     />
   </div>
 );
@@ -298,8 +282,8 @@ const Section = ({
         </div>
 
         <div>
-          <h3 className="text-base font-bold text-slate-900">{title}</h3>
-          <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p>
+          <h3 className="text-base font-bold text-slate-900">{tr(title)}</h3>
+          <p className="mt-1 text-sm leading-5 text-slate-500">{tr(description)}</p>
         </div>
       </div>
     </div>
@@ -309,13 +293,13 @@ const Section = ({
 );
 
 const NOTIFICATION_KINDS: Array<{ key: keyof NotificationPreferences; icon: React.ElementType; title: string; description: string }> = [
-  { key: "roomReminders", icon: CalendarClock, title: "Room reminders", description: "“Starting in 10 minutes” for scheduled rooms you tapped “Remind me” on." },
-  { key: "followedLive", icon: Radio, title: "People you follow", description: "When someone you follow goes live or schedules a room." },
-  { key: "newFollowers", icon: UserPlus, title: "New followers", description: "When someone starts following you." },
-  { key: "corrections", icon: Wand2, title: "Corrections", description: "When someone corrects something you said in a room or a chat." },
-  { key: "friendRequests", icon: Users, title: "Friend requests", description: "When someone wants to be friends." },
-  { key: "achievements", icon: Zap, title: "Badges and leagues", description: "When you earn a badge, and your weekly league result." },
-  { key: "challenges", icon: Radio, title: "Challenges", description: "Reactions to your daily challenge answer, and friends challenging you to beat a score." },
+  { key: "roomReminders", icon: CalendarClock, title: msg("Room reminders"), description: msg("“Starting in 10 minutes” for scheduled rooms you tapped “Remind me” on.") },
+  { key: "followedLive", icon: Radio, title: msg("People you follow"), description: msg("When someone you follow goes live or schedules a room.") },
+  { key: "newFollowers", icon: UserPlus, title: msg("New followers"), description: msg("When someone starts following you.") },
+  { key: "corrections", icon: Wand2, title: msg("Corrections"), description: msg("When someone corrects something you said in a room or a chat.") },
+  { key: "friendRequests", icon: Users, title: msg("Friend requests"), description: msg("When someone wants to be friends.") },
+  { key: "achievements", icon: Zap, title: msg("Badges and leagues"), description: msg("When you earn a badge, and your weekly league result.") },
+  { key: "challenges", icon: Radio, title: msg("Challenges"), description: msg("Reactions to your daily challenge answer, and friends challenging you to beat a score.") },
 ];
 
 /** Which in-app notifications you get. Each switch saves straight away. */
@@ -325,17 +309,17 @@ const NotificationKinds = () => {
   if (!data) return null;
   return (
     <>
-      <p className="pt-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Notify me about</p>
+      <p className="pt-2 text-xs font-semibold uppercase tracking-wider text-slate-400">{tr("Notify me about")}</p>
       {NOTIFICATION_KINDS.map((kind) => (
         <SettingRow
           key={kind.key}
           icon={kind.icon}
-          title={kind.title}
-          description={kind.description}
+          title={tr(kind.title)}
+          description={tr(kind.description)}
           checked={data[kind.key]}
           disabled={update.isPending}
           onChange={(value) =>
-            update.mutate({ [kind.key]: value }, { onError: () => toast.error("Couldn't save that setting") })
+            update.mutate({ [kind.key]: value }, { onError: () => toast.error(tr("Couldn't save that setting")) })
           }
         />
       ))}
@@ -354,10 +338,13 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [isDirty, setIsDirty] = useState(false);
 
-  useEffect(() => {
+  // Fresh settings from the server replace what is in the form
+  const [formSource, setFormSource] = useState(initialFormData);
+  if (formSource !== initialFormData) {
+    setFormSource(initialFormData);
     setFormData(initialFormData);
     setIsDirty(false);
-  }, [initialFormData]);
+  }
 
   const updateField = <K extends keyof FormData>(
     field: K,
@@ -374,7 +361,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
   const resetChanges = () => {
     setFormData(initialFormData);
     setIsDirty(false);
-    toast.info("Your unsaved changes were discarded.");
+    toast.info(tr("Your unsaved changes were discarded."));
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -397,7 +384,6 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
         pushNotifications: formData.pushNotifications,
         soundEffects: formData.soundEffects,
         theme: currentTheme.toUpperCase(),
-        language: formData.language,
         dailyReminderEnabled: formData.dailyReminderEnabled,
         dailyReminderTime: formData.dailyReminderEnabled
           ? formData.dailyReminderTime
@@ -415,10 +401,10 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
       )(payload);
 
       setIsDirty(false);
-      toast.success("Settings saved successfully.");
+      toast.success(tr("Settings saved successfully."));
     } catch (error) {
       console.error("Failed to update settings:", error);
-      toast.error("Failed to save settings. Please try again.");
+      toast.error(tr("Failed to save settings. Please try again."));
     }
   };
 
@@ -435,7 +421,6 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
     formData.autoTranslateMessages,
   ].filter(Boolean).length;
 
-  const selectedLanguage = getLanguageLabel(formData.language);
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto w-full max-w-5xl pb-24">
@@ -450,15 +435,11 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
 
               <div>
                 <p className="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">
-                  Account preferences
-                </p>
+                  {tr("Account preferences")}</p>
                 <h2 className="text-2xl font-extrabold tracking-tight text-slate-950">
-                  Settings
-                </h2>
+                  {tr("Settings")}</h2>
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
-                  Personalize your SpeakBetter experience, notifications,
-                  privacy, language, reminders, and messaging preferences.
-                </p>
+                  {tr("Personalize your SpeakBetter experience, notifications, privacy, language, reminders, and messaging preferences.")}</p>
               </div>
             </div>
 
@@ -466,11 +447,9 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
               <Zap size={16} className="text-indigo-600" />
               <div>
                 <p className="text-xs font-semibold text-slate-500">
-                  Active preferences
-                </p>
+                  {tr("Active preferences")}</p>
                 <p className="text-sm font-bold text-slate-900">
-                  {enabledPreferences} enabled
-                </p>
+                  {enabledPreferences} {" "}{tr("enabled")}</p>
               </div>
             </div>
           </div>
@@ -478,11 +457,11 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
       </div>
 
       <div className="space-y-5">
-        {/* Appearance & language */}
+        {/* Appearance (the app language has its own card above this form) */}
         <Section
           icon={Palette}
-          title="Appearance & language"
-          description="Control how SpeakBetter looks and which language you prefer."
+          title={tr("Appearance")}
+          description={tr("Control how SpeakBetter looks.")}
         >
           <div className="rounded-2xl border border-slate-200 p-4">
             <div className="mb-4 flex items-start gap-3">
@@ -491,76 +470,37 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">Theme</p>
+                <p className="font-semibold text-slate-900">{tr("Theme")}</p>
                 <p className="text-sm text-slate-500">
-                  Light, dark or navy blue. Pick what is easiest on your eyes.
-                </p>
+                  {tr("Light, dark or navy blue. Pick what is easiest on your eyes.")}</p>
               </div>
             </div>
 
             <ThemeCards value={currentTheme} onChange={chooseTheme} />
-            <p className="mt-3 text-xs text-slate-500">Changes apply right away and follow you to your other devices.</p>
+            <p className="mt-3 text-xs text-slate-500">{tr("Changes apply right away and follow you to your other devices.")}</p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 p-4">
-            <label htmlFor="language" className="mb-3 flex items-start gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                <Languages size={18} />
-              </span>
-
-              <span>
-                <span className="block font-semibold text-slate-900">
-                  Interface language
-                </span>
-                <span className="block text-sm text-slate-500">
-                  Current language: {selectedLanguage}
-                </span>
-              </span>
-            </label>
-
-            <div className="relative">
-              <select
-                id="language"
-                value={formData.language}
-                onChange={(event) =>
-                  updateField("language", event.target.value)
-                }
-                className="w-full appearance-none rounded-xl border border-line bg-surface px-4 py-3 pr-10 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
-              >
-                {LANGUAGE_OPTIONS.map((language) => (
-                  <option key={language.value} value={language.value}>
-                    {language.label} — {language.nativeLabel}
-                  </option>
-                ))}
-              </select>
-
-              <ChevronDown
-                size={17}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-            </div>
-          </div>
         </Section>
 
         {/* Notifications (the bell links here with #notifications) */}
         <div id="notifications" className="scroll-mt-6" />
         <Section
           icon={Bell}
-          title="Notifications"
-          description="Choose when SpeakBetter should notify you and remind you to practice."
+          title={tr("Notifications")}
+          description={tr("Choose when SpeakBetter should notify you and remind you to practice.")}
         >
           <SettingRow
             icon={Bell}
-            title="Email notifications"
-            description="Receive important account, learning, and activity updates by email."
+            title={tr("Email notifications")}
+            description={tr("Receive important account, learning, and activity updates by email.")}
             checked={formData.emailNotifications}
             onChange={(value) => updateField("emailNotifications", value)}
           />
 
           <SettingRow
             icon={Smartphone}
-            title="Push notifications"
-            description="Receive real-time notifications for messages, invitations, reminders, and activity."
+            title={tr("Push notifications")}
+            description={tr("Receive real-time notifications for messages, invitations, reminders, and activity.")}
             checked={formData.pushNotifications}
             onChange={(value) => updateField("pushNotifications", value)}
           />
@@ -569,8 +509,8 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
 
           <SettingRow
             icon={Volume2}
-            title="Sound effects"
-            description="Play interface sounds and interaction feedback while using SpeakBetter."
+            title={tr("Sound effects")}
+            description={tr("Play interface sounds and interaction feedback while using SpeakBetter.")}
             checked={formData.soundEffects}
             onChange={(value) => updateField("soundEffects", value)}
           />
@@ -586,19 +526,16 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
 
                 <div>
                   <p className="font-semibold text-slate-900">
-                    Daily practice reminder
-                  </p>
+                    {tr("Daily practice reminder")}</p>
                   <p className="mt-1 text-sm leading-5 text-slate-500">
-                    Get a reminder at your preferred time so you can maintain
-                    your learning habit.
-                  </p>
+                    {tr("Get a reminder at your preferred time so you can maintain your learning habit.")}</p>
                 </div>
               </div>
 
               <Toggle
                 checked={formData.dailyReminderEnabled}
                 onChange={(value) => updateField("dailyReminderEnabled", value)}
-                label="Daily practice reminder"
+                label={tr("Daily practice reminder")}
               />
             </div>
 
@@ -607,8 +544,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
                 htmlFor="dailyReminderTime"
                 className="mb-2 block text-sm font-semibold text-slate-700"
               >
-                Reminder time
-              </label>
+                {tr("Reminder time")}</label>
 
               <div className="relative">
                 <select
@@ -639,37 +575,37 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
         {/* Privacy */}
         <Section
           icon={Shield}
-          title="Privacy & visibility"
-          description="Control what other people can see and how they can interact with you."
+          title={tr("Privacy & visibility")}
+          description={tr("Control what other people can see and how they can interact with you.")}
         >
           <SettingRow
             icon={Eye}
-            title="Public profile"
-            description="Allow other SpeakBetter users to view your public profile."
+            title={tr("Public profile")}
+            description={tr("Allow other SpeakBetter users to view your public profile.")}
             checked={formData.showProfilePublic}
             onChange={(value) => updateField("showProfilePublic", value)}
           />
 
           <SettingRow
             icon={Users}
-            title="Share activity with friends"
-            description="Let friends see relevant learning activity and progress updates."
+            title={tr("Share activity with friends")}
+            description={tr("Let friends see relevant learning activity and progress updates.")}
             checked={formData.shareActivityWithFriends}
             onChange={(value) => updateField("shareActivityWithFriends", value)}
           />
 
           <SettingRow
             icon={Eye}
-            title="Show online status"
-            description="Allow other users to see when you are currently online."
+            title={tr("Show online status")}
+            description={tr("Allow other users to see when you are currently online.")}
             checked={formData.showOnlineStatus}
             onChange={(value) => updateField("showOnlineStatus", value)}
           />
 
           <SettingRow
             icon={UserRound}
-            title="Allow friend requests"
-            description="Let other users send you friend requests."
+            title={tr("Allow friend requests")}
+            description={tr("Let other users send you friend requests.")}
             checked={formData.allowFriendRequests}
             onChange={(value) => updateField("allowFriendRequests", value)}
           />
@@ -678,21 +614,21 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
         {/* Messaging */}
         <Section
           icon={MessageCircle}
-          title="Messaging & translation"
-          description="Control direct messaging and the built-in translation experience."
+          title={tr("Messaging & translation")}
+          description={tr("Control direct messaging and the built-in translation experience.")}
         >
           <SettingRow
             icon={MessageCircle}
-            title="Allow direct messages"
-            description="Allow other users to start direct conversations with you."
+            title={tr("Allow direct messages")}
+            description={tr("Allow other users to start direct conversations with you.")}
             checked={formData.allowDirectMessages}
             onChange={(value) => updateField("allowDirectMessages", value)}
           />
 
           <SettingRow
             icon={Languages}
-            title="Auto-translate messages"
-            description="Automatically use translation support for messages when available."
+            title={tr("Auto-translate messages")}
+            description={tr("Automatically use translation support for messages when available.")}
             checked={formData.autoTranslateMessages}
             onChange={(value) => updateField("autoTranslateMessages", value)}
           />
@@ -705,12 +641,9 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
 
               <div>
                 <p className="font-semibold text-indigo-950">
-                  Better conversations, fewer barriers
-                </p>
+                  {tr("Better conversations, fewer barriers")}</p>
                 <p className="mt-1 text-sm leading-5 text-indigo-800/80">
-                  Auto-translation is especially useful when practicing with
-                  language partners who have different native languages.
-                </p>
+                  {tr("Auto-translation is especially useful when practicing with language partners who have different native languages.")}</p>
               </div>
             </div>
           </div>
@@ -728,19 +661,19 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
             </div>
 
             <div>
-              <p className="font-semibold text-slate-900">Privacy snapshot</p>
+              <p className="font-semibold text-slate-900">{tr("Privacy snapshot")}</p>
               <p className="mt-1 text-sm leading-5 text-slate-500">
-                Your profile is{" "}
+                {tr("Your profile is")}{" "}
                 <span className="font-semibold text-slate-700">
-                  {formData.showProfilePublic ? "public" : "private"}
+                  {formData.showProfilePublic ? tr("public") : tr("private")}
                 </span>
-                , your online status is{" "}
+                {tr(", your online status is")}{" "}
                 <span className="font-semibold text-slate-700">
-                  {formData.showOnlineStatus ? "visible" : "hidden"}
+                  {formData.showOnlineStatus ? tr("visible") : tr("hidden")}
                 </span>
-                , and direct messages are{" "}
+                {tr(", and direct messages are")}{" "}
                 <span className="font-semibold text-slate-700">
-                  {formData.allowDirectMessages ? "allowed" : "restricted"}
+                  {formData.allowDirectMessages ? tr("allowed") : tr("restricted")}
                 </span>
                 .
               </p>
@@ -757,8 +690,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
               <>
                 <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
                 <p className="text-sm font-medium text-slate-600">
-                  You have unsaved changes.
-                </p>
+                  {tr("You have unsaved changes.")}</p>
               </>
             ) : (
               <>
@@ -766,8 +698,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
                   <Check size={13} strokeWidth={3} />
                 </span>
                 <p className="text-sm font-medium text-slate-500">
-                  All settings are saved.
-                </p>
+                  {tr("All settings are saved.")}</p>
               </>
             )}
           </div>
@@ -780,8 +711,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
               className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
             >
               <RotateCcw size={16} />
-              Reset
-            </button>
+              {tr("Reset")}</button>
 
             <button
               type="submit"
@@ -789,7 +719,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
             >
               <Save size={16} />
-              {isUpdating ? "Saving..." : "Save changes"}
+              {isUpdating ? tr("Saving...") : tr("Save changes")}
             </button>
           </div>
         </div>

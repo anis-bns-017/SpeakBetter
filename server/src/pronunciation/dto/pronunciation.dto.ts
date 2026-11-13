@@ -37,3 +37,13 @@ export class SubmitAttemptDto {
   @Max(120_000)
   durationMs?: number;
 }
+
+export class CheckSoundsDto {
+  /**
+   * What the on-device recogniser heard, 20 ms at a time: a number is that many silent frames, a list is one
+   * frame as [blank, label, probability, label, probability, ...]
+   */
+  @IsArray()
+  @ArrayMaxSize(1500)
+  frames: unknown[];
+}

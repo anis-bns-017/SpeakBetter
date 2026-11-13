@@ -28,6 +28,7 @@ import {
   Sparkles,
   Info,
 } from "lucide-react";
+import { tr, msg } from "../i18n/core";
 
 type Tab = "friends" | "requests" | "search" | "blocked";
 
@@ -52,9 +53,9 @@ export const FriendsPage = () => {
     try {
       setLoadingActionId(requestId);
       await respondMutation.mutateAsync({ requestId, action });
-      toast.success(action === "accepted" ? "Friend request accepted" : "Request declined");
+      toast.success(action === "accepted" ? tr("Friend request accepted") : tr("Request declined"));
     } catch {
-      toast.error("Failed to respond to request");
+      toast.error(tr("Failed to respond to request"));
     } finally {
       setLoadingActionId(null);
     }
@@ -64,9 +65,9 @@ export const FriendsPage = () => {
     try {
       setLoadingActionId(requestId);
       await cancelMutation.mutateAsync(requestId);
-      toast.success("Friend request cancelled");
+      toast.success(tr("Friend request cancelled"));
     } catch {
-      toast.error("Failed to cancel request");
+      toast.error(tr("Failed to cancel request"));
     } finally {
       setLoadingActionId(null);
     }
@@ -76,9 +77,9 @@ export const FriendsPage = () => {
     try {
       setLoadingActionId(userId);
       await sendRequestMutation.mutateAsync(userId);
-      toast.success("Friend request sent");
+      toast.success(tr("Friend request sent"));
     } catch {
-      toast.error("Failed to send friend request");
+      toast.error(tr("Failed to send friend request"));
     } finally {
       setLoadingActionId(null);
     }
@@ -88,24 +89,24 @@ export const FriendsPage = () => {
     try {
       setLoadingActionId(userId);
       await unblockMutation.mutateAsync(userId);
-      toast.success(`${userName} unblocked`);
+      toast.success(tr("{userName} unblocked", { userName }));
     } catch {
-      toast.error("Failed to unblock user");
+      toast.error(tr("Failed to unblock user"));
     } finally {
       setLoadingActionId(null);
     }
   };
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: "friends", label: "Friends", icon: <Users className="w-4 h-4" /> },
+    { id: "friends", label: msg("Friends"), icon: <Users className="w-4 h-4" /> },
     {
       id: "requests",
-      label: "Requests",
+      label: msg("Requests"),
       icon: <UserPlus className="w-4 h-4" />,
       badge: requests?.length,
     },
-    { id: "search", label: "Find People", icon: <Search className="w-4 h-4" /> },
-    { id: "blocked", label: "Blocked", icon: <ShieldAlert className="w-4 h-4" /> },
+    { id: "search", label: msg("Find People"), icon: <Search className="w-4 h-4" /> },
+    { id: "blocked", label: msg("Blocked"), icon: <ShieldAlert className="w-4 h-4" /> },
   ];
 
   return (
@@ -118,10 +119,9 @@ export const FriendsPage = () => {
               <Users className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Community & Friends</h1>
+              <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{tr("Community & Friends")}</h1>
               <p className="text-sm text-slate-500">
-                Connect with language learners worldwide and practice together.
-              </p>
+                {tr("Connect with language learners worldwide and practice together.")}</p>
             </div>
           </div>
         </div>
@@ -141,7 +141,7 @@ export const FriendsPage = () => {
                 }`}
               >
                 {tab.icon}
-                <span>{tab.label}</span>
+                <span>{tr(tab.label)}</span>
                 {tab.badge && tab.badge > 0 ? (
                   <span
                     className={`ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold ${
@@ -188,13 +188,12 @@ export const FriendsPage = () => {
                         <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                           <Globe className="w-3 h-3 text-slate-400" />
                           <span>
-                            {friend.profile?.nativeLanguage || "Native Speaker"} • Learning:{" "}
-                            {friend.profile?.learningLanguages?.join(", ") || "General"}
+                            {friend.profile?.nativeLanguage || tr("Native Speaker")} {" "}{tr("• Learning:{value}", { value: " " })}{friend.profile?.learningLanguages?.join(", ") || tr("General")}
                           </span>
                         </p>
                         <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-1">
                           <Clock className="w-3 h-3 text-slate-300" />
-                          Friends since {new Date(friend.friendSince).toLocaleDateString()}
+                          {tr("Friends since")}{" "}{new Date(friend.friendSince).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -202,7 +201,7 @@ export const FriendsPage = () => {
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="hidden sm:inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
                         <UserCheck className="w-3.5 h-3.5" />
-                        <span>Connected</span>
+                        <span>{tr("Connected")}</span>
                       </span>
                       {/* Follow to hear when they go live or schedule a room */}
                       <FollowButton userId={friend.id} name={friend.name} />
@@ -213,9 +212,9 @@ export const FriendsPage = () => {
             ) : (
               <EmptyState
                 icon={<Users className="w-7 h-7" />}
-                title="No Friends Yet"
-                description="Start building your language learning circle by finding other learners."
-                actionLabel="Find People"
+                title={tr("No Friends Yet")}
+                description={tr("Start building your language learning circle by finding other learners.")}
+                actionLabel={tr("Find People")}
                 onAction={() => setActiveTab("search")}
               />
             )}
@@ -269,7 +268,7 @@ export const FriendsPage = () => {
                           ) : (
                             <Check className="w-3.5 h-3.5" />
                           )}
-                          <span>Accept</span>
+                          <span>{tr("Accept")}</span>
                         </button>
 
                         <button
@@ -278,7 +277,7 @@ export const FriendsPage = () => {
                           className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 font-semibold rounded-xl text-xs transition-all border border-slate-200/80 disabled:opacity-50"
                         >
                           <X className="w-3.5 h-3.5" />
-                          <span>Reject</span>
+                          <span>{tr("Reject")}</span>
                         </button>
 
                         <button
@@ -286,8 +285,7 @@ export const FriendsPage = () => {
                           disabled={isLoadingAction}
                           className="px-3 py-2 text-slate-400 hover:text-slate-600 text-xs font-medium transition-colors"
                         >
-                          Cancel
-                        </button>
+                          {tr("Cancel")}</button>
                       </div>
                     </div>
                   );
@@ -296,8 +294,8 @@ export const FriendsPage = () => {
             ) : (
               <EmptyState
                 icon={<UserPlus className="w-7 h-7" />}
-                title="No Pending Requests"
-                description="You don't have any incoming friend requests at the moment."
+                title={tr("No Pending Requests")}
+                description={tr("You don't have any incoming friend requests at the moment.")}
               />
             )}
           </div>
@@ -310,7 +308,7 @@ export const FriendsPage = () => {
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search learners by name or email..."
+                placeholder={tr("Search learners by name or email...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-surface border border-line rounded-2xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
@@ -323,8 +321,7 @@ export const FriendsPage = () => {
               <div className="bg-surface p-8 rounded-2xl border border-line text-center space-y-2">
                 <Sparkles className="w-6 h-6 text-indigo-400 mx-auto" />
                 <p className="text-sm font-medium text-slate-600">
-                  Type at least 2 characters to search for classmates and friends.
-                </p>
+                  {tr("Type at least 2 characters to search for classmates and friends.")}</p>
               </div>
             ) : searchResults && searchResults.length > 0 ? (
               <div className="space-y-3">
@@ -354,8 +351,7 @@ export const FriendsPage = () => {
                           <p className="text-xs text-slate-500">{result.email}</p>
                           {result.profile && (
                             <p className="text-[11px] text-slate-400 mt-0.5">
-                              {result.profile.nativeLanguage || "Native"} • Learning:{" "}
-                              {result.profile.learningLanguages?.join(", ") || "General"}
+                              {result.profile.nativeLanguage || tr("Native")} {" "}{tr("• Learning:{value}", { value: " " })}{result.profile.learningLanguages?.join(", ") || tr("General")}
                             </p>
                           )}
                         </div>
@@ -364,16 +360,13 @@ export const FriendsPage = () => {
                       <div className="shrink-0">
                         {result.isFriend ? (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                            <Check className="w-3.5 h-3.5" /> Friends
-                          </span>
+                            <Check className="w-3.5 h-3.5" /> {" "}{tr("Friends")}</span>
                         ) : result.isBlocked ? (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100">
-                            Blocked
-                          </span>
+                            {tr("Blocked")}</span>
                         ) : result.isRequested ? (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
-                            Request Sent
-                          </span>
+                            {tr("Request Sent")}</span>
                         ) : (
                           <button
                             onClick={() => handleSendRequest(result.id)}
@@ -385,7 +378,7 @@ export const FriendsPage = () => {
                             ) : (
                               <Send className="w-3.5 h-3.5" />
                             )}
-                            <span>Add Friend</span>
+                            <span>{tr("Add Friend")}</span>
                           </button>
                         )}
                       </div>
@@ -396,8 +389,8 @@ export const FriendsPage = () => {
             ) : (
               <EmptyState
                 icon={<UserX className="w-7 h-7" />}
-                title="No Users Found"
-                description={`No learners found matching "${searchQuery}". Try a different search.`}
+                title={tr("No Users Found")}
+                description={tr("No learners found matching \"{searchQuery}\". Try a different search.", { searchQuery })}
               />
             )}
           </div>
@@ -439,7 +432,7 @@ export const FriendsPage = () => {
                           {userItem.reason && (
                             <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
                               <Info className="w-3 h-3 text-slate-300" />
-                              Reason: {userItem.reason}
+                              {tr("Reason:")}{" "}{userItem.reason}
                             </p>
                           )}
                         </div>
@@ -455,7 +448,7 @@ export const FriendsPage = () => {
                         ) : (
                           <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
                         )}
-                        <span>Unblock</span>
+                        <span>{tr("Unblock")}</span>
                       </button>
                     </div>
                   );
@@ -464,8 +457,8 @@ export const FriendsPage = () => {
             ) : (
               <EmptyState
                 icon={<ShieldAlert className="w-7 h-7" />}
-                title="No Blocked Users"
-                description="Your blocked list is currently empty."
+                title={tr("No Blocked Users")}
+                description={tr("Your blocked list is currently empty.")}
               />
             )}
           </div>
@@ -515,15 +508,15 @@ const EmptyState = ({
       {icon}
     </div>
     <div className="space-y-1">
-      <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-      <p className="text-sm text-slate-500 max-w-sm mx-auto">{description}</p>
+      <h3 className="text-lg font-bold text-slate-800">{tr(title)}</h3>
+      <p className="text-sm text-slate-500 max-w-sm mx-auto">{tr(description)}</p>
     </div>
     {actionLabel && onAction && (
       <button
         onClick={onAction}
         className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition-all shadow-sm mt-2"
       >
-        {actionLabel}
+        {tr(actionLabel)}
       </button>
     )}
   </div>

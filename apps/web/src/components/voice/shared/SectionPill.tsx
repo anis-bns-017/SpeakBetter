@@ -2,6 +2,7 @@
 
 import React from "react";
 import { THEME } from "../VoiceRoomView.theme";
+import { tr } from "../../../i18n/core";
 
 interface SectionPillProps {
   icon: React.ReactNode;
@@ -47,7 +48,7 @@ export const SectionPill: React.FC<SectionPillProps> = ({
       }}
     >
       {icon}
-      <span>{label}</span>
+      <span>{tr(label)}</span>
       {value !== undefined && (
         <strong style={{ color: THEME.colors.text.primary }}>{value}</strong>
       )}

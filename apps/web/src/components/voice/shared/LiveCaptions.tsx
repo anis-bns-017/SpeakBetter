@@ -17,6 +17,7 @@ import { meaningFrom, useLookupState } from "../../../hooks/useLookup";
 import { useFindDictWord } from "../../../hooks/useDictionary";
 import { LookupBody } from "../../lookup/LookupBody";
 import type { CaptionsStatus } from "./CoachDock";
+import { tr, msg } from "../../../i18n/core";
 
 interface LiveCaptionsProps {
   transcriptions: VoiceTranscription[];
@@ -39,12 +40,12 @@ interface LiveCaptionsProps {
 
 /** What to tell you when there are no lines to show */
 const STATUS_HINT: Record<CaptionsStatus, string> = {
-  listening: "Listening… start speaking and your words appear here.",
-  muted: "Turn your microphone on to caption what you say.",
-  unsupported: "This browser can't caption speech. Open the room in Chrome or Edge to caption yourself; you can still read everyone else's captions.",
-  blocked: "Captions can't use your microphone. Allow the microphone for this site (the icon in the address bar), then try again.",
-  network: "Captions can't reach the browser's speech service. Chrome needs an internet connection, and Brave blocks this service. Trying again…",
-  "no-mic": "No microphone was found for captions. Plug one in, then try again.",
+  listening: msg("Listening… start speaking and your words appear here."),
+  muted: msg("Turn your microphone on to caption what you say."),
+  unsupported: msg("This browser can't caption speech. Open the room in Chrome or Edge to caption yourself; you can still read everyone else's captions."),
+  blocked: msg("Captions can't use your microphone. Allow the microphone for this site (the icon in the address bar), then try again."),
+  network: msg("Captions can't reach the browser's speech service. Chrome needs an internet connection, and Brave blocks this service. Trying again…"),
+  "no-mic": msg("No microphone was found for captions. Plug one in, then try again."),
 };
 
 const STORAGE_KEY = "sb.captions.on";
@@ -85,7 +86,7 @@ const Words: React.FC<{
           <button
             type="button"
             onClick={() => onPick(word, line)}
-            title={saved ? "In your word bank: tap to see it" : "Tap to see what it means"}
+            title={saved ? tr("In your word bank: tap to see it") : tr("Tap to see what it means")}
             className="rounded px-[1px] hover:bg-white/10 focus-visible:outline focus-visible:outline-1"
             style={
               saved
@@ -116,20 +117,20 @@ const DictionaryLink: React.FC<{ word: string }> = ({ word }) => {
       rel="noreferrer"
       className="mt-2 flex items-center gap-2 rounded-xl border px-2.5 py-2 text-xs hover:bg-white/5"
       style={{ borderColor: THEME.colors.border.primary, color: THEME.colors.text.secondary }}
-      title="Opens in a new tab, so you stay in the room"
+      title={tr("Opens in a new tab, so you stay in the room")}
     >
       <BookA className="w-4 h-4 shrink-0" style={{ color: THEME.colors.accent.primaryLight }} />
       <span className="min-w-0 flex-1">
         <span className="font-semibold" style={{ color: THEME.colors.text.primary }}>
           {data.word}
         </span>
-        {data.word.toLowerCase() !== word && <span> (the word behind “{word}”)</span>}
+        {data.word.toLowerCase() !== word && <span> {" "}{tr("(the word behind “{word}”)", { word })}</span>}
         <span className="block truncate">
           {data.level} · {data.commonness}
         </span>
       </span>
       <span className="shrink-0 inline-flex items-center gap-1 font-semibold" style={{ color: THEME.colors.accent.primaryLight }}>
-        Open in Dictionary <ExternalLink className="w-3 h-3" />
+        {tr("Open in Dictionary")}{" "}<ExternalLink className="w-3 h-3" />
       </span>
     </a>
   );
@@ -248,7 +249,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
               borderColor: THEME.colors.border.accent,
             }}
             role="dialog"
-            aria-label={`The word ${picked.word}`}
+            aria-label={tr("The word {word}", { word: picked.word })}
           >
             <div className="shrink-0 flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -261,7 +262,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
               </div>
               <button
                 onClick={() => setPicked(null)}
-                aria-label="Close"
+                aria-label={tr("Close")}
                 className="p-1 rounded-lg hover:bg-white/5"
                 style={{ color: THEME.colors.text.muted }}
               >
@@ -281,8 +282,8 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
                 onChange={(e) => setMeaning(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && void save()}
                 maxLength={120}
-                placeholder={suggested ? "Use the meaning above, or type your own" : "Meaning in your words (optional)"}
-                aria-label="Meaning (optional)"
+                placeholder={suggested ? tr("Use the meaning above, or type your own") : tr("Meaning in your words (optional)")}
+                aria-label={tr("Meaning (optional)")}
                 className="flex-1 min-w-0 rounded-lg px-2.5 py-1.5 text-xs outline-none border"
                 style={{
                   background: "var(--sx-bg-255-255-255-40)",
@@ -297,7 +298,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
                 style={{ background: THEME.colors.accent.primary, color: "var(--sx-text-ffffff)" }}
               >
                 {alreadySaved ? <BookmarkCheck className="w-3.5 h-3.5" /> : <BookmarkPlus className="w-3.5 h-3.5" />}
-                {alreadySaved ? "Update" : "Save word"}
+                {alreadySaved ? tr("Update") : tr("Save word")}
               </button>
             </div>
           </motion.div>
@@ -314,16 +315,14 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
             exit={{ opacity: 0, y: 10 }}
             className="pointer-events-auto w-[min(94%,720px)] rounded-2xl border backdrop-blur-xl overflow-hidden"
             style={{ background: "var(--sx-bg-8-8-16-820)", borderColor: THEME.colors.border.primary }}
-            aria-label="Room transcript"
+            aria-label={tr("Room transcript")}
           >
             <div className="flex items-center gap-2 px-4 py-2.5 border-b" style={{ borderColor: THEME.colors.border.primary }}>
               <ScrollText className="w-4 h-4" style={{ color: THEME.colors.accent.primaryLight }} />
               <h3 className="text-sm font-semibold" style={{ color: THEME.colors.text.primary }}>
-                Transcript
-              </h3>
+                {tr("Transcript")}</h3>
               <span className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-                {finals.length} {finals.length === 1 ? "line" : "lines"} since you joined
-              </span>
+                {finals.length} {" "}{tr("{value} since you joined", { value: finals.length === 1 ? tr("line") : tr("lines") })}</span>
               <span className="flex-1" />
               {finals.length > 0 && (
                 <button
@@ -332,10 +331,10 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
                   className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold hover:bg-white/5"
                   style={{ color: copied ? THEME.colors.accent.success : THEME.colors.text.secondary }}
                 >
-                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied ? "Copied" : "Copy"}
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied ? tr("Copied") : tr("Copy")}
                 </button>
               )}
-              <button type="button" onClick={() => setShowTranscript(false)} aria-label="Close transcript" className="p-1 rounded-lg hover:bg-white/5" style={{ color: THEME.colors.text.muted }}>
+              <button type="button" onClick={() => setShowTranscript(false)} aria-label={tr("Close transcript")} className="p-1 rounded-lg hover:bg-white/5" style={{ color: THEME.colors.text.muted }}>
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -343,8 +342,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
             <div ref={scrollerRef} className={`${picked ? "max-h-[min(20vh,180px)]" : "max-h-[min(46vh,420px)]"} overflow-y-auto px-4 py-3 space-y-2.5`}>
               {finals.length === 0 ? (
                 <p className="py-6 text-center text-sm" style={{ color: THEME.colors.text.muted }}>
-                  Nothing said yet. What people say will appear here.
-                </p>
+                  {tr("Nothing said yet. What people say will appear here.")}</p>
               ) : (
                 finals.map((line, i) => {
                   const sameSpeaker = i > 0 && finals[i - 1].userId === line.userId;
@@ -380,7 +378,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
               borderColor: THEME.colors.border.primary,
             }}
             aria-live="polite"
-            aria-label="Live captions"
+            aria-label={tr("Live captions")}
           >
             {lines.map((line) => (
               <p key={line.id} className="text-sm leading-relaxed" style={{ color: THEME.colors.text.primary }}>
@@ -391,14 +389,13 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
                   <Words line={line} savedWords={savedWords} onPick={pick} />
                 ) : (
                   <span className="italic" style={{ color: THEME.colors.text.secondary }}>
-                    {line.text}…
+                    {tr(line.text)}…
                   </span>
                 )}
               </p>
             ))}
             <p className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-              Tap a word to see what it means and save it
-            </p>
+              {tr("Tap a word to see what it means and save it")}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -420,11 +417,10 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
               <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: THEME.colors.accent.success }} />
             </span>
           )}
-          <span>{STATUS_HINT[status]}</span>
+          <span>{tr(STATUS_HINT[status])}</span>
           {(status === "blocked" || status === "no-mic") && onRetry && (
             <button type="button" onClick={onRetry} className="shrink-0 rounded-lg px-2 py-1 font-semibold hover:bg-white/10" style={{ color: THEME.colors.accent.primaryLight }}>
-              Try again
-            </button>
+              {tr("Try again")}</button>
           )}
         </div>
       )}
@@ -433,7 +429,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
         <button
           onClick={toggle}
           aria-pressed={enabled}
-          aria-label={enabled ? "Hide live captions" : "Show live captions"}
+          aria-label={enabled ? tr("Hide live captions") : tr("Show live captions")}
           className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] backdrop-blur-xl hover:bg-white/5"
           style={{
             background: "var(--sx-bg-14-14-26-800)",
@@ -442,13 +438,13 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
           }}
         >
           {enabled ? <Captions className="w-3.5 h-3.5" /> : <CaptionsOff className="w-3.5 h-3.5" />}
-          Captions {enabled ? "on" : "off"}
+          {tr("Captions")}{" "}{enabled ? tr("on") : tr("off")}
         </button>
         {enabled && (
           <button
             onClick={() => setShowTranscript((v) => !v)}
             aria-pressed={showTranscript}
-            aria-label={showTranscript ? "Hide the transcript" : "Show the transcript"}
+            aria-label={showTranscript ? tr("Hide the transcript") : tr("Show the transcript")}
             className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] backdrop-blur-xl hover:bg-white/5"
             style={{
               background: "var(--sx-bg-14-14-26-800)",
@@ -457,7 +453,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
             }}
           >
             <ScrollText className="w-3.5 h-3.5" />
-            Transcript{finals.length > 0 ? ` (${finals.length})` : ""}
+            {tr("Transcript")}{finals.length > 0 ? ` (${finals.length})` : ""}
           </button>
         )}
       </div>

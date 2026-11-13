@@ -1,6 +1,7 @@
 // apps/web/src/components/voice/shared/ReactionOverlay.tsx
-import React, { useRef } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { tr } from "../../../i18n/core";
 
 export interface StageReaction {
   id: string;
@@ -55,11 +56,13 @@ const FloatingReaction: React.FC<{
   reaction: StageReaction;
   lifetimeMs: number;
 }> = ({ reaction, lifetimeMs }) => {
-  // Pre-compute randomness once per mount so the motion stays consistent
-  const drift = useRef((Math.random() - 0.5) * 140).current;
-  const rotate = useRef((Math.random() - 0.5) * 70).current;
-  const scale = useRef(0.85 + Math.random() * 0.55).current;
-  const delay = useRef(Math.random() * 0.15).current;
+  // Pick the randomness once per mount so the motion stays consistent
+  const [{ drift, rotate, scale, delay }] = useState(() => ({
+    drift: (Math.random() - 0.5) * 140,
+    rotate: (Math.random() - 0.5) * 70,
+    scale: 0.85 + Math.random() * 0.55,
+    delay: Math.random() * 0.15,
+  }));
 
   return (
     <motion.div
@@ -94,7 +97,7 @@ const FloatingReaction: React.FC<{
         willChange: "transform, opacity",
       }}
     >
-      <span role="img" aria-label="reaction">
+      <span role="img" aria-label={tr("reaction")}>
         {reaction.emoji}
       </span>
     </motion.div>

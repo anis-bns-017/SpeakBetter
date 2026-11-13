@@ -30,9 +30,10 @@ import {
   Link,
 } from "lucide-react";
 
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import { useVoiceRoom, useLiveKitRoom, voiceApi } from "../../hooks/useVoice";
 import { cn } from "../../lib/utils";
+import { tr, msg } from "../../i18n/core";
 
 // ---- Types ----
 interface VoiceCallProps {
@@ -120,15 +121,15 @@ const ConnectionQuality: React.FC<{ quality: string }> = ({ quality }) => {
   const getQualityConfig = () => {
     switch (quality) {
       case "excellent":
-        return { color: THEME.status.live, label: "Excellent", bars: 4 };
+        return { color: THEME.status.live, label: msg("Excellent"), bars: 4 };
       case "good":
-        return { color: THEME.aurora.tertiary, label: "Good", bars: 3 };
+        return { color: THEME.aurora.tertiary, label: msg("Good"), bars: 3 };
       case "fair":
-        return { color: THEME.aurora.quaternary, label: "Fair", bars: 2 };
+        return { color: THEME.aurora.quaternary, label: msg("Fair"), bars: 2 };
       case "poor":
-        return { color: THEME.status.danger, label: "Poor", bars: 1 };
+        return { color: THEME.status.danger, label: msg("Poor"), bars: 1 };
       default:
-        return { color: THEME.text.muted, label: "Connecting...", bars: 1 };
+        return { color: THEME.text.muted, label: msg("Connecting..."), bars: 1 };
     }
   };
 
@@ -152,7 +153,7 @@ const ConnectionQuality: React.FC<{ quality: string }> = ({ quality }) => {
         ))}
       </div>
       <span className="text-[11px]" style={{ color: THEME.text.muted }}>
-        {config.label}
+        {tr(config.label)}
       </span>
     </div>
   );
@@ -200,15 +201,14 @@ const VideoTile: React.FC<{
             style={{ color: THEME.text.primary }}
           >
             {participant.name}
-            {isLocal && " (You)"}
+            {isLocal && tr(" (You)")}
           </p>
           {participant.isMuted && (
             <span
               className="text-xs flex items-center justify-center gap-1 mt-1"
               style={{ color: THEME.text.muted }}
             >
-              <MicOff className="w-3 h-3" /> Muted
-            </span>
+              <MicOff className="w-3 h-3" /> {" "}{tr("Muted")}</span>
           )}
           {isSpeaking && (
             <motion.div
@@ -221,8 +221,7 @@ const VideoTile: React.FC<{
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ background: THEME.aurora.secondary }}
               />
-              Speaking
-            </motion.div>
+              {tr("Speaking")}</motion.div>
           )}
         </div>
       </div>
@@ -310,9 +309,9 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
         setToken(res.data.token ?? null);
         setIsCallActive(true);
         setIsConnecting(false);
-        toast.success("🎧 Connected to call");
-      } catch (error) {
-        toast.error("Failed to join call");
+        toast.success(tr("🎧 Connected to call"));
+      } catch {
+        toast.error(tr("Failed to join call"));
         setIsConnecting(false);
         onEnd();
       }
@@ -343,9 +342,11 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
   } = liveKitResult;
 
   // Sync mute state
-  useEffect(() => {
+  const [syncedMute, setSyncedMute] = useState<boolean | null>(null);
+  if (liveKitIsMuted !== syncedMute) {
+    setSyncedMute(liveKitIsMuted);
     setIsMuted(liveKitIsMuted);
-  }, [liveKitIsMuted]);
+  }
 
   // Call duration timer
   useEffect(() => {
@@ -371,7 +372,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
       list.push({
         id: user.id,
         name: user.name || "You",
-        avatarUrl: (user as any).avatarUrl,
+        avatarUrl: user.avatarUrl,
         isMuted: isMuted,
         isVideoOn: isVideoOn,
         isScreenSharing: isScreenSharing,
@@ -383,7 +384,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
 
     // Add other participants from room
     if (room?.participants) {
-      room.participants.forEach((p: any) => {
+      room.participants.forEach((p) => {
         if (p.userId !== user?.id) {
           list.push({
             id: p.userId,
@@ -428,9 +429,9 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
       try {
         const res = await voiceApi.joinRoom(roomId);
         setToken(res.data.token ?? null);
-        toast.success("🎧 Connected to call");
-      } catch (error) {
-        toast.error("Failed to join call");
+        toast.success(tr("🎧 Connected to call"));
+      } catch {
+        toast.error(tr("Failed to join call"));
         onEnd();
       }
     };
@@ -451,7 +452,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
     const newState = !isVideoOn;
     setIsVideoOn(newState);
     if (onToggleVideo) onToggleVideo();
-    toast.info(newState ? "📷 Video on" : "📷 Video off");
+    toast.info(newState ? tr("📷 Video on") : tr("📷 Video off"));
   }, [isVideoOn, onToggleVideo]);
 
   const handleToggleScreenShare = useCallback(() => {
@@ -459,13 +460,13 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
     setIsScreenSharing(newState);
     if (onToggleScreenShare) onToggleScreenShare();
     toast.info(
-      newState ? "🖥️ Screen sharing started" : "🖥️ Screen sharing stopped",
+      newState ? tr("🖥️ Screen sharing started") : tr("🖥️ Screen sharing stopped"),
     );
   }, [isScreenSharing, onToggleScreenShare]);
 
   const handleToggleDeafen = useCallback(() => {
     setIsDeafened(!isDeafened);
-    toast.info(isDeafened ? "🔊 Audio restored" : "🔇 Audio muted");
+    toast.info(isDeafened ? tr("🔊 Audio restored") : tr("🔇 Audio muted"));
   }, [isDeafened]);
 
   const handleFullscreen = useCallback(() => {
@@ -487,9 +488,9 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
   const handleCopyLink = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast.success("📋 Call link copied!");
+      toast.success(tr("📋 Call link copied!"));
     } catch {
-      toast.error("Failed to copy link");
+      toast.error(tr("Failed to copy link"));
     }
   }, []);
 
@@ -505,7 +506,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
             style={{ color: THEME.aurora.primary }}
           />
           <p style={{ color: THEME.text.muted }}>
-            {isConnecting ? "Connecting to call..." : "Loading call..."}
+            {isConnecting ? tr("Connecting to call...") : tr("Loading call...")}
           </p>
         </div>
       </div>
@@ -523,20 +524,19 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
             className="w-10 h-10 mx-auto mb-3"
             style={{ color: THEME.status.danger }}
           />
-          <p style={{ color: THEME.text.muted }}>Call not found</p>
+          <p style={{ color: THEME.text.muted }}>{tr("Call not found")}</p>
           <button
             onClick={onEnd}
             className="mt-3 px-4 py-2 rounded-full text-sm font-medium"
             style={{ background: THEME.aurora.primary, color: "var(--sx-text-ffffff)" }}
           >
-            Go Back
-          </button>
+            {tr("Go Back")}</button>
         </div>
       </div>
     );
   }
 
-  const caller = room?.participants?.find((p: any) => p.userId !== user?.id);
+  const caller = room?.participants?.find((p) => p.userId !== user?.id);
 
   // Incoming call UI
   if (isIncoming) {
@@ -560,7 +560,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
           {callerAvatar ? (
             <img
               src={callerAvatar}
-              alt="Caller"
+              alt={tr("Caller")}
               className="w-full h-full rounded-full object-cover"
             />
           ) : (
@@ -572,11 +572,10 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
           className="text-2xl font-bold"
           style={{ color: THEME.text.primary }}
         >
-          {callerName || caller?.user?.name || "Unknown"}
+          {callerName || caller?.user?.name || tr("Unknown")}
         </h2>
         <p className="text-sm mt-1" style={{ color: THEME.text.muted }}>
-          Incoming call...
-        </p>
+          {tr("Incoming call...")}</p>
 
         <div className="flex items-center gap-4 mt-6">
           <motion.button
@@ -651,7 +650,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
                 className="text-sm font-semibold"
                 style={{ color: THEME.text.primary }}
               >
-                {room?.name || "Voice Call"}
+                {room?.name || tr("Voice Call")}
               </h3>
               <div
                 className="flex items-center gap-2 text-[11px]"
@@ -669,8 +668,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
                       color: THEME.aurora.quaternary,
                     }}
                   >
-                    Demo
-                  </span>
+                    {tr("Demo")}</span>
                 )}
               </div>
             </div>
@@ -684,7 +682,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
             style={{
               color: showParticipants ? THEME.aurora.primary : THEME.text.muted,
             }}
-            title="Toggle participants"
+            title={tr("Toggle participants")}
           >
             <Users className="w-4 h-4" />
             {participants.length > 0 && (
@@ -701,7 +699,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
             onClick={handleFullscreen}
             className="p-1.5 rounded-lg hover:bg-white/5 transition-all"
             style={{ color: THEME.text.muted }}
-            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            title={isFullscreen ? tr("Exit fullscreen") : tr("Fullscreen")}
           >
             {isFullscreen ? (
               <Minimize2 className="w-4 h-4" />
@@ -714,7 +712,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
             onClick={handleCopyLink}
             className="p-1.5 rounded-lg hover:bg-white/5 transition-all"
             style={{ color: THEME.text.muted }}
-            title="Copy link"
+            title={tr("Copy link")}
           >
             <Link className="w-4 h-4" />
           </button>
@@ -723,7 +721,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
             onClick={handleEndCall}
             className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
             style={{ color: THEME.status.danger }}
-            title="End call"
+            title={tr("End call")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -750,8 +748,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
           {participants.length === 0 && (
             <div className="flex items-center justify-center">
               <p style={{ color: THEME.text.muted }}>
-                Waiting for participants...
-              </p>
+                {tr("Waiting for participants...")}</p>
             </div>
           )}
         </div>
@@ -770,8 +767,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
                 className="text-[11px] font-medium uppercase tracking-wider mb-2"
                 style={{ color: THEME.text.muted }}
               >
-                Participants ({participants.length})
-              </p>
+                {tr("Participants ({length})", { length: participants.length })}</p>
               <div className="space-y-1.5">
                 {participants.map((p) => (
                   <div
@@ -792,7 +788,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
                       style={{ color: THEME.text.primary }}
                     >
                       {p.name}
-                      {p.id === user?.id && " (You)"}
+                      {p.id === user?.id && tr(" (You)")}
                     </span>
                     {p.isSpeaking && (
                       <span
@@ -922,8 +918,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
         className="absolute bottom-16 left-1/2 -translate-x-1/2 text-[9px]"
         style={{ color: THEME.text.muted }}
       >
-        ⌘+⇧+M mute · Space to unmute · Esc to leave
-      </div>
+        {tr("⌘+⇧+M mute · Space to unmute · Esc to leave")}</div>
     </div>
   );
 };

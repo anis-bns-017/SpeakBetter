@@ -4,6 +4,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Keyboard, X } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
+import { tr } from "../../../i18n/core";
 
 interface ShortcutPanelProps {
   isOpen: boolean;
@@ -46,8 +47,7 @@ export const ShortcutPanel: React.FC<ShortcutPanelProps> = ({
               className="font-semibold text-sm"
               style={{ color: THEME.colors.text.primary }}
             >
-              Keyboard shortcuts
-            </h3>
+              {tr("Keyboard shortcuts")}</h3>
           </div>
           <button
             onClick={onClose}

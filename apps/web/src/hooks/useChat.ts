@@ -3,6 +3,9 @@ import { apiClient, ensureFreshSession } from "../lib/api/client";
 import { toast } from "sonner";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
+import { asApiError, type ApiError } from "../lib/api/errors";
+import { tr } from "../i18n/core";
+import { API_URL } from "../lib/api/serverUrl";
 
 // ---------- Types ----------
 export interface Chat {
@@ -18,6 +21,8 @@ export interface Chat {
   /** Messages from others after my last read (computed by the server) */
   unreadCount?: number;
   updatedAt: string;
+  /** When the newest message arrived (falls back to updatedAt when missing) */
+  lastMessageAt?: string;
   /** My own state for this chat */
   isPinned?: boolean;
   isArchived?: boolean;
@@ -107,6 +112,8 @@ export interface ChatParticipant {
   role: string;
   isMuted?: boolean;
   isPinned?: boolean;
+  /** Sent by some list endpoints; missing means unknown */
+  isOnline?: boolean;
   joinedAt: string;
   lastReadAt?: string;
 }
@@ -433,7 +440,10 @@ const usePagedMessages = (
     enabled: !!id,
   });
 
+  // The caller rebuilds queryKey every render; its contents are what matter
+  const keyJson = JSON.stringify(queryKey);
   const fetchNextPage = useCallback(async () => {
+    const queryKey = JSON.parse(keyJson) as readonly unknown[];
     const current = queryClient.getQueryData<Message[]>(queryKey);
     const oldest = current?.[0];
     if (!oldest || isFetchingNextPage) return;
@@ -449,9 +459,7 @@ const usePagedMessages = (
     } finally {
       setIsFetchingNextPage(false);
     }
-    // queryKey is rebuilt each render; its contents are what matter
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryClient, JSON.stringify(queryKey), limit, fetchPage, isFetchingNextPage]);
+  }, [queryClient, keyJson, limit, fetchPage, isFetchingNextPage]);
 
   return { ...query, fetchNextPage, hasNextPage, isFetchingNextPage };
 };
@@ -499,8 +507,8 @@ export const useSendMessage = () => {
       }
       queryClient.invalidateQueries({ queryKey: ["chats"] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to send message");
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to send message"));
     },
   });
 };
@@ -543,8 +551,8 @@ export const useSendCommunityMessage = () => {
       );
       queryClient.invalidateQueries({ queryKey: ["communities"] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to send message");
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to send message"));
     },
   });
 };
@@ -561,10 +569,10 @@ export const useDeleteMessage = () => {
         isDeleted: true,
         content: "Message deleted",
       }));
-      toast.success("Message deleted");
+      toast.success(tr("Message deleted"));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to delete message");
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to delete message"));
     },
   });
 };
@@ -589,10 +597,10 @@ export const useEditMessage = () => {
         isEdited: true,
         updatedAt: message.updatedAt,
       }));
-      toast.success("Message edited");
+      toast.success(tr("Message edited"));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to edit message");
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to edit message"));
     },
   });
 };
@@ -615,10 +623,10 @@ export const usePinMessage = () => {
         ...oldMessage,
         isPinned: message.isPinned,
       }));
-      toast.success(message.isPinned ? "Message pinned" : "Message unpinned");
+      toast.success(message.isPinned ? tr("Message pinned") : tr("Message unpinned"));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to pin message");
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to pin message"));
     },
   });
 };
@@ -634,10 +642,10 @@ export const useCreatePrivateChat = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chats"] });
-      toast.success("Chat created");
+      toast.success(tr("Chat created"));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to start chat");
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to start chat"));
     },
   });
 };
@@ -651,10 +659,10 @@ export const useCreateGroupChat = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chats"] });
-      toast.success("Group created");
+      toast.success(tr("Group created"));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to create group");
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to create group"));
     },
   });
 };
@@ -676,9 +684,9 @@ export const useAddParticipants = () => {
       queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
       queryClient.invalidateQueries({ queryKey: ["chats"] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
-        error.response?.data?.message || "Failed to add participants",
+        error.response?.data?.message || tr("Failed to add participants"),
       );
     },
   });
@@ -701,9 +709,9 @@ export const useRemoveParticipant = () => {
       queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
       queryClient.invalidateQueries({ queryKey: ["chats"] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
-        error.response?.data?.message || "Failed to remove participant",
+        error.response?.data?.message || tr("Failed to remove participant"),
       );
     },
   });
@@ -733,8 +741,8 @@ export const useAddReaction = () => {
         ],
       }));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to add reaction");
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to add reaction"));
     },
   });
 };
@@ -759,8 +767,8 @@ export const useRemoveReaction = () => {
         ),
       }));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to remove reaction");
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to remove reaction"));
     },
   });
 };
@@ -809,9 +817,7 @@ export const useSearchMessages = (chatId: string, query: string) => {
  *   WebSocket after the initial authenticated handshake. This is more
  *   tolerant of browser/proxy/WebSocket differences during development.
  */
-const SOCKET_URL = (
-  import.meta.env.VITE_API_URL || "http://localhost:3000"
-).replace(/\/+$/, "");
+const SOCKET_URL = API_URL;
 
 const CHAT_SOCKET_NAMESPACE = "/chat";
 
@@ -891,6 +897,12 @@ export const useChatSocket = (
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [isConnected, setIsConnected] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  // The connection handlers are set up once per user; they read these for the latest values
+  const attemptsRef = useRef(0);
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  });
 
   const queryClient = useQueryClient();
 
@@ -899,8 +911,12 @@ export const useChatSocket = (
   const chatIdRef = useRef(chatId);
   useEffect(() => {
     chatIdRef.current = chatId;
-    setTypingUsers(new Set());
   }, [chatId]);
+  const [typingFor, setTypingFor] = useState(chatId);
+  if (typingFor !== chatId) {
+    setTypingFor(chatId);
+    setTypingUsers(new Set());
+  }
   const isConnectingRef = useRef(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1002,6 +1018,7 @@ export const useChatSocket = (
       isConnectingRef.current = false;
       reconnectToastShownRef.current = false;
       setIsConnected(true);
+      attemptsRef.current = 0;
       setReconnectAttempts(0);
 
       const currentChatId = chatIdRef.current;
@@ -1032,7 +1049,7 @@ export const useChatSocket = (
     };
 
     const handleConnectError = (error: Error) => {
-      const nextAttempt = reconnectAttempts + 1;
+      const nextAttempt = ++attemptsRef.current;
 
       console.error("❌ Chat socket connection error:", error.message);
       console.error("🔎 Socket transport:", s.io.engine?.transport?.name);
@@ -1056,7 +1073,7 @@ export const useChatSocket = (
 
       if (looksLikeAuthError && !reconnectToastShownRef.current) {
         reconnectToastShownRef.current = true;
-        toast.error("Chat authentication failed. Please sign in again.");
+        toast.error(tr("Chat authentication failed. Please sign in again."));
       }
     };
 
@@ -1066,6 +1083,7 @@ export const useChatSocket = (
       );
       isConnectingRef.current = false;
       setIsConnected(true);
+      attemptsRef.current = 0;
       setReconnectAttempts(0);
       reconnectToastShownRef.current = false;
     };
@@ -1097,10 +1115,10 @@ export const useChatSocket = (
     const handleIncomingMessage = (message: Message) => {
       console.log("📩 New message received:", message);
 
-      options?.onNewMessage?.(message);
+      optionsRef.current?.onNewMessage?.(message);
 
       if (message.senderId !== userId && message.metadata?.mentions?.includes(userId)) {
-        toast(`${message.sender?.name || "Someone"} mentioned you`, {
+        toast(tr("{value} mentioned you", { value: message.sender?.name || "Someone" }), {
           description: message.content?.slice(0, 80) || undefined,
         });
       }
@@ -1150,7 +1168,7 @@ export const useChatSocket = (
       }) => {
         console.log("🗑️ Message deleted:", data);
 
-        options?.onMessageDeleted?.(data);
+        optionsRef.current?.onMessageDeleted?.(data);
 
         const queryKey = data.chatId
           ? ["messages", data.chatId]
@@ -1179,7 +1197,7 @@ export const useChatSocket = (
     s.on("message:edited", (message: Message) => {
       console.log("✏️ Message edited:", message);
 
-      options?.onMessageEdited?.(message);
+      optionsRef.current?.onMessageEdited?.(message);
 
       const queryKey = message.chatId
         ? ["messages", message.chatId]
@@ -1247,7 +1265,7 @@ export const useChatSocket = (
     });
 
     s.on("scheduled:failed", (data: { chatId: string; error?: string }) => {
-      toast.error(`A scheduled message couldn't be sent${data.error ? `: ${data.error}` : ""}`);
+      toast.error(tr("A scheduled message couldn't be sent{value}", { value: data.error ? `: ${data.error}` : "" }));
       queryClient.invalidateQueries({ queryKey: ["scheduled", data.chatId] });
     });
 
@@ -1280,7 +1298,7 @@ export const useChatSocket = (
 
         console.log("❤️ New reaction:", reaction);
 
-        options?.onReaction?.(reaction);
+        optionsRef.current?.onReaction?.(reaction);
 
         if (!reaction?.messageId) return;
 
@@ -1335,7 +1353,7 @@ export const useChatSocket = (
     );
 
     s.on("reaction:error", (data: { error: string }) => {
-      toast.error(data.error || "Failed to add reaction");
+      toast.error(data.error || tr("Failed to add reaction"));
     });
 
     // ---------- Read Receipts ----------
@@ -1423,12 +1441,12 @@ export const useChatSocket = (
     // ---------- Socket Errors ----------
 
     s.on("message:error", (data: { error: string }) => {
-      toast.error(data.error || "Message failed to send");
+      toast.error(data.error || tr("Message failed to send"));
     });
 
     s.on("error", (data: { message: string }) => {
       console.error("❌ Socket error:", data);
-      toast.error(data?.message || "Socket error occurred");
+      toast.error(data?.message || tr("Socket error occurred"));
     });
 
     return () => {
@@ -1491,7 +1509,7 @@ export const useChatSocket = (
       setSocket(null);
       setIsConnected(false);
     };
-  }, [userId]);
+  }, [userId, getToken, queryClient]);
 
   // ---------- Socket Actions ----------
 
@@ -1503,7 +1521,7 @@ export const useChatSocket = (
       },
     ) => {
       if (!socketRef.current?.connected || !isConnected) {
-        toast.error("Not connected to chat server");
+        toast.error(tr("Not connected to chat server"));
         return;
       }
 
@@ -1526,7 +1544,7 @@ export const useChatSocket = (
       duration: number;
     }) => {
       if (!socketRef.current?.connected || !isConnected) {
-        toast.error("Not connected to chat server");
+        toast.error(tr("Not connected to chat server"));
         return;
       }
 
@@ -1587,7 +1605,7 @@ export const useChatSocket = (
   const deleteMessage = useCallback(
     (messageId: string) => {
       if (!socketRef.current?.connected || !isConnected) {
-        toast.error("Not connected to chat server");
+        toast.error(tr("Not connected to chat server"));
         return;
       }
 
@@ -1599,7 +1617,7 @@ export const useChatSocket = (
   const editMessage = useCallback(
     (messageId: string, content: string) => {
       if (!socketRef.current?.connected || !isConnected) {
-        toast.error("Not connected to chat server");
+        toast.error(tr("Not connected to chat server"));
         return;
       }
 
@@ -1611,7 +1629,7 @@ export const useChatSocket = (
   const pinMessage = useCallback(
     (messageId: string, pinned: boolean) => {
       if (!socketRef.current?.connected || !isConnected) {
-        toast.error("Not connected to chat server");
+        toast.error(tr("Not connected to chat server"));
         return;
       }
 
@@ -1628,7 +1646,7 @@ export const useChatSocket = (
       before?: string;
     }) => {
       if (!socketRef.current?.connected || !isConnected) {
-        toast.error("Not connected to chat server");
+        toast.error(tr("Not connected to chat server"));
         return;
       }
 
@@ -1641,7 +1659,7 @@ export const useChatSocket = (
   const acceptCorrection = useCallback(
     (messageId: string) => {
       if (!socketRef.current?.connected || !isConnected) {
-        toast.error("Not connected to chat server");
+        toast.error(tr("Not connected to chat server"));
         return;
       }
       socketRef.current.emit("correction:accept", { messageId });
@@ -1652,7 +1670,7 @@ export const useChatSocket = (
   const joinChat = useCallback(
     (chatIdToJoin: string) => {
       if (!socketRef.current?.connected || !isConnected) {
-        toast.error("Not connected to chat server");
+        toast.error(tr("Not connected to chat server"));
         return;
       }
 
@@ -1733,7 +1751,7 @@ export const useVoiceMessageRecorder = () => {
       const error = new Error(
         "This browser does not support microphone recording.",
       );
-      toast.error("Your browser does not support microphone recording.");
+      toast.error(tr("Your browser does not support microphone recording."));
       throw error;
     }
 
@@ -1789,7 +1807,8 @@ export const useVoiceMessageRecorder = () => {
       timerRef.current = setInterval(() => {
         setDuration((previous) => previous + 1);
       }, 1000);
-    } catch (error: any) {
+    } catch (caught) {
+      const error = asApiError(caught);
       console.error("❌ Failed to start recording:", error);
 
       stopTracks();
@@ -1799,16 +1818,16 @@ export const useVoiceMessageRecorder = () => {
 
       if (name === "NotAllowedError" || name === "PermissionDeniedError") {
         toast.error(
-          "Microphone permission was denied. Allow microphone access for this site and try again.",
+          tr("Microphone permission was denied. Allow microphone access for this site and try again."),
         );
       } else if (name === "NotFoundError") {
-        toast.error("No microphone was found.");
+        toast.error(tr("No microphone was found."));
       } else if (name === "NotReadableError") {
         toast.error(
-          "Your microphone is already being used by another application.",
+          tr("Your microphone is already being used by another application."),
         );
       } else {
-        toast.error("Failed to access microphone. Please check permissions.");
+        toast.error(tr("Failed to access microphone. Please check permissions."));
       }
 
       throw error;

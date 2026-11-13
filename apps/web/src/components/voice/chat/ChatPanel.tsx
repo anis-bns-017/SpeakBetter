@@ -61,6 +61,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getDraft, setDraft } from "../../../lib/chatDrafts";
+import { tr, msg } from "../../../i18n/core";
 
 // ============================================================
 // Theme (self-contained fallback)
@@ -182,11 +183,11 @@ interface BubbleActions {
 }
 
 const REPORT_REASONS = [
-  { id: "spam", label: "Spam or advertising" },
-  { id: "harassment", label: "Harassment or bullying" },
-  { id: "hate", label: "Hate speech" },
-  { id: "inappropriate", label: "Sexual or inappropriate content" },
-  { id: "other", label: "Something else" },
+  { id: "spam", label: msg("Spam or advertising") },
+  { id: "harassment", label: msg("Harassment or bullying") },
+  { id: "hate", label: msg("Hate speech") },
+  { id: "inappropriate", label: msg("Sexual or inappropriate content") },
+  { id: "other", label: msg("Something else") },
 ] as const;
 
 interface ChatPanelProps {
@@ -657,9 +658,9 @@ const IconButton: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    aria-label={label}
+    aria-label={tr(label)}
     aria-pressed={active}
-    title={label}
+    title={tr(label)}
     className={cn(
       "w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60",
       className,
@@ -727,7 +728,7 @@ const MenuItem: React.FC<{
     style={{ color: color ?? (danger ? THEME.colors.accent.error : THEME.colors.text.secondary) }}
   >
     <Icon className="w-4 h-4 shrink-0" />
-    {label}
+    {tr(label)}
   </button>
 );
 
@@ -770,7 +771,7 @@ const AttachmentList: React.FC<{ attachments: Attachment[]; onOpenImage?: (attac
                 onOpenImage(att);
               }
             }}
-            aria-label={`Open ${att.name || "image"}`}
+            aria-label={tr("Open {value}", { value: att.name || "image" })}
           >
             <img src={att.url} alt={att.name || "Image attachment"} loading="lazy" className="w-full max-h-56 min-h-16 object-cover bg-black/20 transition-transform duration-300 group-hover/attachment:scale-[1.03]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             {att.type === "gif" && <span className="absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[11px] font-bold bg-black/60 text-white">GIF</span>}
@@ -1160,7 +1161,7 @@ const MessageBubble = React.memo(function MessageBubble({
                 </button>
               </div>
               <p className="text-sm leading-relaxed whitespace-pre-wrap break-words" style={{ color: onAccent ? "var(--sx-text-255-255-255-950)" : THEME.colors.text.secondary }}>
-                {translated.text}
+                {tr(translated.text)}
               </p>
             </div>
           )}
@@ -1214,8 +1215,8 @@ const MessageBubble = React.memo(function MessageBubble({
                     background: reacted ? "rgba(142,163,232,0.22)" : "var(--sx-bg-255-255-255-50)",
                     borderColor: reacted ? "rgba(142,163,232,0.55)" : THEME.colors.border.primary,
                   }}
-                  title={tip}
-                  aria-label={tip}
+                  title={tr(tip)}
+                  aria-label={tr(tip)}
                   aria-pressed={reacted}
                 >
                   <span className="leading-none">{emoji}</span>
@@ -1277,7 +1278,7 @@ const MessageBubble = React.memo(function MessageBubble({
                         role="menuitem"
                         onClick={() => { actions.react(message, emoji); closeAll(); }}
                         className="w-8 h-8 flex items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-white/10 focus-visible:outline-none focus-visible:bg-white/10"
-                        aria-label={`React with ${emoji}`}
+                        aria-label={tr("React with {emoji}", { emoji })}
                       >
                         {emoji}
                       </button>
@@ -1351,7 +1352,7 @@ const DateSeparator: React.FC<{ label: string }> = ({ label }) => (
       className="text-[11px] font-semibold px-3 py-1 rounded-full border shadow-md backdrop-blur-md"
       style={{ color: THEME.colors.text.secondary, borderColor: THEME.colors.border.primary, background: "var(--sx-bg-20-20-34-850)" }}
     >
-      {label}
+      {tr(label)}
     </span>
   </div>
 );
@@ -1380,7 +1381,7 @@ const TypingIndicator: React.FC<{ users: string[] }> = ({ users }) => {
                 <motion.span key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: THEME.colors.accent.primary }} animate={{ y: [0, -3, 0], opacity: [0.4, 1, 0.4] }} transition={{ duration: 0.8, delay: i * 0.13, repeat: Infinity }} />
               ))}
             </span>
-            <span className="text-[11px] truncate" style={{ color: THEME.colors.text.muted }}>{label}…</span>
+            <span className="text-[11px] truncate" style={{ color: THEME.colors.text.muted }}>{tr(label)}…</span>
           </motion.span>
         )}
       </AnimatePresence>
@@ -1399,7 +1400,7 @@ const JumpToLatest: React.FC<{ count: number; onClick: () => void }> = ({ count,
     style={{ background: count > 0 ? OWN_BUBBLE_GRADIENT : THEME.colors.background.card, color: THEME.colors.text.primary, borderColor: count > 0 ? "transparent" : THEME.colors.border.strong }}
   >
     <ArrowDown className="w-3.5 h-3.5" />
-    {count > 0 ? `${count} new message${count === 1 ? "" : "s"}` : "Jump to latest"}
+    {count > 0 ? tr("{count} new message{value}", { count, value: count === 1 ? "" : "s" }) : "Jump to latest"}
   </motion.button>
 );
 
@@ -1534,7 +1535,7 @@ const ReportDialog: React.FC<{
           {REPORT_REASONS.map((r) => (
             <label key={r.id} className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-white/[0.05] text-[13px]" style={{ color: THEME.colors.text.secondary, background: reason === r.id ? "rgba(248,113,113,0.08)" : undefined }}>
               <input type="radio" name="report-reason" value={r.id} checked={reason === r.id} onChange={() => setReason(r.id)} className="accent-red-400" />
-              {r.label}
+              {tr(r.label)}
             </label>
           ))}
         </div>
@@ -1792,7 +1793,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     toast("Message deleted", {
       duration: 4500,
       action: {
-        label: "Undo",
+        label: msg("Undo"),
         onClick: () => {
           const timer = deleteTimers.current.get(id);
           if (timer) window.clearTimeout(timer);
@@ -1829,7 +1830,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     translate(message.id)
       .then((result) => {
         if (result.unchanged) {
-          toast.info(`Already in ${result.language}`);
+          toast.info(tr("Already in {language}", { language: result.language }));
           setTranslations((prev) => {
             const next = { ...prev };
             delete next[message.id];
@@ -2337,7 +2338,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               className="h-7 mr-1 pl-1.5 pr-2 rounded-full flex items-center gap-1 text-[11px] font-semibold tabular-nums border transition-colors hover:brightness-125"
               style={{ color: THEME.colors.accent.warning, borderColor: "rgba(251,191,36,0.35)", background: "rgba(251,191,36,0.1)" }}
               title="Jump to messages that mention you"
-              aria-label={mentionIds.length === 1 ? "1 message mentions you" : `${mentionIds.length} messages mention you`}
+              aria-label={mentionIds.length === 1 ? "1 message mentions you" : tr("{mentionIds} messages mention you", { mentionIds: mentionIds.length })}
             >
               <AtSign className="w-3.5 h-3.5" /> {mentionIds.length}
             </button>
@@ -2467,7 +2468,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 {showPinnedOnly ? <Pin className="w-6 h-6" style={{ color: THEME.colors.accent.warning }} /> : normalizedSearch ? <Search className="w-6 h-6" style={{ color: THEME.colors.accent.primary }} /> : <MessagesSquare className="w-6 h-6" style={{ color: THEME.colors.accent.primary }} />}
               </div>
               <p className="text-sm font-semibold" style={{ color: THEME.colors.text.primary }}>
-                {showPinnedOnly ? "No pinned messages" : normalizedSearch ? `No results for “${chatSearch.trim()}”` : "No messages yet"}
+                {showPinnedOnly ? "No pinned messages" : normalizedSearch ? tr("No results for “{chatSearch}”", { chatSearch: chatSearch.trim() }) : "No messages yet"}
               </p>
               <p className="text-xs mt-1 max-w-[260px] leading-relaxed" style={{ color: THEME.colors.text.muted }}>
                 {showPinnedOnly ? "Hosts can pin important messages so everyone can find them." : normalizedSearch ? "Try another word or clear the search." : "Break the ice — say hello and start practicing together."}
@@ -2496,8 +2497,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             <>
             {hasMoreHistory && !isFiltering && onLoadOlder && <HistoryLoader loading={loadingOlder} onLoad={() => void loadOlder()} />}
             {groupedMessages.map((dateGroup) => (
-              <section key={dateGroup.key} aria-label={dateGroup.label}>
-                <DateSeparator label={dateGroup.label} />
+              <section key={dateGroup.key} aria-label={tr(dateGroup.label)}>
+                <DateSeparator label={tr(dateGroup.label)} />
                 {dateGroup.messages.map((senderGroup) =>
                   senderGroup.messages.map((msg, msgIndex) => (
                     <React.Fragment key={msg.id}>
@@ -2589,7 +2590,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     key={emoji}
                     onClick={() => handleEmojiSelect(emoji)}
                     className="h-9 rounded-lg flex items-center justify-center text-xl transition-transform hover:bg-white/10 hover:scale-110 focus-visible:outline-none focus-visible:bg-white/10"
-                    aria-label={`Insert ${emoji}`}
+                    aria-label={tr("Insert {emoji}", { emoji })}
                   >
                     {emoji}
                   </button>
@@ -2661,7 +2662,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             onKeyDown={handleTextareaKeyDown}
             onClick={(e) => updateMentionState(e.currentTarget.value, e.currentTarget.selectionStart ?? 0)}
             onBlur={() => window.setTimeout(() => setMention(null), 120)}
-            placeholder={replyTo ? `Reply to ${resolveSenderName(replyTo)}…` : "Write a message…"}
+            placeholder={replyTo ? tr("Reply to {value}…", { value: resolveSenderName(replyTo) }) : "Write a message…"}
             className="flex-1 min-w-0 self-center bg-transparent px-1.5 py-2 text-sm outline-none resize-none leading-5 placeholder:text-[var(--sx-text-6b6b80)]"
             style={{ color: THEME.colors.text.primary, maxHeight: COMPOSER_MAX_HEIGHT }}
             aria-label="Chat message"

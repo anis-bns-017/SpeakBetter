@@ -1,10 +1,13 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Param,
   Get,
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Request,
   Req,
   Res,
@@ -21,10 +24,113 @@ import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
 import { RateLimit, RateLimitGuard } from '../common/rate-limit.guard';
+import { PasswordResetService } from './password-reset.service';
+import { DeleteAccountDto, ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
+import { AccountDeletionService } from './account-deletion.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly passwordReset: PasswordResetService,
+    private readonly accountDeletion: AccountDeletionService,
+  ) {}
+
+  // ===============================
+  // WHERE I'M SIGNED IN
+  // ===============================
+
+  /** The login (session family) this request belongs to */
+  private async currentFamily(req: ExpressRequest): Promise<string | null> {
+    const header = req.headers.authorization;
+    const token = req.cookies?.accessToken || (header?.startsWith('Bearer ') ? header.slice(7) : null);
+    if (!token) return null;
+    return (await this.authService.authenticateAccessToken(token))?.familyId ?? null;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions')
+  async sessions(@Request() req: ExpressRequest) {
+    return this.authService.listSessions((req.user as { id: string }).id, await this.currentFamily(req));
+  }
+
+  /** Signs out every other device, keeping this one signed in */
+  @UseGuards(JwtAuthGuard, RateLimitGuard)
+  @RateLimit({ name: 'sign-out-others', limit: 10, windowMs: 60 * 60_000 })
+  @Post('sessions/sign-out-others')
+  @HttpCode(HttpStatus.OK)
+  async signOutOthers(@Request() req: ExpressRequest) {
+    return this.authService.logoutOthers((req.user as { id: string }).id, await this.currentFamily(req));
+  }
+
+  /** Signs out one other device */
+  @UseGuards(JwtAuthGuard)
+  @Post('sessions/:id/sign-out')
+  @HttpCode(HttpStatus.OK)
+  async signOutSession(@Request() req: ExpressRequest, @Param('id') id: string) {
+    const current = await this.currentFamily(req);
+    if (id === current) throw new BadRequestException('Use "Sign out" to sign out of this device');
+    return this.authService.logoutFamily((req.user as { id: string }).id, id);
+  }
+
+  // ===============================
+  // DELETE MY ACCOUNT
+  // ===============================
+
+  /** What deleting your account would remove, and how you'll confirm it */
+  @UseGuards(JwtAuthGuard)
+  @Get('me/deletion')
+  deletionPreview(@Request() req: ExpressRequest) {
+    return this.accountDeletion.preview((req.user as { id: string }).id);
+  }
+
+  /** Deletes your account for good (asks for your password, or your email if you sign in with Google) */
+  @UseGuards(JwtAuthGuard, RateLimitGuard)
+  @RateLimit({ name: 'delete-account', limit: 5, windowMs: 60 * 60_000 })
+  @Post('me/delete')
+  @HttpCode(HttpStatus.OK)
+  async deleteAccount(
+    @Request() req: ExpressRequest,
+    @Body() dto: DeleteAccountDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.accountDeletion.remove((req.user as { id: string }).id, dto);
+    this.clearAuthCookies(res);
+    return result;
+  }
+
+  // ===============================
+  // FORGOT / RESET PASSWORD
+  // ===============================
+
+  /** Emails a one-time reset link. Always the same answer, so it can't reveal who has an account. */
+  @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'forgot-password', limit: 10, windowMs: 60 * 60_000, byBodyField: { field: 'email', limit: 3 } })
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: ExpressRequest) {
+    return this.passwordReset.request(dto.email, req.ip);
+  }
+
+  /** Whether a reset link still works (so the page can say so before you type) */
+  @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'reset-check', limit: 60, windowMs: 60_000 })
+  @Get('reset-password/check')
+  checkResetToken(@Query('token') token: string) {
+    return this.passwordReset.check(token);
+  }
+
+  /** Sets a new password from a reset link, then signs the account out everywhere */
+  @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'reset-password', limit: 20, windowMs: 60 * 60_000 })
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.passwordReset.reset(dto.token, dto.password);
+  }
 
   @Public()
   @UseGuards(RateLimitGuard)

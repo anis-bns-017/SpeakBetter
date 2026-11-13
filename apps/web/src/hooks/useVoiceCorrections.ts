@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { toast } from "sonner";
+import { tr } from "../i18n/core";
 
 export type CorrectionCategory =
   | "grammar"
@@ -119,7 +120,7 @@ export const useVoiceCorrections = ({
 
     const handleFailed = (data: { id?: string; message?: string }) => {
       if (data?.id) setCorrections((prev) => prev.filter((c) => c.id !== data.id));
-      toast.error(data?.message || "Could not send correction");
+      toast.error(data?.message || tr("Could not send correction"));
     };
 
     socket.on("voice:correction", handleNew);

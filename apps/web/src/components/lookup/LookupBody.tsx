@@ -7,6 +7,7 @@ import {
   type LookupMeaning,
   type LookupState,
 } from '../../hooks/useLookup';
+import { tr } from "../../i18n/core";
 
 /** The sentence you selected a word from, translated whole */
 const SentenceTranslation: React.FC<{ sentence: string; language: string; muted: string; body: string }> = ({
@@ -19,12 +20,11 @@ const SentenceTranslation: React.FC<{ sentence: string; language: string; muted:
   if (query.isFetching && !query.data) {
     return (
       <p className={`flex items-center gap-2 ${muted}`}>
-        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Translating…
-      </p>
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> {" "}{tr("Translating…")}</p>
     );
   }
   if (query.isError || !query.data?.translation) {
-    return <p className={muted}>{query.data?.notice === 'limit' ? 'The free translation limit is reached for now.' : 'Could not translate that sentence.'}</p>;
+    return <p className={muted}>{query.data?.notice === 'limit' ? tr("The free translation limit is reached for now.") : tr("Could not translate that sentence.")}</p>;
   }
   return (
     <p className={body} lang={query.data.target?.code}>
@@ -80,11 +80,11 @@ export const LookupBody: React.FC<{ lookup: LookupState; tone?: 'auto' | 'dark';
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          aria-label="Show the meaning in"
+          aria-label={tr("Show the meaning in")}
           className={`min-w-0 flex-1 rounded-lg border px-1.5 py-1 text-[11px] outline-none ${field}`}
         >
-          {!language && <option value="">Choose your language…</option>}
-          <option value={NO_TRANSLATION}>English only (no translation)</option>
+          {!language && <option value="">{tr("Choose your language…")}</option>}
+          <option value={NO_TRANSLATION}>{tr("English only (no translation)")}</option>
           {languages.map((l) => (
             <option key={l.code} value={l.code}>
               {l.name}
@@ -96,10 +96,9 @@ export const LookupBody: React.FC<{ lookup: LookupState; tone?: 'auto' | 'dark';
       <div className="mt-2.5">
         {isLoading && (
           <p className={`flex items-center gap-2 ${muted}`}>
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Looking it up…
-          </p>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> {" "}{tr("Looking it up…")}</p>
         )}
-        {isError && <p className={muted}>Could not look that up. Check your connection and try again.</p>}
+        {isError && <p className={muted}>{tr("Could not look that up. Check your connection and try again.")}</p>}
 
         {data?.translation && (
           <p className={`text-[15px] font-semibold ${strong}`} lang={data.target?.code}>
@@ -108,8 +107,7 @@ export const LookupBody: React.FC<{ lookup: LookupState; tone?: 'auto' | 'dark';
         )}
         {data?.notice === 'no-language' && !data.translation && (
           <p className={muted}>
-            Choose your language above to see the translation.
-            {suggestion && (
+            {tr("Choose your language above to see the translation.")}{suggestion && (
               <>
                 {' '}
                 <button
@@ -117,20 +115,20 @@ export const LookupBody: React.FC<{ lookup: LookupState; tone?: 'auto' | 'dark';
                   onClick={() => setLanguage(suggestion.code)}
                   className="font-semibold text-indigo-500 hover:underline"
                 >
-                  Show in {suggestion.name}
+                  {tr("Show in")}{" "}{suggestion.name}
                 </button>
               </>
             )}
           </p>
         )}
         {data?.notice === 'limit' && (
-          <p className={muted}>The free translation limit is reached for now. The English meaning still works.</p>
+          <p className={muted}>{tr("The free translation limit is reached for now. The English meaning still works.")}</p>
         )}
-        {data?.notice === 'unavailable' && <p className={muted}>The translation service did not answer.</p>}
+        {data?.notice === 'unavailable' && <p className={muted}>{tr("The translation service did not answer.")}</p>}
 
         {data?.baseForm && (
           <p className={`mt-1.5 text-xs ${muted}`}>
-            A form of <span className={`font-semibold ${body}`}>{data.baseForm}</span>
+            {tr("A form of")}{" "}<span className={`font-semibold ${body}`}>{data.baseForm}</span>
           </p>
         )}
 
@@ -156,7 +154,7 @@ export const LookupBody: React.FC<{ lookup: LookupState; tone?: 'auto' | 'dark';
           <div className="mt-2 space-y-1.5">
             {data.synonyms.length > 0 && (
               <div className="flex flex-wrap items-center gap-1">
-                <span className={`text-[11px] font-semibold ${muted}`}>Similar</span>
+                <span className={`text-[11px] font-semibold ${muted}`}>{tr("Similar")}</span>
                 {data.synonyms.map((w) => (
                   <span key={w} className={`rounded-full px-2 py-0.5 text-[11px] ${chip}`}>
                     {w}
@@ -166,7 +164,7 @@ export const LookupBody: React.FC<{ lookup: LookupState; tone?: 'auto' | 'dark';
             )}
             {data.antonyms.length > 0 && (
               <div className="flex flex-wrap items-center gap-1">
-                <span className={`text-[11px] font-semibold ${muted}`}>Opposite</span>
+                <span className={`text-[11px] font-semibold ${muted}`}>{tr("Opposite")}</span>
                 {data.antonyms.map((w) => (
                   <span key={w} className={`rounded-full px-2 py-0.5 text-[11px] ${chip}`}>
                     {w}
@@ -178,7 +176,7 @@ export const LookupBody: React.FC<{ lookup: LookupState; tone?: 'auto' | 'dark';
         )}
 
         {nothing && !data.notice && (
-          <p className={muted}>{data.kind === 'word' ? 'No meaning found for that word.' : 'No translation found.'}</p>
+          <p className={muted}>{data.kind === 'word' ? tr("No meaning found for that word.") : tr("No translation found.")}</p>
         )}
       </div>
 
@@ -194,11 +192,10 @@ export const LookupBody: React.FC<{ lookup: LookupState; tone?: 'auto' | 'dark';
               type="button"
               onClick={() => setShowSentence(true)}
               disabled={!language || language === NO_TRANSLATION}
-              title={!language || language === NO_TRANSLATION ? 'Choose your language first' : undefined}
+              title={!language || language === NO_TRANSLATION ? tr("Choose your language first") : undefined}
               className="mt-1 text-xs font-semibold text-indigo-500 hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
             >
-              Translate the whole sentence
-            </button>
+              {tr("Translate the whole sentence")}</button>
           )}
         </div>
       )}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useCommunities, useCreateCommunity, useJoinCommunity, useLeaveCommunity } from '../hooks/useCommunities';
+import { useCommunities, useCreateCommunity, useJoinCommunity, useLeaveCommunity, type Community } from '../hooks/useCommunities';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -17,11 +17,13 @@ import {
   KeyRound,
   Sparkles,
 } from 'lucide-react';
+import { asApiError } from "../lib/api/errors";
+import { tr, msg } from "../i18n/core";
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  PUBLIC: { label: 'Public', icon: Globe, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  PRIVATE: { label: 'Private', icon: Lock, color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  RESTRICTED: { label: 'Restricted', icon: ShieldCheck, color: 'bg-sky-50 text-sky-700 border-sky-200' },
+  PUBLIC: { label: msg("Public"), icon: Globe, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  PRIVATE: { label: msg("Private"), icon: Lock, color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  RESTRICTED: { label: msg("Restricted"), icon: ShieldCheck, color: 'bg-sky-50 text-sky-700 border-sky-200' },
 };
 
 function initials(name: string) {
@@ -40,6 +42,13 @@ function hueFromString(str: string) {
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
   return Math.abs(hash) % 360;
 }
+
+/** Communities whose name contains the search text */
+const filterCommunities = (list: Community[] | undefined, search: string) => {
+  if (!list) return [];
+  const q = search.trim().toLowerCase();
+  return q ? list.filter((c) => c.name.toLowerCase().includes(q)) : list;
+};
 
 export const CommunitiesPage = () => {
   const navigate = useNavigate();
@@ -63,33 +72,35 @@ export const CommunitiesPage = () => {
       const community = await createCommunity.mutateAsync(formData);
       setShowCreate(false);
       setFormData({ name: '', description: '', type: 'PUBLIC' });
-      toast.success('Community created');
+      toast.success(tr("Community created"));
       navigate(`/communities/${community.id}`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to create community');
+    } catch (caught) {
+      const err = asApiError(caught);
+      toast.error(err?.response?.data?.message || tr("Failed to create community"));
     }
   };
 
   const handleJoin = async (communityId: string) => {
     try {
       await joinCommunity.mutateAsync(communityId);
-      toast.success('Joined community');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to join');
+      toast.success(tr("Joined community"));
+    } catch (caught) {
+      const err = asApiError(caught);
+      toast.error(err?.response?.data?.message || tr("Failed to join"));
     }
   };
 
   const handleLeave = async (communityId: string) => {
     if (window.confirm('Leave this community?')) {
       await leaveCommunity.mutateAsync(communityId);
-      toast.success('Left community');
+      toast.success(tr("Left community"));
     }
   };
 
   const handleJoinWithCode = () => {
     const code = inviteCode.trim();
     if (!code) {
-      toast.error('Enter an invite code first');
+      toast.error(tr("Enter an invite code first"));
       return;
     }
     // SPA navigation instead of a full page reload — assumes a
@@ -97,16 +108,9 @@ export const CommunitiesPage = () => {
     navigate(`/communities/join/${code}`);
   };
 
-  const filterList = (list: any[] | undefined) => {
-    if (!list) return [];
-    if (!search.trim()) return list;
-    const q = search.trim().toLowerCase();
-    return list.filter((c) => c.name.toLowerCase().includes(q));
-  };
-
-  const owned = useMemo(() => filterList(data?.owned), [data?.owned, search]);
-  const joined = useMemo(() => filterList(data?.joined), [data?.joined, search]);
-  const recommended = useMemo(() => filterList(data?.recommended), [data?.recommended, search]);
+  const owned = useMemo(() => filterCommunities(data?.owned, search), [data?.owned, search]);
+  const joined = useMemo(() => filterCommunities(data?.joined, search), [data?.joined, search]);
+  const recommended = useMemo(() => filterCommunities(data?.recommended, search), [data?.recommended, search]);
 
   const isEmpty =
     !isLoading &&
@@ -122,11 +126,9 @@ export const CommunitiesPage = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">
-              Communities
-            </h1>
+              {tr("Communities")}</h1>
             <p className="text-sm text-slate-500 mt-1">
-              Find your people, by language and interest
-            </p>
+              {tr("Find your people, by language and interest")}</p>
           </div>
 
           <button
@@ -134,8 +136,7 @@ export const CommunitiesPage = () => {
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-sm shadow-indigo-200 transition-all shrink-0"
           >
             <Plus className="w-4 h-4" />
-            Create Community
-          </button>
+            {tr("Create Community")}</button>
         </div>
 
         {/* Search + invite code */}
@@ -146,7 +147,7 @@ export const CommunitiesPage = () => {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search communities"
+              placeholder={tr("Search communities")}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-line bg-surface focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-sm transition-all"
             />
           </div>
@@ -155,7 +156,7 @@ export const CommunitiesPage = () => {
               <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Invite code"
+                placeholder={tr("Invite code")}
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleJoinWithCode()}
@@ -166,8 +167,7 @@ export const CommunitiesPage = () => {
               onClick={handleJoinWithCode}
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-colors shrink-0"
             >
-              Join
-            </button>
+              {tr("Join")}</button>
           </div>
         </div>
 
@@ -182,7 +182,7 @@ export const CommunitiesPage = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-slate-800">Create a community</h2>
+                <h2 className="text-lg font-bold text-slate-800">{tr("Create a community")}</h2>
                 <button
                   onClick={() => setShowCreate(false)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
@@ -193,12 +193,12 @@ export const CommunitiesPage = () => {
 
               <form onSubmit={handleCreate} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Name</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">{tr("Name")}</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g. Spanish Learners Hub"
+                    placeholder={tr("e.g. Spanish Learners Hub")}
                     className="w-full px-4 py-2.5 rounded-xl border border-line bg-slate-50 focus:bg-surface focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-sm transition-all"
                     required
                   />
@@ -206,19 +206,18 @@ export const CommunitiesPage = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    Description
-                  </label>
+                    {tr("Description")}</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="What's this community about?"
+                    placeholder={tr("What's this community about?")}
                     rows={3}
                     className="w-full px-4 py-2.5 rounded-xl border border-line bg-slate-50 focus:bg-surface focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-sm resize-none transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Type</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">{tr("Type")}</label>
                   <div className="grid grid-cols-3 gap-2">
                     {(['PUBLIC', 'PRIVATE', 'RESTRICTED'] as const).map((type) => {
                       const cfg = TYPE_CONFIG[type];
@@ -236,7 +235,7 @@ export const CommunitiesPage = () => {
                           }`}
                         >
                           <Icon className="w-4 h-4" />
-                          {cfg.label}
+                          {tr(cfg.label)}
                         </button>
                       );
                     })}
@@ -249,15 +248,14 @@ export const CommunitiesPage = () => {
                     onClick={() => setShowCreate(false)}
                     className="px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
                   >
-                    Cancel
-                  </button>
+                    {tr("Cancel")}</button>
                   <button
                     type="submit"
                     disabled={createCommunity.isPending}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold rounded-xl text-sm transition-all"
                   >
                     <Sparkles className="w-4 h-4" />
-                    {createCommunity.isPending ? 'Creating…' : 'Create'}
+                    {createCommunity.isPending ? tr("Creating…") : tr("Create")}
                   </button>
                 </div>
               </form>
@@ -284,17 +282,15 @@ export const CommunitiesPage = () => {
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-5">
               <Hash className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-800 mb-2">No communities yet</h3>
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">{tr("No communities yet")}</h3>
             <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6">
-              Create your first community, or join one with an invite code.
-            </p>
+              {tr("Create your first community, or join one with an invite code.")}</p>
             <button
               onClick={() => setShowCreate(true)}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm transition-all"
             >
               <Plus className="w-4 h-4" />
-              Create your first community
-            </button>
+              {tr("Create your first community")}</button>
           </div>
         )}
 
@@ -302,7 +298,7 @@ export const CommunitiesPage = () => {
           <div className="space-y-8">
             {owned.length > 0 && (
               <CommunitySection
-                title="Owned by You"
+                title={tr("Owned by You")}
                 icon={Crown}
                 communities={owned}
                 isOwnerSection
@@ -314,7 +310,7 @@ export const CommunitiesPage = () => {
 
             {joined.length > 0 && (
               <CommunitySection
-                title="Joined"
+                title={tr("Joined")}
                 icon={Hash}
                 communities={joined}
                 isJoinedSection
@@ -326,7 +322,7 @@ export const CommunitiesPage = () => {
 
             {recommended.length > 0 && (
               <CommunitySection
-                title="Recommended"
+                title={tr("Recommended")}
                 icon={Globe}
                 communities={recommended}
                 onJoin={handleJoin}
@@ -337,8 +333,7 @@ export const CommunitiesPage = () => {
 
             {!owned.length && !joined.length && !recommended.length && search.trim() && (
               <div className="text-center py-12 text-slate-400 text-sm">
-                No communities match "{search}"
-              </div>
+                {tr("No communities match \"{search}\"", { search })}</div>
             )}
           </div>
         )}
@@ -351,7 +346,7 @@ export const CommunitiesPage = () => {
 const CommunitySection: React.FC<{
   title: string;
   icon: React.ElementType;
-  communities: any[];
+  communities: Community[];
   isOwnerSection?: boolean;
   isJoinedSection?: boolean;
   onJoin: (id: string) => void;
@@ -361,7 +356,7 @@ const CommunitySection: React.FC<{
   <div>
     <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
       <SectionIcon className="w-4 h-4" />
-      {title}
+      {tr(title)}
       <span className="text-slate-300 font-normal normal-case">({communities.length})</span>
     </h2>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -382,7 +377,7 @@ const CommunitySection: React.FC<{
 
 // ---------- Card ----------
 const CommunityCard: React.FC<{
-  community: any;
+  community: Community;
   isOwner?: boolean;
   isJoined?: boolean;
   onJoin: (id: string) => void;
@@ -421,18 +416,16 @@ const CommunityCard: React.FC<{
             <h3 className="font-semibold text-slate-800 truncate">{community.name}</h3>
             {isOwner && (
               <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
-                <Crown className="w-2.5 h-2.5" /> Owner
-              </span>
+                <Crown className="w-2.5 h-2.5" /> {" "}{tr("Owner")}</span>
             )}
             {isJoined && !isOwner && (
               <span className="text-[11px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
-                Joined
-              </span>
+                {tr("Joined")}</span>
             )}
           </div>
 
           {community.description && (
-            <p className="text-sm text-slate-500 line-clamp-2 mb-2">{community.description}</p>
+            <p className="text-sm text-slate-500 line-clamp-2 mb-2">{tr(community.description)}</p>
           )}
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -440,7 +433,7 @@ const CommunityCard: React.FC<{
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-medium ${typeCfg.color}`}
             >
               <TypeIcon className="w-3 h-3" />
-              {typeCfg.label}
+              {tr(typeCfg.label)}
             </span>
             <span className="inline-flex items-center gap-1 text-slate-400">
               <Users className="w-3 h-3" />
@@ -463,22 +456,19 @@ const CommunityCard: React.FC<{
             onClick={() => onJoin(community.id)}
             className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors"
           >
-            Join
-          </button>
+            {tr("Join")}</button>
         )}
         {!isOwner && !isJoined && !canJoinDirectly && (
           <span className="text-xs text-slate-400 flex items-center gap-1">
             <Lock className="w-3 h-3" />
-            Invite only
-          </span>
+            {tr("Invite only")}</span>
         )}
         {isJoined && !isOwner && (
           <button
             onClick={() => onLeave(community.id)}
             className="px-4 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors"
           >
-            Leave
-          </button>
+            {tr("Leave")}</button>
         )}
         <button
           onClick={() => onOpen(community.id)}

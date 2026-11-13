@@ -29,7 +29,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import {
   apiErrorMessage,
   chatApi,
@@ -41,15 +41,17 @@ import {
   type Message,
 } from "../../hooks/useChat";
 import { relockChat } from "../../lib/chatUnlock";
-import { ChatPinDialog, DISAPPEARING_CHOICES, MUTE_OPTIONS } from "./ChatDialogs";
+import { ChatPinDialog } from "./ChatDialogs";
+import { DISAPPEARING_CHOICES, MUTE_OPTIONS } from "./chatOptions";
+import { tr, msg } from "../../i18n/core";
 
 type Tab = "media" | "files" | "links" | "saved";
 
 const TABS: Array<{ key: Tab; label: string; icon: React.ElementType }> = [
-  { key: "media", label: "Media", icon: ImageIcon },
-  { key: "files", label: "Files", icon: FileText },
-  { key: "links", label: "Links", icon: Link2 },
-  { key: "saved", label: "Saved", icon: Bookmark },
+  { key: "media", label: msg("Media"), icon: ImageIcon },
+  { key: "files", label: msg("Files"), icon: FileText },
+  { key: "links", label: msg("Links"), icon: Link2 },
+  { key: "saved", label: msg("Saved"), icon: Bookmark },
 ];
 
 const urlsIn = (text?: string | null) => text?.match(/https?:\/\/[^\s<>"']+/gi) ?? [];
@@ -126,7 +128,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
     }
     if (chat.isLocked) relockChat(chatId);
     setState({ chatId, isLocked: !chat.isLocked });
-    toast.success(chat.isLocked ? "Chat unlocked" : "Chat locked — it now needs your PIN to open");
+    toast.success(chat.isLocked ? tr("Chat unlocked") : tr("Chat locked — it now needs your PIN to open"));
   };
 
   const setTimer = async (seconds: number) => {
@@ -148,7 +150,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
       queryClient.setQueryData<Message[]>(["messages", chatId], []);
       queryClient.invalidateQueries({ queryKey: ["chats"] });
       queryClient.invalidateQueries({ queryKey: ["chat-gallery", chatId] });
-      toast.success("Chat cleared for you");
+      toast.success(tr("Chat cleared for you"));
       setConfirmClear(false);
       onCleared();
     } catch (error) {
@@ -178,7 +180,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
       }`}
     >
       {icon}
-      <span className="text-[11px] font-medium text-slate-500">{label}</span>
+      <span className="text-[11px] font-medium text-slate-500">{tr(label)}</span>
     </motion.button>
   );
 
@@ -199,11 +201,11 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
         className="absolute right-0 top-0 z-40 flex h-full w-[min(100%,24rem)] flex-col bg-white/95 shadow-2xl backdrop-blur-xl"
       >
         <div className="flex items-center justify-between border-b border-slate-100/60 px-5 py-4">
-          <h3 className="text-lg font-semibold text-slate-900">Chat info</h3>
+          <h3 className="text-lg font-semibold text-slate-900">{tr("Chat info")}</h3>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close chat info"
+            aria-label={tr("Close chat info")}
             className="rounded-full p-2 transition-colors hover:bg-slate-100/80"
           >
             <X className="h-5 w-5" />
@@ -217,7 +219,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
               {chatAvatar ? <img src={chatAvatar} alt="" className="h-full w-full object-cover" /> : chatName.charAt(0).toUpperCase()}
             </div>
             <h4 className="text-xl font-semibold text-slate-900">{chatName}</h4>
-            <p className="text-xs text-slate-500">{subtitle}</p>
+            <p className="text-xs text-slate-500">{tr(subtitle)}</p>
           </div>
 
           {/* Quick controls */}
@@ -268,7 +270,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
                     }}
                     className="flex-1 rounded-xl bg-slate-100 py-2 text-xs font-medium text-slate-600 hover:bg-indigo-50 hover:text-indigo-600"
                   >
-                    {o.label}
+                    {tr(o.label)}
                   </button>
                 ))}
               </motion.div>
@@ -277,8 +279,8 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
           {muted && chat?.mutedUntil && (
             <p className="-mt-3 text-center text-[11px] text-slate-400">
               {new Date(chat.mutedUntil).getFullYear() > 9000
-                ? "Muted always"
-                : `Muted for ${formatDistanceToNowStrict(new Date(chat.mutedUntil))}`}
+                ? tr("Muted always")
+                : tr("Muted for {value}", { value: formatDistanceToNowStrict(new Date(chat.mutedUntil)) })}
             </p>
           )}
 
@@ -287,7 +289,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
             <div className="rounded-2xl bg-slate-50/80 p-4">
               <div className="mb-2.5 flex items-center gap-2">
                 <Timer className="h-4 w-4 text-indigo-500" />
-                <span className="flex-1 text-sm font-medium text-slate-800">Disappearing messages</span>
+                <span className="flex-1 text-sm font-medium text-slate-800">{tr("Disappearing messages")}</span>
               </div>
               <div className="grid grid-cols-4 gap-1.5">
                 {DISAPPEARING_CHOICES.map((c) => {
@@ -302,15 +304,15 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
                         active ? "bg-indigo-500 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-indigo-50"
                       }`}
                     >
-                      {c.label}
+                      {tr(c.label)}
                     </button>
                   );
                 })}
               </div>
               <p className="mt-2 text-[11px] text-slate-400">
                 {canChangeTimer
-                  ? "New messages disappear for everyone after the chosen time."
-                  : "Only group admins can change this."}
+                  ? tr("New messages disappear for everyone after the chosen time.")
+                  : tr("Only group admins can change this.")}
               </p>
             </div>
           )}
@@ -329,7 +331,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
                     }`}
                   >
                     <Icon className="h-3.5 w-3.5" />
-                    {label}
+                    {tr(label)}
                   </button>
                 ))}
               </div>
@@ -412,7 +414,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium text-slate-800">
                             {message.metadata?.linkPreview?.url === url && message.metadata.linkPreview.title
-                              ? message.metadata.linkPreview.title
+                              ? tr(message.metadata.linkPreview.title)
                               : url.replace(/^https?:\/\//, "")}
                           </span>
                           <span className="block truncate text-[11px] text-slate-400">{url}</span>
@@ -439,7 +441,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
                       <button
                         type="button"
                         onClick={() => unsave(m)}
-                        title="Remove from saved"
+                        title={tr("Remove from saved")}
                         className="rounded-lg p-1.5 text-slate-300 opacity-0 transition hover:bg-white hover:text-red-500 group-hover:opacity-100"
                       >
                         <BookmarkX className="h-4 w-4" />
@@ -457,11 +459,11 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
 
           {/* Privacy & safety */}
           <div className="space-y-1 border-t border-slate-100 pt-4">
-            <PanelButton icon={<Shield className="h-4 w-4" />} label="Privacy settings" onClick={onOpenPrivacy} />
+            <PanelButton icon={<Shield className="h-4 w-4" />} label={tr("Privacy settings")} onClick={onOpenPrivacy} />
             {chatId && !confirmClear && (
               <PanelButton
                 icon={<Trash2 className="h-4 w-4" />}
-                label="Clear chat history"
+                label={tr("Clear chat history")}
                 danger
                 onClick={() => setConfirmClear(true)}
               />
@@ -469,30 +471,27 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
             {confirmClear && (
               <div className="rounded-2xl bg-red-50 p-3">
                 <p className="text-xs text-red-700">
-                  Clear all messages in this chat for you? Other people still keep their copy.
-                </p>
+                  {tr("Clear all messages in this chat for you? Other people still keep their copy.")}</p>
                 <div className="mt-2 flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setConfirmClear(false)}
                     className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white"
                   >
-                    Cancel
-                  </button>
+                    {tr("Cancel")}</button>
                   <button
                     type="button"
                     onClick={clearHistory}
                     className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600"
                   >
-                    Clear
-                  </button>
+                    {tr("Clear")}</button>
                 </div>
               </div>
             )}
             {otherUser && (
               <PanelButton
                 icon={<Flag className="h-4 w-4" />}
-                label={`Report ${otherUser.name}`}
+                label={tr("Report {name}", { name: otherUser.name })}
                 danger
                 onClick={() => onReport({ type: "USER", id: otherUser.id, label: otherUser.name })}
               />
@@ -515,7 +514,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
 };
 
 const EmptyState = ({ text }: { text: string }) => (
-  <p className="rounded-2xl bg-slate-50/80 px-4 py-6 text-center text-xs text-slate-400">{text}</p>
+  <p className="rounded-2xl bg-slate-50/80 px-4 py-6 text-center text-xs text-slate-400">{tr(text)}</p>
 );
 
 const PanelButton = ({
@@ -537,6 +536,6 @@ const PanelButton = ({
     }`}
   >
     {icon}
-    {label}
+    {tr(label)}
   </button>
 );

@@ -16,15 +16,16 @@ import {
 } from "lucide-react";
 import { COLORS } from "../voice/lobby/lobbyTheme";
 import type { CardKind, ConversationCard } from "./callApi";
+import { tr, msg } from "../../i18n/core";
 
 const KIND_META: Record<CardKind, { label: string; icon: LucideIcon; color: string }> = {
-  question: { label: "Question", icon: MessageCircleQuestion, color: COLORS.live },
-  story: { label: "Story", icon: BookOpen, color: COLORS.pink },
-  opinion: { label: "Opinion", icon: MessagesSquare, color: COLORS.purple },
-  game: { label: "Game", icon: Gamepad2, color: COLORS.spotlight },
+  question: { label: msg("Question"), icon: MessageCircleQuestion, color: COLORS.live },
+  story: { label: msg("Story"), icon: BookOpen, color: COLORS.pink },
+  opinion: { label: msg("Opinion"), icon: MessagesSquare, color: COLORS.purple },
+  game: { label: msg("Game"), icon: Gamepad2, color: COLORS.spotlight },
 };
 
-const DEPTH_LABEL = { 1: "Easy", 2: "Medium", 3: "Deep" } as const;
+const DEPTH_LABEL = { 1: msg("Easy"), 2: msg("Medium"), 3: msg("Deep") } as const;
 
 type HelpTab = "followUps" | "phrases";
 
@@ -67,7 +68,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
 
   return (
     <section
-      aria-label="Conversation card"
+      aria-label={tr("Conversation card")}
       className="overflow-hidden rounded-3xl border"
       style={{
         borderColor: `color-mix(in srgb, ${meta.color} 26.7%, transparent)`,
@@ -82,14 +83,14 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
             style={{ background: `color-mix(in srgb, ${meta.color} 13.3%, transparent)`, color: meta.color }}
           >
             <KindIcon className="h-3.5 w-3.5" />
-            {meta.label}
+            {tr(meta.label)}
           </span>
           <span className="text-xs" style={{ color: COLORS.textMuted }}>
             {card.topic}
           </span>
         </div>
         <div className="flex items-center gap-2 text-[11px]" style={{ color: COLORS.textMuted }}>
-          <span className="inline-flex items-center gap-1" title={`${DEPTH_LABEL[card.depth]} question`}>
+          <span className="inline-flex items-center gap-1" title={tr("{value} question", { value: DEPTH_LABEL[card.depth] })}>
             {[1, 2, 3].map((dot) => (
               <span
                 key={dot}
@@ -98,10 +99,10 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
                 style={{ background: dot <= card.depth ? meta.color : COLORS.border }}
               />
             ))}
-            <span className="ml-1">{DEPTH_LABEL[card.depth]}</span>
+            <span className="ml-1">{tr(DEPTH_LABEL[card.depth])}</span>
           </span>
           <span aria-hidden="true">·</span>
-          <span>you both see this</span>
+          <span>{tr("you both see this")}</span>
         </div>
       </div>
 
@@ -128,8 +129,8 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
         <div className="flex flex-wrap gap-2">
           {(
             [
-              { id: "followUps", label: "Keep it going", icon: Lightbulb },
-              { id: "phrases", label: "Say it like this", icon: Quote },
+              { id: "followUps", label: msg("Keep it going"), icon: Lightbulb },
+              { id: "phrases", label: msg("Say it like this"), icon: Quote },
             ] as const
           ).map((tab) => {
             const Icon = tab.icon;
@@ -147,7 +148,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
                 }}
               >
                 <Icon className="h-3.5 w-3.5" />
-                {tab.label}
+                {tr(tab.label)}
               </button>
             );
           })}
@@ -197,13 +198,13 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
 
       {/* Position in the deck */}
       <div className="flex items-center justify-between gap-3 border-t px-5 py-3" style={{ borderColor: COLORS.border }}>
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5" role="tablist" aria-label="Cards in this call">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5" role="tablist" aria-label={tr("Cards in this call")}>
           {deck.map((item, i) => (
             <button
               key={item.id}
               role="tab"
               aria-selected={i === index}
-              aria-label={`Card ${i + 1}: ${item.topic}`}
+              aria-label={tr("Card {value}: {topic}", { value: i + 1, topic: item.topic })}
               onClick={() => onPick(i)}
               className="h-2 rounded-full transition-all"
               style={{
@@ -219,7 +220,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
         <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={onPrev}
-            aria-label="Previous card"
+            aria-label={tr("Previous card")}
             className="rounded-full border p-2 hover:bg-white/5"
             style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
           >
@@ -230,7 +231,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
             className="inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-semibold"
             style={{ background: `color-mix(in srgb, ${meta.color} 14.9%, transparent)`, color: meta.color }}
           >
-            Next <ChevronRight className="h-4 w-4" />
+            {tr("Next")}{" "}<ChevronRight className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -253,11 +254,9 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
           >
             <Dices className="h-4 w-4" />
           </motion.span>
-          Surprise me
-        </button>
+          {tr("Surprise me")}</button>
         <span className="text-[11px]" style={{ color: COLORS.textMuted }}>
-          or draw a
-        </span>
+          {tr("or draw a")}</span>
         {(Object.keys(KIND_META) as CardKind[]).map((kind) => {
           const item = KIND_META[kind];
           const Icon = item.icon;
@@ -270,7 +269,7 @@ export const ConversationCardPanel: React.FC<ConversationCardPanelProps> = ({
               style={{ borderColor: `color-mix(in srgb, ${item.color} 33.3%, transparent)`, color: item.color }}
             >
               <Icon className="h-3.5 w-3.5" />
-              {item.label}
+              {tr(item.label)}
             </button>
           );
         })}

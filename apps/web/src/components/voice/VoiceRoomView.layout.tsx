@@ -21,6 +21,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Keyboard, type LucideIcon } from "lucide-react";
 
 import { THEME } from "./VoiceRoomView.theme";
+import { tr } from "../../i18n/core";
 
 // ------------------------------------------------------------
 // Tokens
@@ -129,7 +130,7 @@ const ToolButton: React.FC<{ tool: RoomTool }> = ({ tool }) => {
     <button
       type="button"
       onClick={tool.onClick}
-      aria-label={tool.label}
+      aria-label={tr(tool.label)}
       aria-pressed={tool.active ?? false}
       className="group/tool relative grid h-9 w-9 shrink-0 place-items-center rounded-full transition-[transform,background-color,color] duration-200 hover:-translate-y-px active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
       style={{
@@ -156,7 +157,7 @@ const ToolButton: React.FC<{ tool: RoomTool }> = ({ tool }) => {
         className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium opacity-0 shadow-xl transition-opacity delay-150 group-hover/tool:opacity-100 group-focus-visible/tool:opacity-100"
         style={{ background: "var(--sx-bg-1c1c2e)", color: THEME.colors.text.primary, border: "1px solid var(--sx-border-255-255-255-80)" }}
       >
-        {tool.label}
+        {tr(tool.label)}
       </span>
     </button>
   );
@@ -169,11 +170,11 @@ export const RoomToolbar: React.FC<{ groups: RoomToolGroup[] }> = ({ groups }) =
     .filter((g) => g.tools.length > 0);
   if (!visible.length) return null;
   return (
-    <div role="toolbar" aria-label="Room tools" className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full p-1 md:overflow-visible" style={{ background: "var(--sx-bg-255-255-255-35)", border: "1px solid var(--sx-border-255-255-255-60)", boxShadow: "inset 0 1px 0 var(--sx-bg-255-255-255-50), 0 8px 24px -12px var(--sx-shadow-0-0-0-600)" }}>
+    <div role="toolbar" aria-label={tr("Room tools")} className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full p-1 md:overflow-visible" style={{ background: "var(--sx-bg-255-255-255-35)", border: "1px solid var(--sx-border-255-255-255-60)", boxShadow: "inset 0 1px 0 var(--sx-bg-255-255-255-50), 0 8px 24px -12px var(--sx-shadow-0-0-0-600)" }}>
       {visible.map((group, i) => (
         <React.Fragment key={group.id}>
           {i > 0 && <span aria-hidden className="mx-0.5 h-5 w-px shrink-0" style={{ background: "var(--sx-bg-255-255-255-80)" }} />}
-          <div role="group" aria-label={group.label} className="flex items-center gap-0.5">
+          <div role="group" aria-label={tr(group.label)} className="flex items-center gap-0.5">
             {group.tools.map((tool) => (
               <ToolButton key={tool.id} tool={tool} />
             ))}
@@ -209,7 +210,7 @@ const StatChip: React.FC<{ stat: StageStat }> = ({ stat }) => {
         border: `1px solid ${stat.live ? `color-mix(in srgb, ${color} 33.3%, transparent)` : "var(--sx-bg-255-255-255-60)"}`,
         color: stat.live ? color : THEME.colors.text.secondary,
       }}
-      title={stat.label}
+      title={tr(stat.label)}
       aria-label={`${stat.label}: ${typeof stat.value === "string" || typeof stat.value === "number" ? stat.value : ""}`}
     >
       <Icon className="h-3.5 w-3.5" />
@@ -228,7 +229,7 @@ export const LiveBadge: React.FC<{ label?: string; tone?: "live" | "idle" }> = (
       <span className="relative flex h-2 w-2">
         <span className={`relative h-2 w-2 rounded-full ${tone === "live" ? "vr-live-dot" : ""}`} style={{ background: color }} />
       </span>
-      {label}
+      {tr(label)}
     </span>
   );
 };
@@ -311,7 +312,7 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
 
     <main className="relative z-10 flex min-h-0 flex-1 gap-3 px-2 pt-2 sm:px-3 sm:pt-3">
       {/* Stage */}
-      <RoomCard as="section" aria-label="Stage" className="vr-enter flex min-w-0 flex-1 flex-col" style={{ ["--vr-enter-delay" as string]: "120ms" } as React.CSSProperties}>
+      <RoomCard as="section" aria-label={tr("Stage")} className="vr-enter flex min-w-0 flex-1 flex-col" style={{ ["--vr-enter-delay" as string]: "120ms" } as React.CSSProperties}>
         <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 pt-3 sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {stageTitle}
@@ -376,8 +377,8 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
             onClick={onShowShortcuts}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
             style={{ color: THEME.colors.text.secondary, border: "1px solid var(--sx-border-255-255-255-70)" }}
-            aria-label="Keyboard shortcuts"
-            title="Keyboard shortcuts (?)"
+            aria-label={tr("Keyboard shortcuts")}
+            title={tr("Keyboard shortcuts (?)")}
           >
             <Keyboard className="h-4 w-4" />
           </button>
@@ -405,7 +406,7 @@ export interface PhoneDockAction {
 }
 
 export const RoomPhoneDock: React.FC<{ actions: PhoneDockAction[] }> = ({ actions }) => (
-  <div className="flex w-full max-w-sm items-center justify-between gap-2 rounded-[22px] p-1.5" style={ROOM_SURFACE} role="toolbar" aria-label="Call controls">
+  <div className="flex w-full max-w-sm items-center justify-between gap-2 rounded-[22px] p-1.5" style={ROOM_SURFACE} role="toolbar" aria-label={tr("Call controls")}>
     {actions.map((a) => {
       const Icon = a.icon;
       const tone = TONES[a.tone ?? "primary"];
@@ -416,7 +417,7 @@ export const RoomPhoneDock: React.FC<{ actions: PhoneDockAction[] }> = ({ action
           key={a.id}
           type="button"
           onClick={a.onClick}
-          aria-label={a.label}
+          aria-label={tr(a.label)}
           aria-pressed={a.state === "on" || a.state === "off" ? on : undefined}
           className="relative flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium transition-transform active:scale-95"
           style={{
@@ -426,7 +427,7 @@ export const RoomPhoneDock: React.FC<{ actions: PhoneDockAction[] }> = ({ action
           }}
         >
           <Icon className="h-5 w-5" />
-          {a.label}
+          {tr(a.label)}
           {!!a.badge && a.badge > 0 && (
             <span className="absolute right-2 top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-bold" style={{ background: THEME.colors.accent.warning, color: "#0a0a12" }}>
               {a.badge > 99 ? "99+" : a.badge}
@@ -470,7 +471,7 @@ export const RoomStatusCard: React.FC<{
       <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl" style={{ background: `color-mix(in srgb, ${accent} 10.2%, transparent)`, border: `1px solid color-mix(in srgb, ${accent} 25.1%, transparent)` }}>
         <Icon className="h-7 w-7" style={{ color: accent }} />
       </div>
-      <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+      <h2 className="text-xl font-semibold tracking-tight">{tr(title)}</h2>
       <div className="mt-2 text-sm leading-relaxed" style={{ color: THEME.colors.text.secondary }}>{body}</div>
       {actions && <div className="mt-6 flex gap-2.5">{actions}</div>}
     </motion.div>
@@ -511,11 +512,10 @@ export const RoomJoiningIndicator: React.FC<{ label: string; icon: LucideIcon; o
         <Icon className="h-6 w-6 text-white" />
       </div>
     </div>
-    <p className="text-sm font-medium" style={{ color: THEME.colors.text.secondary }}>{label}…</p>
+    <p className="text-sm font-medium" style={{ color: THEME.colors.text.secondary }}>{tr(label)}…</p>
     {onCancel && (
       <button type="button" onClick={onCancel} className="mt-5 text-xs underline-offset-4 hover:underline" style={{ color: THEME.colors.text.muted }}>
-        Cancel
-      </button>
+        {tr("Cancel")}</button>
     )}
   </div>
 );

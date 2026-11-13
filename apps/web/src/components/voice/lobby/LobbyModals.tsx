@@ -15,6 +15,7 @@ import {
 import type { MinimizedRoomData } from "../VoiceRoomView.types";
 import { COLORS, TYPE_ACCENTS } from "./lobbyTheme";
 import { initials } from "./lobbyUtils";
+import { tr } from "../../../i18n/core";
 
 // ---- Confirmation ----
 export const ConfirmationModal: React.FC<{
@@ -49,7 +50,7 @@ export const ConfirmationModal: React.FC<{
       <motion.div
         role="alertdialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={tr(title)}
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -69,7 +70,7 @@ export const ConfirmationModal: React.FC<{
             className="font-serif text-xl mb-2"
             style={{ color: COLORS.textPrimary }}
           >
-            {title}
+            {tr(title)}
           </h3>
           <p className="text-sm mb-6" style={{ color: COLORS.textMuted }}>
             {message}
@@ -141,8 +142,8 @@ export const FloatingMiniRoom: React.FC<{
             onClick={onMaximize}
             className="p-1 rounded hover:bg-white/5 transition-colors"
             style={{ color: COLORS.textMuted }}
-            title="Maximize"
-            aria-label="Maximize room"
+            title={tr("Maximize")}
+            aria-label={tr("Maximize room")}
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
@@ -150,8 +151,8 @@ export const FloatingMiniRoom: React.FC<{
             onClick={onClose}
             className="p-1 rounded hover:bg-white/5 transition-colors"
             style={{ color: COLORS.textMuted }}
-            title="Leave room"
-            aria-label="Leave room"
+            title={tr("Leave room")}
+            aria-label={tr("Leave room")}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -188,8 +189,7 @@ export const FloatingMiniRoom: React.FC<{
             )}
           </div>
           <span className="text-xs" style={{ color: COLORS.textMuted }}>
-            {count} listening
-          </span>
+            {count} {" "}{tr("listening")}</span>
         </div>
 
         <button
@@ -200,8 +200,7 @@ export const FloatingMiniRoom: React.FC<{
             color: "var(--sx-text-ffffff)",
           }}
         >
-          Open Room
-        </button>
+          {tr("Open Room")}</button>
       </div>
     </motion.div>
   );
@@ -239,7 +238,7 @@ export const JoinPasswordModal: React.FC<{
     <motion.div
       role="dialog"
       aria-modal="true"
-      aria-label={`Join ${roomName}`}
+      aria-label={tr("Join {roomName}", { roomName })}
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       exit={{ scale: 0.9, opacity: 0 }}
@@ -259,8 +258,7 @@ export const JoinPasswordModal: React.FC<{
             {roomName}
           </h3>
           <p className="text-xs" style={{ color: COLORS.textMuted }}>
-            This room is password-protected
-          </p>
+            {tr("This room is password-protected")}</p>
         </div>
       </div>
 
@@ -269,8 +267,7 @@ export const JoinPasswordModal: React.FC<{
         className="block text-sm font-medium mb-1.5"
         style={{ color: COLORS.textPrimary }}
       >
-        Password
-      </label>
+        {tr("Password")}</label>
       <div className="relative mb-1.5">
         <KeyRound
           className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2"
@@ -282,7 +279,7 @@ export const JoinPasswordModal: React.FC<{
           value={password}
           onChange={(e) => onPasswordChange(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onConfirm()}
-          placeholder="Enter room password"
+          placeholder={tr("Enter room password")}
           autoFocus
           className="w-full pl-10 pr-10 py-2.5 rounded-xl border outline-none text-sm"
           style={{
@@ -296,7 +293,7 @@ export const JoinPasswordModal: React.FC<{
           onClick={onToggleShow}
           className="absolute right-3 top-1/2 -translate-y-1/2"
           style={{ color: COLORS.textMuted }}
-          aria-label={show ? "Hide password" : "Show password"}
+          aria-label={show ? tr("Hide password") : tr("Show password")}
         >
           {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         </button>
@@ -315,8 +312,7 @@ export const JoinPasswordModal: React.FC<{
           className="px-4 py-2.5 text-sm font-medium rounded-xl transition-colors hover:bg-white/5"
           style={{ color: COLORS.textMuted }}
         >
-          Cancel
-        </button>
+          {tr("Cancel")}</button>
         <button
           onClick={onConfirm}
           disabled={joining}
@@ -328,8 +324,7 @@ export const JoinPasswordModal: React.FC<{
           ) : (
             <LogIn className="w-4 h-4" />
           )}
-          Join Room
-        </button>
+          {tr("Join Room")}</button>
       </div>
     </motion.div>
   </motion.div>

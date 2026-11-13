@@ -1,25 +1,46 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "SpeakBetter",
+    "slug": "speakbetter",
+    "scheme": "speakbetter",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/app-icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#f8fafc",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.speakbetter.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "SpeakBetter uses the microphone so you can speak in voice rooms and calls, and check your pronunciation.",
+        "NSCameraUsageDescription": "SpeakBetter uses the camera when you choose to take a photo to send in a chat.",
+        "NSPhotoLibraryUsageDescription": "SpeakBetter opens your photos when you choose one to send in a chat or use as your profile picture.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
     },
     "android": {
+      "package": "com.speakbetter.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/app-icon-adaptive.png",
+        "backgroundColor": "#4f46e5"
       },
+      "permissions": ["android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SETTINGS"],
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "SpeakBetter uses the microphone so you can speak in voice rooms and calls, and check your pronunciation.",
+          "speechRecognitionPermission": "SpeakBetter turns what you say into text to score your pronunciation, show live captions and talk with your AI partner.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox", "com.google.android.as"]
+        }
+      ]
+    ]
   }
 }

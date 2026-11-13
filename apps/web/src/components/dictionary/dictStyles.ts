@@ -1,5 +1,6 @@
 // apps/web/src/components/dictionary/dictStyles.ts
 import type { DictLevel, DictStatus } from "../../hooks/useDictionary";
+import { msg } from "../../i18n/core";
 
 export const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -14,7 +15,7 @@ export const LEVEL_STYLE: Record<DictLevel, { chip: string; dot: string; name: s
   C2: { chip: "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-500/15 dark:text-fuchsia-300", dot: "bg-fuchsia-500", name: "Proficient" },
 };
 
-export const STATUS_LABEL: Record<DictStatus, string> = { new: "New to you", saved: "In My words", known: "You know it" };
+export const STATUS_LABEL: Record<DictStatus, string> = { new: msg("New to you"), saved: msg("In My words"), known: msg("You know it") };
 
 export const chip = (active: boolean) =>
   `h-8 max-sm:h-10 px-3.5 rounded-full text-[13px] font-semibold border transition-colors flex items-center gap-1.5 whitespace-nowrap touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-page ${

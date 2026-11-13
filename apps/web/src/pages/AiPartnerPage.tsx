@@ -47,6 +47,7 @@ import { WordLookup, readSelection, type WordSelection } from "../components/cha
 import { CEFR_CODES, CEFR_INFO, isCefr, type CefrCode } from "../lib/cefr";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { speechCaptionsSupported, useSpeechCaptions } from "../components/call/useSpeechCaptions";
+import { tr, msg } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -105,16 +106,14 @@ const Setup: React.FC<{
         <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-md shadow-violet-500/15">
           <Bot className="w-7 h-7 text-white" />
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-5">AI speaking partner</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-5">{tr("AI speaking partner")}</h1>
         <p className="text-slate-600 dark:text-slate-300 mt-2 max-w-xl mx-auto">
-          Practise real conversations any time. Your partner speaks at your level, and after each thing you say you see what to fix and how to say it more naturally.
-        </p>
+          {tr("Practise real conversations any time. Your partner speaks at your level, and after each thing you say you see what to fix and how to say it more naturally.")}</p>
       </div>
 
       {!status.configured && (
         <div className="mt-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-sm text-amber-800 dark:text-amber-200">
-          The AI partner isn't switched on yet. Add <code className="font-mono">ANTHROPIC_API_KEY</code> to <code className="font-mono">server/.env</code> and restart the server.
-        </div>
+          {tr("The AI partner isn't switched on yet. Add")}{" "}<code className="font-mono">ANTHROPIC_API_KEY</code> {" "}{tr("to")}{" "}<code className="font-mono">server/.env</code> {" "}{tr("and restart the server.")}</div>
       )}
 
       {status.activeSessionId && (
@@ -125,14 +124,14 @@ const Setup: React.FC<{
           className={`${card} mt-6 w-full p-4 flex items-center justify-between gap-3 text-left hover:-translate-y-0.5 hover:shadow-md transition-all disabled:opacity-60`}
         >
           <span>
-            <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">Continue your last conversation</span>
-            <span className="block text-xs text-slate-500">You didn't finish it. Pick up where you left off.</span>
+            <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">{tr("Continue your last conversation")}</span>
+            <span className="block text-xs text-slate-500">{tr("You didn't finish it. Pick up where you left off.")}</span>
           </span>
           {resuming ? <Loader2 className="w-5 h-5 animate-spin text-indigo-500" /> : <ArrowRight className="w-5 h-5 text-indigo-500" />}
         </button>
       )}
 
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white mt-8 mb-3">What do you want to practise?</h2>
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-white mt-8 mb-3">{tr("What do you want to practise?")}</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {status.scenarios.map((s) => {
           const active = scenario === s.id;
@@ -149,14 +148,14 @@ const Setup: React.FC<{
               }`}
             >
               <span className="text-2xl" aria-hidden>{s.emoji}</span>
-              <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mt-2">{s.title}</span>
-              <span className="block text-xs text-slate-500 mt-0.5">{s.blurb}</span>
+              <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mt-2">{tr(s.title)}</span>
+              <span className="block text-xs text-slate-500 mt-0.5">{tr(s.blurb)}</span>
             </button>
           );
         })}
       </div>
 
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white mt-8 mb-3">Your level</h2>
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-white mt-8 mb-3">{tr("Your level")}</h2>
       <div className="flex flex-wrap gap-2">
         {CEFR_CODES.map((code) => (
           <button
@@ -177,10 +176,10 @@ const Setup: React.FC<{
       </div>
       <p className="text-xs text-slate-500 mt-2">
         {hasLevel ? (
-          <>From your placement test. {CEFR_INFO[level].name}: {CEFR_INFO[level].summary}</>
+          <>{tr("From your placement test. {name}:", { name: CEFR_INFO[level].name })}{" "}{tr(CEFR_INFO[level].summary)}</>
         ) : (
           <>
-            Not sure? <Link to="/placement" className="text-indigo-500 font-medium hover:underline">Take the 8-minute level test</Link>. {CEFR_INFO[level].name}: {CEFR_INFO[level].summary}
+            {tr("Not sure?")}{" "}<Link to="/placement" className="text-indigo-500 font-medium hover:underline">{tr("Take the 8-minute level test")}</Link>. {CEFR_INFO[level].name}: {tr(CEFR_INFO[level].summary)}
           </>
         )}
       </p>
@@ -192,19 +191,17 @@ const Setup: React.FC<{
         className="mt-8 w-full h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold flex items-center justify-center gap-2 transition-colors"
       >
         {starting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-        Start talking
-      </button>
+        {tr("Start talking")}</button>
       <p className="text-center text-xs text-slate-400 mt-3">
-        {outOfTurns ? "You've used all of today's practice turns. Come back tomorrow!" : `${status.dailyTurnsLeft} practice turns left today`}
+        {outOfTurns ? tr("You've used all of today's practice turns. Come back tomorrow!") : tr("{dailyTurnsLeft} practice turns left today", { dailyTurnsLeft: status.dailyTurnsLeft })}
         {onFreePlan && (
           <>
             {" · "}
             <Link to="/premium" className="font-medium text-indigo-500 hover:text-indigo-600">
-              Get more with Pro
-            </Link>
+              {tr("Get more with Pro")}</Link>
           </>
         )}
-        {!speechCaptionsSupported() && " · Voice input needs Chrome or Edge. You can type instead."}
+        {!speechCaptionsSupported() && tr(" · Voice input needs Chrome or Edge. You can type instead.")}
       </p>
     </div>
   );
@@ -224,8 +221,8 @@ const IconButton: React.FC<{
     type="button"
     onClick={onClick}
     aria-pressed={active}
-    aria-label={label}
-    title={label}
+    aria-label={tr(label)}
+    title={tr(label)}
     className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
       active
         ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300"
@@ -253,13 +250,13 @@ const Bubble: React.FC<{
         </span>
         <div className="min-w-0">
           <div className="rounded-2xl rounded-tl-md bg-white dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.07] px-4 py-2.5 text-[15px] leading-relaxed text-slate-800 dark:text-slate-100" data-message-text={m.text}>
-            {m.text}
+            {tr(m.text)}
             {canSpeak() && (
               <button
                 type="button"
                 onClick={() => void speakAloud(m.text, slow)}
-                aria-label="Hear it again"
-                title="Hear it again"
+                aria-label={tr("Hear it again")}
+                title={tr("Hear it again")}
                 className="ml-2 inline-flex align-middle text-slate-400 hover:text-indigo-500"
               >
                 <Volume2 className="w-4 h-4" />
@@ -310,7 +307,7 @@ const Bubble: React.FC<{
   return (
     <div className="flex flex-col items-end">
       <div className={`max-w-[88%] rounded-2xl rounded-tr-md bg-indigo-600 text-white px-4 py-2.5 text-[15px] leading-relaxed ${m.pending ? "opacity-70" : ""}`} data-message-text={m.text}>
-        {m.text}
+        {tr(m.text)}
       </div>
       <div className="max-w-[88%] w-full sm:w-auto">
         {m.corrections?.map((c) => (
@@ -327,9 +324,8 @@ const Bubble: React.FC<{
           <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
             <Lightbulb className="w-3.5 h-3.5 mt-0.5 text-amber-500 shrink-0" />
             <span>
-              More natural: “{m.betterPhrasing}”
-              {canSpeak() && (
-                <button type="button" onClick={() => void speakAloud(m.betterPhrasing ?? "", slow)} aria-label="Hear it" className="ml-1.5 inline-flex align-middle text-slate-400 hover:text-indigo-500">
+              {tr("More natural: “{betterPhrasing}”", { betterPhrasing: m.betterPhrasing })}{canSpeak() && (
+                <button type="button" onClick={() => void speakAloud(m.betterPhrasing ?? "", slow)} aria-label={tr("Hear it")} className="ml-1.5 inline-flex align-middle text-slate-400 hover:text-indigo-500">
                   <Volume2 className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -338,8 +334,7 @@ const Bubble: React.FC<{
         )}
         {clean && (
           <p className="mt-1.5 text-xs text-emerald-600 dark:text-emerald-400 flex items-center justify-end gap-1">
-            <Check className="w-3.5 h-3.5" /> Sounds good
-          </p>
+            <Check className="w-3.5 h-3.5" /> {" "}{tr("Sounds good")}</p>
         )}
       </div>
     </div>
@@ -498,13 +493,12 @@ const Conversation: React.FC<{
       <header className="flex items-center gap-3 px-4 sm:px-6 py-3 border-b border-slate-200/80 dark:border-white/[0.07]">
         <span className="text-2xl" aria-hidden>{initial.scenario.emoji}</span>
         <div className="min-w-0 flex-1">
-          <h1 className="text-base font-semibold text-slate-900 dark:text-white truncate">{initial.scenario.title}</h1>
+          <h1 className="text-base font-semibold text-slate-900 dark:text-white truncate">{tr(initial.scenario.title)}</h1>
           <p className="text-xs text-slate-500">
-            {initial.level} · {turnsLeft} turns left today
-          </p>
+            {initial.level} {" "}{tr("· {turnsLeft} turns left today", { turnsLeft })}</p>
         </div>
         <IconButton
-          label={prefs.voice ? "Partner voice on" : "Partner voice off"}
+          label={prefs.voice ? tr("Partner voice on") : tr("Partner voice off")}
           active={prefs.voice}
           icon={prefs.voice ? Volume2 : VolumeX}
           onClick={() => {
@@ -512,7 +506,7 @@ const Conversation: React.FC<{
             setPrefs((p) => ({ ...p, voice: !p.voice }));
           }}
         />
-        <IconButton label="Speak slowly" active={prefs.slow} icon={Gauge} onClick={() => setPrefs((p) => ({ ...p, slow: !p.slow }))} />
+        <IconButton label={tr("Speak slowly")} active={prefs.slow} icon={Gauge} onClick={() => setPrefs((p) => ({ ...p, slow: !p.slow }))} />
         <button
           type="button"
           onClick={finish}
@@ -520,8 +514,7 @@ const Conversation: React.FC<{
           className="h-9 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] disabled:opacity-50 flex items-center gap-1.5"
         >
           {end.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-          Finish
-        </button>
+          {tr("Finish")}</button>
       </header>
 
       {/* ---------- messages ---------- */}
@@ -552,7 +545,7 @@ const Conversation: React.FC<{
             <span className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center text-base" aria-hidden>
               {initial.scenario.emoji}
             </span>
-            <div className="rounded-2xl rounded-tl-md bg-white dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.07] px-4 py-3 flex gap-1.5" role="status" aria-label="Your partner is thinking">
+            <div className="rounded-2xl rounded-tl-md bg-white dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.07] px-4 py-3 flex gap-1.5" role="status" aria-label={tr("Your partner is thinking")}>
               {[0, 1, 2].map((i) => (
                 <span key={i} className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
               ))}
@@ -561,8 +554,7 @@ const Conversation: React.FC<{
         )}
         {phase === "speaking" && (
           <p className="text-xs text-slate-400 flex items-center gap-1.5">
-            <Volume2 className="w-3.5 h-3.5 animate-pulse" /> Speaking…
-            <button type="button" onClick={() => stopSpeaking()} className="underline hover:text-slate-600">Skip</button>
+            <Volume2 className="w-3.5 h-3.5 animate-pulse" /> {" "}{tr("Speaking…")}<button type="button" onClick={() => stopSpeaking()} className="underline hover:text-slate-600">{tr("Skip")}</button>
           </p>
         )}
         <div ref={bottomRef} />
@@ -579,7 +571,7 @@ const Conversation: React.FC<{
         {listening && (
           <p className="text-xs text-rose-500 font-semibold mb-2 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-            Listening… {prefs.autoSend ? "pause when you're done and I'll send it" : "press send when you're done"}
+            {tr("Listening…")}{" "}{prefs.autoSend ? tr("pause when you're done and I'll send it") : tr("press send when you're done")}
           </p>
         )}
         <div className="flex items-end gap-2">
@@ -588,8 +580,8 @@ const Conversation: React.FC<{
             onClick={toggleMic}
             disabled={!micSupported}
             aria-pressed={micOn}
-            aria-label={micOn ? "Turn the microphone off" : "Turn the microphone on"}
-            title={micSupported ? (micOn ? "Turn the microphone off" : "Speak") : "Voice input needs Chrome or Edge"}
+            aria-label={micOn ? tr("Turn the microphone off") : tr("Turn the microphone on")}
+            title={micSupported ? (micOn ? tr("Turn the microphone off") : tr("Speak")) : tr("Voice input needs Chrome or Edge")}
             className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors disabled:opacity-40 ${
               micOn ? "bg-rose-600 text-white hover:bg-rose-700" : "bg-indigo-600 text-white hover:bg-indigo-700"
             }`}
@@ -612,15 +604,15 @@ const Conversation: React.FC<{
             rows={1}
             maxLength={600}
             disabled={busy}
-            placeholder={userTurns === 0 ? "Say or type your answer…" : "Say or type your reply…"}
-            aria-label="Your message"
+            placeholder={userTurns === 0 ? tr("Say or type your answer…") : tr("Say or type your reply…")}
+            aria-label={tr("Your message")}
             className="flex-1 resize-none max-h-32 min-h-12 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] px-4 py-3 text-[15px] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/60 disabled:opacity-60"
           />
           <button
             type="button"
             onClick={sendNow}
             disabled={busy || !`${draft} ${interim}`.trim()}
-            aria-label="Send"
+            aria-label={tr("Send")}
             className="w-12 h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white flex items-center justify-center shrink-0 transition-colors"
           >
             {phase === "thinking" ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
@@ -633,8 +625,7 @@ const Conversation: React.FC<{
             onChange={(e) => setPrefs((p) => ({ ...p, autoSend: e.target.checked }))}
             className="rounded border-slate-300"
           />
-          Send automatically when I pause
-        </label>
+          {tr("Send automatically when I pause")}</label>
       </footer>
     </div>
   );
@@ -651,10 +642,10 @@ const Recap: React.FC<{
 }> = ({ summary, scenarioTitle, onAgain }) => {
   const wordBank = useWordBank(true);
   const stats = [
-    { label: "Things you said", value: String(summary.turns) },
-    { label: "Words spoken", value: String(summary.words) },
-    { label: "Fluency", value: summary.fluency === null ? "—" : `${summary.fluency}/100` },
-    { label: "XP earned", value: `+${summary.xpEarned}` },
+    { label: msg("Things you said"), value: String(summary.turns) },
+    { label: msg("Words spoken"), value: String(summary.words) },
+    { label: msg("Fluency"), value: summary.fluency === null ? "—" : `${summary.fluency}/100` },
+    { label: msg("XP earned"), value: `+${summary.xpEarned}` },
   ];
   const empty = summary.turns === 0;
 
@@ -663,14 +654,14 @@ const Recap: React.FC<{
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{scenarioTitle}</p>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
-          {empty ? "That was a short one" : "Nice work!"}
+          {empty ? tr("That was a short one") : tr("Nice work!")}
         </h1>
         <p className="text-slate-600 dark:text-slate-300 mt-1">
           {empty
-            ? "You didn't say anything this time. Start another conversation whenever you're ready."
+            ? tr("You didn't say anything this time. Start another conversation whenever you're ready.")
             : summary.mistakes === 0
-              ? "No mistakes to fix this time. Keep it up!"
-              : `Here's what to remember from ${summary.mistakes} thing${summary.mistakes === 1 ? "" : "s"} to fix.`}
+              ? tr("No mistakes to fix this time. Keep it up!")
+              : tr("Here's what to remember from {mistakes} thing{value} to fix.", { mistakes: summary.mistakes, value: summary.mistakes === 1 ? "" : "s" })}
         </p>
       </div>
 
@@ -678,17 +669,17 @@ const Recap: React.FC<{
         {stats.map((s) => (
           <div key={s.label} className={`${card} p-4`}>
             <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">{s.value}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{tr(s.label)}</p>
           </div>
         ))}
       </div>
       {summary.fluency === null && !empty && (
-        <p className="text-xs text-slate-500 -mt-2">Fluency appears once you've said about 25 words.</p>
+        <p className="text-xs text-slate-500 -mt-2">{tr("Fluency appears once you've said about 25 words.")}</p>
       )}
 
       {summary.corrections.length > 0 && (
         <section className={`${card} p-5 sm:p-6`}>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Fix these next time</h2>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">{tr("Fix these next time")}</h2>
           <ul className="mt-3 space-y-3">
             {summary.corrections.map((c) => (
               <li key={c.original} className="text-sm">
@@ -706,7 +697,7 @@ const Recap: React.FC<{
 
       {summary.newWords.length > 0 && (
         <section className={`${card} p-5 sm:p-6`}>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white">New words</h2>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">{tr("New words")}</h2>
           <ul className="mt-3 space-y-2.5">
             {summary.newWords.map((w) => {
               const saved = wordBank.savedSet.has(w.word.toLowerCase());
@@ -724,7 +715,7 @@ const Recap: React.FC<{
                     className="shrink-0 h-8 px-3 rounded-lg text-xs font-semibold border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] disabled:opacity-60 flex items-center gap-1.5"
                   >
                     {saved ? <Check className="w-3.5 h-3.5" /> : <BookmarkPlus className="w-3.5 h-3.5" />}
-                    {saved ? "Saved" : "Save"}
+                    {saved ? tr("Saved") : tr("Save")}
                   </button>
                 </li>
               );
@@ -739,11 +730,9 @@ const Recap: React.FC<{
           onClick={onAgain}
           className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold flex items-center gap-2"
         >
-          <RotateCcw className="w-4 h-4" /> Practise again
-        </button>
+          <RotateCcw className="w-4 h-4" /> {" "}{tr("Practise again")}</button>
         <Link to="/dashboard" className="h-11 px-5 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center hover:bg-slate-50 dark:hover:bg-white/[0.05]">
-          Back to dashboard
-        </Link>
+          {tr("Back to dashboard")}</Link>
       </div>
     </div>
   );
@@ -803,10 +792,9 @@ export const AiPartnerPage: React.FC = () => {
   if (isError || !status) {
     return (
       <div className="max-w-xl mx-auto px-6 py-24 text-center">
-        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">We couldn't load the AI partner</p>
+        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tr("We couldn't load the AI partner")}</p>
         <button type="button" onClick={() => refetch()} className="mt-5 px-4 h-10 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
-          Try again
-        </button>
+          {tr("Try again")}</button>
       </div>
     );
   }

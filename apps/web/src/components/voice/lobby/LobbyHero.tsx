@@ -5,6 +5,7 @@ import type { VoiceRoom } from "../../../hooks/useVoice";
 import { COLORS, TYPE_ACCENTS } from "./lobbyTheme";
 import { hueFromString, initials, participantCount } from "./lobbyUtils";
 import { Equalizer } from "./Equalizer";
+import { tr } from "../../../i18n/core";
 
 interface LobbyHeroProps {
   /** The busiest room right now, if anyone is talking */
@@ -34,7 +35,7 @@ export const LobbyHero: React.FC<LobbyHeroProps> = ({ featured, quickRoom, isJoi
 
   return (
     <section
-      aria-label="Featured room"
+      aria-label={tr("Featured room")}
       className="vr-edge vr-enter relative mb-6 overflow-hidden rounded-[28px] border p-6 sm:p-9"
       style={{
         ["--vr-enter-delay" as string]: "80ms",
@@ -48,14 +49,13 @@ export const LobbyHero: React.FC<LobbyHeroProps> = ({ featured, quickRoom, isJoi
           {featured ? (
             <>
               <Eyebrow color={accent} live>
-                Happening now
-              </Eyebrow>
+                {tr("Happening now")}</Eyebrow>
               <h2 className="mt-4 break-words text-[32px] font-semibold leading-[1.08] tracking-tight sm:text-[46px]" style={{ color: COLORS.textPrimary }}>
                 {featured.name}
               </h2>
               {featured.description && (
                 <p className="mt-3 line-clamp-2 max-w-xl text-[15px] leading-relaxed sm:text-base" style={{ color: COLORS.textMuted }}>
-                  {featured.description}
+                  {tr(featured.description)}
                 </p>
               )}
               <div className="mt-5 flex items-center gap-3">
@@ -72,22 +72,18 @@ export const LobbyHero: React.FC<LobbyHeroProps> = ({ featured, quickRoom, isJoi
                   ))}
                 </div>
                 <span className="text-sm font-medium" style={{ color: COLORS.textMuted }}>
-                  {participantCount(featured)} talking
-                  {featured.language ? ` · ${featured.language}` : ""}
+                  {participantCount(featured)} {" "}{tr("talking")}{featured.language ? ` · ${featured.language}` : ""}
                 </span>
               </div>
             </>
           ) : (
             <>
-              <Eyebrow color={COLORS.primary}>Speak every day</Eyebrow>
+              <Eyebrow color={COLORS.primary}>{tr("Speak every day")}</Eyebrow>
               <h2 className="mt-4 text-[32px] font-semibold leading-[1.08] tracking-tight sm:text-[46px]" style={{ color: COLORS.textPrimary }}>
-                It is quiet right now.
-                <br />
-                Start the conversation.
-              </h2>
+                {tr("It is quiet right now.")}<br />
+                {tr("Start the conversation.")}</h2>
               <p className="mt-3 max-w-xl text-[15px] leading-relaxed sm:text-base" style={{ color: COLORS.textMuted }}>
-                Open a room, pick a topic, and practise speaking with people who are learning too.
-              </p>
+                {tr("Open a room, pick a topic, and practise speaking with people who are learning too.")}</p>
             </>
           )}
         </div>
@@ -102,8 +98,7 @@ export const LobbyHero: React.FC<LobbyHeroProps> = ({ featured, quickRoom, isJoi
               style={{ background: accent, color: COLORS.void }}
             >
               {isJoiningFeatured ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              Join now
-            </button>
+              {tr("Join now")}</button>
           ) : (
             <button
               type="button"
@@ -111,21 +106,19 @@ export const LobbyHero: React.FC<LobbyHeroProps> = ({ featured, quickRoom, isJoi
               className="inline-flex min-h-12 items-center sm:flex-1 lg:flex-none justify-center gap-2 rounded-full bg-indigo-600 px-6 text-sm font-semibold text-white shadow-md transition-transform hover:scale-[1.03] hover:bg-indigo-700 active:scale-[0.98] dark:bg-indigo-500 dark:hover:bg-indigo-600"
             >
               <Plus className="h-4 w-4" />
-              Create a room
-            </button>
+              {tr("Create a room")}</button>
           )}
 
           <button
             type="button"
             onClick={onQuickJoin}
             disabled={!quickRoom}
-            title={quickRoom ? `Jump into "${quickRoom.name}"` : "No open room with space right now"}
+            title={quickRoom ? tr("Jump into \"{name}\"", { name: quickRoom.name }) : tr("No open room with space right now")}
             className="inline-flex min-h-12 items-center sm:flex-1 lg:flex-none justify-center gap-2 rounded-full border px-6 text-sm font-semibold transition-colors hover:bg-slate-900/[0.04] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/5"
             style={{ borderColor: COLORS.borderLight, color: COLORS.textPrimary, background: "var(--sx-bg-28-20-48-600)" }}
           >
             <Zap className="h-4 w-4" style={{ color: COLORS.spotlight }} />
-            Quick join
-          </button>
+            {tr("Quick join")}</button>
         </div>
       </div>
     </section>

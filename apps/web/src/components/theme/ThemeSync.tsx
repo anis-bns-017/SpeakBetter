@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import { useTheme } from "../../contexts/ThemeContext";
 import { fromServerTheme } from "../../lib/theme";
 import type { Settings } from "../../hooks/useSettings";

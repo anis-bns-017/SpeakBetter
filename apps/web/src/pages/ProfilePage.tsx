@@ -33,6 +33,7 @@ import { SettingsForm } from "../components/settings/SettingsForm";
 import { useSettings } from "../hooks/useSettings";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
 import { PageHeader } from "../components/ui";
+import { tr, msg } from "../i18n/core";
 
 type Tab = "profile" | "stats" | "settings";
 
@@ -97,9 +98,9 @@ const StatCard: React.FC<StatCardProps> = ({
         {value}
       </p>
       <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-        {label}
+        {tr(label)}
       </p>
-      <p className="mt-2 text-xs leading-5 text-slate-500">{description}</p>
+      <p className="mt-2 text-xs leading-5 text-slate-500">{tr(description)}</p>
     </div>
   </div>
 );
@@ -117,7 +118,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 }) => (
   <div>
     <div className="mb-2 flex items-center justify-between gap-3">
-      <span className="text-xs font-bold text-slate-700">{label}</span>
+      <span className="text-xs font-bold text-slate-700">{tr(label)}</span>
       <span className="text-[11px] font-bold text-indigo-600">
         {valueLabel}
       </span>
@@ -172,11 +173,9 @@ export const ProfilePage: React.FC = () => {
           </div>
           <div className="text-center">
             <p className="text-sm font-bold text-slate-800">
-              Loading your profile
-            </p>
+              {tr("Loading your profile")}</p>
             <p className="mt-1 text-xs text-slate-500">
-              Preparing your learning identity and progress...
-            </p>
+              {tr("Preparing your learning identity and progress...")}</p>
           </div>
         </div>
       </div>
@@ -193,21 +192,17 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             <h2 className="mt-5 text-lg font-bold text-slate-900">
-              We couldn't load your profile
-            </h2>
+              {tr("We couldn't load your profile")}</h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Your profile information could not be retrieved right now. Please
-              check your connection and try again.
-            </p>
+              {tr("Your profile information could not be retrieved right now. Please check your connection and try again.")}</p>
 
             <button
               type="button"
               onClick={() => window.location.reload()}
               className="mt-6 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700"
             >
-              Try again
-              <ChevronRight className="h-4 w-4" />
+              {tr("Try again")}<ChevronRight className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -230,23 +225,23 @@ export const ProfilePage: React.FC = () => {
   }> = [
     {
       id: "profile",
-      label: "Profile",
+      label: msg("Profile"),
       mobileLabel: "Profile",
-      description: "Your public learning identity",
+      description: msg("Your public learning identity"),
       icon: <CircleUserRound className="h-4 w-4" />,
     },
     {
       id: "stats",
-      label: "Stats & Progress",
+      label: msg("Stats & Progress"),
       mobileLabel: "Progress",
-      description: "Your learning performance",
+      description: msg("Your learning performance"),
       icon: <BarChart3 className="h-4 w-4" />,
     },
     {
       id: "settings",
-      label: "Account Settings",
+      label: msg("Account Settings"),
       mobileLabel: "Settings",
-      description: "Preferences and privacy",
+      description: msg("Preferences and privacy"),
       icon: <Settings className="h-4 w-4" />,
     },
   ];
@@ -258,29 +253,27 @@ export const ProfilePage: React.FC = () => {
         <PageHeader
           icon={User}
           tone="indigo"
-          eyebrow="Profile"
+          eyebrow={tr("Profile")}
           title={
             <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
               {displayName}
               {profile.isVerified && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 font-sans text-xs font-bold tracking-normal text-indigo-700">
                   <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-                  Verified
-                </span>
+                  {tr("Verified")}</span>
               )}
             </span>
           }
-          subtitle={`@${username} · Your SpeakBetter learning profile`}
+          subtitle={tr("@{username} · Your SpeakBetter learning profile", { username })}
           actions={
           <div className="flex items-center gap-2">
             <div className="hidden rounded-xl bg-slate-50 px-3 py-2 text-right sm:block">
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                Level
-              </p>
+                {tr("Level")}</p>
               <p className="text-xs font-bold text-slate-800">
                 {profile.level
                   ? getLevelLabel(profile.level)
-                  : `Level ${derived.level}`}
+                  : tr("Level {level}", { level: derived.level })}
               </p>
             </div>
 
@@ -289,8 +282,8 @@ export const ProfilePage: React.FC = () => {
               className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-xs font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               <Eye className="h-4 w-4" />
-              <span className="hidden sm:inline">How others see you</span>
-              <span className="sm:hidden">Public view</span>
+              <span className="hidden sm:inline">{tr("How others see you")}</span>
+              <span className="sm:hidden">{tr("Public view")}</span>
             </Link>
 
             <button
@@ -302,15 +295,14 @@ export const ProfilePage: React.FC = () => {
               className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-xs font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               <Edit3 className="h-4 w-4" />
-              Edit
-            </button>
+              {tr("Edit")}</button>
           </div>
           }
         />
 
         {/* Tab navigation */}
         <nav
-          aria-label="Profile sections"
+          aria-label={tr("Profile sections")}
           className="rounded-2xl border border-line bg-surface p-1.5 shadow-sm"
         >
           <div className="grid grid-cols-3 gap-1">
@@ -331,7 +323,7 @@ export const ProfilePage: React.FC = () => {
                 >
                   <span className="shrink-0">{tab.icon}</span>
                   <span className="truncate">
-                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="hidden sm:inline">{tr(tab.label)}</span>
                     <span className="sm:hidden">{tab.mobileLabel}</span>
                   </span>
                 </button>
@@ -348,11 +340,9 @@ export const ProfilePage: React.FC = () => {
                 <div className="flex items-center justify-between px-1">
                   <div>
                     <p className="text-sm font-bold text-slate-900">
-                      Edit your profile
-                    </p>
+                      {tr("Edit your profile")}</p>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Keep your learning identity up to date.
-                    </p>
+                      {tr("Keep your learning identity up to date.")}</p>
                   </div>
 
                   <button
@@ -360,8 +350,7 @@ export const ProfilePage: React.FC = () => {
                     onClick={() => setIsEditing(false)}
                     className="rounded-xl px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-white hover:text-slate-800"
                   >
-                    Cancel
-                  </button>
+                    {tr("Cancel")}</button>
                 </div>
 
                 <EditProfileForm
@@ -387,27 +376,23 @@ export const ProfilePage: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">
-                          Language journey
-                        </h3>
+                          {tr("Language journey")}</h3>
                         <p className="text-xs text-slate-500">
-                          Your current language focus
-                        </p>
+                          {tr("Your current language focus")}</p>
                       </div>
                     </div>
 
                     <div className="mt-5">
                       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                        Native language
-                      </p>
+                        {tr("Native language")}</p>
                       <p className="mt-1 text-sm font-bold text-slate-800">
-                        {profile.nativeLanguage || "Not set"}
+                        {profile.nativeLanguage || tr("Not set")}
                       </p>
                     </div>
 
                     <div className="mt-4">
                       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                        Learning
-                      </p>
+                        {tr("Learning")}</p>
 
                       {derived.learningLanguages.length ? (
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -422,8 +407,7 @@ export const ProfilePage: React.FC = () => {
                         </div>
                       ) : (
                         <p className="mt-1 text-sm text-slate-400">
-                          No learning languages added yet.
-                        </p>
+                          {tr("No learning languages added yet.")}</p>
                       )}
                     </div>
                   </div>
@@ -435,11 +419,9 @@ export const ProfilePage: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">
-                          Learning direction
-                        </h3>
+                          {tr("Learning direction")}</h3>
                         <p className="text-xs text-slate-500">
-                          What you want to achieve
-                        </p>
+                          {tr("What you want to achieve")}</p>
                       </div>
                     </div>
 
@@ -459,8 +441,7 @@ export const ProfilePage: React.FC = () => {
                       </div>
                     ) : (
                       <p className="mt-5 text-sm text-slate-400">
-                        Add learning goals to personalize your journey.
-                      </p>
+                        {tr("Add learning goals to personalize your journey.")}</p>
                     )}
                   </div>
                 </div>
@@ -478,26 +459,21 @@ export const ProfilePage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Trophy className="h-5 w-5 text-amber-500" />
                     <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-600">
-                      Learning journey
-                    </span>
+                      {tr("Learning journey")}</span>
                   </div>
 
                   <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-900">
-                    Your progress at a glance
-                  </h2>
+                    {tr("Your progress at a glance")}</h2>
 
                   <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500 sm:text-sm">
-                    Keep building consistency, practicing your languages, and
-                    collecting experience through SpeakBetter.
-                  </p>
+                    {tr("Keep building consistency, practicing your languages, and collecting experience through SpeakBetter.")}</p>
                 </div>
 
                 <div className="shrink-0 rounded-2xl bg-slate-50 px-4 py-3">
                   <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                    Current level
-                  </p>
+                    {tr("Current level")}</p>
                   <p className="mt-1 text-lg font-bold text-slate-900">
-                    Level {derived.level}
+                    {tr("Level")}{" "}{derived.level}
                   </p>
                 </div>
               </div>
@@ -505,14 +481,14 @@ export const ProfilePage: React.FC = () => {
               <div className="mt-7">
                 <ProgressBar
                   value={derived.progress}
-                  label="Progress to next level"
+                  label={tr("Progress to next level")}
                   valueLabel={`${derived.progress}%`}
                 />
 
                 <p className="mt-2 text-[11px] text-slate-400">
                   {derived.xpRemaining > 0
-                    ? `${formatNumber(derived.xpRemaining)} XP remaining to the next level`
-                    : "You've reached the highest currently calculated level."}
+                    ? tr("{value} XP remaining to the next level", { value: formatNumber(derived.xpRemaining) })
+                    : tr("You've reached the highest currently calculated level.")}
                 </p>
               </div>
             </div>
@@ -520,36 +496,36 @@ export const ProfilePage: React.FC = () => {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 icon={<Zap className="h-5 w-5" />}
-                label="Total XP"
+                label={tr("Total XP")}
                 value={formatNumber(derived.xp)}
-                description="Experience earned from your learning activity."
+                description={tr("Experience earned from your learning activity.")}
                 className="border-indigo-100 bg-indigo-50/60"
                 iconClassName="bg-indigo-600 text-white"
               />
 
               <StatCard
                 icon={<Flame className="h-5 w-5" />}
-                label="Current streak"
+                label={tr("Current streak")}
                 value={`${derived.streak}d`}
-                description="Consecutive days you've kept your learning habit."
+                description={tr("Consecutive days you've kept your learning habit.")}
                 className="border-amber-100 bg-amber-50/60"
                 iconClassName="bg-amber-500 text-white"
               />
 
               <StatCard
                 icon={<Globe2 className="h-5 w-5" />}
-                label="Languages"
+                label={tr("Languages")}
                 value={String(derived.learningLanguages.length)}
-                description="Languages currently included in your learning profile."
+                description={tr("Languages currently included in your learning profile.")}
                 className="border-emerald-100 bg-emerald-50/60"
                 iconClassName="bg-emerald-600 text-white"
               />
 
               <StatCard
                 icon={<Users className="h-5 w-5" />}
-                label="Community"
+                label={tr("Community")}
                 value={`${formatNumber(profile.followersCount ?? 0)}`}
-                description="Learners currently following your profile."
+                description={tr("Learners currently following your profile.")}
                 className="border-violet-100 bg-violet-50/60"
                 iconClassName="bg-violet-600 text-white"
               />
@@ -560,12 +536,9 @@ export const ProfilePage: React.FC = () => {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">
-                      Profile & learning activity
-                    </h3>
+                      {tr("Profile & learning activity")}</h3>
                     <p className="mt-1 text-xs text-slate-500">
-                      A quick summary of the information available on your
-                      profile.
-                    </p>
+                      {tr("A quick summary of the information available on your profile.")}</p>
                   </div>
 
                   <BarChart3 className="h-5 w-5 text-indigo-500" />
@@ -574,7 +547,7 @@ export const ProfilePage: React.FC = () => {
                 <div className="mt-6 space-y-5">
                   <ProgressBar
                     value={Math.min(100, derived.streak * 3.33)}
-                    label="30-day consistency target"
+                    label={tr("30-day consistency target")}
                     valueLabel={`${Math.min(30, derived.streak)}/30 days`}
                   />
 
@@ -583,19 +556,19 @@ export const ProfilePage: React.FC = () => {
                       100,
                       derived.learningLanguages.length * 33.33,
                     )}
-                    label="Language portfolio"
+                    label={tr("Language portfolio")}
                     valueLabel={`${derived.learningLanguages.length} active`}
                   />
 
                   <ProgressBar
                     value={Math.min(100, derived.goals.length * 20)}
-                    label="Goal clarity"
+                    label={tr("Goal clarity")}
                     valueLabel={`${derived.goals.length} goals`}
                   />
 
                   <ProgressBar
                     value={Math.min(100, derived.interests.length * 12.5)}
-                    label="Interest profile"
+                    label={tr("Interest profile")}
                     valueLabel={`${derived.interests.length} interests`}
                   />
                 </div>
@@ -608,11 +581,9 @@ export const ProfilePage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">
-                      Learner profile
-                    </h3>
+                      {tr("Learner profile")}</h3>
                     <p className="text-xs text-slate-500">
-                      Key identity details
-                    </p>
+                      {tr("Key identity details")}</p>
                   </div>
                 </div>
 
@@ -621,12 +592,11 @@ export const ProfilePage: React.FC = () => {
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                        Location
-                      </p>
+                        {tr("Location")}</p>
                       <p className="mt-1 truncate text-xs font-bold text-slate-700">
                         {[profile.city, profile.country]
                           .filter(Boolean)
-                          .join(", ") || "Not set"}
+                          .join(", ") || tr("Not set")}
                       </p>
                     </div>
                   </div>
@@ -635,8 +605,7 @@ export const ProfilePage: React.FC = () => {
                     <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                        Member since
-                      </p>
+                        {tr("Member since")}</p>
                       <p className="mt-1 text-xs font-bold text-slate-700">
                         {formatDate(profile.createdAt)}
                       </p>
@@ -647,12 +616,9 @@ export const ProfilePage: React.FC = () => {
                     <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                        Social
-                      </p>
+                        {tr("Social")}</p>
                       <p className="mt-1 text-xs font-bold text-slate-700">
-                        {formatNumber(profile.followersCount ?? 0)} followers ·{" "}
-                        {formatNumber(profile.followingCount ?? 0)} following
-                      </p>
+                        {formatNumber(profile.followersCount ?? 0)} {" "}{tr("followers ·{value}{value2} following", { value: " ", value2: formatNumber(profile.followingCount ?? 0) })}</p>
                     </div>
                   </div>
 
@@ -660,12 +626,11 @@ export const ProfilePage: React.FC = () => {
                     <Shield className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                        Verification
-                      </p>
+                        {tr("Verification")}</p>
                       <p className="mt-1 text-xs font-bold text-slate-700">
                         {profile.isVerified
-                          ? "Verified account"
-                          : "Not verified"}
+                          ? tr("Verified account")
+                          : tr("Not verified")}
                       </p>
                     </div>
                   </div>
@@ -681,13 +646,9 @@ export const ProfilePage: React.FC = () => {
 
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">
-                    Keep the momentum going
-                  </h3>
+                    {tr("Keep the momentum going")}</h3>
                   <p className="mt-1 text-xs leading-5 text-slate-600">
-                    Your current streak is the simplest habit signal here. A
-                    little practice every day is more valuable than occasional
-                    long sessions.
-                  </p>
+                    {tr("Your current streak is the simplest habit signal here. A little practice every day is more valuable than occasional long sessions.")}</p>
                 </div>
               </div>
             </div>
@@ -705,13 +666,9 @@ export const ProfilePage: React.FC = () => {
 
                 <div>
                   <h2 className="text-lg font-bold tracking-tight text-slate-900">
-                    Account settings
-                  </h2>
+                    {tr("Account settings")}</h2>
                   <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
-                    Control notifications, learning reminders, visibility,
-                    messaging, translation, language, and appearance preferences
-                    from one place.
-                  </p>
+                    {tr("Control notifications, learning reminders, visibility, messaging, translation, language, and appearance preferences from one place.")}</p>
                 </div>
               </div>
             </div>
@@ -721,8 +678,8 @@ export const ProfilePage: React.FC = () => {
             ) : (
               <p className="py-6 text-center text-sm text-slate-500">
                 {settingsLoading
-                  ? "Loading your settings…"
-                  : "We couldn't load your settings. Please refresh and try again."}
+                  ? tr("Loading your settings…")
+                  : tr("We couldn't load your settings. Please refresh and try again.")}
               </p>
             )}
           </section>

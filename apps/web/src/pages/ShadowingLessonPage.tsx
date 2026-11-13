@@ -36,6 +36,7 @@ import { canListen, useListenOnce, useRecorder, useSubmitAttempt, type AttemptRe
 import { useFinishShadowing, useShadowLesson, type LineToken, type ShadowLine, type ShadowResult, type Tune } from "../hooks/useShadowing";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { card, scoreTone, trackIcon } from "../components/shadowing/shadowingUi";
+import { tr, msg } from "../i18n/core";
 
 const primaryBtn =
   "inline-flex items-center justify-center gap-2 h-11 px-6 rounded-full text-sm font-semibold bg-fuchsia-600 hover:bg-fuchsia-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
@@ -44,16 +45,16 @@ const ghostBtn =
 
 type Mode = "repeat" | "buildup" | "along" | "blind";
 const MODES: Array<{ id: Mode; label: string; icon: typeof Repeat2; hint: string }> = [
-  { id: "repeat", label: "Repeat", icon: Repeat2, hint: "Listen, then say it back the same way." },
-  { id: "buildup", label: "Build up", icon: Layers, hint: "Start with the end of the line and add a chunk each time." },
-  { id: "along", label: "Speak along", icon: Headphones, hint: "Speak at the same time as the voice. Headphones help." },
-  { id: "blind", label: "Blind", icon: Target, hint: "Shadow by ear. The text appears after you try." },
+  { id: "repeat", label: msg("Repeat"), icon: Repeat2, hint: msg("Listen, then say it back the same way.") },
+  { id: "buildup", label: msg("Build up"), icon: Layers, hint: msg("Start with the end of the line and add a chunk each time.") },
+  { id: "along", label: msg("Speak along"), icon: Headphones, hint: msg("Speak at the same time as the voice. Headphones help.") },
+  { id: "blind", label: msg("Blind"), icon: Target, hint: msg("Shadow by ear. The text appears after you try.") },
 ];
 const SPEEDS = [
-  { label: "Slow", rate: 0.65 },
-  { label: "Steady", rate: 0.8 },
-  { label: "Natural", rate: 0.95 },
-  { label: "Fast", rate: 1.1 },
+  { label: msg("Slow"), rate: 0.65 },
+  { label: msg("Steady"), rate: 0.8 },
+  { label: msg("Natural"), rate: 0.95 },
+  { label: msg("Fast"), rate: 1.1 },
 ];
 
 /** Small per-browser preferences; storage can be unavailable, so every access is guarded */
@@ -81,9 +82,9 @@ function usePref<T>(key: string, initial: T): [T, (v: T) => void] {
 }
 
 const TUNES: Record<Tune, { icon: typeof ArrowUpRight; text: string }> = {
-  rise: { icon: ArrowUpRight, text: "Voice goes up at the end" },
-  fall: { icon: ArrowDownRight, text: "Voice goes down at the end" },
-  tag: { icon: ArrowDownRight, text: "Tag: fall if you expect a yes, rise if you really ask" },
+  rise: { icon: ArrowUpRight, text: msg("Voice goes up at the end") },
+  fall: { icon: ArrowDownRight, text: msg("Voice goes down at the end") },
+  tag: { icon: ArrowDownRight, text: msg("Tag: fall if you expect a yes, rise if you really ask") },
 };
 
 /** The line with its hints: stressed words bold, weak forms blue, links as ‿; words outside the step faded */
@@ -102,12 +103,12 @@ const AnnotatedLine: React.FC<{ tokens: LineToken[]; hints: boolean; fromWord?: 
               : "text-slate-500 dark:text-slate-400";
       return (
         <React.Fragment key={i}>
-          <span className={tone} title={hints && t.weak && !faded ? `Weak form: sounds like "${t.weak}"` : undefined}>
-            {t.text}
+          <span className={tone} title={hints && t.weak && !faded ? tr("Weak form: sounds like \"{weak}\"", { weak: t.weak }) : undefined}>
+            {tr(t.text)}
           </span>
           {i < tokens.length - 1 &&
             (hints && t.link && !faded && i + 1 >= fromWord ? (
-              <span className="text-fuchsia-500 font-bold" aria-label="linked">
+              <span className="text-fuchsia-500 font-bold" aria-label={tr("linked")}>
                 ‿
               </span>
             ) : (
@@ -126,7 +127,7 @@ const ScoredWords: React.FC<{ result: AttemptResult }> = ({ result }) => (
       <span key={i}>
         {i > 0 && " "}
         <span
-          title={w.status === "good" ? "Clear" : w.heard ? `Heard "${w.heard}"` : "Not heard"}
+          title={w.status === "good" ? tr("Clear") : w.heard ? tr("Heard \"{heard}\"", { heard: w.heard }) : tr("Not heard")}
           className={
             w.status === "good"
               ? "text-emerald-700 dark:text-emerald-400"
@@ -135,7 +136,7 @@ const ScoredWords: React.FC<{ result: AttemptResult }> = ({ result }) => (
                 : "text-rose-600 dark:text-rose-400 underline decoration-wavy underline-offset-4"
           }
         >
-          {w.text}
+          {tr(w.text)}
         </span>
       </span>
     ))}
@@ -234,7 +235,7 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
     }
     const heard = await heardPromise;
     const rec = await recorder.stop();
-    if (rec && rec.peak < 0.04) toast.message("Your microphone sounds very quiet. Move closer or check the input level.");
+    if (rec && rec.peak < 0.04) toast.message(tr("Your microphone sounds very quiet. Move closer or check the input level."));
     if (!heard) return;
     try {
       const r = await submit.mutateAsync({
@@ -248,14 +249,14 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
       setRevealed(true);
       if (target === line.text) setHistory((h) => ({ ...h, [line.id]: [...(h[line.id] ?? []), r.score] }));
     } catch {
-      toast.error("Couldn't score that. Try again.");
+      toast.error(tr("Couldn't score that. Try again."));
     }
   }, [line, submit, listening, stopListening, mode, recorder, listen, target, rate]);
 
   const playMine = () => {
     if (!recorder.url) return;
     stopSpeaking();
-    void new Audio(recorder.url).play().catch(() => toast.error("Couldn't play your recording."));
+    void new Audio(recorder.url).play().catch(() => toast.error(tr("Couldn't play your recording.")));
   };
   const compare = async () => {
     if (!recorder.url) return;
@@ -309,7 +310,7 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
     try {
       setFinished(await finishLesson.mutateAsync(startedAt.current));
     } catch {
-      toast.error("Couldn't save the lesson. Try again.");
+      toast.error(tr("Couldn't save the lesson. Try again."));
     }
   };
 
@@ -349,8 +350,8 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
   if (isError || !data || !line) {
     return (
       <div className={`${card} max-w-xl mx-auto mt-16 p-8 text-center text-sm text-slate-500 space-y-3`}>
-        <p>Couldn't load this lesson.</p>
-        <Link to="/shadowing" className="text-fuchsia-600 font-semibold">Back to shadowing</Link>
+        <p>{tr("Couldn't load this lesson.")}</p>
+        <Link to="/shadowing" className="text-fuchsia-600 font-semibold">{tr("Back to shadowing")}</Link>
       </div>
     );
   }
@@ -373,33 +374,33 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
           <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400">
             <Trophy className="w-8 h-8" />
           </div>
-          <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-slate-400">{data.title}</p>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-slate-400">{tr(data.title)}</p>
           <h2 className={`mt-1 text-4xl font-bold tabular-nums ${finished.average !== null ? scoreTone(finished.average) : "text-slate-900 dark:text-white"}`}>
             {finished.average ?? "-"}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             {finished.spoken
-              ? `Average over ${finished.spoken} of ${finished.total} lines said aloud`
-              : "No lines were scored this time. Say them aloud to get a score."}
+              ? tr("Average over {spoken} of {total} lines said aloud", { spoken: finished.spoken, total: finished.total })
+              : tr("No lines were scored this time. Say them aloud to get a score.")}
           </p>
           <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs">
             {finished.xp > 0 && <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold">+{finished.xp} XP</span>}
-            {finished.best !== null && <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">Best ever: {finished.best}</span>}
+            {finished.best !== null && <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">{tr("Best ever:")}{" "}{finished.best}</span>}
           </div>
         </section>
 
         <section className={`${card} p-5`}>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Line by line</h3>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">{tr("Line by line")}</h3>
           <ul className="space-y-2.5">
             {finished.lines.map((l) => (
               <li key={l.id} className="flex items-start justify-between gap-3 text-sm">
                 <button type="button" onClick={() => void speak(l.text, { rate })} className="text-left text-slate-700 dark:text-slate-200 hover:text-fuchsia-600 inline-flex gap-2">
                   <Volume2 className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
-                  {l.text}
+                  {tr(l.text)}
                 </button>
                 <span className="shrink-0 text-right tabular-nums">
                   <span className={`font-bold ${l.score !== null ? scoreTone(l.score) : "text-slate-300"}`}>{l.score ?? "-"}</span>
-                  {l.best !== null && l.best !== l.score && <span className="block text-[11px] text-slate-400">best {l.best}</span>}
+                  {l.best !== null && l.best !== l.score && <span className="block text-[11px] text-slate-400">{tr("best")}{" "}{l.best}</span>}
                 </span>
               </li>
             ))}
@@ -408,8 +409,8 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
 
         {finished.weakWords.length > 0 && (
           <section className={`${card} p-5`}>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Words to work on</h3>
-            <p className="text-xs text-slate-500">These did not come through clearly. Tap one to hear it.</p>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Words to work on")}</h3>
+            <p className="text-xs text-slate-500">{tr("These did not come through clearly. Tap one to hear it.")}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {finished.weakWords.map((w) => (
                 <button key={w} type="button" onClick={() => void speak(w, { rate: 0.8 })} className={pill(false)}>
@@ -418,7 +419,7 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
               ))}
             </div>
             <Link to="/pronunciation" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-fuchsia-600 dark:text-fuchsia-400">
-              Practise sounds <ArrowRight className="w-3.5 h-3.5" />
+              {tr("Practise sounds")}{" "}<ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </section>
         )}
@@ -426,21 +427,19 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2">
             <button type="button" className={ghostBtn} onClick={restart}>
-              <RotateCcw className="w-4 h-4" /> Practise again
-            </button>
+              <RotateCcw className="w-4 h-4" /> {" "}{tr("Practise again")}</button>
             {daily && (
               <button type="button" className={ghostBtn} onClick={onNewSet}>
-                <Shuffle className="w-4 h-4" /> New set
-              </button>
+                <Shuffle className="w-4 h-4" /> {" "}{tr("New set")}</button>
             )}
           </div>
           {data.next ? (
             <Link to={`/shadowing/${data.next.id}`} className={primaryBtn}>
-              Next: {data.next.title} <ArrowRight className="w-4 h-4" />
+              {tr("Next:")}{" "}{tr(data.next.title)} <ArrowRight className="w-4 h-4" />
             </Link>
           ) : (
             <Link to="/shadowing" className={primaryBtn}>
-              Back to course <ArrowRight className="w-4 h-4" />
+              {tr("Back to course")}{" "}<ArrowRight className="w-4 h-4" />
             </Link>
           )}
         </div>
@@ -452,8 +451,7 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 lg:py-10 space-y-4">
       <Link to="/shadowing" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-        <ArrowLeft className="w-3.5 h-3.5" /> Shadowing
-      </Link>
+        <ArrowLeft className="w-3.5 h-3.5" /> {" "}{tr("Shadowing")}</Link>
 
       <header className="flex items-start gap-3">
         <div className="w-12 h-12 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300 flex items-center justify-center shrink-0">
@@ -461,44 +459,42 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-wider text-fuchsia-600 dark:text-fuchsia-400">
-            {data.level} · {data.track?.label ?? "Daily mix"}
+            {data.level} · {tr(data.track?.label) ?? tr("Daily mix")}
           </p>
-          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{data.title}</h1>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{tr(data.title)}</h1>
           <p className="text-sm text-slate-500">{data.focus}</p>
         </div>
         {data.progress?.bestScore != null && (
-          <span className={`text-xs font-semibold tabular-nums shrink-0 ${scoreTone(data.progress.bestScore)}`}>Best {data.progress.bestScore}</span>
+          <span className={`text-xs font-semibold tabular-nums shrink-0 ${scoreTone(data.progress.bestScore)}`}>{tr("Best")}{" "}{data.progress.bestScore}</span>
         )}
       </header>
 
       <div className="rounded-2xl bg-amber-50 dark:bg-amber-500/[0.07] border border-amber-200/70 dark:border-amber-500/20 p-3.5 flex gap-2.5 text-sm text-amber-900 dark:text-amber-200">
         <Lightbulb className="w-4 h-4 mt-0.5 shrink-0" />
-        <p>{data.tip}</p>
+        <p>{tr(data.tip)}</p>
       </div>
 
       {!canSpeak() && (
         <div className={`${card} p-4 text-sm text-amber-700 dark:text-amber-400`}>
-          This browser can't read lines aloud. Use Chrome or Edge for shadowing.
-        </div>
+          {tr("This browser can't read lines aloud. Use Chrome or Edge for shadowing.")}</div>
       )}
       {!micOk && (
         <div className={`${card} p-4 text-sm text-slate-600 dark:text-slate-300`}>
-          This browser can't listen to you, so lines won't be scored. You can still listen, shadow out loud and mark each line as said.
-        </div>
+          {tr("This browser can't listen to you, so lines won't be scored. You can still listen, shadow out loud and mark each line as said.")}</div>
       )}
 
       {/* Settings */}
       <section className={`${card} p-4 space-y-3`}>
-        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Practice mode">
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={tr("Practice mode")}>
           {MODES.map((m) => (
             <button key={m.id} type="button" role="tab" aria-selected={mode === m.id} onClick={() => pickMode(m.id)} className={pill(mode === m.id)}>
-              <m.icon className="w-3.5 h-3.5" /> {m.label}
+              <m.icon className="w-3.5 h-3.5" /> {tr(m.label)}
             </button>
           ))}
         </div>
-        <p className="text-xs text-slate-500">{MODES.find((m) => m.id === mode)?.hint}</p>
+        <p className="text-xs text-slate-500">{tr(MODES.find((m) => m.id === mode)?.hint)}</p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="flex items-center gap-1" role="radiogroup" aria-label="Speed">
+          <div className="flex items-center gap-1" role="radiogroup" aria-label={tr("Speed")}>
             {SPEEDS.map((s, i) => (
               <button
                 key={s.label}
@@ -510,21 +506,19 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
                   speed === i ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
                 }`}
               >
-                {s.label}
+                {tr(s.label)}
               </button>
             ))}
           </div>
           <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer">
-            <input type="checkbox" checked={hints} onChange={(e) => setHints(e.target.checked)} className="accent-fuchsia-600" /> Stress and linking hints
-          </label>
+            <input type="checkbox" checked={hints} onChange={(e) => setHints(e.target.checked)} className="accent-fuchsia-600" /> {" "}{tr("Stress and linking hints")}</label>
           <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer">
-            <input type="checkbox" checked={autoplay} onChange={(e) => setAutoplay(e.target.checked)} className="accent-fuchsia-600" /> Play each line automatically
-          </label>
+            <input type="checkbox" checked={autoplay} onChange={(e) => setAutoplay(e.target.checked)} className="accent-fuchsia-600" /> {" "}{tr("Play each line automatically")}</label>
         </div>
       </section>
 
       {/* Line navigator */}
-      <nav className="flex items-center gap-1.5 flex-wrap" aria-label="Lines">
+      <nav className="flex items-center gap-1.5 flex-wrap" aria-label={tr("Lines")}>
         {lines.map((l, i) => {
           const b = best(l.id);
           const said = b !== null || practised[l.id];
@@ -534,7 +528,7 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
               type="button"
               onClick={() => goTo(i)}
               aria-current={i === index ? "step" : undefined}
-              title={b !== null ? `Best ${b}` : said ? "Said" : "Not tried yet"}
+              title={b !== null ? tr("Best {b}", { b }) : said ? tr("Said") : tr("Not tried yet")}
               className={`w-9 h-9 rounded-full text-xs font-bold tabular-nums border transition-colors ${
                 i === index
                   ? "border-fuchsia-500 bg-fuchsia-600 text-white"
@@ -547,28 +541,27 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
             </button>
           );
         })}
-        <span className="ml-auto text-xs text-slate-400 tabular-nums">{doneLines}/{lines.length} said</span>
+        <span className="ml-auto text-xs text-slate-400 tabular-nums">{doneLines}{tr("/{length} said", { length: lines.length })}</span>
       </nav>
 
       {/* The line */}
       <section className={`${card} p-5 sm:p-6 space-y-5`}>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
-            {React.createElement(tuneInfo.icon, { className: "w-3.5 h-3.5" })} {tuneInfo.text}
+            {React.createElement(tuneInfo.icon, { className: "w-3.5 h-3.5" })} {tr(tuneInfo.text)}
           </span>
           {buildUp && (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300 font-semibold">
-              <Layers className="w-3.5 h-3.5" /> Chunk {step + 1} of {steps.length}
+              <Layers className="w-3.5 h-3.5" /> {" "}{tr("Chunk {value} of", { value: step + 1 })}{" "}{steps.length}
             </span>
           )}
         </div>
 
         {hideText ? (
           <div className="py-4 text-center space-y-3">
-            <p className="text-slate-400 text-sm">Text hidden. Listen and shadow by ear.</p>
+            <p className="text-slate-400 text-sm">{tr("Text hidden. Listen and shadow by ear.")}</p>
             <button type="button" className={pill(false)} onClick={() => setRevealed(true)}>
-              <Eye className="w-3.5 h-3.5" /> Show text
-            </button>
+              <Eye className="w-3.5 h-3.5" /> {" "}{tr("Show text")}</button>
           </div>
         ) : (
           <AnnotatedLine tokens={line.tokens} hints={hints} fromWord={fromWord} />
@@ -576,7 +569,7 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
 
         {listening && (
           <p className="text-sm text-fuchsia-600 dark:text-fuchsia-400 min-h-6" aria-live="polite">
-            {interim || "Listening..."}
+            {interim || tr("Listening...")}
           </p>
         )}
 
@@ -584,18 +577,17 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
           <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.03] p-4 space-y-2" role="status">
             <div className="flex items-baseline gap-2">
               <span className={`text-3xl font-bold tabular-nums ${scoreTone(result.score)}`}>{result.score}</span>
-              <span className="text-xs text-slate-500">{result.verdict === "great" ? "Great match!" : result.verdict === "good" ? "Good, keep polishing" : "Try once more"}</span>
+              <span className="text-xs text-slate-500">{result.verdict === "great" ? tr("Great match!") : result.verdict === "good" ? tr("Good, keep polishing") : tr("Try once more")}</span>
             </div>
             <ScoredWords result={result} />
-            {result.pace && <p className="text-xs text-slate-500">Pace: {result.pace.wordsPerMinute} words a minute, {result.pace.verdict}. {result.pace.tip}</p>}
-            {result.issues[0] && <p className="text-xs text-slate-500">Tip: {result.issues[0].tip}</p>}
+            {result.pace && <p className="text-xs text-slate-500">{tr("Pace: {wordsPerMinute} words a minute, {verdict}.", { wordsPerMinute: result.pace.wordsPerMinute, verdict: result.pace.verdict })}{" "}{tr(result.pace.tip)}</p>}
+            {result.issues[0] && <p className="text-xs text-slate-500">{tr("Tip:")}{" "}{tr(result.issues[0].tip)}</p>}
           </div>
         )}
 
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => void playModel()} className={ghostBtn} disabled={listening || playing}>
-            <Play className="w-4 h-4" /> Listen
-          </button>
+            <Play className="w-4 h-4" /> {" "}{tr("Listen")}</button>
           {micOk ? (
             <button
               type="button"
@@ -606,27 +598,24 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
               }`}
             >
               {submit.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : listening ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              {listening ? "Stop" : mode === "along" ? "Play and speak" : result ? "Try again" : "Say it"}
+              {listening ? tr("Stop") : mode === "along" ? tr("Play and speak") : result ? tr("Try again") : tr("Say it")}
             </button>
           ) : (
             <button type="button" className={ghostBtn} onClick={() => setPractised((p) => ({ ...p, [line.id]: true }))} disabled={!!practised[line.id]}>
-              <CheckCircle2 className="w-4 h-4" /> {practised[line.id] ? "Marked as said" : "I said it"}
+              <CheckCircle2 className="w-4 h-4" /> {practised[line.id] ? tr("Marked as said") : tr("I said it")}
             </button>
           )}
           {recorder.url && (
             <>
               <button type="button" className={ghostBtn} onClick={playMine}>
-                <Volume2 className="w-4 h-4" /> Me
-              </button>
+                <Volume2 className="w-4 h-4" /> {" "}{tr("Me")}</button>
               <button type="button" className={ghostBtn} onClick={() => void compare()} disabled={playing}>
-                <Headphones className="w-4 h-4" /> Model, then me
-              </button>
+                <Headphones className="w-4 h-4" /> {" "}{tr("Model, then me")}</button>
             </>
           )}
           {mode === "blind" && revealed && !result && (
             <button type="button" className={pill(false)} onClick={() => setRevealed(false)}>
-              <EyeOff className="w-3.5 h-3.5" /> Hide
-            </button>
+              <EyeOff className="w-3.5 h-3.5" /> {" "}{tr("Hide")}</button>
           )}
         </div>
 
@@ -634,7 +623,7 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
 
         {triesHere.length > 0 && (
           <p className="text-xs text-slate-500">
-            Tries on this line:{" "}
+            {tr("Tries on this line:")}{" "}
             {triesHere.map((s, i) => (
               <span key={i} className={`font-semibold tabular-nums ${scoreTone(s)}`}>
                 {i > 0 && " → "}
@@ -648,34 +637,29 @@ const LessonPlayer: React.FC<{ lessonId: string | undefined; round: number; onNe
       {/* Moving on */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button type="button" className={ghostBtn} onClick={() => goTo(index - 1)} disabled={index === 0}>
-          <ArrowLeft className="w-4 h-4" /> Back
-        </button>
+          <ArrowLeft className="w-4 h-4" /> {" "}{tr("Back")}</button>
         <div className="flex flex-wrap gap-2">
           {buildUp && step < steps.length - 1 && (
             <button type="button" className={ghostBtn} onClick={nextChunk}>
-              <Layers className="w-4 h-4" /> Add a chunk
-            </button>
+              <Layers className="w-4 h-4" /> {" "}{tr("Add a chunk")}</button>
           )}
           {last ? (
             <button type="button" className={primaryBtn} onClick={() => void finish()} disabled={finishLesson.isPending}>
-              {finishLesson.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trophy className="w-4 h-4" />} Finish lesson
-            </button>
+              {finishLesson.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trophy className="w-4 h-4" />} {" "}{tr("Finish lesson")}</button>
           ) : (
             <button type="button" className={primaryBtn} onClick={() => goTo(index + 1)}>
-              Next line <ArrowRight className="w-4 h-4" />
+              {tr("Next line")}{" "}<ArrowRight className="w-4 h-4" />
             </button>
           )}
         </div>
       </div>
 
       <p className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400">
-        <Keyboard className="w-3.5 h-3.5" /> Space to speak · L to listen · ← → to move between lines
-        {!last && (
+        <Keyboard className="w-3.5 h-3.5" /> {" "}{tr("Space to speak · L to listen · ← → to move between lines")}{!last && (
           <>
             {" · "}
             <button type="button" className="underline hover:text-slate-600" onClick={() => void finish()}>
-              finish early
-            </button>
+              {tr("finish early")}</button>
           </>
         )}
       </p>

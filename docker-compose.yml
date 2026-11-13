@@ -17,12 +17,15 @@ services:
   redis:
     image: redis:7-alpine
     container_name: lingoverse_redis
+    # The API hangs at start-up without Redis, so bring it back after a reboot
+    restart: unless-stopped
     ports:
       - "6379:6379"
 
   meilisearch:
     image: getmeili/meilisearch:v1.7
     container_name: lingoverse_search
+    restart: unless-stopped
     ports:
       - "7700:7700"
     environment:

@@ -37,6 +37,7 @@ import { LEVEL_STYLE, POS_SHORT, STATUS_LABEL, card, chip, input, select } from 
 import { WordMapView } from "../components/dictionary/WordMapView";
 import { SizeTest } from "../components/dictionary/SizeTest";
 import { PageHeader, Stat } from "../components/ui";
+import { tr, msg } from "../i18n/core";
 
 type Tab = "browse" | "map" | "test";
 
@@ -49,7 +50,7 @@ const WordTile: React.FC<{ word: DictCard }> = ({ word }) => {
   const level = LEVEL_STYLE[word.level];
   return (
     <motion.li layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} className={`${card} group relative p-4 flex flex-col gap-1.5 hover:shadow-md hover:border-slate-300/80 dark:hover:border-white/15 transition-shadow`}>
-      <Link to={`/dictionary/${word.id}`} className="absolute inset-0 rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60" aria-label={`Open “${word.word}”`} />
+      <Link to={`/dictionary/${word.id}`} className="absolute inset-0 rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60" aria-label={tr("Open “{word}”", { word: word.word })} />
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-[17px] font-bold tracking-tight text-slate-900 dark:text-white truncate">{word.word}</p>
@@ -66,7 +67,7 @@ const WordTile: React.FC<{ word: DictCard }> = ({ word }) => {
         <span className="tabular-nums">#{word.rank.toLocaleString()}</span>
         <span className="flex-1" />
         {canSpeak() && (
-          <button type="button" onClick={() => void speak(word.word, { rate: 0.85 })} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300" aria-label={`Hear “${word.word}”`}>
+          <button type="button" onClick={() => void speak(word.word, { rate: 0.85 })} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300" aria-label={tr("Hear “{word}”", { word: word.word })}>
             <Volume2 className="w-3.5 h-3.5" />
           </button>
         )}
@@ -75,19 +76,18 @@ const WordTile: React.FC<{ word: DictCard }> = ({ word }) => {
             type="button"
             onClick={() =>
               save.mutate(word.id, {
-                onSuccess: () => toast.success(`“${word.word}” is in My words`),
+                onSuccess: () => toast.success(tr("“{word}” is in My words", { word: word.word })),
                 onError: (e) => toast.error(dictError(e, "Couldn't save it")),
               })
             }
             disabled={save.isPending}
             className="h-7 px-2 rounded-lg flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 disabled:opacity-50"
-            aria-label={`Save “${word.word}” to My words`}
+            aria-label={tr("Save “{word}” to My words", { word: word.word })}
           >
-            {save.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} Save
-          </button>
+            {save.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} {" "}{tr("Save")}</button>
         ) : (
           <span className={`h-7 px-2 rounded-lg flex items-center gap-1 font-semibold ${word.status === "known" ? "text-emerald-600 dark:text-emerald-300" : "text-sky-600 dark:text-sky-300"}`}>
-            <Check className="w-3.5 h-3.5" /> {word.status === "known" ? "Known" : "Saved"}
+            <Check className="w-3.5 h-3.5" /> {word.status === "known" ? tr("Known") : tr("Saved")}
           </span>
         )}
       </div>
@@ -138,10 +138,10 @@ const Browse: React.FC = () => {
                 <span className="text-[11px] tabular-nums text-slate-400">{l.total.toLocaleString()}</span>
               </div>
               <p className="mt-1.5 text-[11.5px] font-semibold text-slate-700 dark:text-slate-200 truncate">{style.name}</p>
-              <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden" title={`${l.known} of ${l.total} known`}>
+              <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden" title={tr("{known} of {total} known", { known: l.known, total: l.total })}>
                 <div className={`h-full rounded-full ${style.dot}`} style={{ width: `${Math.round(share * 100)}%` }} />
               </div>
-              <p className="mt-1 text-[11px] tabular-nums text-slate-400">{l.known.toLocaleString()} known</p>
+              <p className="mt-1 text-[11px] tabular-nums text-slate-400">{l.known.toLocaleString()} {" "}{tr("known")}</p>
             </button>
           );
         })}
@@ -157,37 +157,35 @@ const Browse: React.FC = () => {
               setQ(e.target.value);
               if (page !== 1) set("page", null);
             }}
-            placeholder={`Search ${overview.data ? overview.data.count.toLocaleString() : "13,000"} words, or a meaning (“happy”, “to be afraid”)…`}
+            placeholder={tr("Search {value} words, or a meaning (“happy”, “to be afraid”)…", { value: overview.data ? overview.data.count.toLocaleString() : "13,000" })}
             className={`${input} pl-10`}
-            aria-label="Search the dictionary"
+            aria-label={tr("Search the dictionary")}
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {(["all", "new", "saved", "known"] as const).map((s) => (
             <button key={s} type="button" className={chip(status === s)} onClick={() => set("status", s)}>
-              {s === "all" ? "All words" : STATUS_LABEL[s]}
+              {s === "all" ? tr("All words") : tr(STATUS_LABEL[s])}
             </button>
           ))}
           <span className="flex-1" />
-          <select value={topic} onChange={(e) => set("topic", e.target.value)} className={select} aria-label="Topic">
-            <option value="">All topics</option>
+          <select value={topic} onChange={(e) => set("topic", e.target.value)} className={select} aria-label={tr("Topic")}>
+            <option value="">{tr("All topics")}</option>
             {overview.data?.topics.map((t) => (
               <option key={t.name} value={t.name}>
                 {t.name} ({t.count.toLocaleString()})
               </option>
             ))}
           </select>
-          <select value={sort} onChange={(e) => set("sort", e.target.value === "az" ? "az" : null)} className={select} aria-label="Sort">
-            <option value="rank">Most common first</option>
-            <option value="az">A to Z</option>
+          <select value={sort} onChange={(e) => set("sort", e.target.value === "az" ? "az" : null)} className={select} aria-label={tr("Sort")}>
+            <option value="rank">{tr("Most common first")}</option>
+            <option value="az">{tr("A to Z")}</option>
           </select>
         </div>
         {(rankFrom || rankTo) && (
           <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
-            Showing words #{(rankFrom ?? 1).toLocaleString()}–#{(rankTo ?? 10000).toLocaleString()} from the word map.
-            <button type="button" className="font-semibold text-indigo-600 dark:text-indigo-300 hover:underline" onClick={() => { const n = new URLSearchParams(params); n.delete("from"); n.delete("to"); n.delete("page"); setParams(n, { replace: true }); }}>
-              Show all
-            </button>
+            {tr("Showing words #{value}–#{value2} from the word map.", { value: (rankFrom ?? 1).toLocaleString(), value2: (rankTo ?? 10000).toLocaleString() })}<button type="button" className="font-semibold text-indigo-600 dark:text-indigo-300 hover:underline" onClick={() => { const n = new URLSearchParams(params); n.delete("from"); n.delete("to"); n.delete("page"); setParams(n, { replace: true }); }}>
+              {tr("Show all")}</button>
           </p>
         )}
       </div>
@@ -199,20 +197,19 @@ const Browse: React.FC = () => {
         </div>
       ) : list.isError || !list.data ? (
         <div className={`${card} p-8 text-center text-sm text-slate-500`}>
-          Couldn't load the dictionary.{" "}
+          {tr("Couldn't load the dictionary.")}{" "}
           <button type="button" className="font-semibold text-indigo-600 hover:underline" onClick={() => list.refetch()}>
-            Try again
-          </button>
+            {tr("Try again")}</button>
         </div>
       ) : list.data.total === 0 ? (
         <div className={`${card} p-8 text-center`}>
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">No words match</p>
-          <p className="mt-1 text-xs text-slate-500">Try fewer filters, or search for a meaning instead.</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{tr("No words match")}</p>
+          <p className="mt-1 text-xs text-slate-500">{tr("Try fewer filters, or search for a meaning instead.")}</p>
         </div>
       ) : (
         <>
           <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-            {list.data.total.toLocaleString()} {list.data.total === 1 ? "word" : "words"}
+            {list.data.total.toLocaleString()} {list.data.total === 1 ? tr("word") : tr("words")}
             {list.isFetching && <Loader2 className="inline w-3 h-3 ml-1.5 animate-spin" />}
           </p>
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -221,14 +218,14 @@ const Browse: React.FC = () => {
             ))}
           </ul>
           {list.data.pages > 1 && (
-            <nav className="flex items-center justify-center gap-2 pt-2" aria-label="Pages">
-              <button type="button" disabled={list.data.page <= 1} onClick={() => set("page", list.data!.page - 1)} className="h-9 w-9 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 disabled:opacity-40" aria-label="Previous page">
+            <nav className="flex items-center justify-center gap-2 pt-2" aria-label={tr("Pages")}>
+              <button type="button" disabled={list.data.page <= 1} onClick={() => set("page", list.data!.page - 1)} className="h-9 w-9 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 disabled:opacity-40" aria-label={tr("Previous page")}>
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <span className="text-sm tabular-nums text-slate-600 dark:text-slate-300">
-                Page {list.data.page} of {list.data.pages.toLocaleString()}
+                {tr("Page {page} of", { page: list.data.page })}{" "}{list.data.pages.toLocaleString()}
               </span>
-              <button type="button" disabled={list.data.page >= list.data.pages} onClick={() => set("page", list.data!.page + 1)} className="h-9 w-9 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 disabled:opacity-40" aria-label="Next page">
+              <button type="button" disabled={list.data.page >= list.data.pages} onClick={() => set("page", list.data!.page + 1)} className="h-9 w-9 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 disabled:opacity-40" aria-label={tr("Next page")}>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </nav>
@@ -239,12 +236,11 @@ const Browse: React.FC = () => {
       {/* Credits: the data's licences ask for them */}
       {overview.data && (
         <details className="text-xs text-slate-400 dark:text-slate-500 pt-2">
-          <summary className="cursor-pointer select-none hover:text-slate-600 dark:hover:text-slate-300">Word data sources</summary>
+          <summary className="cursor-pointer select-none hover:text-slate-600 dark:hover:text-slate-300">{tr("Word data sources")}</summary>
           <ul className="mt-2 space-y-1">
             {overview.data.sources.map((s) => (
               <li key={s.name}>
-                <a href={s.url} target="_blank" rel="noreferrer" className="font-semibold hover:underline">{s.name}</a> by {s.by}
-                {s.license ? ` (${s.license})` : ""}: {s.use}
+                <a href={s.url} target="_blank" rel="noreferrer" className="font-semibold hover:underline">{s.name}</a> {" "}{tr("by {by}{value}:", { by: s.by, value: s.license ? ` (${s.license})` : "" })}{" "}{s.use}
               </li>
             ))}
           </ul>
@@ -271,9 +267,9 @@ export const DictionaryPage: React.FC = () => {
   const latest = overview.data?.latestTest;
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ElementType }> = [
-    { id: "browse", label: "Browse", icon: BookA },
-    { id: "map", label: "Word map", icon: Grid3x3 },
-    { id: "test", label: "Size test", icon: Gauge },
+    { id: "browse", label: msg("Browse"), icon: BookA },
+    { id: "map", label: msg("Word map"), icon: Grid3x3 },
+    { id: "test", label: msg("Size test"), icon: Gauge },
   ];
 
   return (
@@ -282,14 +278,14 @@ export const DictionaryPage: React.FC = () => {
         <PageHeader
           icon={BookA}
           tone="sky"
-          eyebrow="Learn"
-          title="Dictionary"
-          subtitle={`The ${overview.data ? overview.data.count.toLocaleString() : "13,000"} useful English words, A1 to C2 (the 10,000 most common, then 3,000 advanced C1 and C2 words), with pronunciation, meanings, examples and word families.`}
+          eyebrow={tr("Learn")}
+          title={tr("Dictionary")}
+          subtitle={tr("The {value} useful English words, A1 to C2 (the 10,000 most common, then 3,000 advanced C1 and C2 words), with pronunciation, meanings, examples and word families.", { value: overview.data ? overview.data.count.toLocaleString() : "13,000" })}
           actions={
             overview.data && (
               <div className="flex gap-2 max-sm:w-full [&>*]:max-sm:flex-1">
-                <Stat className={`${card} px-4 py-2.5`} label="Words you know" value={latest?.estimate != null ? `≈${latest.estimate.toLocaleString()}` : "?"} />
-                <Stat className={`${card} px-4 py-2.5`} label="Saved" value={overview.data.progress.saved.toLocaleString()} />
+                <Stat className={`${card} px-4 py-2.5`} label={tr("Words you know")} value={latest?.estimate != null ? `≈${latest.estimate.toLocaleString()}` : "?"} />
+                <Stat className={`${card} px-4 py-2.5`} label={tr("Saved")} value={overview.data.progress.saved.toLocaleString()} />
               </div>
             )
           }
@@ -307,7 +303,7 @@ export const DictionaryPage: React.FC = () => {
             >
               {tab === id && <motion.span layoutId="dictionary-tab" className="absolute inset-0 rounded-xl bg-indigo-600" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
               <Icon className="relative w-4 h-4" />
-              <span className="relative">{label}</span>
+              <span className="relative">{tr(label)}</span>
             </button>
           ))}
         </div>
@@ -318,8 +314,8 @@ export const DictionaryPage: React.FC = () => {
               <Sparkles className="w-5 h-5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-slate-900 dark:text-white">How many English words do you know?</span>
-              <span className="block text-xs text-slate-500 dark:text-slate-400">Take the 5-minute size test. It finds your level and marks the words you already know.</span>
+              <span className="block text-sm font-semibold text-slate-900 dark:text-white">{tr("How many English words do you know?")}</span>
+              <span className="block text-xs text-slate-500 dark:text-slate-400">{tr("Take the 5-minute size test. It finds your level and marks the words you already know.")}</span>
             </span>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </button>

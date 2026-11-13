@@ -12,6 +12,7 @@ import {
   Coffee,
   Mic,
 } from "lucide-react";
+import { msg } from "../../../i18n/core";
 
 export const COLORS = {
   void: "var(--sx-bg-page-0b0714)",
@@ -45,20 +46,20 @@ export const TYPE_ACCENTS: Record<string, string> = {
 };
 
 export const TYPE_LABELS: Record<string, string> = {
-  OPEN: "Open",
-  PRIVATE: "Private",
-  STAGE: "Stage",
-  SCHEDULED: "Scheduled",
+  OPEN: msg("Open"),
+  PRIVATE: msg("Private"),
+  STAGE: msg("Stage"),
+  SCHEDULED: msg("Scheduled"),
 };
 
 export const TYPE_CONFIG: Record<
   string,
   { label: string; icon: ElementType }
 > = {
-  OPEN: { label: "Open", icon: Users },
-  PRIVATE: { label: "Private", icon: Lock },
-  STAGE: { label: "Stage", icon: Radio },
-  SCHEDULED: { label: "Scheduled", icon: Calendar },
+  OPEN: { label: msg("Open"), icon: Users },
+  PRIVATE: { label: msg("Private"), icon: Lock },
+  STAGE: { label: msg("Stage"), icon: Radio },
+  SCHEDULED: { label: msg("Scheduled"), icon: Calendar },
 };
 
 export const TOPICS = [
@@ -91,12 +92,12 @@ export const LANGUAGES = [
 export const ROOM_TEMPLATES = [
   {
     id: "free-talk",
-    label: "Free talk",
+    label: msg("Free talk"),
     emoji: "💬",
-    hint: "Relaxed chat, anyone welcome",
+    hint: msg("Relaxed chat, anyone welcome"),
     values: {
       name: "Free talk",
-      description: "Relaxed conversation. All levels welcome.",
+      description: msg("Relaxed conversation. All levels welcome."),
       type: "OPEN",
       maxParticipants: 20,
       topics: ["Conversation", "Casual"],
@@ -104,12 +105,12 @@ export const ROOM_TEMPLATES = [
   },
   {
     id: "practice-pair",
-    label: "Practice partner",
+    label: msg("Practice partner"),
     emoji: "🤝",
-    hint: "A small room to practise one-on-one",
+    hint: msg("A small room to practise one-on-one"),
     values: {
       name: "Practice partner",
-      description: "Small group so everyone gets plenty of speaking time.",
+      description: msg("Small group so everyone gets plenty of speaking time."),
       type: "OPEN",
       maxParticipants: 4,
       topics: ["Language Learning", "Conversation"],
@@ -117,12 +118,12 @@ export const ROOM_TEMPLATES = [
   },
   {
     id: "interview",
-    label: "Interview prep",
+    label: msg("Interview prep"),
     emoji: "🎯",
-    hint: "Mock interviews with feedback",
+    hint: msg("Mock interviews with feedback"),
     values: {
       name: "Interview prep",
-      description: "Take turns asking and answering. Give each other feedback.",
+      description: msg("Take turns asking and answering. Give each other feedback."),
       type: "OPEN",
       maxParticipants: 6,
       topics: ["Interview", "Study"],
@@ -130,12 +131,12 @@ export const ROOM_TEMPLATES = [
   },
   {
     id: "stage",
-    label: "Stage talk",
+    label: msg("Stage talk"),
     emoji: "🎤",
-    hint: "A few speakers, many listeners",
+    hint: msg("A few speakers, many listeners"),
     values: {
       name: "Stage talk",
-      description: "Speakers on stage, everyone else listens and raises a hand.",
+      description: msg("Speakers on stage, everyone else listens and raises a hand."),
       type: "STAGE",
       maxParticipants: 100,
       topics: ["Panel", "Podcast"],

@@ -14,7 +14,7 @@ import {
   type VoiceRoom,
 } from "../hooks/useVoice";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { toast } from "sonner";
 import { Phone, Plus } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
@@ -55,6 +55,7 @@ import {
 import { useLobbyPrefs } from "../components/voice/lobby/useLobbyPrefs";
 import { useLobbyShortcuts } from "../components/voice/lobby/useLobbyShortcuts";
 import { useNow } from "../components/voice/lobby/useNow";
+import { tr, msg } from "../i18n/core";
 
 /** The server's message from a failed request, if it sent one */
 const apiMessage = (error: unknown): string =>
@@ -125,13 +126,11 @@ export const VoicePage = () => {
   });
 
   // Sync activeRoomId with URL param
-  useEffect(() => {
-    if (urlRoomId) {
-      setActiveRoomId(urlRoomId);
-    } else {
-      setActiveRoomId(null);
-    }
-  }, [urlRoomId]);
+  const [syncedUrlRoom, setSyncedUrlRoom] = useState<string | null>(urlRoomId ?? null);
+  if ((urlRoomId ?? null) !== syncedUrlRoom) {
+    setSyncedUrlRoom(urlRoomId ?? null);
+    setActiveRoomId(urlRoomId ?? null);
+  }
 
   // Auto-refresh rooms every 15 seconds
   useEffect(() => {
@@ -229,8 +228,8 @@ export const VoicePage = () => {
     toggleInterest.mutate(
       { roomId, interested },
       {
-        onSuccess: () => toast.success(interested ? "We'll remind you 10 minutes before it starts" : "Reminder removed"),
-        onError: () => toast.error("Couldn't update the reminder"),
+        onSuccess: () => toast.success(interested ? tr("We'll remind you 10 minutes before it starts") : tr("Reminder removed")),
+        onError: () => toast.error(tr("Couldn't update the reminder")),
       },
     );
   };
@@ -280,7 +279,7 @@ export const VoicePage = () => {
       const newRoom = await createRoom.mutateAsync(payload);
 
       if (!newRoom || !newRoom.id) {
-        toast.error("Room creation failed. Please try again.");
+        toast.error(tr("Room creation failed. Please try again."));
         return;
       }
 
@@ -289,12 +288,12 @@ export const VoicePage = () => {
 
       // A scheduled room starts later: stay in the lobby so it shows up there
       if (data.type === "SCHEDULED") {
-        toast.success("🗓 Room scheduled. Share the link so people can join.");
+        toast.success(tr("🗓 Room scheduled. Share the link so people can join."));
         await refetch();
         return;
       }
 
-      toast.success("🎉 Room created! Invite others to join.");
+      toast.success(tr("🎉 Room created! Invite others to join."));
 
       setLeftRoomIds((prev) => {
         const newSet = new Set(prev);
@@ -306,7 +305,7 @@ export const VoicePage = () => {
       navigate(`/voice/${newRoom.id}`);
     } catch (error) {
       console.error("Create room error:", error);
-      toast.error(apiMessage(error) || "Failed to create room");
+      toast.error(apiMessage(error) || tr("Failed to create room"));
     }
   };
 
@@ -325,13 +324,13 @@ export const VoicePage = () => {
     }
 
     if (room.status === "ENDED") {
-      toast.error("This room has ended");
+      toast.error(tr("This room has ended"));
       refetch();
       return;
     }
 
     if (participantCount(room) >= room.maxParticipants) {
-      toast.error("This room is full");
+      toast.error(tr("This room is full"));
       return;
     }
 
@@ -371,7 +370,7 @@ export const VoicePage = () => {
         navigate(`/voice/${room.id}`);
         return;
       }
-      toast.error(apiMessage(error) || "Failed to join room");
+      toast.error(apiMessage(error) || tr("Failed to join room"));
     } finally {
       setJoiningRoomId(null);
     }
@@ -402,7 +401,7 @@ export const VoicePage = () => {
       setJoinPassword("");
       setJoinError("");
     } catch (error) {
-      toast.error(apiMessage(error) || "Failed to join room");
+      toast.error(apiMessage(error) || tr("Failed to join room"));
     } finally {
       setJoiningRoomId(null);
     }
@@ -411,7 +410,7 @@ export const VoicePage = () => {
   const handleEnd = async (roomId: string) => {
     setConfirmModal({
       isOpen: true,
-      title: "End Room?",
+      title: msg("End Room?"),
       message:
         "Are you sure you want to end this room? This action cannot be undone and all participants will be disconnected.",
       confirmText: "Yes, End Room",
@@ -419,7 +418,7 @@ export const VoicePage = () => {
       onConfirm: async () => {
         try {
           await endRoom.mutateAsync(roomId);
-          toast.success("Room ended");
+          toast.success(tr("Room ended"));
           await refetch();
 
           setLeftRoomIds((prev) => new Set(prev).add(roomId));
@@ -433,7 +432,7 @@ export const VoicePage = () => {
             navigate("/voice");
           }
         } catch (error) {
-          toast.error(apiMessage(error) || "Failed to end room");
+          toast.error(apiMessage(error) || tr("Failed to end room"));
         }
       },
     });
@@ -491,10 +490,10 @@ export const VoicePage = () => {
       setActiveRoomId(null);
       navigate("/voice");
 
-      toast.success("Left room");
+      toast.success(tr("Left room"));
     } catch (error) {
       console.error("Error leaving minimized room:", error);
-      toast.error(apiMessage(error) || "Failed to leave room");
+      toast.error(apiMessage(error) || tr("Failed to leave room"));
     }
   };
 
@@ -520,8 +519,8 @@ export const VoicePage = () => {
   const copyRoomLink = (roomId: string) => {
     navigator.clipboard
       .writeText(`${window.location.origin}/voice/${roomId}`)
-      .then(() => toast.success("🔗 Room link copied!"))
-      .catch(() => toast.error("Could not copy the link"));
+      .then(() => toast.success(tr("🔗 Room link copied!")))
+      .catch(() => toast.error(tr("Could not copy the link")));
   };
 
   // While minimized, the room component stays mounted but the room list
@@ -603,36 +602,31 @@ export const VoicePage = () => {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ background: COLORS.live }} />
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: COLORS.live }} />
                   </span>
-                  Live conversations
-                </span>
+                  {tr("Live conversations")}</span>
                 <h1 className="mt-3 text-[34px] font-semibold leading-[1.05] tracking-tight sm:text-[46px]" style={{ color: COLORS.textPrimary }}>
-                  Voice rooms
-                </h1>
+                  {tr("Voice rooms")}</h1>
                 <p className="mt-2 text-[15px]" style={{ color: COLORS.textMuted }}>
-                  Practise speaking with real people, any time of day.
-                </p>
+                  {tr("Practise speaking with real people, any time of day.")}</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={() => navigate("/call")}
-                  title="Talk one-to-one with someone at your level"
+                  title={tr("Talk one-to-one with someone at your level")}
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-full border px-5 text-sm font-semibold transition-colors hover:bg-slate-900/[0.04] dark:hover:bg-white/5"
                   style={{ borderColor: COLORS.borderLight, color: COLORS.textPrimary, background: "var(--sx-bg-28-20-48-600)" }}
                 >
                   <Phone className="h-4 w-4" style={{ color: COLORS.live }} />
-                  Random call
-                </button>
+                  {tr("Random call")}</button>
                 <button
                   type="button"
                   onClick={openCreate}
-                  title="Create room (N)"
+                  title={tr("Create room (N)")}
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-indigo-600 px-6 text-sm font-semibold text-white shadow-md transition-transform hover:scale-[1.03] hover:bg-indigo-700 active:scale-[0.98] dark:bg-indigo-500 dark:hover:bg-indigo-600"
                 >
                   <Plus className="h-4 w-4" />
-                  Create room
-                </button>
+                  {tr("Create room")}</button>
               </div>
             </div>
 
@@ -775,7 +769,7 @@ export const VoicePage = () => {
               setConfirmModal((prev) => ({ ...prev, isOpen: false }))
             }
             onConfirm={confirmModal.onConfirm}
-            title={confirmModal.title}
+            title={tr(confirmModal.title)}
             message={confirmModal.message}
             confirmText={confirmModal.confirmText}
             confirmColor={confirmModal.confirmColor}

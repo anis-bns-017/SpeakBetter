@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { tr, msg } from "../../i18n/core";
 
 // ---- Types ----
 interface AudioControlsProps {
@@ -199,7 +200,7 @@ const VolumeSlider: React.FC<{
                 border: `1px solid ${THEME.border}`,
               }}
             >
-              {isDeafened ? "Muted" : `${value}%`}
+              {isDeafened ? tr("Muted") : `${value}%`}
             </motion.div>
           )}
         </AnimatePresence>
@@ -215,21 +216,21 @@ const ConnectionQuality: React.FC<{
 }> = ({ quality, isReconnecting }) => {
   const getQualityConfig = () => {
     if (isReconnecting) {
-      return { color: THEME.aurora.orange, label: "Reconnecting...", bars: 1 };
+      return { color: THEME.aurora.orange, label: msg("Reconnecting..."), bars: 1 };
     }
     switch (quality) {
       case "excellent":
-        return { color: THEME.status.live, label: "Excellent", bars: 4 };
+        return { color: THEME.status.live, label: msg("Excellent"), bars: 4 };
       case "good":
-        return { color: THEME.aurora.tertiary, label: "Good", bars: 3 };
+        return { color: THEME.aurora.tertiary, label: msg("Good"), bars: 3 };
       case "fair":
-        return { color: THEME.aurora.orange, label: "Fair", bars: 2 };
+        return { color: THEME.aurora.orange, label: msg("Fair"), bars: 2 };
       case "poor":
-        return { color: THEME.status.danger, label: "Poor", bars: 1 };
+        return { color: THEME.status.danger, label: msg("Poor"), bars: 1 };
       case "disconnected":
-        return { color: THEME.status.danger, label: "Disconnected", bars: 0 };
+        return { color: THEME.status.danger, label: msg("Disconnected"), bars: 0 };
       default:
-        return { color: THEME.text.muted, label: "Connecting...", bars: 1 };
+        return { color: THEME.text.muted, label: msg("Connecting..."), bars: 1 };
     }
   };
 
@@ -260,13 +261,16 @@ const ConnectionQuality: React.FC<{
         className="text-[11px] font-mono"
         style={{ color: THEME.text.muted }}
       >
-        {config.label}
+        {tr(config.label)}
       </span>
     </div>
   );
 };
 
 // ---- Audio Level Meter ----
+/** A fixed uneven skyline so lit bars don't all look the same height */
+const BAR_JITTER = [0.35, 0.8, 0.5, 1, 0.65, 0.2, 0.9, 0.45];
+
 const AudioLevelMeter: React.FC<{ level: number; muted: boolean }> = ({
   level,
   muted,
@@ -281,7 +285,7 @@ const AudioLevelMeter: React.FC<{ level: number; muted: boolean }> = ({
           animate={{
             height: muted
               ? 2
-              : `${4 + (safe > i / 7 ? 4 + Math.random() * 6 : 2)}px`,
+              : `${4 + (safe > i / 7 ? 4 + BAR_JITTER[i] * 6 : 2)}px`,
             background: muted
               ? THEME.text.muted
               : safe > i / 7
@@ -349,7 +353,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       const link = `${window.location.origin}/voice/${roomId}`;
       navigator.clipboard.writeText(link);
       setCopied(true);
-      toast.success("📋 Room link copied!");
+      toast.success(tr("📋 Room link copied!"));
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -387,7 +391,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                 border: isHandRaised ? "1px solid rgba(251,191,36,0.45)" : "1px solid transparent",
               }}
               aria-pressed={isHandRaised}
-              title={isHandRaised ? "Lower your hand" : "Ask the host to let you speak"}
+              title={isHandRaised ? tr("Lower your hand") : tr("Ask the host to let you speak")}
             >
               <motion.span
                 animate={isHandRaised ? { rotate: [0, 18, -8, 18, 0] } : { rotate: 0 }}
@@ -396,7 +400,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               >
                 <Hand className="w-5 h-5" />
               </motion.span>
-              {isHandRaised ? "Hand raised" : "Raise hand"}
+              {isHandRaised ? tr("Hand raised") : tr("Raise hand")}
             </motion.button>
           )}
 
@@ -406,7 +410,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleMuteToggle}
-            aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+            aria-label={isMuted ? tr("Unmute microphone") : tr("Mute microphone")}
             aria-pressed={isMuted}
             className={`relative grid h-14 w-14 place-items-center rounded-full transition-colors ${isMuted ? "" : "vr-aura"}`}
             style={{
@@ -484,10 +488,10 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               onClick={onLeaveStage}
               className="flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium transition-all hover:bg-white/5 border"
               style={{ color: THEME.text.secondary, borderColor: THEME.border }}
-              title="Leave the stage and listen"
+              title={tr("Leave the stage and listen")}
             >
               <ArrowDownFromLine className="w-4 h-4" />
-              <span className="hidden sm:inline">Leave stage</span>
+              <span className="hidden sm:inline">{tr("Leave stage")}</span>
             </motion.button>
           )}
 
@@ -552,7 +556,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             onClick={handleShareRoom}
             className="p-2.5 rounded-full hover:bg-white/5 transition-all"
             style={{ color: THEME.text.muted }}
-            title="Share Room"
+            title={tr("Share Room")}
           >
             {copied ? (
               <Check className="w-4 h-4 text-green-400" />
@@ -569,7 +573,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               onClick={onShowSettings}
               className="p-2.5 rounded-full hover:bg-white/5 transition-all"
               style={{ color: THEME.text.muted }}
-              title="Settings"
+              title={tr("Settings")}
             >
               <Settings className="w-4 h-4" />
             </motion.button>
@@ -583,7 +587,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               onClick={onToggleFullscreen}
               className="p-2.5 rounded-full hover:bg-white/5 transition-all"
               style={{ color: THEME.text.muted }}
-              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              title={isFullscreen ? tr("Exit Fullscreen") : tr("Fullscreen")}
             >
               {isFullscreen ? (
                 <Minimize2 className="w-4 h-4" />
@@ -603,8 +607,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               }}
             >
               <ShieldCheck className="w-3 h-3" />
-              Host
-            </div>
+              {tr("Host")}</div>
           )}
 
           {/* Call Actions */}
@@ -646,8 +649,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                 style={{ color: THEME.aurora.primary }}
               />
               <span className="text-xs" style={{ color: THEME.text.muted }}>
-                Connecting...
-              </span>
+                {tr("Connecting...")}</span>
             </div>
           )}
         </div>
@@ -712,12 +714,11 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               className="text-xs font-medium"
               style={{ color: THEME.text.primary }}
             >
-              {isCallActive ? "🔴 Live" : "🎧 Listening"}
+              {isCallActive ? tr("🔴 Live") : tr("🎧 Listening")}
             </span>
             {participantCount > 0 && (
               <span className="text-[11px]" style={{ color: THEME.text.muted }}>
-                {participantCount} in room
-              </span>
+                {participantCount} {" "}{tr("in room")}</span>
             )}
           </div>
 

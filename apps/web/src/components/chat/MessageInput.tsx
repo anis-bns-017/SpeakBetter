@@ -38,6 +38,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { apiClient } from "../../lib/api/client";
+import { asApiError } from "../../lib/api/errors";
+import { tr, msg } from "../../i18n/core";
 
 interface MessageInputProps {
   onSend: (
@@ -293,9 +295,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
 
         if (!data?.url) throw new Error("Upload returned no file URL");
         return toAbsoluteUploadUrl(data.url);
-      } catch (error: any) {
+      } catch (caught) {
+        const error = asApiError(caught);
         console.error(`Upload error (${type}):`, error);
-        toast.error(error?.response?.data?.message || error?.message || "Upload failed");
+        toast.error(error?.response?.data?.message || error?.message || tr("Upload failed"));
         return null;
       }
     },
@@ -312,9 +315,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
         const url = await uploadToCloudinary(file, "voice");
         if (!url) throw new Error("Cloudinary returned empty URL");
         return url;
-      } catch (error: any) {
+      } catch (caught) {
+        const error = asApiError(caught);
         console.error("Voice upload error:", error);
-        toast.error(error?.message || "Voice upload failed");
+        toast.error(error?.message || tr("Voice upload failed"));
         return null;
       } finally {
         setIsUploadingVoice(false);
@@ -388,7 +392,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
             return uploadedUrl;
           });
-          toast.success("🎙️ Voice ready to send");
+          toast.success(tr("🎙️ Voice ready to send"));
         }
         // If upload failed, we deliberately leave mediaPreview.url as the
         // blob so handleSend knows to retry it.
@@ -414,7 +418,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     } catch (err) {
       console.error("Microphone error:", err);
       toast.error(
-        "Unable to access microphone. Please check permissions in your browser settings.",
+        tr("Unable to access microphone. Please check permissions in your browser settings."),
       );
       stopVisualizer();
       stopTracks();
@@ -626,7 +630,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       // Case A: still a local blob → upload then send
       if (audioUrl.startsWith("blob:")) {
         if (!recordingBlob) {
-          toast.error("Voice is still processing…");
+          toast.error(tr("Voice is still processing…"));
           return;
         }
         const dur = Math.max(
@@ -638,7 +642,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           .then((url) => {
             if (url) {
               onSend("🎤 Voice message", "VOICE_NOTE", url, url, { duration: dur });
-              toast.success("🎙️ Voice message sent!");
+              toast.success(tr("🎙️ Voice message sent!"));
               discardRecording();
               setContent("");
               setFileAttachment(null);
@@ -646,11 +650,11 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               setShowEmojiPicker(false);
               stopTyping();
             } else {
-              toast.error("Failed to upload voice. Please try again.");
+              toast.error(tr("Failed to upload voice. Please try again."));
             }
           })
           .catch(() => {
-            toast.error("Failed to upload voice. Please try again.");
+            toast.error(tr("Failed to upload voice. Please try again."));
           });
         return;
       }
@@ -662,7 +666,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           Math.round(audioDuration || recordingDurationRef.current || 1),
         );
         onSend("🎤 Voice message", "VOICE_NOTE", audioUrl, audioUrl, { duration: dur });
-        toast.success("🎙️ Voice message sent!");
+        toast.success(tr("🎙️ Voice message sent!"));
         discardRecording();
         setContent("");
         setFileAttachment(null);
@@ -673,19 +677,19 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       }
 
       // Anything else isn't a real uploaded file — never send it
-      toast.error("This voice note couldn't be uploaded. Please record it again.");
+      toast.error(tr("This voice note couldn't be uploaded. Please record it again."));
       return;
     }
 
     // ── Photos / videos (one, view-once, or an album) ─────────
     if (album.length) {
       if (album.some((a) => !a.url && !a.failed)) {
-        toast.error("Still uploading — send it in a moment");
+        toast.error(tr("Still uploading — send it in a moment"));
         return;
       }
       const ready = album.filter((a) => a.url);
       if (!ready.length) {
-        toast.error("Upload failed. Remove the attachments and try again.");
+        toast.error(tr("Upload failed. Remove the attachments and try again."));
         return;
       }
       const attachments: AlbumAttachment[] = ready.map((a) => ({
@@ -721,8 +725,8 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     if (mediaPreview && !mediaPreview.url.startsWith("http")) {
       toast.error(
         isUploading
-          ? "Still uploading — send it in a moment"
-          : "Upload failed. Remove the attachment and try again.",
+          ? tr("Still uploading — send it in a moment")
+          : tr("Upload failed. Remove the attachment and try again."),
       );
       return;
     }
@@ -815,11 +819,11 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const addToAlbum = useCallback(
     (files: File[]) => {
       const tooBig = files.filter((f) => f.size > MAX_FILE_BYTES);
-      if (tooBig.length) toast.error(`${tooBig.length} file${tooBig.length > 1 ? "s are" : " is"} over 50MB and skipped`);
+      if (tooBig.length) toast.error(tr("{tooBig} file{value} over 50MB and skipped", { tooBig: tooBig.length, value: tooBig.length > 1 ? "s are" : " is" }));
 
       const room = MAX_ALBUM - albumRef.current.length;
       const usable = files.filter((f) => f.size <= MAX_FILE_BYTES);
-      if (usable.length > room) toast.info(`You can send up to ${MAX_ALBUM} photos and videos at once`);
+      if (usable.length > room) toast.info(tr("You can send up to {MAX_ALBUM} photos and videos at once", { MAX_ALBUM }));
 
       const items: AlbumItem[] = usable.slice(0, Math.max(0, room)).map((file) => ({
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -857,7 +861,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const uploadSingle = useCallback(
     async (file: File, type: "audio" | "file") => {
       if (file.size > MAX_FILE_BYTES) {
-        toast.error("File size exceeds 50MB limit");
+        toast.error(tr("File size exceeds 50MB limit"));
         return;
       }
 
@@ -882,11 +886,11 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           }
           URL.revokeObjectURL(localUrl);
         } else {
-          toast.error("Upload failed — remove the attachment and try again.");
+          toast.error(tr("Upload failed — remove the attachment and try again."));
         }
       } catch (error) {
         console.error("Upload error:", error);
-        toast.error("Failed to upload file");
+        toast.error(tr("Failed to upload file"));
       } finally {
         setIsUploading(false);
         setShowAttachmentMenu(false);
@@ -907,7 +911,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       try {
         for (const [i, doc] of docs.entries()) {
           if (doc.size > MAX_FILE_BYTES) {
-            toast.error(`${doc.name} is over 50MB`);
+            toast.error(tr("{name} is over 50MB", { name: doc.name }));
             continue;
           }
           const url = await uploadToCloudinary(doc, "file", (p) => setUploadProgress((i + p) / docs.length));
@@ -916,7 +920,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             sent++;
           }
         }
-        if (sent) toast.success(`📤 Sent ${sent} file${sent > 1 ? "s" : ""}`);
+        if (sent) toast.success(tr("📤 Sent {sent} file{value}", { sent, value: sent > 1 ? "s" : "" }));
       } finally {
         setIsUploading(false);
         setUploadProgress(0);
@@ -935,7 +939,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       const docs = files.filter((f) => !media.includes(f) && !audio.includes(f) && DOC_EXTENSIONS.test(f.name));
       const unsupported = files.length - media.length - audio.length - docs.length;
 
-      if (unsupported) toast.error(`${unsupported} file${unsupported > 1 ? "s aren't" : " isn't"} a supported type`);
+      if (unsupported) toast.error(tr("{unsupported} file{value} a supported type", { unsupported, value: unsupported > 1 ? "s aren't" : " isn't" }));
       if (media.length) addToAlbum(media);
       if (audio.length) void uploadSingle(audio[0], "audio");
       if (docs.length) void sendDocuments(docs);
@@ -1099,8 +1103,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           >
             <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
             <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
-              Reconnecting… Messages will send when connected
-            </span>
+              {tr("Reconnecting… Messages will send when connected")}</span>
             <div className="flex-1" />
             <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
           </motion.div>
@@ -1152,8 +1155,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                   onClick={stopRecording}
                   className="shrink-0 rounded-full bg-red-500 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-red-500/15 hover:bg-red-600 hover:shadow-red-500/50 active:scale-95 transition-all"
                 >
-                  Done
-                </button>
+                  {tr("Done")}</button>
               </div>
             </div>
           </motion.div>
@@ -1174,15 +1176,13 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               {isUploadingVoice && (
                 <div className="flex w-full items-center justify-center gap-2 py-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Processing voice…
-                </div>
+                  {tr("Processing voice…")}</div>
               )}
               {isUploading && (
                 <div className="w-full space-y-1.5 py-1">
                   <div className="flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Uploading… {Math.round(uploadProgress * 100)}%
-                  </div>
+                    {tr("Uploading… {value}%", { value: Math.round(uploadProgress * 100) })}</div>
                   <div className="h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-200"
@@ -1211,14 +1211,14 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                           </div>
                         )}
                         {item.failed && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-red-500/70" title="Upload failed">
+                          <div className="absolute inset-0 flex items-center justify-center bg-red-500/70" title={tr("Upload failed")}>
                             <AlertCircle className="h-5 w-5 text-white" />
                           </div>
                         )}
                         <button
                           type="button"
                           onClick={() => removeAlbumItem(item.id)}
-                          aria-label="Remove"
+                          aria-label={tr("Remove")}
                           className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition group-hover/preview:opacity-100"
                         >
                           <X className="h-3 w-3" />
@@ -1229,7 +1229,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                       <button
                         type="button"
                         onClick={() => imageInputRef.current?.click()}
-                        aria-label="Add more photos"
+                        aria-label={tr("Add more photos")}
                         className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-slate-300 text-slate-400 transition hover:border-indigo-400 hover:text-indigo-500 dark:border-slate-600"
                       >
                         <Plus className="h-5 w-5" />
@@ -1238,14 +1238,12 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-slate-500">
                     <span>
-                      {album.length} {album.length === 1 ? "item" : "items"}
-                      {album.length > 1 ? " · sent as an album" : ""} · add a caption below
-                    </span>
+                      {album.length} {" "}{tr("{value}{value2} · add a caption below", { value: album.length === 1 ? tr("item") : tr("items"), value2: album.length > 1 ? tr(" · sent as an album") : "" })}</span>
                     {album.length === 1 && (
                       <button
                         type="button"
                         onClick={() => setViewOnce((v) => !v)}
-                        title="The recipient can open it only once"
+                        title={tr("The recipient can open it only once")}
                         className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold transition ${
                           viewOnce
                             ? "bg-indigo-500 text-white"
@@ -1255,8 +1253,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                         <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-dashed text-[9px] ${viewOnce ? "border-white" : "border-current"}`}>
                           1
                         </span>
-                        View once
-                      </button>
+                        {tr("View once")}</button>
                     )}
                   </div>
                 </div>
@@ -1314,7 +1311,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                     <div className="w-16 h-16 rounded-xl border border-slate-200/80 dark:border-slate-700 shadow-sm overflow-hidden bg-slate-50 dark:bg-slate-800">
                       <img
                         src={mediaPreview.url}
-                        alt="Preview"
+                        alt={tr("Preview")}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -1336,8 +1333,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                       <Video className="w-6 h-6 text-white" />
                     </div>
                     <span className="absolute bottom-1 right-1.5 text-[9px] font-medium text-white/90 z-20">
-                      Video
-                    </span>
+                      {tr("Video")}</span>
                     <button
                       type="button"
                       onClick={removeAttachment}
@@ -1388,42 +1384,42 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             {[
               {
                 icon: ImageIcon,
-                label: "Image",
+                label: msg("Image"),
                 action: imageInputRef,
                 color: "text-blue-500",
                 bg: "bg-blue-50 dark:bg-blue-500/10",
               },
               {
                 icon: Video,
-                label: "Video",
+                label: msg("Video"),
                 action: videoInputRef,
                 color: "text-rose-500",
                 bg: "bg-rose-50 dark:bg-rose-500/10",
               },
               {
                 icon: Music,
-                label: "Audio",
+                label: msg("Audio"),
                 action: audioInputRef,
                 color: "text-purple-500",
                 bg: "bg-purple-50 dark:bg-purple-500/10",
               },
               {
                 icon: FileIcon,
-                label: "Doc",
+                label: msg("Doc"),
                 action: fileInputRef,
                 color: "text-orange-500",
                 bg: "bg-orange-50 dark:bg-orange-500/10",
               },
               {
                 icon: Sticker,
-                label: "Sticker",
+                label: msg("Sticker"),
                 action: null,
                 color: "text-emerald-500",
                 bg: "bg-emerald-50 dark:bg-emerald-500/10",
               },
               {
                 icon: MapPin,
-                label: "Location",
+                label: msg("Location"),
                 action: "location",
                 color: "text-indigo-500",
                 bg: "bg-indigo-50 dark:bg-indigo-500/10",
@@ -1442,12 +1438,12 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                         );
                         setShowAttachmentMenu(false);
                       },
-                      () => toast.error("Unable to get location."),
+                      () => toast.error(tr("Unable to get location.")),
                     );
                   } else if (item.action && typeof item.action !== "string" && item.action.current) {
                     item.action.current.click();
                   } else {
-                    toast.info(`${item.label} coming soon!`);
+                    toast.info(tr("{label} coming soon!", { label: item.label }));
                     setShowAttachmentMenu(false);
                   }
                 }}
@@ -1455,7 +1451,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               >
                 <item.icon className={`w-5 h-5 ${item.color}`} />
                 <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  {item.label}
+                  {tr(item.label)}
                 </span>
               </button>
             ))}
@@ -1471,7 +1467,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
             role="listbox"
-            aria-label="Mention someone"
+            aria-label={tr("Mention someone")}
             className="absolute bottom-[4.5rem] left-14 z-50 w-60 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 py-1 shadow-2xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/95"
           >
             {mentionMatches.map((c, i) => (
@@ -1521,7 +1517,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                     ? "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
                     : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200"
                 }`}
-                title="Attach"
+                title={tr("Attach")}
               >
                 <Plus
                   className={`w-5 h-5 transition-transform duration-300 ${
@@ -1539,8 +1535,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             >
               <Edit className="w-4 h-4 text-amber-600 dark:text-amber-400" />
               <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-                Editing
-              </span>
+                {tr("Editing")}</span>
             </motion.div>
           )}
         </div>
@@ -1561,12 +1556,12 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           onBlur={() => setIsFocused(false)}
           placeholder={
             isEditMode
-              ? "Edit your message… (Esc to cancel)"
+              ? tr("Edit your message… (Esc to cancel)")
               : isRecording
-                ? "Recording…"
+                ? tr("Recording…")
                 : isSelectionMode
-                  ? "Select messages…"
-                  : "Type a message…"
+                  ? tr("Select messages…")
+                  : tr("Type a message…")
           }
           rows={1}
           disabled={isRecording || isSelectionMode}
@@ -1583,7 +1578,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               type="button"
               onClick={handleCancelEdit}
               className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all"
-              title="Cancel edit"
+              title={tr("Cancel edit")}
             >
               <X className="w-5 h-5" />
             </motion.button>
@@ -1600,7 +1595,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                   ? "bg-red-500 text-white shadow-md shadow-red-500/15"
                   : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200"
               }`}
-              title={isRecording ? "Stop recording" : "Voice message"}
+              title={isRecording ? tr("Stop recording") : tr("Voice message")}
             >
               {isRecording ? (
                 <MicOff className="w-5 h-5" />
@@ -1624,7 +1619,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                   ? "bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400"
                   : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200"
               }`}
-              title="Emoji"
+              title={tr("Emoji")}
             >
               <Smile className="w-5 h-5" />
             </motion.button>
@@ -1639,8 +1634,8 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               type="button"
               onClick={() => setShowSchedule(true)}
               className="p-2.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all"
-              title="Schedule message"
-              aria-label="Schedule message"
+              title={tr("Schedule message")}
+              aria-label={tr("Schedule message")}
             >
               <CalendarClock className="w-5 h-5" />
             </motion.button>
@@ -1659,7 +1654,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                   ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:shadow-lg hover:shadow-amber-500/30 text-white"
                   : "bg-gradient-to-r from-indigo-500 to-violet-600 hover:shadow-lg hover:shadow-indigo-500/30 text-white"
             }`}
-            title={isEditMode ? "Save changes" : "Send message"}
+            title={isEditMode ? tr("Save changes") : tr("Send message")}
           >
             {isUploading || isUploadingVoice ? (
               <Loader2 className="w-5 h-5 animate-spin" />

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { THEME } from "./VoiceRoomView.theme";
+import { tr } from "../../i18n/core";
 
 export interface QueueParticipant {
   id: string;
@@ -74,8 +75,8 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
   const queue = useMemo(() => {
     return participants
       .filter((p) => p.raisedHand)
-      .map((p) => ({ ...p, raisedHandAt: p.raisedHandAt ?? Date.now() }))
-      .sort((a, b) => (a.raisedHandAt ?? 0) - (b.raisedHandAt ?? 0));
+      // No time known: treat as the newest hand, so it queues last
+      .sort((a, b) => (a.raisedHandAt ?? Number.MAX_SAFE_INTEGER) - (b.raisedHandAt ?? Number.MAX_SAFE_INTEGER));
   }, [participants]);
 
   const speakingInQueue = useMemo(
@@ -101,19 +102,19 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
   const handlePromote = (userId: string) => {
     if (!isModerator) return;
     onPromote?.(userId);
-    toast.success("🎤 Promoted to speaker");
+    toast.success(tr("🎤 Promoted to speaker"));
   };
 
   const handleRemove = (userId: string) => {
     if (!isModerator) return;
     onRemove?.(userId);
-    toast.success("Removed from queue");
+    toast.success(tr("Removed from queue"));
   };
 
   const handleSkip = (userId: string) => {
     if (!isModerator) return;
     onSkip?.(userId);
-    toast.info("⏭️ Skipped");
+    toast.info(tr("⏭️ Skipped"));
   };
 
   return (
@@ -142,8 +143,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
             className="text-sm font-semibold truncate"
             style={{ color: THEME.colors.text.primary }}
           >
-            Speaker Queue
-          </span>
+            {tr("Speaker Queue")}</span>
 
           {queue.length > 0 && (
             <span
@@ -165,7 +165,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                 color: THEME.colors.accent.warning,
               }}
             >
-              You're #{myPosition}
+              {tr("You're #")}{myPosition}
             </span>
           )}
         </div>
@@ -197,12 +197,10 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
             >
               {iAmInQueue ? (
                 <span className="flex items-center gap-1">
-                  <X className="w-3 h-3" /> Leave
-                </span>
+                  <X className="w-3 h-3" /> {" "}{tr("Leave")}</span>
               ) : (
                 <span className="flex items-center gap-1">
-                  <Hand className="w-3 h-3" /> Raise hand
-                </span>
+                  <Hand className="w-3 h-3" /> {" "}{tr("Raise hand")}</span>
               )}
             </span>
           )}
@@ -243,9 +241,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                   className="text-[11px] font-medium"
                   style={{ color: THEME.colors.accent.warning }}
                 >
-                  ✋ You're #{myPosition} of {queue.length} · ~
-                  {Math.ceil(myWaitEstimate / 60)} min wait
-                </span>
+                  {tr("✋ You're #{myPosition} of {length} · ~{value} min wait", { myPosition, length: queue.length, value: Math.ceil(myWaitEstimate / 60) })}</span>
               </div>
             )}
 
@@ -269,14 +265,12 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                     className="text-xs font-medium"
                     style={{ color: THEME.colors.text.secondary }}
                   >
-                    No one in the queue
-                  </p>
+                    {tr("No one in the queue")}</p>
                   <p
                     className="text-[11px] mt-0.5"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    Raise your hand to speak
-                  </p>
+                    {tr("Raise your hand to speak")}</p>
                 </div>
               ) : (
                 visible.map((item, idx) => {
@@ -391,16 +385,14 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                               className="text-[9px] flex items-center gap-1"
                               style={{ color: THEME.colors.accent.success }}
                             >
-                              <Mic className="w-2.5 h-2.5" /> Speaking
-                            </span>
+                              <Mic className="w-2.5 h-2.5" /> {" "}{tr("Speaking")}</span>
                           ) : (
                             <span
                               className="text-[9px]"
                               style={{ color: THEME.colors.text.muted }}
                             >
-                              Waiting
-                              {position > 1
-                                ? ` · ~${Math.ceil((position - 1) * 1.5)} min`
+                              {tr("Waiting")}{position > 1
+                                ? tr(" · ~{Math} min", { Math: Math.ceil((position - 1) * 1.5) })
                                 : ""}
                             </span>
                           )}
@@ -415,7 +407,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                               type="button"
                               onClick={() => handlePromote(item.userId)}
                               className="p-1.5 rounded-lg hover:bg-green-500/15 transition-colors"
-                              title="Promote to speaker"
+                              title={tr("Promote to speaker")}
                               style={{ color: THEME.colors.accent.success }}
                             >
                               <Mic className="w-3.5 h-3.5" />
@@ -426,7 +418,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                               type="button"
                               onClick={() => handleSkip(item.userId)}
                               className="p-1.5 rounded-lg hover:bg-orange-500/15 transition-colors"
-                              title="Skip"
+                              title={tr("Skip")}
                               style={{ color: THEME.colors.accent.warning }}
                             >
                               <ArrowUp className="w-3.5 h-3.5" />
@@ -436,7 +428,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                             type="button"
                             onClick={() => handleRemove(item.userId)}
                             className="p-1.5 rounded-lg hover:bg-red-500/15 transition-colors"
-                            title="Remove from queue"
+                            title={tr("Remove from queue")}
                             style={{ color: THEME.colors.accent.error }}
                           >
                             <UserMinus className="w-3.5 h-3.5" />
@@ -453,8 +445,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                   className="text-center py-1.5 text-[11px]"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  +{extraCount} more waiting
-                </div>
+                  {tr("+{extraCount} more waiting", { extraCount })}</div>
               )}
             </div>
 
@@ -468,14 +459,13 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                   className="text-[11px] tabular-nums"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  {queue.length} waiting
-                </span>
+                  {queue.length} {" "}{tr("waiting")}</span>
                 <button
                   type="button"
                   onClick={() => {
                     const next = queue.find((p) => !p.isSpeaking);
                     if (!next) {
-                      toast.info("No one waiting");
+                      toast.info(tr("No one waiting"));
                       return;
                     }
                     handlePromote(next.userId);
@@ -486,8 +476,7 @@ export const SpeakerQueue: React.FC<SpeakerQueueProps> = ({
                     color: THEME.colors.accent.primary,
                   }}
                 >
-                  Promote next
-                </button>
+                  {tr("Promote next")}</button>
               </div>
             )}
           </motion.div>

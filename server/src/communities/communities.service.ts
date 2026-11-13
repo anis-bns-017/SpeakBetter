@@ -123,6 +123,7 @@ export class CommunitiesService {
     });
 
     if (!community) throw new NotFoundException('Community not found');
+    if (community.hiddenAt) throw new NotFoundException('This community has been hidden by moderators');
 
     const isMember = community.members.some((m) => m.userId === userId);
     if (!isMember && community.type !== 'PUBLIC') {
@@ -134,8 +135,9 @@ export class CommunitiesService {
 
   async getCommunities(userId: string) {
     const [owned, joined, publicCommunities] = await Promise.all([
+      // Communities hidden by moderators (admin section) are left out of every list
       this.prisma.community.findMany({
-        where: { ownerId: userId },
+        where: { ownerId: userId, hiddenAt: null },
         include: {
           members: {
             include: {
@@ -154,6 +156,7 @@ export class CommunitiesService {
         where: {
           members: { some: { userId } },
           ownerId: { not: userId },
+          hiddenAt: null,
         },
         include: {
           members: {
@@ -172,6 +175,7 @@ export class CommunitiesService {
       this.prisma.community.findMany({
         where: {
           type: 'PUBLIC',
+          hiddenAt: null,
           NOT: {
             OR: [{ ownerId: userId }, { members: { some: { userId } } }],
           },

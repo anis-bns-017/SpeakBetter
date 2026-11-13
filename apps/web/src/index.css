@@ -5,6 +5,8 @@
 @import "./styles/stage-palette.css";
 /* Voice room motion: aurora, edge light, speaker halos */
 @import "./styles/voice-stage.css";
+/* Echo, the dashboard mascot: float, blink, antenna, talking waveform */
+@import "./styles/mascot.css";
 
 /*
  * Themes: light, dark and navy (see src/lib/theme.ts). The `dark` class on <html> turns on every dark:
@@ -356,4 +358,23 @@
 @media (prefers-reduced-motion: reduce) {
   .sb-drift, .sb-drift-slow, .sb-pan, .sb-eq, .sb-flicker, .sb-glow { animation: none; }
   .sb-beam, .sb-shimmer, .sb-gloss { display: none; }
+}
+
+/* Page loader (components/common/ErrorBoundary.tsx): invisible for the first moment, so quick loads never flash it */
+.sb-page-loading {
+  opacity: 0;
+  animation: sb-page-loading-in 200ms ease-out 250ms forwards;
+}
+@keyframes sb-page-loading-in {
+  to { opacity: 1; }
+}
+
+/* Bangla interface (i18n/index.tsx): a Bengali font first, the usual fonts after for Latin text and numbers */
+html[lang="bn"] body {
+  font-family: "Hind Siliguri", "Noto Sans Bengali", "Plus Jakarta Sans", system-ui, sans-serif;
+}
+html[lang="bn"] h1,
+html[lang="bn"] .font-display {
+  font-family: "Hind Siliguri", "Noto Sans Bengali", "Fraunces", serif;
+  letter-spacing: 0;
 }

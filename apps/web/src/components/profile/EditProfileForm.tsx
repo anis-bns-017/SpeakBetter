@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
+import { tr } from "../../i18n/core";
 
 // --- Local types (to avoid import errors) ---
 interface Profile {
@@ -66,10 +67,10 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
     e.preventDefault();
     try {
       await updateProfile(formData);
-      toast.success("Profile updated successfully! ✅");
+      toast.success(tr("Profile updated successfully! ✅"));
       onSuccess();
-    } catch (error) {
-      toast.error("Failed to update profile");
+    } catch {
+      toast.error(tr("Failed to update profile"));
     }
   };
 
@@ -121,13 +122,12 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
       onSubmit={handleSubmit}
       className="bg-white rounded-lg shadow p-6 max-w-2xl mx-auto"
     >
-      <h3 className="text-xl font-bold mb-4">Edit Profile</h3>
+      <h3 className="text-xl font-bold mb-4">{tr("Edit Profile")}</h3>
 
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Country
-          </label>
+            {tr("Country")}</label>
           <input
             type="text"
             value={formData.country}
@@ -140,8 +140,7 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Native Language
-          </label>
+            {tr("Native Language")}</label>
           <input
             type="text"
             value={formData.nativeLanguage}
@@ -154,23 +153,21 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Learning Languages
-          </label>
+            {tr("Learning Languages")}</label>
           <div className="flex gap-2 mt-1">
             <input
               type="text"
               value={learningInput}
               onChange={(e) => setLearningInput(e.target.value)}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="Add language"
+              placeholder={tr("Add language")}
             />
             <button
               type="button"
               onClick={addLearning}
               className="px-4 py-2 bg-blue-500 text-white rounded-md"
             >
-              Add
-            </button>
+              {tr("Add")}</button>
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
             {formData.learningLanguages?.map((lang) => (
@@ -193,23 +190,21 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Interests
-          </label>
+            {tr("Interests")}</label>
           <div className="flex gap-2 mt-1">
             <input
               type="text"
               value={interestsInput}
               onChange={(e) => setInterestsInput(e.target.value)}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="Add interest"
+              placeholder={tr("Add interest")}
             />
             <button
               type="button"
               onClick={addInterest}
               className="px-4 py-2 bg-blue-500 text-white rounded-md"
             >
-              Add
-            </button>
+              {tr("Add")}</button>
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
             {formData.interests?.map((interest) => (
@@ -231,13 +226,13 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Bio</label>
+          <label className="block text-sm font-medium text-gray-700">{tr("Bio")}</label>
           <textarea
             value={formData.bio}
             onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
             rows={4}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-            placeholder="Tell about yourself..."
+            placeholder={tr("Tell about yourself...")}
           />
         </div>
 
@@ -247,15 +242,14 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
             disabled={isUpdating}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
-            {isUpdating ? "Saving..." : "Save Changes"}
+            {isUpdating ? tr("Saving...") : tr("Save Changes")}
           </button>
           <button
             type="button"
             onClick={onCancel}
             className="px-6 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
           >
-            Cancel
-          </button>
+            {tr("Cancel")}</button>
         </div>
       </div>
     </form>

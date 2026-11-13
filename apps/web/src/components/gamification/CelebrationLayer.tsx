@@ -9,12 +9,13 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowDown, ArrowRight, ArrowUp, Flame, Gift, Medal, Snowflake, Trophy, X, Zap } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import { useCelebrations, useMarkCelebrated, type Celebrations } from "../../hooks/useGamification";
 import { useMarkQuestNews, useQuests, useStreak, type StreakStatus, type WeeklyQuests } from "../../hooks/useQuests";
 import { BadgeIcon } from "./BadgeIcon";
 import { ShareCardButton } from "./ShareCardDialog";
 import { TIER_STYLE } from "./tiers";
+import { tr } from "../../i18n/core";
 
 interface Piece {
   left: number;
@@ -63,7 +64,7 @@ const Backdrop: React.FC<{ onClose: () => void; children: React.ReactNode; label
       exit={{ opacity: 0 }}
       role="dialog"
       aria-modal="true"
-      aria-label={label}
+      aria-label={tr(label)}
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       {children}
@@ -86,7 +87,7 @@ const BadgeReveal: React.FC<{
   const tier = TIER_STYLE[badge.tier];
   const last = position.index === position.total - 1;
   return (
-    <Backdrop onClose={onNext} label={`New badge: ${badge.name}`}>
+    <Backdrop onClose={onNext} label={tr("New badge: {name}", { name: badge.name })}>
       {!reduced && <Confetti key={`confetti-${badge.key}`} colors={[tier.ring, "#6366f1", "#f59e0b", "#10b981", "#ec4899"]} />}
       <motion.div
         key={badge.key}
@@ -95,11 +96,11 @@ const BadgeReveal: React.FC<{
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
       >
-        <button type="button" onClick={onNext} aria-label="Close" className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5">
+        <button type="button" onClick={onNext} aria-label={tr("Close")} className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5">
           <X className="w-4 h-4" />
         </button>
         <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: tier.ring }}>
-          New badge{position.total > 1 ? ` · ${position.index + 1} of ${position.total}` : ""}
+          {tr("New badge")}{position.total > 1 ? tr(" · {value} of {total}", { value: position.index + 1, total: position.total }) : ""}
         </p>
         <motion.div
           className="mx-auto mt-5 w-fit rounded-full"
@@ -111,13 +112,13 @@ const BadgeReveal: React.FC<{
           <BadgeIcon icon={badge.icon} tier={badge.tier} earned size={112} />
         </motion.div>
         <h2 className="mt-6 text-2xl font-bold text-slate-900 dark:text-white">{badge.name}</h2>
-        <p className="mt-1 text-sm text-slate-500">{badge.description}</p>
+        <p className="mt-1 text-sm text-slate-500">{tr(badge.description)}</p>
         <p className="mt-2 text-xs font-semibold" style={{ color: tier.ring }}>
-          {tier.label}
+          {tr(tier.label)}
         </p>
         <ShareCardButton
           variant="soft"
-          label="Share this badge"
+          label={tr("Share this badge")}
           className="mt-5 w-full"
           card={{ kind: "badge", person: user?.name ?? "A SpeakBetter learner", name: badge.name, description: badge.description, tier: badge.tier, icon: badge.icon }}
         />
@@ -127,10 +128,9 @@ const BadgeReveal: React.FC<{
             onClick={onSeeAll}
             className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
           >
-            All badges
-          </button>
+            {tr("All badges")}</button>
           <button type="button" onClick={onNext} autoFocus className="flex-1 h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">
-            {last ? "Awesome!" : "Next"}
+            {last ? tr("Awesome!") : tr("Next")}
           </button>
         </div>
       </motion.div>
@@ -161,7 +161,7 @@ const LeagueResult: React.FC<{ result: NonNullable<Celebrations["league"]>; redu
   const podium = result.rank !== null && result.rank <= 3 && result.xp > 0;
   const moved = result.from.index !== result.to.index;
   return (
-    <Backdrop onClose={onClose} label="Last week's league results">
+    <Backdrop onClose={onClose} label={tr("Last week's league results")}>
       {!reduced && result.result === "promote" && <Confetti colors={[result.to.color, result.from.color, "#f59e0b", "#6366f1"]} />}
       <motion.div
         className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-panel p-7 text-center shadow-2xl"
@@ -169,10 +169,10 @@ const LeagueResult: React.FC<{ result: NonNullable<Celebrations["league"]>; redu
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
       >
-        <button type="button" onClick={onClose} aria-label="Close" className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5">
+        <button type="button" onClick={onClose} aria-label={tr("Close")} className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5">
           <X className="w-4 h-4" />
         </button>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Last week's results</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{tr("Last week's results")}</p>
 
         <motion.div
           className="mx-auto mt-5 w-24 h-24 rounded-full flex flex-col items-center justify-center text-white"
@@ -185,8 +185,7 @@ const LeagueResult: React.FC<{ result: NonNullable<Celebrations["league"]>; redu
           <span className="text-2xl font-bold tabular-nums leading-none mt-0.5">#{result.rank ?? "–"}</span>
         </motion.div>
         <p className="mt-3 text-sm text-slate-500">
-          of {result.groupSize} in the {result.from.name} league · {result.xp.toLocaleString()} XP
-        </p>
+          {tr("of {groupSize} in the {name} league · {xp} XP", { groupSize: result.groupSize, name: result.from.name, xp: result.xp.toLocaleString() })}</p>
 
         <div className="mt-5 flex items-center justify-center gap-3">
           <span className="w-12 h-12 rounded-2xl flex items-center justify-center text-white" style={{ background: result.from.color }} title={result.from.name}>
@@ -211,13 +210,13 @@ const LeagueResult: React.FC<{ result: NonNullable<Celebrations["league"]>; redu
           ) : null}
         </div>
 
-        <h2 className="mt-5 text-xl font-bold text-slate-900 dark:text-white">{copy.title}</h2>
+        <h2 className="mt-5 text-xl font-bold text-slate-900 dark:text-white">{tr(copy.title)}</h2>
         <p className="mt-1 text-sm text-slate-500">{copy.line}</p>
 
         {(result.result === "promote" || podium) && (
           <ShareCardButton
             variant="soft"
-            label="Share this result"
+            label={tr("Share this result")}
             className="mt-5 w-full"
             card={{
               kind: "league",
@@ -237,15 +236,14 @@ const LeagueResult: React.FC<{ result: NonNullable<Celebrations["league"]>; redu
             onClick={onClose}
             className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05]"
           >
-            Close
-          </button>
+            {tr("Close")}</button>
           <button
             type="button"
             onClick={onOpen}
             autoFocus
             className="flex-1 h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold inline-flex items-center justify-center gap-1.5"
           >
-            This week <ArrowRight className="w-4 h-4" />
+            {tr("This week")}{" "}<ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </motion.div>
@@ -269,13 +267,13 @@ const Card: React.FC<{ reduced: boolean; children: React.ReactNode }> = ({ reduc
 );
 
 const ChestOpen: React.FC<{ quests: WeeklyQuests; reduced: boolean; onClose: () => void }> = ({ quests, reduced, onClose }) => (
-  <Backdrop onClose={onClose} label="Weekly quests complete">
+  <Backdrop onClose={onClose} label={tr("Weekly quests complete")}>
     {!reduced && <Confetti colors={["#f59e0b", "#f97316", "#facc15", "#0ea5e9", "#6366f1"]} />}
     <Card reduced={reduced}>
-      <button type="button" onClick={onClose} aria-label="Close" className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5">
+      <button type="button" onClick={onClose} aria-label={tr("Close")} className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5">
         <X className="w-4 h-4" />
       </button>
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400">Weekly quests complete</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400">{tr("Weekly quests complete")}</p>
       {/* The box shakes, then bursts open */}
       <motion.div
         className="mx-auto mt-5 w-28 h-28 rounded-[28px] bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/15"
@@ -285,8 +283,8 @@ const ChestOpen: React.FC<{ quests: WeeklyQuests; reduced: boolean; onClose: () 
       >
         <Gift className="w-14 h-14" />
       </motion.div>
-      <h2 className="mt-6 text-2xl font-bold text-slate-900 dark:text-white">Chest opened!</h2>
-      <p className="mt-1 text-sm text-slate-500">You finished all {quests.total} quests this week.</p>
+      <h2 className="mt-6 text-2xl font-bold text-slate-900 dark:text-white">{tr("Chest opened!")}</h2>
+      <p className="mt-1 text-sm text-slate-500">{tr("You finished all {total} quests this week.", { total: quests.total })}</p>
       <div className="mt-5 flex justify-center gap-2">
         <motion.span
           className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-500/10 px-3 py-1.5 text-sm font-bold text-amber-700 dark:text-amber-300"
@@ -303,14 +301,12 @@ const ChestOpen: React.FC<{ quests: WeeklyQuests; reduced: boolean; onClose: () 
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: reduced ? 0 : 1.45 }}
           >
-            <Snowflake className="w-4 h-4" /> +1 streak freeze
-          </motion.span>
+            <Snowflake className="w-4 h-4" /> {" "}{tr("+1 streak freeze")}</motion.span>
         )}
       </div>
-      {!quests.chest.freezeGiven && <p className="mt-3 text-xs text-slate-400">You already hold the most streak freezes, so this chest was all XP.</p>}
+      {!quests.chest.freezeGiven && <p className="mt-3 text-xs text-slate-400">{tr("You already hold the most streak freezes, so this chest was all XP.")}</p>}
       <button type="button" onClick={onClose} autoFocus className="mt-6 w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">
-        Brilliant!
-      </button>
+        {tr("Brilliant!")}</button>
     </Card>
   </Backdrop>
 );
@@ -328,13 +324,13 @@ const StreakSaved: React.FC<{ status: StreakStatus; reduced: boolean; onClose: (
   const days = status.saved.map((s) => weekday(s.day));
   const covered = days.length > 1 ? `${days.slice(0, -1).join(", ")} and ${days[days.length - 1]}` : days[0];
   return (
-    <Backdrop onClose={onClose} label="Your streak was saved">
+    <Backdrop onClose={onClose} label={tr("Your streak was saved")}>
       {!reduced && <Confetti colors={["#e0f2fe", "#7dd3fc", "#38bdf8", "#ffffff", "#bae6fd"]} />}
       <Card reduced={reduced}>
-        <button type="button" onClick={onClose} aria-label="Close" className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5">
+        <button type="button" onClick={onClose} aria-label={tr("Close")} className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5">
           <X className="w-4 h-4" />
         </button>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600 dark:text-sky-400">Streak freeze used</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600 dark:text-sky-400">{tr("Streak freeze used")}</p>
         <div className="relative mx-auto mt-5 w-28 h-28">
           <motion.div
             className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center"
@@ -354,17 +350,16 @@ const StreakSaved: React.FC<{ status: StreakStatus; reduced: boolean; onClose: (
             <Snowflake className="w-6 h-6" />
           </motion.div>
         </div>
-        <h2 className="mt-6 text-2xl font-bold text-slate-900 dark:text-white">Your streak was saved</h2>
+        <h2 className="mt-6 text-2xl font-bold text-slate-900 dark:text-white">{tr("Your streak was saved")}</h2>
         <p className="mt-1 text-sm text-slate-500">
-          {days.length > 1 ? "Freezes" : "A freeze"} covered {covered}, so your {status.current}-day streak lives on.
-        </p>
+          {days.length > 1 ? tr("Freezes") : tr("A freeze")} {" "}{tr("covered {covered}, so your {current}-day streak lives on.", { covered, current: status.current })}</p>
         <p className="mt-3 text-xs text-slate-400">
           {status.freezes > 0
-            ? `You still hold ${status.freezes} ${status.freezes === 1 ? "freeze" : "freezes"}.`
-            : "No freezes left. Get another from your weekly quests, or for XP on the dashboard."}
+            ? tr("You still hold {freezes} {value}.", { freezes: status.freezes, value: status.freezes === 1 ? "freeze" : "freezes" })
+            : tr("No freezes left. Get another from your weekly quests, or for XP on the dashboard.")}
         </p>
         <button type="button" onClick={onClose} autoFocus className="mt-6 w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">
-          {status.practicedToday ? "Nice" : "Practise today"}
+          {status.practicedToday ? tr("Nice") : tr("Practise today")}
         </button>
       </Card>
     </Backdrop>

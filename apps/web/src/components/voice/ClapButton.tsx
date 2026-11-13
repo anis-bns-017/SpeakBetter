@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { THEME } from "./VoiceRoomView.theme";
+import { tr } from "../../i18n/core";
 
 interface ClapButtonProps {
   /** Called when the user taps clap. Wire to sendStageReaction('👏') */
@@ -158,7 +159,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
 
     if (userClaps >= maxClaps) {
       toast.info(
-        "You're on fire! Take a breath and let others share the love 🔥",
+        tr("You're on fire! Take a breath and let others share the love 🔥"),
         {
           duration: 2500,
         },
@@ -181,7 +182,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
     // Haptic on mobile
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
       try {
-        (navigator as any).vibrate?.(nextStreak >= 5 ? [10, 30, 10] : 10);
+        navigator.vibrate?.(nextStreak >= 5 ? [10, 30, 10] : 10);
       } catch {
         /* ignore */
       }
@@ -337,7 +338,7 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
               color: THEME.colors.text.primary,
             }}
           >
-            {isMaxed ? "You've clapped the max!" : `Clap · ${remaining} left`}
+            {isMaxed ? tr("You've clapped the max!") : tr("Clap · {remaining} left", { remaining })}
           </motion.div>
         )}
       </AnimatePresence>
@@ -393,10 +394,10 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
             ? "none"
             : `0 10px 28px -6px color-mix(in srgb, ${THEME.colors.accent.warning} 45%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.3)`,
         }}
-        title={isMaxed ? "Clap limit reached" : "Clap for the speaker"}
+        title={isMaxed ? tr("Clap limit reached") : tr("Clap for the speaker")}
       >
         <span className={config.icon}>👏</span>
-        <span>Clap</span>
+        <span>{tr("Clap")}</span>
 
         {showRemaining && userClaps > 0 && (
           <span

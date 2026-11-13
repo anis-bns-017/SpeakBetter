@@ -3,14 +3,15 @@ import type { ElementType } from "react";
 import { AlertCircle, Flame, Sparkles, Users } from "lucide-react";
 import type { VoiceRoom } from "../../../hooks/useVoice";
 import { COLORS } from "./lobbyTheme";
+import { msg } from "../../../i18n/core";
 
 export type SortKey = "active" | "newest" | "space" | "soon";
 
 export const SORT_LABELS: Record<SortKey, string> = {
-  active: "Most active",
-  newest: "Newest",
-  space: "Most space",
-  soon: "Starting soon",
+  active: msg("Most active"),
+  newest: msg("Newest"),
+  space: msg("Most space"),
+  soon: msg("Starting soon"),
 };
 
 export function initials(name: string) {
@@ -59,12 +60,12 @@ export function getRoomStatus(room: VoiceRoom): {
     (participantCount(room) / (room.maxParticipants || 50)) * 100,
   );
   if (percentage >= 90)
-    return { label: "Almost full", color: COLORS.danger, icon: AlertCircle };
+    return { label: msg("Almost full"), color: COLORS.danger, icon: AlertCircle };
   if (percentage >= 70)
-    return { label: "Busy", color: COLORS.spotlight, icon: Flame };
+    return { label: msg("Busy"), color: COLORS.spotlight, icon: Flame };
   if (percentage >= 40)
-    return { label: "Active", color: COLORS.live, icon: Sparkles };
-  return { label: "Quiet", color: COLORS.textMuted, icon: Users };
+    return { label: msg("Active"), color: COLORS.live, icon: Sparkles };
+  return { label: msg("Quiet"), color: COLORS.textMuted, icon: Users };
 }
 
 /** "Starts in 2h 15m", "Starting now", or the date for far-off rooms */

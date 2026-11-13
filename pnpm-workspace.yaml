@@ -10,3 +10,7 @@ allowBuilds:
   unrs-resolver: true
 patchedDependencies:
   '@nestjs/cli@11.0.24': patches/@nestjs__cli@11.0.24.patch
+# The phone app (apps/mobile) and expo must share one expo-constants (a native module can't be bundled twice).
+# Pinned to a release that is a few weeks old; move it up together with expo.
+overrides:
+  expo-constants: 57.0.22

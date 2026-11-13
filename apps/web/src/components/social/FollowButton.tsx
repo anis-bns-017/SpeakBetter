@@ -2,6 +2,7 @@ import React from "react";
 import { toast } from "sonner";
 import { Bell, BellOff, Loader2 } from "lucide-react";
 import { useFollowStatus, useToggleFollow } from "../../hooks/useNotifications";
+import { tr } from "../../i18n/core";
 
 const errorMessage = (e: unknown, fallback: string) =>
   (e as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
@@ -16,7 +17,7 @@ export const FollowButton: React.FC<{ userId: string; name?: string; size?: "sm"
   const onClick = () =>
     toggle.mutate(!following, {
       onSuccess: (status) => {
-        if (status.following) toast.success(name ? `You'll hear when ${name} goes live` : "Following");
+        if (status.following) toast.success(name ? tr("You'll hear when {name} goes live", { name }) : tr("Following"));
       },
       onError: (e) => toast.error(errorMessage(e, "Couldn't update that")),
     });
@@ -28,7 +29,7 @@ export const FollowButton: React.FC<{ userId: string; name?: string; size?: "sm"
       onClick={onClick}
       disabled={busy}
       aria-pressed={following}
-      title={following ? "Stop following" : "Get told when they go live or schedule a room"}
+      title={following ? tr("Stop following") : tr("Get told when they go live or schedule a room")}
       className={`${sizing} shrink-0 rounded-xl font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-60 ${
         following
           ? "border border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
@@ -36,7 +37,7 @@ export const FollowButton: React.FC<{ userId: string; name?: string; size?: "sm"
       }`}
     >
       {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : following ? <BellOff className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
-      {following ? "Following" : "Follow"}
+      {following ? tr("Following") : tr("Follow")}
     </button>
   );
 };

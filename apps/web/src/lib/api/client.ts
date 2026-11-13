@@ -3,8 +3,7 @@ import {
   createRefreshCoordinator,
   type RefreshResponse,
 } from './refreshCoordinator';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { API_URL } from "./serverUrl";
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -71,10 +70,17 @@ const coordinator = createRefreshCoordinator({
 });
 
 // Pages an anonymous visitor may be on; sending them to /login again would loop
-const PUBLIC_PATHS = ['/login', '/register', '/auth/callback'];
+const PUBLIC_PATHS = ['/', '/login', '/register', '/auth/callback', '/forgot-password', '/reset-password', '/terms', '/privacy'];
+
+// Set when this tab is about to leave on purpose (the account was just deleted): late 401s from requests still
+// in flight must not race it to /login
+let leaving = false;
+export const markLeaving = () => {
+  leaving = true;
+};
 
 const sendToLogin = () => {
-  if (PUBLIC_PATHS.includes(window.location.pathname)) return;
+  if (leaving || PUBLIC_PATHS.includes(window.location.pathname)) return;
   window.location.href = '/login';
 };
 

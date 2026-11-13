@@ -22,6 +22,7 @@ import {
   type PaymentRow,
 } from "../hooks/useBilling";
 import { tutorErrorMessage } from "../hooks/useAiTutor";
+import { tr } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -61,7 +62,7 @@ const SubscriptionCard: React.FC<{ sub: MySubscription }> = ({ sub }) => {
   const run = async (action: "cancel" | "resume") => {
     try {
       await (action === "cancel" ? cancel : resume).mutateAsync();
-      toast.success(action === "cancel" ? "Renewal switched off. Pro stays until the end date." : "Welcome back, Pro will carry on.");
+      toast.success(action === "cancel" ? tr("Renewal switched off. Pro stays until the end date.") : tr("Welcome back, Pro will carry on."));
     } catch (error) {
       toast.error(tutorErrorMessage(error, "Something went wrong. Please try again."));
     }
@@ -74,12 +75,12 @@ const SubscriptionCard: React.FC<{ sub: MySubscription }> = ({ sub }) => {
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-slate-900 dark:text-white">
-          You're on Pro {sub.interval === "YEARLY" ? "(yearly)" : "(monthly)"}
+          {tr("You're on Pro")}{" "}{sub.interval === "YEARLY" ? tr("(yearly)") : tr("(monthly)")}
         </p>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
           {sub.cancelAtPeriodEnd
-            ? `Won't renew. Pro works until ${formatDate(sub.endDate)} (${sub.daysLeft} ${sub.daysLeft === 1 ? "day" : "days"} left).`
-            : `Paid up until ${formatDate(sub.endDate)} (${sub.daysLeft} ${sub.daysLeft === 1 ? "day" : "days"} left).`}
+            ? tr("Won't renew. Pro works until {value} ({daysLeft} {value2} left).", { value: formatDate(sub.endDate), daysLeft: sub.daysLeft, value2: sub.daysLeft === 1 ? "day" : "days" })
+            : tr("Paid up until {value} ({daysLeft} {value2} left).", { value: formatDate(sub.endDate), daysLeft: sub.daysLeft, value2: sub.daysLeft === 1 ? "day" : "days" })}
         </p>
       </div>
       {sub.cancelAtPeriodEnd ? (
@@ -89,8 +90,7 @@ const SubscriptionCard: React.FC<{ sub: MySubscription }> = ({ sub }) => {
           disabled={busy}
           className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold"
         >
-          Keep Pro
-        </button>
+          {tr("Keep Pro")}</button>
       ) : (
         <button
           type="button"
@@ -98,8 +98,7 @@ const SubscriptionCard: React.FC<{ sub: MySubscription }> = ({ sub }) => {
           disabled={busy}
           className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] disabled:opacity-50"
         >
-          Cancel renewal
-        </button>
+          {tr("Cancel renewal")}</button>
       )}
     </div>
   );
@@ -121,7 +120,7 @@ export const PremiumPage: React.FC = () => {
     );
   }
   if (!catalog.data || !mine.data) {
-    return <p className="text-center text-slate-500 py-32">Couldn't load plans. Please refresh.</p>;
+    return <p className="text-center text-slate-500 py-32">{tr("Couldn't load plans. Please refresh.")}</p>;
   }
 
   const { data: plans } = catalog;
@@ -149,28 +148,26 @@ export const PremiumPage: React.FC = () => {
         <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/15">
           <Crown className="w-7 h-7 text-white" />
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-5">SpeakBetter Pro</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-5">{tr("SpeakBetter Pro")}</h1>
         <p className="text-slate-600 dark:text-slate-300 mt-2 max-w-xl mx-auto">
-          Everything you use to learn stays free. Pro gives you far more time with your AI speaking partner, the one feature that costs us money to run.
-        </p>
+          {tr("Everything you use to learn stays free. Pro gives you far more time with your AI speaking partner, the one feature that costs us money to run.")}</p>
       </div>
 
       {plans.sandbox && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-400/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
           <FlaskConical className="w-4 h-4 mt-0.5 shrink-0" />
-          <p>Payments are in test mode. Nothing is charged, and you choose whether the test payment works.</p>
+          <p>{tr("Payments are in test mode. Nothing is charged, and you choose whether the test payment works.")}</p>
         </div>
       )}
 
       {isPro && <SubscriptionCard sub={sub} />}
       {sub.status === "EXPIRED" && (
         <div className={`${card} px-5 py-4 text-sm text-slate-600 dark:text-slate-300`}>
-          Your Pro ended on {formatDate(sub.endDate)}. Pick a plan below to come back.
-        </div>
+          {tr("Your Pro ended on {value}. Pick a plan below to come back.", { value: formatDate(sub.endDate) })}</div>
       )}
 
       <div className="flex justify-center">
-        <div className="inline-flex p-1 rounded-2xl bg-slate-100 dark:bg-white/[0.05]" role="tablist" aria-label="Billing period">
+        <div className="inline-flex p-1 rounded-2xl bg-slate-100 dark:bg-white/[0.05]" role="tablist" aria-label={tr("Billing period")}>
           {(["MONTHLY", "YEARLY"] as const).map((value) => (
             <button
               key={value}
@@ -184,8 +181,8 @@ export const PremiumPage: React.FC = () => {
                   : "text-slate-500 dark:text-slate-400"
               }`}
             >
-              {value === "MONTHLY" ? "Monthly" : "Yearly"}
-              {value === "YEARLY" && <span className="ml-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Save {plans.yearlySavingsPercent}%</span>}
+              {value === "MONTHLY" ? tr("Monthly") : tr("Yearly")}
+              {value === "YEARLY" && <span className="ml-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">{tr("Save {yearlySavingsPercent}%", { yearlySavingsPercent: plans.yearlySavingsPercent })}</span>}
             </button>
           ))}
         </div>
@@ -193,40 +190,38 @@ export const PremiumPage: React.FC = () => {
 
       <div className="grid md:grid-cols-2 gap-5">
         <div className={`${card} p-6 flex flex-col`}>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Free</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{tr("Free")}</h2>
           <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{formatMoney(0, plans.currency)}</p>
-          <p className="text-sm text-slate-500 dark:text-slate-400">forever</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{tr("forever")}</p>
           <ul className="mt-5 space-y-2.5 flex-1">
             <Feature strong>
               <Bot className="inline w-4 h-4 mr-1 -mt-0.5" />
-              {free.limits.aiTurnsPerDay} AI partner turns a day
-            </Feature>
+              {free.limits.aiTurnsPerDay} {" "}{tr("AI partner turns a day")}</Feature>
             {FREE_FEATURES.map((f) => (
               <Feature key={f}>{f}</Feature>
             ))}
           </ul>
           <div className="mt-6 h-11 rounded-2xl bg-slate-100 dark:bg-white/[0.05] text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center justify-center">
-            {isPro ? "Included" : "Your plan"}
+            {isPro ? tr("Included") : tr("Your plan")}
           </div>
         </div>
 
         <div className={`${card} p-6 flex flex-col ring-2 ring-indigo-500/70 relative`}>
-          <span className="absolute -top-3 right-5 px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-semibold">Best for speaking</span>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Pro</h2>
+          <span className="absolute -top-3 right-5 px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-semibold">{tr("Best for speaking")}</span>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{tr("Pro")}</h2>
           <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
             {formatMoney(price, plans.currency)}
-            <span className="text-base font-medium text-slate-500 dark:text-slate-400"> / {interval === "YEARLY" ? "year" : "month"}</span>
+            <span className="text-base font-medium text-slate-500 dark:text-slate-400"> / {interval === "YEARLY" ? tr("year") : tr("month")}</span>
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {interval === "YEARLY" ? `About ${formatMoney(monthlyEquivalent, plans.currency)} a month` : "Billed every 30 days"}
+            {interval === "YEARLY" ? tr("About {value} a month", { value: formatMoney(monthlyEquivalent, plans.currency) }) : tr("Billed every 30 days")}
           </p>
           <ul className="mt-5 space-y-2.5 flex-1">
             <Feature strong>
               <Bot className="inline w-4 h-4 mr-1 -mt-0.5" />
-              {pro.limits.aiTurnsPerDay} AI partner turns a day
-            </Feature>
-            <Feature>Everything in Free</Feature>
-            <Feature>Room to practise a real conversation every day</Feature>
+              {pro.limits.aiTurnsPerDay} {" "}{tr("AI partner turns a day")}</Feature>
+            <Feature>{tr("Everything in Free")}</Feature>
+            <Feature>{tr("Room to practise a real conversation every day")}</Feature>
           </ul>
           <button
             type="button"
@@ -235,27 +230,27 @@ export const PremiumPage: React.FC = () => {
             className="mt-6 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
           >
             {startCheckout.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {!plans.paymentsAvailable ? "Not available yet" : isPro ? "Add more time" : "Go Pro"}
+            {!plans.paymentsAvailable ? tr("Not available yet") : isPro ? tr("Add more time") : tr("Go Pro")}
           </button>
-          {isPro && <p className="text-xs text-slate-400 text-center mt-2">New time is added on top of what you have left.</p>}
+          {isPro && <p className="text-xs text-slate-400 text-center mt-2">{tr("New time is added on top of what you have left.")}</p>}
         </div>
       </div>
 
       {history.length > 0 && (
         <div className={`${card} p-5 sm:p-6`}>
-          <h2 className="font-semibold text-slate-900 dark:text-white">Payment history</h2>
+          <h2 className="font-semibold text-slate-900 dark:text-white">{tr("Payment history")}</h2>
           <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/[0.06]">
             {history.map((p) => (
               <li key={p.id} className="py-3 flex items-center gap-3 text-sm">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-slate-900 dark:text-white">
-                    Pro, {p.interval === "YEARLY" ? "yearly" : "monthly"}
+                    {tr("Pro,")}{" "}{p.interval === "YEARLY" ? tr("yearly") : tr("monthly")}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{formatDate(p.createdAt)}</p>
                 </div>
                 <span className="font-medium text-slate-700 dark:text-slate-200">{formatMoney(p.amount, p.currency)}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLE[p.status]}`}>
-                  {p.status === "SUCCEEDED" ? "Paid" : p.status.charAt(0) + p.status.slice(1).toLowerCase().replace("_", " ")}
+                  {p.status === "SUCCEEDED" ? tr("Paid") : p.status.charAt(0) + p.status.slice(1).toLowerCase().replace("_", " ")}
                 </span>
               </li>
             ))}

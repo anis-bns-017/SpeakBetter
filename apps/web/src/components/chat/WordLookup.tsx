@@ -17,6 +17,7 @@ import { apiClient } from "../../lib/api/client";
 import { canSpeak, speak } from "../../lib/speech";
 import { meaningFrom, useLookupState } from "../../hooks/useLookup";
 import { LookupBody } from "../lookup/LookupBody";
+import { tr } from "../../i18n/core";
 
 export interface WordSelection {
   text: string;
@@ -131,11 +132,11 @@ export const WordLookup: React.FC<{ selection: WordSelection; onClose: () => voi
         language: "en",
       });
       setSaved(true);
-      toast.success(`“${selection.text}” saved to your flashcards`);
+      toast.success(tr("“{text}” saved to your flashcards", { text: selection.text }));
       queryClient.invalidateQueries({ queryKey: ["flashcards"] });
       queryClient.invalidateQueries({ queryKey: ["learning-dashboard"] });
     } catch {
-      toast.error("Couldn't save to flashcards");
+      toast.error(tr("Couldn't save to flashcards"));
     } finally {
       setSaving(false);
     }
@@ -152,11 +153,11 @@ export const WordLookup: React.FC<{ selection: WordSelection; onClose: () => voi
       // Hidden until it has been measured and placed
       style={{ visibility: "hidden", width: 340 }}
       role="dialog"
-      aria-label={`Look up ${selection.text}`}
+      aria-label={tr("Look up {text}", { text: selection.text })}
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[17px] font-bold text-slate-900 dark:text-white leading-tight break-words">{selection.text}</p>
+          <p className="text-[17px] font-bold text-slate-900 dark:text-white leading-tight break-words">{tr(selection.text)}</p>
           {(phonetic || partOfSpeech) && (
             <p className="text-xs text-slate-500 mt-0.5">
               {phonetic}
@@ -167,15 +168,15 @@ export const WordLookup: React.FC<{ selection: WordSelection; onClose: () => voi
         </div>
         {canSpeak() && (
           <div className="flex gap-1 shrink-0">
-            <button type="button" onClick={() => void speak(selection.text)} className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100" aria-label="Pronounce" title="Pronounce">
+            <button type="button" onClick={() => void speak(selection.text)} className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100" aria-label={tr("Pronounce")} title={tr("Pronounce")}>
               <Volume2 className="w-4 h-4" />
             </button>
-            <button type="button" onClick={() => void speak(selection.text, { rate: 0.6 })} className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200" aria-label="Pronounce slowly" title="Slowly">
+            <button type="button" onClick={() => void speak(selection.text, { rate: 0.6 })} className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200" aria-label={tr("Pronounce slowly")} title={tr("Slowly")}>
               <Turtle className="w-4 h-4" />
             </button>
           </div>
         )}
-        <button type="button" onClick={onClose} className="w-8 h-8 -mr-1 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5" aria-label="Close">
+        <button type="button" onClick={onClose} className="w-8 h-8 -mr-1 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5" aria-label={tr("Close")}>
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -192,7 +193,7 @@ export const WordLookup: React.FC<{ selection: WordSelection; onClose: () => voi
           saved ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60"
         }`}
       >
-        {saved ? <><Check className="w-4 h-4" /> Saved to flashcards</> : saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><BookmarkPlus className="w-4 h-4" /> Save to flashcards</>}
+        {saved ? <><Check className="w-4 h-4" /> {" "}{tr("Saved to flashcards")}</> : saving ? <><Loader2 className="w-4 h-4 animate-spin" /> {" "}{tr("Saving…")}</> : <><BookmarkPlus className="w-4 h-4" /> {" "}{tr("Save to flashcards")}</>}
       </button>
     </motion.div>,
     document.body,

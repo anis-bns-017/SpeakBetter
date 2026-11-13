@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { THEME } from '../VoiceRoomView.theme';
+import { tr } from "../../../i18n/core";
 
 interface AudioLevelMeterProps {
   level: number;
@@ -13,7 +14,7 @@ export const AudioLevelMeter: React.FC<AudioLevelMeterProps> = ({ level, muted }
   return (
     <div
       className="flex items-center gap-1"
-      title={muted ? 'Microphone muted' : 'Microphone level'}
+      title={muted ? tr("Microphone muted") : tr("Microphone level")}
     >
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <span

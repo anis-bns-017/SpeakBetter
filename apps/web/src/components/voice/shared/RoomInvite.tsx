@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { THEME } from "../VoiceRoomView.theme";
+import { tr } from "../../../i18n/core";
 
 interface RoomInviteProps {
   isOpen: boolean;
@@ -63,10 +64,10 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
-      toast.success("🔗 Invite link copied");
+      toast.success(tr("🔗 Invite link copied"));
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Couldn't copy link");
+      toast.error(tr("Couldn't copy link"));
     }
   };
 
@@ -107,7 +108,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
       case "discord":
         // Discord has no web share URL; copy is the best UX
         handleCopy();
-        toast.info("Link copied — paste it in Discord");
+        toast.info(tr("Link copied — paste it in Discord"));
         return;
     }
 
@@ -170,14 +171,13 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                     className="text-base font-bold truncate"
                     style={{ color: THEME.colors.text.primary }}
                   >
-                    Invite friends
-                  </h3>
+                    {tr("Invite friends")}</h3>
                   <p
                     className="text-xs truncate"
                     style={{ color: THEME.colors.text.muted }}
                   >
                     {roomName}
-                    {participantCount > 0 ? ` · ${participantCount} inside` : ""}
+                    {participantCount > 0 ? tr(" · {participantCount} inside", { participantCount }) : ""}
                   </p>
                 </div>
               </div>
@@ -187,7 +187,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                 onClick={onClose}
                 className="p-1.5 rounded-full hover:bg-white/10 transition-colors shrink-0"
                 style={{ color: THEME.colors.text.muted }}
-                aria-label="Close"
+                aria-label={tr("Close")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -205,8 +205,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                     className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    Room link
-                  </span>
+                    {tr("Room link")}</span>
                 </div>
                 <div
                   className="flex items-center gap-2 rounded-xl border pl-3.5 pr-1.5 py-1.5"
@@ -237,12 +236,10 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                   >
                     {copied ? (
                       <>
-                        <Check className="w-3.5 h-3.5" /> Copied
-                      </>
+                        <Check className="w-3.5 h-3.5" /> {" "}{tr("Copied")}</>
                     ) : (
                       <>
-                        <Copy className="w-3.5 h-3.5" /> Copy
-                      </>
+                        <Copy className="w-3.5 h-3.5" /> {" "}{tr("Copy")}</>
                     )}
                   </button>
                 </div>
@@ -259,12 +256,11 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                     className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    Share via
-                  </span>
+                    {tr("Share via")}</span>
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   <ShareButton
-                    label="WhatsApp"
+                    label={tr("WhatsApp")}
                     color="var(--sx-bg-25d366)"
                     icon={<MessageCircle className="w-4 h-4" />}
                     onClick={() => shareTo("whatsapp")}
@@ -276,19 +272,19 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                     onClick={() => shareTo("twitter")}
                   />
                   <ShareButton
-                    label="Telegram"
+                    label={tr("Telegram")}
                     color="var(--sx-bg-26a5e4)"
                     icon={<Send className="w-4 h-4" />}
                     onClick={() => shareTo("telegram")}
                   />
                   <ShareButton
-                    label="Email"
+                    label={tr("Email")}
                     color="var(--sx-bg-f59e0b)"
                     icon={<Mail className="w-4 h-4" />}
                     onClick={() => shareTo("email")}
                   />
                   <ShareButton
-                    label="Discord"
+                    label={tr("Discord")}
                     color="var(--sx-bg-5865f2)"
                     icon={<Users className="w-4 h-4" />}
                     onClick={() => shareTo("discord")}
@@ -309,8 +305,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                     }}
                   >
                     <Share2 className="w-4 h-4" />
-                    More options
-                  </button>
+                    {tr("More options")}</button>
                 )}
                 <button
                   type="button"
@@ -326,7 +321,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                   }}
                 >
                   <QrCode className="w-4 h-4" />
-                  {showQr ? "Hide QR" : "Show QR"}
+                  {showQr ? tr("Hide QR") : tr("Show QR")}
                 </button>
               </div>
 
@@ -349,7 +344,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                       {qrSrc && (
                         <img
                           src={qrSrc}
-                          alt="Room QR code"
+                          alt={tr("Room QR code")}
                           width={200}
                           height={200}
                           className="rounded-xl bg-white p-2"
@@ -360,8 +355,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                         className="text-[11px] text-center"
                         style={{ color: THEME.colors.text.muted }}
                       >
-                        Scan with a phone camera to join
-                      </p>
+                        {tr("Scan with a phone camera to join")}</p>
                     </div>
                   </motion.div>
                 )}
@@ -372,8 +366,7 @@ export const RoomInvite: React.FC<RoomInviteProps> = ({
                 className="text-[11px] text-center leading-relaxed"
                 style={{ color: THEME.colors.text.muted }}
               >
-                Anyone with the link can join the room.
-              </p>
+                {tr("Anyone with the link can join the room.")}</p>
             </div>
           </motion.div>
         </motion.div>
@@ -399,7 +392,7 @@ const ShareButton: React.FC<{
       background: "var(--sx-bg-255-255-255-20)",
       borderColor: "var(--sx-border-255-255-255-80)",
     }}
-    title={label}
+    title={tr(label)}
   >
     <span
       className="w-7 h-7 rounded-full flex items-center justify-center"
@@ -411,7 +404,7 @@ const ShareButton: React.FC<{
       className="text-[9px] font-medium"
       style={{ color: "var(--sx-text-255-255-255-700)" }}
     >
-      {label}
+      {tr(label)}
     </span>
   </button>
 );

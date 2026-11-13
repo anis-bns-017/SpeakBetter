@@ -3,6 +3,7 @@ import React from "react";
 import { Crown, Headphones, Radio, Users } from "lucide-react";
 import type { VoiceRoom } from "../../../hooks/useVoice";
 import { COLORS, TYPE_ACCENTS } from "./lobbyTheme";
+import { tr, msg } from "../../../i18n/core";
 
 // ---- Stats strip ----
 export const StatsStrip: React.FC<{
@@ -12,10 +13,10 @@ export const StatsStrip: React.FC<{
   inside: number;
 }> = ({ liveRooms, peopleTalking, hosting, inside }) => {
   const stats = [
-    { label: "Live rooms", value: liveRooms, icon: Radio, color: COLORS.live },
-    { label: "People talking", value: peopleTalking, icon: Users, color: COLORS.purple },
-    { label: "You host", value: hosting, icon: Crown, color: COLORS.spotlight },
-    { label: "You are in", value: inside, icon: Headphones, color: COLORS.info },
+    { label: msg("Live rooms"), value: liveRooms, icon: Radio, color: COLORS.live },
+    { label: msg("People talking"), value: peopleTalking, icon: Users, color: COLORS.purple },
+    { label: msg("You host"), value: hosting, icon: Crown, color: COLORS.spotlight },
+    { label: msg("You are in"), value: inside, icon: Headphones, color: COLORS.info },
   ];
   return (
     <div
@@ -35,7 +36,7 @@ export const StatsStrip: React.FC<{
               {value}
             </p>
             <p className="mt-1.5 truncate text-xs font-medium" style={{ color: COLORS.textMuted }}>
-              {label}
+              {tr(label)}
             </p>
           </div>
         </div>
@@ -54,13 +55,12 @@ export const YourRoomsShelf: React.FC<{
 }> = ({ rooms, hostingIds, insideIds, pinnedIds, onOpen }) => {
   if (rooms.length === 0) return null;
   return (
-    <section aria-label="Your rooms" className="mb-6">
+    <section aria-label={tr("Your rooms")} className="mb-6">
       <h2
         className="text-xs font-semibold uppercase tracking-wider mb-2"
         style={{ color: COLORS.textMuted }}
       >
-        Your rooms
-      </h2>
+        {tr("Your rooms")}</h2>
       <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
         {rooms.map((room) => {
           const accent = TYPE_ACCENTS[room.type] || COLORS.live;
@@ -91,8 +91,7 @@ export const YourRoomsShelf: React.FC<{
                 </span>
               </div>
               <p className="text-[11px] mt-1" style={{ color: COLORS.textMuted }}>
-                {role} · {room.participants?.length || 0} in room
-              </p>
+                {role} {" "}{tr("· {value} in room", { value: room.participants?.length || 0 })}</p>
             </button>
           );
         })}

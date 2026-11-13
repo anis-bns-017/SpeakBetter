@@ -26,6 +26,7 @@ import type {
   CoHostSuggestion,
   CoHostSummary,
 } from "../../../hooks/useAICoHost";
+import { tr } from "../../../i18n/core";
 
 interface AICoHostProps {
   isOpen: boolean;
@@ -63,7 +64,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
 
   const handleUseSuggestion = (text: string) => {
     onUseSuggestion(text);
-    toast.success("Added to chat input");
+    toast.success(tr("Added to chat input"));
     onDismissSuggestion();
   };
 
@@ -71,10 +72,10 @@ export const AICoHost: React.FC<AICoHostProps> = ({
     try {
       await navigator.clipboard.writeText(exportText);
       setCopied(true);
-      toast.success("Summary copied");
+      toast.success(tr("Summary copied"));
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      toast.error("Couldn't copy summary");
+      toast.error(tr("Couldn't copy summary"));
     }
   };
 
@@ -89,9 +90,9 @@ export const AICoHost: React.FC<AICoHostProps> = ({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("Summary downloaded");
+      toast.success(tr("Summary downloaded"));
     } catch {
-      toast.error("Download failed");
+      toast.error(tr("Download failed"));
     }
   };
 
@@ -133,14 +134,12 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                   className="text-sm font-semibold truncate"
                   style={{ color: THEME.colors.text.primary }}
                 >
-                  AI Co-host
-                </p>
+                  {tr("AI Co-host")}</p>
                 <p
                   className="text-[11px] truncate"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  Keeps the conversation flowing
-                </p>
+                  {tr("Keeps the conversation flowing")}</p>
               </div>
             </div>
             <button
@@ -148,7 +147,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
               onClick={onClose}
               className="p-1.5 rounded-full hover:bg-white/10 transition-colors shrink-0"
               style={{ color: THEME.colors.text.muted }}
-              aria-label="Close"
+              aria-label={tr("Close")}
             >
               <X className="w-4 h-4" />
             </button>
@@ -168,8 +167,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                     className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    Live suggestion
-                  </span>
+                    {tr("Live suggestion")}</span>
                 </div>
                 <button
                   type="button"
@@ -178,8 +176,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                   style={{ color: THEME.colors.accent.primary }}
                 >
                   <RefreshCcw className="w-3 h-3" />
-                  Regenerate
-                </button>
+                  {tr("Regenerate")}</button>
               </div>
 
               <AnimatePresence mode="wait">
@@ -222,7 +219,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                       className="text-sm leading-snug mb-3"
                       style={{ color: THEME.colors.text.primary }}
                     >
-                      {suggestion.text}
+                      {tr(suggestion.text)}
                     </p>
 
                     {(isHost || isModerator) && (
@@ -237,16 +234,14 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                           }}
                         >
                           <Send className="w-3 h-3" />
-                          Share with room
-                        </button>
+                          {tr("Share with room")}</button>
                         <button
                           type="button"
                           onClick={onDismissSuggestion}
                           className="px-3 py-1.5 rounded-lg text-[11px] font-medium hover:bg-white/5 transition-colors"
                           style={{ color: THEME.colors.text.muted }}
                         >
-                          Skip
-                        </button>
+                          {tr("Skip")}</button>
                       </div>
                     )}
                   </motion.div>
@@ -269,9 +264,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                       className="text-xs"
                       style={{ color: THEME.colors.text.muted }}
                     >
-                      Monitoring the room. A suggestion will appear when
-                      things get quiet.
-                    </p>
+                      {tr("Monitoring the room. A suggestion will appear when things get quiet.")}</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -289,8 +282,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                     className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    Session summary
-                  </span>
+                    {tr("Session summary")}</span>
                 </div>
                 {summary && (
                   <button
@@ -299,8 +291,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                     className="text-[11px] hover:underline"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    Clear
-                  </button>
+                    {tr("Clear")}</button>
                 )}
               </div>
 
@@ -320,8 +311,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                     className="text-[11px]"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    Generating summary…
-                  </p>
+                    {tr("Generating summary…")}</p>
                 </div>
               ) : summary ? (
                 <div
@@ -335,7 +325,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                     className="text-xs leading-relaxed"
                     style={{ color: THEME.colors.text.primary }}
                   >
-                    {summary.summary}
+                    {tr(summary.summary)}
                   </p>
 
                   {summary.keyPoints.length > 0 && (
@@ -344,8 +334,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                         className="text-[9px] font-semibold uppercase tracking-wider mb-1"
                         style={{ color: THEME.colors.text.muted }}
                       >
-                        Key points
-                      </p>
+                        {tr("Key points")}</p>
                       <ul className="space-y-1">
                         {summary.keyPoints.map((p, i) => (
                           <li
@@ -371,8 +360,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                         className="text-[9px] font-semibold uppercase tracking-wider mb-1"
                         style={{ color: THEME.colors.text.muted }}
                       >
-                        Words mentioned
-                      </p>
+                        {tr("Words mentioned")}</p>
                       <div className="flex flex-wrap gap-1">
                         {summary.newWords.map((w) => (
                           <span
@@ -402,7 +390,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                       ) : (
                         <Copy className="w-3 h-3" />
                       )}
-                      {copied ? "Copied" : "Copy"}
+                      {copied ? tr("Copied") : tr("Copy")}
                     </button>
                     <button
                       type="button"
@@ -411,8 +399,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                       style={{ color: THEME.colors.text.secondary }}
                     >
                       <Download className="w-3 h-3" />
-                      Download
-                    </button>
+                      {tr("Download")}</button>
                   </div>
                 </div>
               ) : (
@@ -427,8 +414,7 @@ export const AICoHost: React.FC<AICoHostProps> = ({
                   }}
                 >
                   <Zap className="w-3.5 h-3.5" />
-                  Generate summary
-                </button>
+                  {tr("Generate summary")}</button>
               )}
             </div>
           </div>

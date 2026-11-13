@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { User } from '../../contexts/useAuth';
 
 export interface RegisterData {
   email: string;
@@ -14,7 +15,7 @@ export interface LoginData {
 }
 
 export interface AuthResponse {
-  user: any;
+  user: User;
   // no tokens in response; they are in cookies
 }
 
@@ -30,4 +31,14 @@ export const authApi = {
 
   getMe: () =>
     apiClient.get('/auth/me'),
+
+  /** Emails a reset link; the answer is the same whether or not the account exists */
+  forgotPassword: (email: string) =>
+    apiClient.post<{ ok: true }>('/auth/forgot-password', { email }),
+
+  checkResetToken: (token: string) =>
+    apiClient.get<{ valid: boolean }>('/auth/reset-password/check', { params: { token } }),
+
+  resetPassword: (token: string, password: string) =>
+    apiClient.post<{ ok: true }>('/auth/reset-password', { token, password }),
 };

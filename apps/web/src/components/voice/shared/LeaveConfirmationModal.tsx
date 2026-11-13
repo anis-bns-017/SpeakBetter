@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { PhoneOff } from 'lucide-react';
 import { THEME } from '../VoiceRoomView.theme';
 import type { FluencySnapshot } from '../../../hooks/useRoomCoach';
+import { tr, msg } from "../../../i18n/core";
 
 interface LeaveConfirmationModalProps {
   isOpen: boolean;
@@ -26,12 +27,12 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
 
   const stats = summary && summary.words > 0
     ? [
-        { label: 'Words spoken', value: String(summary.words) },
-        { label: 'Fluency', value: summary.fluency === null ? '—' : `${summary.fluency}/100` },
-        { label: 'Pace', value: summary.wpm === null ? '—' : `${summary.wpm} wpm` },
-        { label: 'Fillers', value: String(summary.fillerCount) },
-        { label: 'Missions', value: String(missionsCompleted) },
-        { label: 'New strong words', value: String(summary.richWords.length) },
+        { label: msg("Words spoken"), value: String(summary.words) },
+        { label: msg("Fluency"), value: summary.fluency === null ? '—' : `${summary.fluency}/100` },
+        { label: msg("Pace"), value: summary.wpm === null ? '—' : `${summary.wpm} wpm` },
+        { label: msg("Fillers"), value: String(summary.fillerCount) },
+        { label: msg("Missions"), value: String(missionsCompleted) },
+        { label: msg("New strong words"), value: String(summary.richWords.length) },
       ]
     : null;
 
@@ -60,17 +61,14 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
             <PhoneOff className="w-8 h-8" style={{ color: 'var(--sx-text-ef4444)' }} />
           </div>
           <h3 className="font-bold text-xl mb-2" style={{ color: THEME.colors.text.primary }}>
-            Leave Room?
-          </h3>
+            {tr("Leave Room?")}</h3>
           <p className="text-sm mb-5" style={{ color: THEME.colors.text.muted }}>
-            Are you sure you want to leave this room? You can always join back later.
-          </p>
+            {tr("Are you sure you want to leave this room? You can always join back later.")}</p>
 
           {stats && (
             <div className="mb-5 text-left">
               <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: THEME.colors.text.muted }}>
-                Your session so far · saved to your progress
-              </div>
+                {tr("Your session so far · saved to your progress")}</div>
               <div className="grid grid-cols-3 gap-2">
                 {stats.map((s) => (
                   <div
@@ -82,7 +80,7 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
                       {s.value}
                     </div>
                     <div className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-                      {s.label}
+                      {tr(s.label)}
                     </div>
                   </div>
                 ))}
@@ -96,8 +94,7 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-white/5"
               style={{ color: THEME.colors.text.muted }}
             >
-              Stay
-            </button>
+              {tr("Stay")}</button>
             <button
               onClick={() => {
                 onConfirm();
@@ -106,8 +103,7 @@ export const LeaveConfirmationModal: React.FC<LeaveConfirmationModalProps> = ({
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors hover:opacity-80"
               style={{ background: 'var(--sx-bg-ef4444)', color: 'var(--sx-text-ffffff)' }}
             >
-              Leave Room
-            </button>
+              {tr("Leave Room")}</button>
           </div>
         </div>
       </motion.div>

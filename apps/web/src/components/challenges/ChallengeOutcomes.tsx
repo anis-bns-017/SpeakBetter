@@ -1,6 +1,7 @@
 import React from "react";
 import { Swords } from "lucide-react";
 import type { ChallengeOutcome } from "../../hooks/useFriendChallenges";
+import { tr } from "../../i18n/core";
 
 /** On a result screen: how this try settled the challenges friends had sent you */
 export const ChallengeOutcomes: React.FC<{ outcomes?: ChallengeOutcome[] }> = ({ outcomes }) => {
@@ -20,9 +21,9 @@ export const ChallengeOutcomes: React.FC<{ outcomes?: ChallengeOutcome[] }> = ({
         >
           <Swords className="w-4 h-4 shrink-0" />
           <span>
-            {o.status === "BEATEN" && <>You beat {o.from}'s challenge: {o.yours} against {o.theirs}. +5 XP</>}
-            {o.status === "TIED" && <>You tied with {o.from}: both {o.yours}.</>}
-            {o.status === "HELD" && <>{o.from} keeps the lead this time: {o.theirs} against your {o.yours}.</>}
+            {o.status === "BEATEN" && <>{tr("You beat {from}'s challenge: {yours} against {theirs}. +5 XP", { from: o.from, yours: o.yours, theirs: o.theirs })}</>}
+            {o.status === "TIED" && <>{tr("You tied with {from}: both {yours}.", { from: o.from, yours: o.yours })}</>}
+            {o.status === "HELD" && <>{o.from} {" "}{tr("keeps the lead this time: {theirs} against your {yours}.", { theirs: o.theirs, yours: o.yours })}</>}
           </span>
         </div>
       ))}

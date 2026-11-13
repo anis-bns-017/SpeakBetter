@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useSuggestions, useSendFriendRequest } from '../hooks/useFriends';
 import { UserPlus, Users, Languages, Check, Sparkles } from 'lucide-react';
 import { FollowButton } from '../components/social/FollowButton';
+import { tr } from "../i18n/core";
 
 export const SuggestionsPage = () => {
   const { data, isLoading } = useSuggestions();
@@ -32,11 +33,9 @@ export const SuggestionsPage = () => {
           </div>
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-slate-800">
-              No Suggestions Right Now
-            </h3>
+              {tr("No Suggestions Right Now")}</h3>
             <p className="text-xs text-slate-500">
-              We couldn't find any new matches. Connect with more people or check back later!
-            </p>
+              {tr("We couldn't find any new matches. Connect with more people or check back later!")}</p>
           </div>
         </div>
       </div>
@@ -54,17 +53,14 @@ export const SuggestionsPage = () => {
             </div>
             <div>
               <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">
-                People You May Know
-              </h1>
+                {tr("People You May Know")}</h1>
               <p className="text-xs text-slate-500">
-                Discover language partners and potential study companions tailored for you.
-              </p>
+                {tr("Discover language partners and potential study companions tailored for you.")}</p>
             </div>
           </div>
           <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600">
             <Users className="w-3.5 h-3.5" />
-            {data.length} Suggestions
-          </span>
+            {data.length} {" "}{tr("Suggestions")}</span>
         </div>
 
         {/* User Cards List */}
@@ -111,13 +107,13 @@ export const SuggestionsPage = () => {
                         {user.profile.nativeLanguage && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-medium">
                             <Languages className="w-3 h-3" />
-                            Native: {user.profile.nativeLanguage}
+                            {tr("Native:")}{" "}{user.profile.nativeLanguage}
                           </span>
                         )}
 
                         {user.profile.learningLanguages && user.profile.learningLanguages.length > 0 && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-medium">
-                            Learning: {user.profile.learningLanguages.join(', ')}
+                            {tr("Learning:")}{" "}{user.profile.learningLanguages.join(', ')}
                           </span>
                         )}
                       </div>
@@ -134,7 +130,7 @@ export const SuggestionsPage = () => {
                       className="w-full sm:w-auto px-5 py-2.5 bg-emerald-50 text-emerald-600 font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-default"
                     >
                       <Check className="w-4 h-4" />
-                      <span>Request Sent</span>
+                      <span>{tr("Request Sent")}</span>
                     </button>
                   ) : (
                     <button
@@ -143,7 +139,7 @@ export const SuggestionsPage = () => {
                       className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95"
                     >
                       <UserPlus className="w-4 h-4" />
-                      <span>{isPending ? 'Sending...' : 'Add Friend'}</span>
+                      <span>{isPending ? tr("Sending...") : tr("Add Friend")}</span>
                     </button>
                   )}
                 </div>

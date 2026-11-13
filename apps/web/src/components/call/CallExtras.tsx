@@ -8,6 +8,7 @@ import {
   type CallTip,
   type FloatingReaction,
 } from "./useCallExtras";
+import { tr } from "../../i18n/core";
 
 // ---- Reactions ----
 export const ReactionBar: React.FC<{ onReact: (emoji: string) => void }> = ({ onReact }) => (
@@ -15,13 +16,13 @@ export const ReactionBar: React.FC<{ onReact: (emoji: string) => void }> = ({ on
     className="flex items-center justify-center gap-1 rounded-full border px-2 py-1"
     style={{ borderColor: COLORS.border, background: "var(--sx-bg-28-20-48-600)" }}
     role="group"
-    aria-label="Send a reaction"
+    aria-label={tr("Send a reaction")}
   >
     {REACTION_EMOJIS.map((emoji) => (
       <button
         key={emoji}
         onClick={() => onReact(emoji)}
-        aria-label={`React ${emoji}`}
+        aria-label={tr("React {emoji}", { emoji })}
         className="rounded-full px-2 py-1 text-xl transition-transform hover:scale-125 active:scale-95"
       >
         {emoji}
@@ -74,7 +75,7 @@ const CaptionWords: React.FC<{
             type="button"
             disabled={!canSave}
             onClick={() => canSave && onSave(word, text)}
-            title={canSave ? (isSaved ? "Saved to your word bank" : "Tap to save this word") : undefined}
+            title={canSave ? (isSaved ? tr("Saved to your word bank") : tr("Tap to save this word")) : undefined}
             className="rounded px-0.5 transition-colors enabled:hover:bg-white/10 disabled:cursor-default"
             style={{
               color: isSaved ? COLORS.spotlight : dim ? COLORS.textMuted : COLORS.textPrimary,
@@ -102,15 +103,14 @@ export const CaptionsPanel: React.FC<{
   onSaveWord: (word: string, sentence: string) => void;
 }> = ({ supported, on, error, partnerName, lines, interim, myCaption, saved, onToggle, onSaveWord }) => (
   <section
-    aria-label="Live captions"
+    aria-label={tr("Live captions")}
     className="rounded-3xl border px-4 py-3"
     style={{ borderColor: COLORS.border, background: "var(--sx-bg-28-20-48-600)" }}
   >
     <div className="flex items-center justify-between gap-3">
       <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.textMuted }}>
         <Captions className="h-4 w-4" style={{ color: COLORS.live }} />
-        Live captions
-      </span>
+        {tr("Live captions")}</span>
       <button
         onClick={onToggle}
         aria-pressed={on}
@@ -121,21 +121,17 @@ export const CaptionsPanel: React.FC<{
           color: on ? COLORS.live : COLORS.textMuted,
         }}
       >
-        {on ? "On" : "Off"}
+        {on ? tr("On") : tr("Off")}
       </button>
     </div>
 
     {!supported && on && (
       <p className="mt-2 text-xs" style={{ color: COLORS.textSecondary }}>
-        Your browser cannot turn your speech into text, so you can read {partnerName}'s captions but not share yours. Chrome
-        and Edge can do both.
-      </p>
+        {tr("Your browser cannot turn your speech into text, so you can read {partnerName}'s captions but not share yours. Chrome and Edge can do both.", { partnerName })}</p>
     )}
     {!on && (
       <p className="mt-2 text-xs" style={{ color: COLORS.textSecondary }}>
-        Turn on to read what {partnerName} says (when they share captions too) and tap words to save them. Your own words are
-        shared as text with your partner only while this is on.
-      </p>
+        {tr("Turn on to read what {partnerName} says (when they share captions too) and tap words to save them. Your own words are shared as text with your partner only while this is on.", { partnerName })}</p>
     )}
     {error && (
       <p className="mt-2 text-xs" role="alert" style={{ color: COLORS.danger }}>
@@ -147,8 +143,7 @@ export const CaptionsPanel: React.FC<{
       <div className="mt-3 space-y-1.5 text-sm leading-relaxed" aria-live="off">
         {lines.length === 0 && !interim && (
           <p className="text-xs" style={{ color: COLORS.textSecondary }}>
-            Waiting for {partnerName} to speak with captions on...
-          </p>
+            {tr("Waiting for {partnerName} to speak with captions on...", { partnerName })}</p>
         )}
         {lines.map((line, i) => (
           <p key={`${i}-${line}`} style={{ opacity: 0.55 + (0.45 * (i + 1)) / lines.length }}>
@@ -162,7 +157,7 @@ export const CaptionsPanel: React.FC<{
         )}
         {myCaption && (
           <p className="border-t pt-1.5 text-xs italic" style={{ borderColor: COLORS.border, color: COLORS.textSecondary }}>
-            You: {myCaption}
+            {tr("You:")}{" "}{myCaption}
           </p>
         )}
       </div>
@@ -197,8 +192,7 @@ export const TipComposer: React.FC<{
         style={{ borderColor: COLORS.border, color: COLORS.textPrimary }}
       >
         <Lightbulb className="h-4 w-4" style={{ color: COLORS.spotlight }} />
-        Give {partnerName} a tip
-        {sentCount > 0 && (
+        {tr("Give {partnerName} a tip", { partnerName })}{sentCount > 0 && (
           <span className="rounded-full px-1.5 text-[11px]" style={{ background: COLORS.spotlightDim, color: COLORS.spotlight }}>
             {sentCount}
           </span>
@@ -223,8 +217,8 @@ export const TipComposer: React.FC<{
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 maxLength={200}
-                placeholder={'Say "I went" instead of "I goed"'}
-                aria-label="Your tip"
+                placeholder={tr("Say \"I went\" instead of \"I goed\"")}
+                aria-label={tr("Your tip")}
                 className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm outline-none focus:border-[#F5A623]"
                 style={{ background: COLORS.surfaceRaised, borderColor: COLORS.border, color: COLORS.textPrimary }}
               />
@@ -235,12 +229,11 @@ export const TipComposer: React.FC<{
                 style={{ background: COLORS.spotlight, color: COLORS.void }}
               >
                 {justSent ? <Check className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-                {justSent ? "Sent" : "Send"}
+                {justSent ? tr("Sent") : tr("Send")}
               </button>
             </form>
             <p className="mt-1.5 text-[11px]" style={{ color: COLORS.textSecondary }}>
-              Be kind and short. {partnerName} keeps your tips after the call.
-            </p>
+              {tr("Be kind and short. {partnerName} keeps your tips after the call.", { partnerName })}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -268,12 +261,12 @@ export const TipsInbox: React.FC<{
       >
         <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" style={{ color: COLORS.spotlight }} />
         <p className="min-w-0 flex-1 text-sm" style={{ color: COLORS.textPrimary }}>
-          <span className="font-semibold">{partnerName} says: </span>
-          {tip.text}
+          <span className="font-semibold">{partnerName} {" "}{tr("says:")}{" "}</span>
+          {tr(tip.text)}
         </p>
         <button
           onClick={() => onDismiss(tip.id)}
-          aria-label="Dismiss tip"
+          aria-label={tr("Dismiss tip")}
           className="shrink-0"
           style={{ color: COLORS.textMuted }}
         >
@@ -288,6 +281,5 @@ export const SavedWordsHint: React.FC<{ count: number }> = ({ count }) =>
   count > 0 ? (
     <p className="flex items-center justify-center gap-1.5 text-xs" style={{ color: COLORS.spotlight }}>
       <BookmarkPlus className="h-3.5 w-3.5" />
-      {count} word{count > 1 ? "s" : ""} saved from this call
-    </p>
+      {count} {" "}{tr("word{value} saved from this call", { value: count > 1 ? "s" : "" })}</p>
   ) : null;

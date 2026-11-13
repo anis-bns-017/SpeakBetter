@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Focus, MessageCircle } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
 import type { Spotlight } from "../../../hooks/useRoomCoach";
+import { tr } from "../../../i18n/core";
 
 interface SpotlightBannerProps {
   spotlight: Spotlight | null;
@@ -59,10 +60,10 @@ export const SpotlightBanner: React.FC<SpotlightBannerProps> = ({
                 )}
                 <span style={{ color: mine ? THEME.colors.accent.warning : THEME.colors.accent.primaryLight }}>
                   {mine
-                    ? "Your turn!"
+                    ? tr("Your turn!")
                     : spotlight.target
-                      ? `Spotlight: ${spotlight.target.name}`
-                      : "Topic for everyone"}
+                      ? tr("Spotlight: {name}", { name: spotlight.target.name })
+                      : tr("Topic for everyone")}
                 </span>
                 <span
                   className="px-1.5 py-0.5 rounded text-[11px]"
@@ -73,7 +74,7 @@ export const SpotlightBanner: React.FC<SpotlightBannerProps> = ({
               </div>
               <button
                 onClick={onDismiss}
-                aria-label="Dismiss topic card"
+                aria-label={tr("Dismiss topic card")}
                 className="p-1 rounded-lg hover:bg-white/5"
                 style={{ color: THEME.colors.text.muted }}
               >

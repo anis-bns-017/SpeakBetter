@@ -24,7 +24,7 @@ import {
   type Message,
 } from "../../hooks/useChat";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput, type MessageInputHandle, type SendExtra } from "./MessageInput";
 import { CorrectionComposer } from "./CorrectionCard";
@@ -35,8 +35,8 @@ import {
   ForwardDialog,
   MessageInfoDialog,
   ReportDialog,
-  disappearingLabel,
 } from "./ChatDialogs";
+import { disappearingLabel } from "./chatOptions";
 import { isChatUnlocked, unlockChat } from "../../lib/chatUnlock";
 import {
   Reply,
@@ -74,6 +74,8 @@ import { toast } from "sonner";
 import { format, isToday, isYesterday, formatDistanceToNowStrict } from "date-fns";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { WordLookup, readSelection, type WordSelection } from "./WordLookup";
+import { tr, msg } from "../../i18n/core";
+import { API_URL } from "../../lib/api/serverUrl";
 
 /** Openers for an empty conversation — friendly, easy, good English practice */
 const CONVERSATION_STARTERS = [
@@ -355,9 +357,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               content: trimmed,
             });
           }
-          toast.success("Message updated ✨");
+          toast.success(tr("Message updated ✨"));
         } catch {
-          toast.error("Failed to update message");
+          toast.error(tr("Failed to update message"));
         } finally {
           setEditingMessage(null);
           setReplyTo(null);
@@ -401,7 +403,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           await sendMessageRest.mutateAsync({ chatId: chatId!, ...payload });
         }
       } catch {
-        toast.error("Failed to send message");
+        toast.error(tr("Failed to send message"));
       }
 
       setReplyTo(null);
@@ -427,11 +429,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const handleVoiceBlob = useCallback(
     async (blob: Blob, duration: number) => {
       if (!blob || blob.size === 0) {
-        toast.error("Empty recording");
+        toast.error(tr("Empty recording"));
         return;
       }
       if (blob.size > 5 * 1024 * 1024) {
-        toast.error("Voice message too large (max 5MB)");
+        toast.error(tr("Voice message too large (max 5MB)"));
         return;
       }
 
@@ -440,7 +442,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         formData.append("file", blob, `voice-${Date.now()}.webm`);
 
         const uploadRes = await fetch(
-          `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/voice/upload-audio`,
+          `${API_URL}/voice/upload-audio`,
           {
             method: "POST",
             credentials: "include",
@@ -479,13 +481,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           await sendMessageRest.mutateAsync({ chatId: chatId!, ...payload });
         }
 
-        toast.success("Voice message sent 🎙️");
+        toast.success(tr("Voice message sent 🎙️"));
         setReplyTo(null);
         setTimeout(() => scrollToBottom(true), 50);
       } catch (err: unknown) {
         console.error("Voice upload error:", err);
         toast.error(
-          err instanceof Error ? err.message : "Failed to send voice message",
+          err instanceof Error ? err.message : tr("Failed to send voice message"),
         );
       }
     },
@@ -537,7 +539,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleCopy = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard 📋");
+    toast.success(tr("Copied to clipboard 📋"));
     setShowMessageActions(null);
   }, []);
 
@@ -549,7 +551,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       try {
         await chatApi.saveMessage(message.id, saved);
         queryClient.invalidateQueries({ queryKey: ["chat-gallery", chatId, "saved"] });
-        toast.success(saved ? "Saved — find it in Chat info → Saved" : "Removed from saved");
+        toast.success(saved ? tr("Saved — find it in Chat info → Saved") : tr("Removed from saved"));
       } catch (error) {
         patchMessage(queryClient, message.id, { isSaved: !saved });
         toast.error(apiErrorMessage(error, "Couldn't update saved messages"));
@@ -566,7 +568,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         const { data } = await chatApi.hideMessages(ids);
         removeMessagesFromCaches(queryClient, data.messageIds);
         queryClient.invalidateQueries({ queryKey: ["chats"] });
-        toast.success(ids.length > 1 ? `Deleted ${ids.length} messages for you` : "Deleted for you");
+        toast.success(ids.length > 1 ? tr("Deleted {ids} messages for you", { ids: ids.length }) : tr("Deleted for you"));
       } catch (error) {
         toast.error(apiErrorMessage(error, "Couldn't delete"));
       }
@@ -585,7 +587,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         });
         queryClient.invalidateQueries({ queryKey: ["scheduled", chatId] });
         setReplyTo(null);
-        toast.success(`Scheduled for ${format(sendAt, "EEE, MMM d 'at' HH:mm")}`);
+        toast.success(tr("Scheduled for {value}", { value: format(sendAt, "EEE, MMM d 'at' HH:mm") }));
         return true;
       } catch (error) {
         toast.error(apiErrorMessage(error, "Couldn't schedule the message"));
@@ -600,7 +602,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       try {
         await chatApi.cancelScheduled(id);
         queryClient.invalidateQueries({ queryKey: ["scheduled", chatId] });
-        toast.success("Scheduled message cancelled");
+        toast.success(tr("Scheduled message cancelled"));
       } catch (error) {
         toast.error(apiErrorMessage(error, "Couldn't cancel"));
       }
@@ -614,7 +616,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     window.setTimeout(() => {
       const el = messagesContainerRef.current?.querySelector(`[data-message-id="${CSS.escape(messageId)}"]`);
       if (!el) {
-        toast.info("That message is further back — scroll up to load older messages");
+        toast.info(tr("That message is further back — scroll up to load older messages"));
         return;
       }
       el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -717,7 +719,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div className="py-1.5">
           <MenuItem
             icon={<Reply className="h-4 w-4" />}
-            label="Reply"
+            label={tr("Reply")}
             onClick={() => {
               setReplyTo(message);
               onClose();
@@ -726,14 +728,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           {message.content && !message.isViewOnce && (
             <MenuItem
               icon={<Copy className="h-4 w-4" />}
-              label="Copy text"
+              label={tr("Copy text")}
               onClick={() => handleCopy(message.content!)}
             />
           )}
           {!isCommunity && !message.isViewOnce && (
             <MenuItem
               icon={<Forward className="h-4 w-4" />}
-              label="Forward"
+              label={tr("Forward")}
               onClick={() => {
                 setForwardIds([message.id]);
                 onClose();
@@ -743,14 +745,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           {!isCommunity && (
             <MenuItem
               icon={message.isSaved ? <BookmarkX className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-              label={message.isSaved ? "Remove from saved" : "Save message"}
+              label={message.isSaved ? tr("Remove from saved") : tr("Save message")}
               onClick={() => handleToggleSave(message)}
             />
           )}
           {isOwn && !isCommunity && (
             <MenuItem
               icon={<Info className="h-4 w-4" />}
-              label="Message info"
+              label={tr("Message info")}
               onClick={() => {
                 setInfoMessageId(message.id);
                 onClose();
@@ -759,7 +761,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           )}
           <MenuItem
             icon={<CheckSquare className="h-4 w-4" />}
-            label="Select"
+            label={tr("Select")}
             onClick={() => {
               setIsSelectionMode(true);
               setSelectedMessages(new Set([message.id]));
@@ -772,7 +774,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               {message.type === "TEXT" && (
                 <MenuItem
                   icon={<Edit className="h-4 w-4" />}
-                  label="Edit"
+                  label={tr("Edit")}
                   onClick={() => {
                     setEditingMessage(message);
                     setReplyTo(null);
@@ -788,7 +790,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <Pin className="h-4 w-4" />
                   )
                 }
-                label={message.isPinned ? "Unpin" : "Pin"}
+                label={message.isPinned ? tr("Unpin") : tr("Pin")}
                 onClick={() => handlePin(message.id, !message.isPinned)}
               />
             </>
@@ -797,7 +799,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           {!isCommunity && (
             <MenuItem
               icon={<EyeOff className="h-4 w-4" />}
-              label="Delete for me"
+              label={tr("Delete for me")}
               danger
               onClick={() => handleDeleteForMe([message.id])}
             />
@@ -805,7 +807,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           {isOwn && (
             <MenuItem
               icon={<Trash2 className="h-4 w-4" />}
-              label="Delete for everyone"
+              label={tr("Delete for everyone")}
               danger
               onClick={() => handleDelete(message.id)}
             />
@@ -813,10 +815,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           {!isOwn && !isCommunity && (
             <MenuItem
               icon={<Flag className="h-4 w-4" />}
-              label="Report"
+              label={tr("Report")}
               danger
               onClick={() => {
-                setReportTarget({ type: "MESSAGE", id: message.id, label: "message" });
+                setReportTarget({ type: "MESSAGE", id: message.id, label: msg("message") });
                 onClose();
               }}
             />
@@ -847,7 +849,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       }`}
     >
       <span className="opacity-70">{icon}</span>
-      {label}
+      {tr(label)}
     </button>
   );
 
@@ -861,8 +863,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <Loader2 className="h-8 w-8 text-indigo-500" />
         </motion.div>
         <p className="mt-4 text-sm font-medium text-slate-400">
-          Loading conversation…
-        </p>
+          {tr("Loading conversation…")}</p>
       </div>
     );
   }
@@ -884,8 +885,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             className="pointer-events-none absolute inset-3 z-50 flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-indigo-400 bg-indigo-50/90 text-indigo-600 backdrop-blur-sm"
           >
             <UploadCloud className="h-10 w-10" />
-            <p className="text-sm font-semibold">Drop photos, videos or files to send</p>
-            <p className="text-xs text-indigo-400">Up to 10 photos and videos as one album</p>
+            <p className="text-sm font-semibold">{tr("Drop photos, videos or files to send")}</p>
+            <p className="text-xs text-indigo-400">{tr("Up to 10 photos and videos as one album")}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -942,31 +943,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               <span className="truncate">{chatName}</span>
               {chat?.disappearingSeconds ? (
                 <span
-                  title={`Disappearing messages: ${disappearingLabel(chat.disappearingSeconds)}`}
+                  title={tr("Disappearing messages: {value}", { value: disappearingLabel(chat.disappearingSeconds) })}
                   className="flex shrink-0 items-center gap-0.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-600"
                 >
                   <Timer className="h-3 w-3" />
                   {disappearingLabel(chat.disappearingSeconds)}
                 </span>
               ) : null}
-              {isMutedChat && <BellOff className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-label="Muted" />}
-              {chat?.isLocked && <Lock className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-label="Locked chat" />}
+              {isMutedChat && <BellOff className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-label={tr("Muted")} />}
+              {chat?.isLocked && <Lock className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-label={tr("Locked chat")} />}
             </h2>
             <p className="truncate text-[12px] leading-tight text-slate-500">
               {!isConnected ? (
                 <span className="flex items-center gap-1 text-amber-600">
                   <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
-                  Connecting…
-                </span>
+                  {tr("Connecting…")}</span>
               ) : isCommunity ? (
-                "Community"
+                tr("Community")
               ) : isGroup ? (
-                `${chat?.participants?.length || 0} members`
+                tr("{value} members", { value: chat?.participants?.length || 0 })
               ) : isOnline ? (
                 <span className="flex items-center gap-1 text-emerald-600">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  Active now
-                </span>
+                  {tr("Active now")}</span>
               ) : (
                 lastSeenText
               )}
@@ -1037,7 +1036,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   autoFocus
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search messages…"
+                  placeholder={tr("Search messages…")}
                   className="w-full rounded-full border-0 bg-slate-100/80 py-2.5 pl-10 pr-4 text-sm outline-none ring-1 ring-slate-200/50 transition-all focus:ring-2 focus:ring-indigo-500/50"
                 />
               </div>
@@ -1257,16 +1256,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 <MessageCircle className="h-10 w-10 text-indigo-500" />
               </motion.div>
               <p className="text-[16px] font-semibold text-slate-700">
-                No messages yet
-              </p>
+                {tr("No messages yet")}</p>
               <p className="mt-1.5 max-w-xs text-[13px] text-slate-400">
-                Start the conversation with a message or voice note
-              </p>
+                {tr("Start the conversation with a message or voice note")}</p>
               {!isCommunity && (
                 <div className="mt-5 flex w-full max-w-sm flex-col gap-2">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Tap to send an opener
-                  </p>
+                    {tr("Tap to send an opener")}</p>
                   {CONVERSATION_STARTERS.map((starter) => (
                     <button
                       key={starter}
@@ -1314,36 +1310,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             className="flex items-center justify-between border-t border-white/20 bg-white/80 px-4 py-3 backdrop-blur-sm"
           >
             <span className="text-sm font-medium text-slate-700">
-              {selectedMessages.size} selected
-            </span>
+              {selectedMessages.size} {" "}{tr("selected")}</span>
             <div className="flex items-center gap-0.5">
               {!isCommunity && (
                 <SelectionAction
-                  label="Forward"
+                  label={tr("Forward")}
                   icon={<Forward className="h-4 w-4" />}
                   onClick={() => {
                     const ids = selectedList.filter((m) => !m.isViewOnce).map((m) => m.id);
-                    if (!ids.length) return toast.info("View-once media can't be forwarded");
+                    if (!ids.length) return toast.info(tr("View-once media can't be forwarded"));
                     setForwardIds(ids);
                   }}
                 />
               )}
               <SelectionAction
-                label="Copy"
+                label={tr("Copy")}
                 icon={<Copy className="h-4 w-4" />}
                 onClick={() => {
                   const text = selectedList
                     .filter((m) => m.content && !m.isViewOnce)
                     .map((m) => `[${format(new Date(m.createdAt), "HH:mm")}] ${m.sender?.name ?? ""}: ${m.content}`)
                     .join("\n");
-                  if (!text) return toast.info("Nothing to copy");
+                  if (!text) return toast.info(tr("Nothing to copy"));
                   handleCopy(text);
                   exitSelection();
                 }}
               />
               {!isCommunity && (
                 <SelectionAction
-                  label="Save"
+                  label={tr("Save")}
                   icon={<Bookmark className="h-4 w-4" />}
                   onClick={() => {
                     selectedList.filter((m) => !m.isSaved).forEach((m) => void handleToggleSave(m));
@@ -1353,7 +1348,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               )}
               {!isCommunity && (
                 <SelectionAction
-                  label="Delete for me"
+                  label={tr("Delete for me")}
                   icon={<EyeOff className="h-4 w-4" />}
                   danger
                   onClick={() => {
@@ -1364,7 +1359,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               )}
               {selectedList.length > 0 && selectedList.every((m) => m.senderId === user?.id) && (
                 <SelectionAction
-                  label="Delete for everyone"
+                  label={tr("Delete for everyone")}
                   icon={<Trash2 className="h-4 w-4" />}
                   danger
                   onClick={() => {
@@ -1414,13 +1409,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   }`}
                 >
                   {editingMessage
-                    ? "Editing message"
-                    : `Replying to ${
-                        replyTo?.senderId === user?.id ? "yourself" : "message"
-                      }`}
+                    ? tr("Editing message")
+                    : tr("Replying to {value}", { value: replyTo?.senderId === user?.id ? "yourself" : "message" })}
                 </p>
                 <p className="truncate text-xs text-slate-500">
-                  {(editingMessage || replyTo)?.content || "Media content"}
+                  {(editingMessage || replyTo)?.content || tr("Media content")}
                 </p>
               </div>
               <motion.button
@@ -1481,8 +1474,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           >
             <CalendarClock className="h-4 w-4" />
             <span className="flex-1">
-              {scheduled.length} scheduled message{scheduled.length > 1 ? "s" : ""} · next{" "}
-              {format(new Date(scheduled[0].sendAt), "EEE HH:mm")}
+              {scheduled.length} {" "}{tr("scheduled message{value} · next{value2}", { value: scheduled.length > 1 ? "s" : "", value2: " " })}{format(new Date(scheduled[0].sendAt), "EEE HH:mm")}
             </span>
             {showScheduled ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </button>
@@ -1506,8 +1498,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                       onClick={() => cancelScheduled(s.id)}
                       className="rounded-lg px-2 py-1 text-[11px] font-semibold text-red-500 hover:bg-red-50"
                     >
-                      Cancel
-                    </button>
+                      {tr("Cancel")}</button>
                   </li>
                 ))}
               </motion.ul>
@@ -1572,7 +1563,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 className="h-1.5 w-1.5 rounded-full bg-indigo-500"
               />
             </span>
-            <span className="font-medium">typing…</span>
+            <span className="font-medium">{tr("typing…")}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1587,11 +1578,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             chatAvatar={chatAvatar}
             subtitle={
               isGroup
-                ? `${chat?.participants?.length || 0} members`
+                ? tr("{value} members", { value: chat?.participants?.length || 0 })
                 : isCommunity
-                  ? "Community"
+                  ? tr("Community")
                   : isOnline
-                    ? "🟢 Online"
+                    ? tr("🟢 Online")
                     : lastSeenText
             }
             isGroup={isGroup}
@@ -1605,8 +1596,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 isGroup && chat?.participants ? (
                   <div>
                     <h5 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Members
-                    </h5>
+                      {tr("Members")}</h5>
                     <div className="space-y-1.5">
                       {chat.participants.map((p) => (
                         <motion.div
@@ -1627,8 +1617,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                           </div>
                           {p.userId === user?.id && (
                             <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-medium text-indigo-600">
-                              You
-                            </span>
+                              {tr("You")}</span>
                           )}
                         </motion.div>
                       ))}
@@ -1675,8 +1664,8 @@ const SelectionAction = ({
     whileTap={{ scale: 0.95 }}
     type="button"
     onClick={onClick}
-    title={label}
-    aria-label={label}
+    title={tr(label)}
+    aria-label={tr(label)}
     className={`rounded-full p-2 transition-colors ${
       danger ? "text-red-500 hover:bg-red-50/80" : "text-slate-600 hover:bg-slate-100/80"
     }`}

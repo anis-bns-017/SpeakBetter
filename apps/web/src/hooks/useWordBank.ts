@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { apiClient } from "../lib/api/client";
+import { useNow } from "./useNow";
+import { tr } from "../i18n/core";
 
 export interface SavedWord {
   id: string;
@@ -53,9 +55,10 @@ export const useWordBank = (enabled = true) => {
     [words],
   );
 
+  const now = useNow();
   const due = useMemo(
-    () => words.filter((w) => new Date(w.dueAt).getTime() <= Date.now()),
-    [words],
+    () => words.filter((w) => new Date(w.dueAt).getTime() <= now),
+    [words, now],
   );
 
   const save = useCallback(
@@ -74,7 +77,7 @@ export const useWordBank = (enabled = true) => {
         const saved = res.data;
         setWords((prev) => [saved, ...prev.filter((w) => w.id !== saved.id)]);
         toast.success(
-          saved.created ? `📚 Saved "${saved.word}"` : `Updated "${saved.word}"`,
+          saved.created ? tr("📚 Saved \"{word}\"", { word: saved.word }) : tr("Updated \"{word}\"", { word: saved.word }),
         );
         return saved;
       } catch (e) {

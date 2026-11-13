@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { COLORS } from "../voice/lobby/lobbyTheme";
+import { tr } from "../../i18n/core";
 
 type State = "idle" | "starting" | "listening" | "heard" | "denied" | "missing";
 
@@ -77,15 +78,14 @@ export const MicCheck: React.FC = () => {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium" style={{ color: COLORS.textPrimary }}>
-            Check your microphone
-          </p>
+            {tr("Check your microphone")}</p>
           <p className="truncate text-xs" style={{ color: failed ? COLORS.danger : COLORS.textMuted }} role={failed ? "alert" : undefined}>
-            {state === "idle" && "Make sure your partner can hear you."}
-            {state === "starting" && "Waiting for permission..."}
-            {state === "listening" && "Say something, like “hello, how are you?”"}
-            {state === "heard" && `Your microphone works${label ? `: ${label}` : "."}`}
-            {state === "denied" && "Microphone access is blocked. Allow it in your browser's address bar."}
-            {state === "missing" && "No microphone found. Plug one in or pick another device."}
+            {state === "idle" && tr("Make sure your partner can hear you.")}
+            {state === "starting" && tr("Waiting for permission...")}
+            {state === "listening" && tr("Say something, like “hello, how are you?”")}
+            {state === "heard" && tr("Your microphone works{value}", { value: label ? `: ${label}` : "." })}
+            {state === "denied" && tr("Microphone access is blocked. Allow it in your browser's address bar.")}
+            {state === "missing" && tr("No microphone found. Plug one in or pick another device.")}
           </p>
         </div>
         <button
@@ -101,7 +101,7 @@ export const MicCheck: React.FC = () => {
           ) : (
             <Mic className="h-4 w-4" style={{ color: COLORS.live }} />
           )}
-          {state === "listening" ? "Stop" : state === "idle" || failed ? "Test" : "Test again"}
+          {state === "listening" ? tr("Stop") : state === "idle" || failed ? tr("Test") : tr("Test again")}
         </button>
       </div>
       {(state === "listening" || state === "heard") && (
@@ -109,7 +109,7 @@ export const MicCheck: React.FC = () => {
           className="mt-3 h-2 overflow-hidden rounded-full"
           style={{ background: COLORS.border }}
           role="meter"
-          aria-label="Microphone level"
+          aria-label={tr("Microphone level")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(level * 100)}

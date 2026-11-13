@@ -37,6 +37,7 @@ import {
   type MissionPublic,
   type MissionResult,
 } from "../../../hooks/useRoomCoach";
+import { tr } from "../../../i18n/core";
 
 type Tab = "me" | "mission" | "room" | "words";
 
@@ -103,7 +104,7 @@ const Meter: React.FC<{
 }> = ({ label, value, hint, color }) => (
   <div>
     <div className="flex items-center justify-between text-[11px] mb-1">
-      <span style={{ color: THEME.colors.text.secondary }}>{label}</span>
+      <span style={{ color: THEME.colors.text.secondary }}>{tr(label)}</span>
       <span style={{ color: THEME.colors.text.muted }}>
         {value === null ? "—" : value}
       </span>
@@ -112,7 +113,7 @@ const Meter: React.FC<{
       className="h-1.5 rounded-full overflow-hidden"
       style={{ background: "var(--sx-bg-255-255-255-60)" }}
       role="progressbar"
-      aria-label={label}
+      aria-label={tr(label)}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={value ?? undefined}
@@ -123,7 +124,7 @@ const Meter: React.FC<{
       />
     </div>
     <div className="text-[11px] mt-1" style={{ color: THEME.colors.text.muted }}>
-      {hint}
+      {tr(hint)}
     </div>
   </div>
 );
@@ -167,9 +168,11 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
   const now = useNow(isOpen && Boolean(mission));
 
   // The dock's tiles open the panel straight on the tab they belong to
-  useEffect(() => {
+  const [handledTabRequest, setHandledTabRequest] = useState<typeof openTab | null>(null);
+  if (openTab !== handledTabRequest) {
+    setHandledTabRequest(openTab);
     if (openTab) setTab(openTab.tab);
-  }, [openTab]);
+  }
 
   // Recent sessions (for the trend), loaded when the panel opens
   useEffect(() => {
@@ -215,7 +218,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
             borderColor: THEME.colors.border.primary,
           }}
           role="dialog"
-          aria-label="Room coach"
+          aria-label={tr("Room coach")}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -236,16 +239,14 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
               </div>
               <div>
                 <h3 className="text-sm font-bold" style={{ color: THEME.colors.text.primary }}>
-                  Room coach
-                </h3>
+                  {tr("Room coach")}</h3>
                 <p className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-                  Private feedback · games · fair airtime
-                </p>
+                  {tr("Private feedback · games · fair airtime")}</p>
               </div>
             </div>
             <button
               onClick={onClose}
-              aria-label="Close room coach"
+              aria-label={tr("Close room coach")}
               className="p-1.5 rounded-lg hover:bg-white/5"
               style={{ color: THEME.colors.text.muted }}
             >
@@ -275,7 +276,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 }}
               >
                 <Icon className="w-3.5 h-3.5" />
-                {label}
+                {tr(label)}
                 {id === "words" && dueWords.length > 0 && (
                   <span
                     className="min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center"
@@ -308,26 +309,23 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                     }}
                   >
                     <Lightbulb className="w-4 h-4 shrink-0" style={{ color: THEME.colors.accent.warning }} />
-                    <span>{tip.text}</span>
+                    <span>{tr(tip.text)}</span>
                   </div>
                 )}
 
                 {!live || live.words === 0 ? (
                   <div className="text-center py-6 text-xs" style={{ color: THEME.colors.text.muted }}>
-                    Unmute and say a few sentences — your coach listens to your live captions
-                    and shows pace, smoothness and variety here. Only you see this.
-                  </div>
+                    {tr("Unmute and say a few sentences — your coach listens to your live captions and shows pace, smoothness and variety here. Only you see this.")}</div>
                 ) : (
                   <>
                     <div className="flex items-end justify-between">
                       <div>
                         <div className="text-[11px] uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>
-                          Fluency
-                        </div>
+                          {tr("Fluency")}</div>
                         <div className="text-3xl font-bold" style={{ color: THEME.colors.text.primary }}>
                           {live.fluency ?? "…"}
                           <span className="text-sm font-normal" style={{ color: THEME.colors.text.muted }}>
-                            {live.fluency === null ? "  keep talking" : " / 100"}
+                            {live.fluency === null ? tr("  keep talking") : " / 100"}
                           </span>
                         </div>
                       </div>
@@ -339,18 +337,17 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                             color: trend >= 0 ? THEME.colors.accent.success : THEME.colors.accent.error,
                           }}
                         >
-                          {trend >= 0 ? "▲" : "▼"} {Math.abs(trend)} vs last session
-                        </div>
+                          {trend >= 0 ? "▲" : "▼"} {" "}{tr("{value} vs last session", { value: Math.abs(trend) })}</div>
                       )}
                     </div>
 
                     <div className="space-y-3">
-                      <Meter label="Pace" value={live.scores.pace} hint={paceHint(live)} color={THEME.colors.accent.cyan} />
-                      <Meter label="Smoothness" value={live.scores.smoothness} hint={fillerHint(live)} color={THEME.colors.accent.success} />
+                      <Meter label={tr("Pace")} value={live.scores.pace} hint={paceHint(live)} color={THEME.colors.accent.cyan} />
+                      <Meter label={tr("Smoothness")} value={live.scores.smoothness} hint={fillerHint(live)} color={THEME.colors.accent.success} />
                       <Meter
-                        label="Variety"
+                        label={tr("Variety")}
                         value={live.scores.variety}
-                        hint={`${live.uniqueWords} different words`}
+                        hint={tr("{uniqueWords} different words", { uniqueWords: live.uniqueWords })}
                         color={THEME.colors.accent.secondary}
                       />
                     </div>
@@ -372,8 +369,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                     {live.richWords.length > 0 && (
                       <div>
                         <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
-                          Strong words you used
-                        </div>
+                          {tr("Strong words you used")}</div>
                         <div className="flex flex-wrap gap-1.5">
                           {live.richWords.slice(0, 8).map((w) => (
                             <span
@@ -393,8 +389,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 {reports.length > 0 && (
                   <div>
                     <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
-                      Recent sessions
-                    </div>
+                      {tr("Recent sessions")}</div>
                     <ul className="space-y-1">
                       {reports.slice(0, 4).map((r) => (
                         <li
@@ -404,8 +399,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                         >
                           <span className="truncate pr-2">{r.roomName}</span>
                           <span className="shrink-0" style={{ color: THEME.colors.text.muted }}>
-                            {r.fluencyScore ?? "–"} fluency · {r.words} words
-                          </span>
+                            {r.fluencyScore ?? "–"} {" "}{tr("fluency · {words} words", { words: r.words })}</span>
                         </li>
                       ))}
                     </ul>
@@ -421,8 +415,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                   <>
                     <div className="flex items-center justify-between text-xs">
                       <span style={{ color: THEME.colors.text.secondary }}>
-                        Level {mission.level} · {mission.completed.length}/{mission.total} done
-                      </span>
+                        {tr("Level {level} · {length}/{total} done", { level: mission.level, length: mission.completed.length, total: mission.total })}</span>
                       <span className="font-mono font-semibold" style={{ color: THEME.colors.accent.warning }}>
                         {fmtClock(mission.endsAt - now)}
                       </span>
@@ -439,7 +432,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                         }}
                       >
                         <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: THEME.colors.text.muted }}>
-                          {myMission.completed ? "Completed" : "Your secret word — use it naturally"}
+                          {myMission.completed ? tr("Completed") : tr("Your secret word — use it naturally")}
                         </div>
                         <div className="text-2xl font-bold mb-1" style={{ color: THEME.colors.text.primary }}>
                           {myMission.word}
@@ -461,20 +454,16 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                             className="mt-3 inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg hover:bg-white/5"
                             style={{ color: THEME.colors.text.secondary }}
                           >
-                            <Shuffle className="w-3 h-3" /> Swap word (once)
-                          </button>
+                            <Shuffle className="w-3 h-3" /> {" "}{tr("Swap word (once)")}</button>
                         )}
                       </div>
                     ) : (
                       <p className="text-xs" style={{ color: THEME.colors.text.muted }}>
-                        You don't have a word in this round.
-                      </p>
+                        {tr("You don't have a word in this round.")}</p>
                     )}
 
                     <p className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-                      Speak with captions on — we hear your word through them. Words stay secret
-                      until someone uses theirs.
-                    </p>
+                      {tr("Speak with captions on — we hear your word through them. Words stay secret until someone uses theirs.")}</p>
 
                     {mission.completed.length > 0 && (
                       <ul className="space-y-1">
@@ -485,7 +474,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                             style={{ background: "var(--sx-bg-255-255-255-30)", color: THEME.colors.text.secondary }}
                           >
                             <span>
-                              #{c.place} {c.userId === userId ? "You" : c.userName}
+                              #{c.place} {c.userId === userId ? tr("You") : c.userName}
                             </span>
                             <span style={{ color: THEME.colors.accent.success }}>
                               “{c.word}” +{c.points}
@@ -501,8 +490,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                         className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold"
                         style={{ background: "rgba(239,68,68,0.15)", color: "var(--sx-text-f87171)" }}
                       >
-                        <Square className="w-3.5 h-3.5" /> End round now
-                      </button>
+                        <Square className="w-3.5 h-3.5" /> {" "}{tr("End round now")}</button>
                     )}
                   </>
                 ) : (
@@ -512,8 +500,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                         <div className="flex items-center gap-2 mb-2">
                           <Trophy className="w-4 h-4" style={{ color: THEME.colors.accent.warning }} />
                           <span className="text-sm font-bold" style={{ color: THEME.colors.text.primary }}>
-                            Last round
-                          </span>
+                            {tr("Last round")}</span>
                         </div>
                         <ul className="space-y-1">
                           {lastResult.results.map((r) => (
@@ -525,10 +512,10 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                               <div className="flex items-center justify-between" style={{ color: THEME.colors.text.secondary }}>
                                 <span>
                                   {r.place ? `#${r.place} ` : ""}
-                                  {r.userId === userId ? "You" : r.userName}
+                                  {r.userId === userId ? tr("You") : r.userName}
                                 </span>
                                 <span style={{ color: r.completed ? THEME.colors.accent.success : THEME.colors.text.muted }}>
-                                  {r.completed ? `+${r.points} XP` : "no luck"}
+                                  {r.completed ? `+${r.points} XP` : tr("no luck")}
                                 </span>
                               </div>
                               <div className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
@@ -542,12 +529,9 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                       <div className="text-center py-4">
                         <Target className="w-8 h-8 mx-auto mb-2" style={{ color: THEME.colors.accent.primaryLight }} />
                         <h4 className="text-sm font-bold mb-1" style={{ color: THEME.colors.text.primary }}>
-                          Secret word missions
-                        </h4>
+                          {tr("Secret word missions")}</h4>
                         <p className="text-xs" style={{ color: THEME.colors.text.muted }}>
-                          Everyone gets a private word at their level. Slip it into the conversation
-                          naturally — first to use it earns bonus XP, and you learn the word.
-                        </p>
+                          {tr("Everyone gets a private word at their level. Slip it into the conversation naturally — first to use it earns bonus XP, and you learn the word.")}</p>
                       </div>
                     )}
 
@@ -555,8 +539,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                       <div className="space-y-3 p-3 rounded-xl" style={{ background: "var(--sx-bg-255-255-255-30)" }}>
                         <div>
                           <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
-                            Level
-                          </div>
+                            {tr("Level")}</div>
                           <div className="flex gap-1.5">
                             {CEFR_LEVELS.map((l) => (
                               <button
@@ -576,8 +559,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                         </div>
                         <div>
                           <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
-                            Length
-                          </div>
+                            {tr("Length")}</div>
                           <div className="flex gap-1.5">
                             {[3, 5, 10].map((m) => (
                               <button
@@ -590,8 +572,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                                   color: minutes === m ? "var(--sx-text-ffffff)" : THEME.colors.text.secondary,
                                 }}
                               >
-                                {m} min
-                              </button>
+                                {m} {" "}{tr("min")}</button>
                             ))}
                           </div>
                         </div>
@@ -600,13 +581,11 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
                           style={{ background: THEME.colors.gradient.primary, color: "var(--sx-text-ffffff)" }}
                         >
-                          <Play className="w-4 h-4" /> Start a round
-                        </button>
+                          <Play className="w-4 h-4" /> {" "}{tr("Start a round")}</button>
                       </div>
                     ) : (
                       <p className="text-xs text-center" style={{ color: THEME.colors.text.muted }}>
-                        Ask the host to start a round.
-                      </p>
+                        {tr("Ask the host to start a round.")}</p>
                     )}
                   </>
                 )}
@@ -618,7 +597,7 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
               <>
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span style={{ color: THEME.colors.text.secondary }}>Conversation balance</span>
+                    <span style={{ color: THEME.colors.text.secondary }}>{tr("Conversation balance")}</span>
                     <span className="font-semibold" style={{ color: THEME.colors.text.primary }}>
                       {airtime?.balance == null ? "—" : `${airtime.balance}%`}
                     </span>
@@ -639,10 +618,10 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                   </div>
                   <p className="text-[11px] mt-1" style={{ color: THEME.colors.text.muted }}>
                     {airtime?.balance == null
-                      ? "Shows once the room has talked for a minute"
+                      ? tr("Shows once the room has talked for a minute")
                       : airtime.balance >= 70
-                        ? "Everyone is getting a turn — nice!"
-                        : "A few voices are doing most of the talking"}
+                        ? tr("Everyone is getting a turn — nice!")
+                        : tr("A few voices are doing most of the talking")}
                   </p>
                 </div>
 
@@ -654,11 +633,10 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                         <li key={e.userId}>
                           <div className="flex items-center justify-between text-[11px] mb-0.5">
                             <span style={{ color: THEME.colors.text.secondary }}>
-                              {e.userId === userId ? "You" : e.name}
+                              {e.userId === userId ? tr("You") : e.name}
                               {quiet && canManage && (
                                 <span className="ml-1.5" style={{ color: THEME.colors.accent.warning }}>
-                                  · quiet
-                                </span>
+                                  {tr("· quiet")}</span>
                               )}
                             </span>
                             <span style={{ color: THEME.colors.text.muted }}>
@@ -683,26 +661,23 @@ export const RoomCoachPanel: React.FC<RoomCoachPanelProps> = ({
                 {canManage && (
                   <div className="space-y-2 p-3 rounded-xl" style={{ background: "var(--sx-bg-255-255-255-30)" }}>
                     <div className="text-[11px] uppercase tracking-wider" style={{ color: THEME.colors.text.muted }}>
-                      Host tools
-                    </div>
+                      {tr("Host tools")}</div>
                     <button
                       onClick={() => onSpotlight({ level })}
                       className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold"
                       style={{ background: "rgba(251,191,36,0.14)", color: THEME.colors.accent.warning }}
                     >
                       <SpotlightIcon className="w-3.5 h-3.5" />
-                      {airtime?.quiet.length ? "Spotlight a quiet voice" : "Spotlight someone"}
+                      {airtime?.quiet.length ? tr("Spotlight a quiet voice") : tr("Spotlight someone")}
                     </button>
                     <button
                       onClick={() => onSpotlight({ level, everyone: true })}
                       className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold"
                       style={{ background: "rgba(79,102,200,0.14)", color: THEME.colors.accent.primaryLight }}
                     >
-                      <Megaphone className="w-3.5 h-3.5" /> Topic card for everyone
-                    </button>
+                      <Megaphone className="w-3.5 h-3.5" /> {" "}{tr("Topic card for everyone")}</button>
                     <p className="text-[11px] flex items-center gap-1" style={{ color: THEME.colors.text.muted }}>
-                      <Flag className="w-3 h-3" /> Cards use the level chosen under Mission ({level}).
-                    </p>
+                      <Flag className="w-3 h-3" /> {" "}{tr("Cards use the level chosen under Mission ({level}).", { level })}</p>
                   </div>
                 )}
               </>
@@ -734,19 +709,20 @@ const WordsTab: React.FC<{
   const current = dueWords[0];
 
   // A new card starts face down
-  useEffect(() => setFlipped(false), [current?.id]);
+  const [flippedFor, setFlippedFor] = useState(current?.id);
+  if (flippedFor !== current?.id) {
+    setFlippedFor(current?.id);
+    setFlipped(false);
+  }
 
   if (words.length === 0) {
     return (
       <div className="text-center py-6">
         <BookMarked className="w-8 h-8 mx-auto mb-2" style={{ color: THEME.colors.accent.primaryLight }} />
         <h4 className="text-sm font-bold mb-1" style={{ color: THEME.colors.text.primary }}>
-          Your word bank is empty
-        </h4>
+          {tr("Your word bank is empty")}</h4>
         <p className="text-xs" style={{ color: THEME.colors.text.muted }}>
-          Tap any word in the live captions to save it with the sentence you heard it in. It comes back
-          here for review at the right time.
-        </p>
+          {tr("Tap any word in the live captions to save it with the sentence you heard it in. It comes back here for review at the right time.")}</p>
       </div>
     );
   }
@@ -756,8 +732,7 @@ const WordsTab: React.FC<{
       {current ? (
         <div className="rounded-2xl border p-4" style={{ background: "rgba(79,102,200,0.08)", borderColor: "rgba(79,102,200,0.3)" }}>
           <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: THEME.colors.text.muted }}>
-            Review · {dueWords.length} due
-          </div>
+            {tr("Review · {length} due", { length: dueWords.length })}</div>
           <div className="text-2xl font-bold mb-2" style={{ color: THEME.colors.text.primary }}>
             {current.word}
           </div>
@@ -781,8 +756,7 @@ const WordsTab: React.FC<{
             </div>
           ) : (
             <p className="text-xs mb-3" style={{ color: THEME.colors.text.muted }}>
-              Do you remember what it means and how to use it?
-            </p>
+              {tr("Do you remember what it means and how to use it?")}</p>
           )}
           {flipped ? (
             <div className="flex gap-2">
@@ -791,15 +765,13 @@ const WordsTab: React.FC<{
                 className="flex-1 py-2 rounded-xl text-xs font-semibold"
                 style={{ background: "rgba(248,113,113,0.14)", color: THEME.colors.accent.error }}
               >
-                Again
-              </button>
+                {tr("Again")}</button>
               <button
                 onClick={() => onReview(current.id, true)}
                 className="flex-1 py-2 rounded-xl text-xs font-semibold"
                 style={{ background: "rgba(52,211,153,0.16)", color: THEME.colors.accent.success }}
               >
-                Got it
-              </button>
+                {tr("Got it")}</button>
             </div>
           ) : (
             <button
@@ -807,19 +779,17 @@ const WordsTab: React.FC<{
               className="w-full py-2 rounded-xl text-xs font-semibold"
               style={{ background: THEME.colors.accent.primary, color: "var(--sx-text-ffffff)" }}
             >
-              Show answer
-            </button>
+              {tr("Show answer")}</button>
           )}
         </div>
       ) : (
         <div className="text-center text-xs py-3" style={{ color: THEME.colors.accent.success }}>
-          🎉 All caught up — nothing to review right now
-        </div>
+          {tr("🎉 All caught up — nothing to review right now")}</div>
       )}
 
       <div>
         <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: THEME.colors.text.muted }}>
-          Saved words · {words.length}
+          {tr("Saved words ·")}{" "}{words.length}
         </div>
         <ul className="space-y-1">
           {words.slice(0, 30).map((w) => (
@@ -836,11 +806,11 @@ const WordsTab: React.FC<{
               </span>
               <span className="shrink-0 flex items-center gap-2">
                 <span className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-                  box {w.box + 1}
+                  {tr("box")}{" "}{w.box + 1}
                 </span>
                 <button
                   onClick={() => onRemove(w.id)}
-                  aria-label={`Remove ${w.word}`}
+                  aria-label={tr("Remove {word}", { word: w.word })}
                   className="p-1 rounded hover:bg-white/5"
                   style={{ color: THEME.colors.text.muted }}
                 >

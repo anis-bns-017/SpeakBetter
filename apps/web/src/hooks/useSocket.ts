@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { io, Socket } from "socket.io-client";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { ensureFreshSession } from "../lib/api/client";
+import { SOCKET_URL } from "../lib/api/serverUrl";
+
+/** Any event handler, whatever its payload (each event has its own) */
+type SocketHandler = (...args: never[]) => void;
+type ListenerFor = Parameters<Socket["on"]>[1];
 
 export const useSocket = () => {
   const { user } = useAuth();
@@ -14,7 +19,7 @@ export const useSocket = () => {
 
     // Auth travels in the httpOnly cookie, same as the voice socket in useVoice
     const socketInstance = io(
-      import.meta.env.VITE_SOCKET_URL || "http://localhost:3000/voice",
+      SOCKET_URL,
       {
         withCredentials: true,
         transports: ["websocket"],
@@ -54,6 +59,8 @@ export const useSocket = () => {
     });
 
     socketRef.current = socketInstance;
+    // The socket is created here (an outside system); publishing it to the screen is this effect's job
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSocket(socketInstance);
 
     return () => {
@@ -65,7 +72,7 @@ export const useSocket = () => {
   }, [user]);
 
   const emit = useCallback(
-    (event: string, data: any) => {
+    (event: string, data?: unknown) => {
       if (socketRef.current && isConnected) {
         socketRef.current.emit(event, data);
       } else {
@@ -75,16 +82,16 @@ export const useSocket = () => {
     [isConnected],
   );
 
-  const on = useCallback((event: string, handler: (...args: any[]) => void) => {
+  const on = useCallback((event: string, handler: SocketHandler) => {
     if (socketRef.current) {
-      socketRef.current.on(event, handler);
+      socketRef.current.on(event, handler as ListenerFor);
     }
   }, []);
 
   const off = useCallback(
-    (event: string, handler?: (...args: any[]) => void) => {
+    (event: string, handler?: SocketHandler) => {
       if (socketRef.current) {
-        socketRef.current.off(event, handler);
+        socketRef.current.off(event, handler as ListenerFor | undefined);
       }
     },
     [],

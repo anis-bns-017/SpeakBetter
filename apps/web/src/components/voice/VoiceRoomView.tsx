@@ -95,7 +95,7 @@ import {
   useLeaveVoiceRoom,
   type VoiceMessage,
 } from "../../hooks/useVoice";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 
 import { AudioControls } from "./AudioControls";
 import { ClapButton } from "./ClapButton";
@@ -158,16 +158,14 @@ import {
   initials,
   hueFromString,
 } from "./VoiceRoomView.helpers";
+import { asApiError } from "../../lib/api/errors";
+import { tr, msg } from "../../i18n/core";
 
 // ============================================================
 // 1. HOOKS
 // ============================================================
 
-export const isMac = () =>
-  typeof navigator !== "undefined" &&
-  /Mac|iPhone|iPad/.test(navigator.platform);
 
-export const modKeyLabel = () => (isMac() ? "⌘" : "Ctrl");
 
 const isTypingTarget = (target: EventTarget | null) => {
   const el = target as HTMLElement | null;
@@ -194,7 +192,7 @@ export interface RoomHotkeyHandlers {
   composerRef: RefObject<HTMLTextAreaElement | null>;
 }
 
-export function useRoomHotkeys(handlers: RoomHotkeyHandlers) {
+function useRoomHotkeys(handlers: RoomHotkeyHandlers) {
   const ref = useRef(handlers);
   useEffect(() => {
     ref.current = handlers;
@@ -266,7 +264,7 @@ export function useRoomHotkeys(handlers: RoomHotkeyHandlers) {
   }, []);
 }
 
-export function useRemoteAudioOutput({
+function useRemoteAudioOutput({
   volume,
   deafened,
 }: {
@@ -292,7 +290,7 @@ export function useRemoteAudioOutput({
   }, [volume, deafened]);
 }
 
-export function useRoomDocumentTitle(
+function useRoomDocumentTitle(
   roomName: string | undefined,
   unread: number,
 ) {
@@ -322,11 +320,15 @@ export const RoomDropZone: React.FC<{
   const [isDragging, setIsDragging] = useState(false);
   const [fileCount, setFileCount] = useState(1);
   const counter = useRef(0);
+  const [wasDisabled, setWasDisabled] = useState(disabled);
+  if (wasDisabled !== disabled) {
+    setWasDisabled(disabled);
+    if (disabled) setIsDragging(false);
+  }
 
   useEffect(() => {
     if (disabled) {
       counter.current = 0;
-      setIsDragging(false);
       return;
     }
     const hasFiles = (e: DragEvent) =>
@@ -414,14 +416,12 @@ export const RoomDropZone: React.FC<{
               className="text-xl font-bold tracking-tight"
               style={{ color: THEME.colors.text.primary }}
             >
-              Drop to attach
-            </p>
+              {tr("Drop to attach")}</p>
             <p
               className="text-sm mt-1"
               style={{ color: THEME.colors.text.muted }}
             >
-              Images, video, audio or files up to 50MB
-              {fileCount > 1 ? " · only the first file will be used" : ""}
+              {tr("Images, video, audio or files up to 50MB")}{fileCount > 1 ? tr(" · only the first file will be used") : ""}
             </p>
           </motion.div>
         </motion.div>
@@ -502,7 +502,7 @@ export const ConnectionBanner: React.FC<{
             <button
               type="button"
               onClick={() => setDismissed(message)}
-              aria-label="Dismiss"
+              aria-label={tr("Dismiss")}
               className="ml-1 p-0.5 rounded-full hover:bg-white/10 transition-colors"
               style={{ color }}
             >
@@ -535,7 +535,34 @@ type SortKey = "participants" | "recent" | "name";
 const REFRESH_MS = 20_000;
 
 const lc = (v: unknown) => String(v ?? "").toLowerCase();
-const countOf = (room: any): number =>
+
+/** A room as the room list gets it from GET /voice/rooms (only the fields the list reads) */
+interface ListedRoomMember {
+  userId?: string;
+  isSpeaking?: boolean;
+  nativeLanguage?: string;
+  learningLanguage?: string;
+  name?: string;
+  avatarUrl?: string | null;
+  user?: { id?: string; name?: string; avatarUrl?: string | null };
+}
+interface ListedRoom {
+  id: string;
+  name: string;
+  description?: string | null;
+  status?: string;
+  creatorId?: string;
+  isPrivate?: boolean;
+  language?: string | null;
+  nativeLanguage?: string | null;
+  learningLanguage?: string | null;
+  maxParticipants?: number;
+  updatedAt?: string;
+  participants?: ListedRoomMember[];
+  _count?: { participants?: number };
+}
+
+const countOf = (room: ListedRoom): number =>
   room?._count?.participants ?? room?.participants?.length ?? 0;
 
 const ActivitySpark: React.FC<{ roomId: string; speaking: boolean }> = ({
@@ -546,11 +573,12 @@ const ActivitySpark: React.FC<{ roomId: string; speaking: boolean }> = ({
     let seed = 0;
     for (let i = 0; i < roomId.length; i++)
       seed = (seed * 31 + roomId.charCodeAt(i)) >>> 0;
-    const rand = () => {
+    const heights: number[] = [];
+    for (let i = 0; i < 12; i++) {
       seed = (seed * 1664525 + 1013904223) >>> 0;
-      return (seed & 0xffff) / 0xffff;
-    };
-    return Array.from({ length: 12 }, () => 0.2 + rand() * 0.8);
+      heights.push(0.2 + ((seed & 0xffff) / 0xffff) * 0.8);
+    }
+    return heights;
   }, [roomId]);
 
   return (
@@ -606,7 +634,7 @@ const RoomSkeleton: React.FC = () => (
 );
 
 const RoomCard: React.FC<{
-  room: any;
+  room: ListedRoom;
   onJoin: () => void;
   onView: () => void;
   currentUserId?: string;
@@ -619,16 +647,16 @@ const RoomCard: React.FC<{
     maxParticipants && participantCount >= maxParticipants,
   );
   const isUserInside = room.participants?.some(
-    (p: any) => p.userId === currentUserId,
+    (p) => p.userId === currentUserId,
   );
   const isHost = room.creatorId === currentUserId;
   const hasActiveSpeakers =
-    room.participants?.some((p: any) => p.isSpeaking) || false;
+    room.participants?.some((p) => p.isSpeaking) || false;
   const hue = hueFromString(room.name);
 
   const languages = useMemo(() => {
     const langs = new Set<string>();
-    room.participants?.forEach((p: any) => {
+    room.participants?.forEach((p) => {
       if (p.nativeLanguage) langs.add(p.nativeLanguage);
       if (p.learningLanguage) langs.add(p.learningLanguage);
     });
@@ -637,7 +665,7 @@ const RoomCard: React.FC<{
 
   const avatars = useMemo(
     () =>
-      (room.participants || []).slice(0, 4).map((p: any) => ({
+      (room.participants || []).slice(0, 4).map((p) => ({
         name: p.user?.name || p.name || "?",
         avatarUrl: p.user?.avatarUrl || p.avatarUrl,
       })),
@@ -652,7 +680,7 @@ const RoomCard: React.FC<{
       whileHover={{ y: -3 }}
       role="button"
       tabIndex={0}
-      aria-label={`Open room ${room.name}`}
+      aria-label={tr("Open room {name}", { name: room.name })}
       onClick={onView}
       onKeyDown={(e) => {
         if (
@@ -736,8 +764,7 @@ const RoomCard: React.FC<{
                     border: "1px solid rgba(251,191,36,0.3)",
                   }}
                 >
-                  <Crown className="w-2.5 h-2.5" /> Host
-                </span>
+                  <Crown className="w-2.5 h-2.5" /> {" "}{tr("Host")}</span>
               )}
               {hasActiveSpeakers && (
                 <span
@@ -752,8 +779,7 @@ const RoomCard: React.FC<{
                     className="w-1.5 h-1.5 rounded-full animate-pulse"
                     style={{ background: THEME.colors.accent.primary }}
                   />
-                  Speaking
-                </span>
+                  {tr("Speaking")}</span>
               )}
             </div>
 
@@ -808,7 +834,7 @@ const RoomCard: React.FC<{
           <div className="flex items-center gap-3 shrink-0">
             {avatars.length > 0 && (
               <div className="hidden sm:flex -space-x-2">
-                {avatars.map((a: any, i: number) => (
+                {avatars.map((a, i) => (
                   <div
                     key={i}
                     className="w-7 h-7 rounded-full ring-2 ring-[var(--sx-border-0a0a14)] flex items-center justify-center text-[10px] font-semibold text-white overflow-hidden"
@@ -879,15 +905,13 @@ const RoomCard: React.FC<{
                     className="w-1.5 h-1.5 rounded-full animate-pulse"
                     style={{ background: THEME.colors.status.online }}
                   />
-                  Inside
-                </>
+                  {tr("Inside")}</>
               ) : isFull ? (
-                "Full"
+                tr("Full")
               ) : (
                 <>
                   <LogIn className="w-3.5 h-3.5" />
-                  Join
-                </>
+                  {tr("Join")}</>
               )}
             </motion.button>
           </div>
@@ -898,7 +922,7 @@ const RoomCard: React.FC<{
             className="mt-3 text-sm truncate relative"
             style={{ color: THEME.colors.text.muted }}
           >
-            {room.description}
+            {tr(room.description)}
           </p>
         )}
       </div>
@@ -912,7 +936,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
   onCreateRoom,
 }) => {
   const { user } = useAuth();
-  const [rooms, setRooms] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<ListedRoom[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -935,14 +959,14 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
         }
         const response = await voiceApi.getRooms();
         if (!alive) return;
-        setRooms(response.data || []);
+        setRooms((response.data as unknown as ListedRoom[]) || []);
         setLoadError(null);
       } catch {
         if (!alive || silent) return;
         setLoadError(
           "We couldn't load the voice rooms. Check your connection and try again.",
         );
-        toast.error("Failed to load rooms");
+        toast.error(tr("Failed to load rooms"));
       } finally {
         if (alive && !silent) setIsLoading(false);
       }
@@ -997,14 +1021,14 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
       if (filter === "waiting" && room.status !== "WAITING") return false;
       if (native) {
         const roomMatch = lc(room.nativeLanguage).includes(native);
-        const memberMatch = room.participants?.some((p: any) =>
+        const memberMatch = room.participants?.some((p) =>
           lc(p.nativeLanguage).includes(native),
         );
         if (!roomMatch && !memberMatch) return false;
       }
       if (learning) {
         const roomMatch = lc(room.learningLanguage).includes(learning);
-        const memberMatch = room.participants?.some((p: any) =>
+        const memberMatch = room.participants?.some((p) =>
           lc(p.learningLanguage).includes(learning),
         );
         if (!roomMatch && !memberMatch) return false;
@@ -1012,7 +1036,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
       return true;
     });
 
-    const time = (r: any) => new Date(r.updatedAt).getTime() || 0;
+    const time = (r: ListedRoom) => new Date(r.updatedAt ?? 0).getTime() || 0;
     result.sort((a, b) => {
       if (sortBy === "recent") return time(b) - time(a);
       if (sortBy === "name") return lc(a.name).localeCompare(lc(b.name));
@@ -1050,8 +1074,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
             className="font-semibold text-lg tracking-tight"
             style={{ color: THEME.colors.text.primary }}
           >
-            Rooms are unavailable
-          </h3>
+            {tr("Rooms are unavailable")}</h3>
           <p
             className="mt-1.5 text-sm"
             style={{ color: THEME.colors.text.muted }}
@@ -1067,17 +1090,16 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
               boxShadow: "0 12px 30px -10px var(--sx-shadow-129-140-248-700)",
             }}
           >
-            <RotateCcw className="w-4 h-4" /> Try again
-          </button>
+            <RotateCcw className="w-4 h-4" /> {" "}{tr("Try again")}</button>
         </div>
       </div>
     );
   }
 
   const statusTabs: { key: StatusFilter; label: string; count: number }[] = [
-    { key: "all", label: "All", count: rooms.length },
-    { key: "active", label: "Live", count: stats.active },
-    { key: "waiting", label: "Waiting", count: stats.waiting },
+    { key: "all", label: msg("All"), count: rooms.length },
+    { key: "active", label: msg("Live"), count: stats.active },
+    { key: "waiting", label: msg("Waiting"), count: stats.waiting },
   ];
 
   const glassInput = {
@@ -1105,13 +1127,12 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
               className="w-1.5 h-1.5 rounded-full animate-pulse"
               style={{ background: THEME.colors.status.online }}
             />
-            Live rooms
-          </div>
+            {tr("Live rooms")}</div>
           <h2
             className="text-3xl sm:text-4xl font-bold tracking-tight"
             style={{ color: THEME.colors.text.primary }}
           >
-            Voice{" "}
+            {tr("Voice")}{" "}
             <span
               style={{
                 background: THEME.colors.gradient.primary,
@@ -1120,12 +1141,10 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                 backgroundClip: "text",
               }}
             >
-              Rooms
-            </span>
+              {tr("Rooms")}</span>
           </h2>
           <p className="text-sm" style={{ color: THEME.colors.text.muted }}>
-            Join a live conversation and practice with native speakers.
-          </p>
+            {tr("Join a live conversation and practice with native speakers.")}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -1138,8 +1157,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-            {stats.active} live
-          </div>
+            {stats.active} {" "}{tr("live")}</div>
           <div
             className="px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-medium border"
             style={{
@@ -1149,8 +1167,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
             }}
           >
             <Users className="w-3.5 h-3.5" />
-            {stats.people} in rooms
-          </div>
+            {stats.people} {" "}{tr("in rooms")}</div>
           <div
             className="px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-medium border"
             style={{
@@ -1160,8 +1177,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
             }}
           >
             <Radio className="w-3.5 h-3.5" />
-            {rooms.length} total
-          </div>
+            {rooms.length} {" "}{tr("total")}</div>
         </div>
       </div>
 
@@ -1175,8 +1191,8 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search rooms, languages, or topics…"
-            aria-label="Search rooms"
+            placeholder={tr("Search rooms, languages, or topics…")}
+            aria-label={tr("Search rooms")}
             className="w-full pl-11 pr-10 py-3 rounded-2xl outline-none transition-all border text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-400/10"
             style={glassInput}
           />
@@ -1184,7 +1200,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              aria-label="Clear search"
+              aria-label={tr("Clear search")}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10"
               style={{ color: THEME.colors.text.muted }}
             >
@@ -1212,8 +1228,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           }}
         >
           <Filter className="w-4 h-4" />
-          Filters
-          {activeFilterCount > 0 && (
+          {tr("Filters")}{activeFilterCount > 0 && (
             <span
               className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold"
               style={{ background: THEME.colors.accent.primary, color: "var(--sx-text-ffffff)" }}
@@ -1228,7 +1243,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           onClick={() =>
             onCreateRoom
               ? onCreateRoom()
-              : toast.info("Create room feature coming soon")
+              : toast.info(tr("Create room feature coming soon"))
           }
           className="px-5 py-3 rounded-2xl flex items-center gap-2 text-sm font-semibold text-white transition-transform hover:scale-[1.03] active:scale-95"
           style={{
@@ -1237,14 +1252,13 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
           }}
         >
           <Plus className="w-4 h-4" />
-          New Room
-        </button>
+          {tr("New Room")}</button>
       </div>
 
       <div
         className="relative z-10 flex items-center gap-2 overflow-x-auto pb-1"
         role="tablist"
-        aria-label="Room status"
+        aria-label={tr("Room status")}
       >
         {statusTabs.map((tab) => {
           const selected = filter === tab.key;
@@ -1266,7 +1280,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                   : "none",
               }}
             >
-              {tab.label}
+              {tr(tab.label)}
               <span className="opacity-70">{tab.count}</span>
             </button>
           );
@@ -1278,8 +1292,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
             className="ml-auto px-3 py-1.5 rounded-full text-xs font-medium shrink-0 hover:bg-white/5"
             style={{ color: THEME.colors.text.muted }}
           >
-            Clear all
-          </button>
+            {tr("Clear all")}</button>
         ) : null}
       </div>
 
@@ -1300,8 +1313,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                   className="text-[11px] font-semibold uppercase tracking-wider"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  Sort by
-                </label>
+                  {tr("Sort by")}</label>
                 <div className="flex gap-1.5 mt-2 flex-wrap">
                   {(["participants", "recent", "name"] as const).map((s) => (
                     <button
@@ -1318,7 +1330,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                           sortBy === s ? "#fff" : THEME.colors.text.secondary,
                       }}
                     >
-                      {s === "participants" ? "Most people" : s}
+                      {s === "participants" ? tr("Most people") : s}
                     </button>
                   ))}
                 </div>
@@ -1334,7 +1346,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                     className="text-[11px] font-semibold uppercase tracking-wider"
                     style={{ color: THEME.colors.text.muted }}
                   >
-                    {label}
+                    {tr(label)}
                   </label>
                   <input
                     type="text"
@@ -1345,7 +1357,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                         [key]: e.target.value,
                       }))
                     }
-                    placeholder={placeholder}
+                    placeholder={tr(placeholder)}
                     className="w-full mt-2 px-3 py-1.5 rounded-full text-xs outline-none border focus:border-indigo-400"
                     style={{
                       background: "var(--sx-bg-255-255-255-40)",
@@ -1383,16 +1395,16 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
               style={{ color: THEME.colors.text.primary }}
             >
               {rooms.length > 0
-                ? "No rooms match your filters"
-                : "No voice rooms yet"}
+                ? tr("No rooms match your filters")
+                : tr("No voice rooms yet")}
             </p>
             <p
               className="text-sm mt-1"
               style={{ color: THEME.colors.text.muted }}
             >
               {rooms.length > 0
-                ? "Try a different keyword or clear the filters."
-                : "Be the first to start a conversation."}
+                ? tr("Try a different keyword or clear the filters.")
+                : tr("Be the first to start a conversation.")}
             </p>
             {rooms.length > 0 && (
               <button
@@ -1404,8 +1416,7 @@ export const VoiceRoomList: React.FC<VoiceRoomListProps> = ({
                   color: THEME.colors.text.secondary,
                 }}
               >
-                Clear filters
-              </button>
+                {tr("Clear filters")}</button>
             )}
           </div>
         ) : (
@@ -1501,14 +1512,68 @@ const REACTION_FLOOD_WINDOW_MS = 4000;
 const SEND_TIMEOUT_MS = 10_000;
 const READY_FALLBACK_MS = 12_000;
 
+type ChatPanelMessage = NonNullable<React.ComponentProps<typeof ChatPanel>["replyTo"]>;
+
 const QUICK_REACTION_SLOTS = ["👏", "❤️", "🔥", "🎉", "😮", "🙌"] as const;
 
 const AUDIO_LEVEL_SMOOTHING = 0.7;
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, Number(n) || 0));
 
+/** A chat message as the socket, the REST API or our own optimistic copy sends it */
+type RawReaction = { emoji?: string; userId?: string; user?: { id?: string; userId?: string } };
+interface RawChatMessage {
+  id: string;
+  content: string;
+  type?: string;
+  senderId: string;
+  senderName?: string;
+  senderAvatar?: string;
+  sender?: { id?: string; name?: string; avatarUrl?: string; avatar?: string };
+  user?: { name?: string; avatarUrl?: string };
+  reactions?: RawReaction[] | Record<string, string[] | number>;
+  reactionTally?: Record<string, number>;
+  attachments?: ChatAttachment[];
+  replyTo?: RawChatMessage;
+  replyToId?: string;
+  status?: LocalVoiceMessage["status"];
+  isDeleted?: boolean;
+  isPinned?: boolean;
+  mediaUrl?: string | null;
+  fileUrl?: string | null;
+  clientId?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/** Participant data from the socket, the REST room or LiveKit: any field may be missing */
+interface LooseMemberUser {
+  id?: string;
+  name?: string;
+  avatarUrl?: string;
+  country?: string;
+  nativeLanguage?: string;
+  learningLanguage?: string;
+  level?: string;
+  bio?: string;
+  interests?: string[];
+  isVerified?: boolean;
+  isPremium?: boolean;
+}
+interface LooseMember extends LooseMemberUser {
+  userId: string;
+  user?: LooseMemberUser;
+  isReconnecting?: boolean;
+  isSpeaking?: boolean;
+  isMuted?: boolean;
+  raisedHand?: boolean;
+  joinedAt?: string;
+  role?: RoomParticipant["role"];
+  audioLevel?: number;
+}
+
 function normalizeChatMessage(
-  msg: any,
+  msg: RawChatMessage,
   currentUserId?: string,
 ): LocalVoiceMessage {
   const senderName =
@@ -1552,6 +1617,13 @@ function normalizeChatMessage(
 
   return {
     ...msg,
+    updatedAt: msg.updatedAt ?? msg.createdAt,
+    type: msg.type ?? "TEXT",
+    sender: {
+      id: msg.sender?.id ?? msg.senderId,
+      name: msg.sender?.name ?? senderName,
+      avatarUrl: msg.sender?.avatarUrl,
+    },
     senderName,
     senderAvatar,
     reactions,
@@ -1574,7 +1646,7 @@ const ATTACHMENT_KIND_BY_TYPE: Record<string, ChatAttachment["type"]> = {
 };
 
 /** The server stores one upload per message as mediaUrl / fileUrl plus a type */
-function attachmentsFor(msg: any): ChatAttachment[] | undefined {
+function attachmentsFor(msg: RawChatMessage): ChatAttachment[] | undefined {
   if (msg.isDeleted) return undefined;
   const url = msg.mediaUrl || msg.fileUrl;
   if (!url) return undefined;
@@ -1670,7 +1742,7 @@ const ClapDock: React.FC<{
             </motion.span>
           )}
         </AnimatePresence>
-        <span className="hidden sm:inline-flex pr-1.5" title="Press A to clap">
+        <span className="hidden sm:inline-flex pr-1.5" title={tr("Press A to clap")}>
           <DockKey>A</DockKey>
         </span>
       </div>
@@ -1685,7 +1757,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const userName = (user as any)?.name || "You";
+  const userName = user?.name || "You";
+  const myId = user?.id;
 
   const [token, setToken] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
@@ -1880,7 +1953,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const allParticipants = useMemo<RoomParticipant[]>(() => {
     const map = new Map<string, RoomParticipant>();
 
-    (wsParticipants || []).forEach((p: any) => {
+    ((wsParticipants || []) as LooseMember[]).forEach((p) => {
       map.set(p.userId, {
         id: p.userId,
         userId: p.userId,
@@ -1906,7 +1979,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       });
     });
 
-    (room?.participants || []).forEach((p: any) => {
+    ((room?.participants || []) as unknown as LooseMember[]).forEach((p) => {
       if (map.has(p.userId)) return;
       map.set(p.userId, {
         id: p.userId,
@@ -1930,7 +2003,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       });
     });
 
-    livekitParticipants?.forEach((p: any) => {
+    (livekitParticipants as Array<{ identity?: string; userId?: string; sid?: string; participantIdentity?: string; metadata?: unknown; isSpeaking?: boolean; isMuted?: boolean; audioLevel?: number }>)?.forEach((p) => {
       const identity = String(
         p.identity ?? p.userId ?? p.sid ?? p.participantIdentity ?? "",
       );
@@ -2003,10 +2076,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const isHost = hostId === user?.id || room?.creatorId === user?.id;
   const isModerator = isHost || me?.role === "MODERATOR" || me?.role === "HOST";
 
-  useEffect(() => {
-    if (me) setHandRaised(Boolean(me.raisedHand));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me?.raisedHand]);
+  const serverHandRaised = me ? Boolean(me.raisedHand) : null;
+  const [syncedHandRaised, setSyncedHandRaised] = useState<boolean | null>(null);
+  if (serverHandRaised !== null && serverHandRaised !== syncedHandRaised) {
+    setSyncedHandRaised(serverHandRaised);
+    setHandRaised(serverHandRaised);
+  }
 
   // Effects run as a LiveKit processor on the published mic, so the whole room hears them
   const voiceEffects = useVoiceEffects({
@@ -2031,7 +2106,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         sourceRoomId: roomId,
         helperName: c.authorName,
       });
-      toast.success(`✨ Saved to journal: ${c.corrected}`);
+      toast.success(tr("✨ Saved to journal: {corrected}", { corrected: c.corrected }));
     },
   });
 
@@ -2102,14 +2177,14 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         socket.emit("voice:mute-self", { roomId, muted });
     } catch {
       toast.error(
-        "Couldn't change your microphone. Check browser permissions.",
+        tr("Couldn't change your microphone. Check browser permissions."),
       );
     }
   }, [toggleMute, socket, isConnected, roomId]);
 
   const handleToggleDeafen = useCallback(() => {
     setIsDeafened((prev) => {
-      toast.info(!prev ? "Deafened — room audio muted" : "Audio restored");
+      toast.info(!prev ? tr("Deafened — room audio muted") : tr("Audio restored"));
       return !prev;
     });
   }, []);
@@ -2131,13 +2206,13 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const handleConfirmLeave = useCallback(async () => {
     try {
       await leaveRoomMutation.mutateAsync(roomId);
-      socket?.emit("voice:leave", { roomId, userId: user?.id });
-      toast.success("Left room");
+      socket?.emit("voice:leave", { roomId, userId: myId });
+      toast.success(tr("Left room"));
       onLeave();
     } catch {
-      toast.error("Failed to leave room");
+      toast.error(tr("Failed to leave room"));
     }
-  }, [leaveRoomMutation, roomId, socket, user?.id, onLeave]);
+  }, [leaveRoomMutation, roomId, socket, myId, onLeave]);
 
   // The host removed me: leave the room view (the toast already said why)
   useEffect(() => {
@@ -2150,22 +2225,22 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       return;
     try {
       await voiceApi.endRoom(roomId);
-      socket?.emit("voice:leave", { roomId, userId: user?.id });
-      toast.success("Room ended");
+      socket?.emit("voice:leave", { roomId, userId: myId });
+      toast.success(tr("Room ended"));
       onLeave();
     } catch {
-      toast.error("Failed to end room");
+      toast.error(tr("Failed to end room"));
     }
-  }, [roomId, socket, user?.id, onLeave]);
+  }, [roomId, socket, myId, onLeave]);
 
   const handleStartRecording = useCallback(async () => {
     try {
       await voiceApi.startRecording(roomId);
       setIsRecording(true);
-      toast.success("Recording started");
+      toast.success(tr("Recording started"));
       refetch();
     } catch {
-      toast.error("Failed to start recording");
+      toast.error(tr("Failed to start recording"));
     }
   }, [roomId, refetch]);
 
@@ -2173,19 +2248,19 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     try {
       await voiceApi.stopRecording(roomId);
       setIsRecording(false);
-      toast.success("Recording stopped");
+      toast.success(tr("Recording stopped"));
       refetch();
     } catch {
-      toast.error("Failed to stop recording");
+      toast.error(tr("Failed to stop recording"));
     }
   }, [roomId, refetch]);
 
   const handleCopyLink = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast.success("Room link copied");
+      toast.success(tr("Room link copied"));
     } catch {
-      toast.error("Failed to copy link");
+      toast.error(tr("Failed to copy link"));
     }
   }, []);
 
@@ -2196,8 +2271,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   );
 
   const handleLeaveStage = useCallback(() => {
-    if (user?.id) moveToAudience(user.id);
-  }, [moveToAudience, user?.id]);
+    if (myId) moveToAudience(myId);
+  }, [moveToAudience, myId]);
 
   const handleQueueRemove = useCallback(
     (userId: string) => {
@@ -2252,10 +2327,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           sender: {
             id: user.id,
             name: userName,
-            avatarUrl: (user as any).avatarUrl,
+            avatarUrl: user.avatarUrl,
           },
           senderName: userName,
-          senderAvatar: (user as any).avatarUrl,
+          senderAvatar: user.avatarUrl,
           createdAt: new Date().toISOString(),
           isPinned: false,
           isDeleted: false,
@@ -2284,8 +2359,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       sendMessageMutation.mutate(
         { roomId, ...messageData },
         {
-          onSuccess: (res: any) => {
-            const real = res?.data || res;
+          onSuccess: (res: { data?: RawChatMessage } | RawChatMessage | undefined) => {
+            const real = (res && "data" in res ? res.data : res) as RawChatMessage | undefined;
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === tempId
@@ -2306,7 +2381,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
                 m.id === tempId ? { ...m, status: "failed" as const } : m,
               ),
             );
-            toast.error("Failed to send message");
+            toast.error(tr("Failed to send message"));
           },
         },
       );
@@ -2402,8 +2477,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 
   const handleMessageReaction = useCallback(
     (messageId: string, emoji: string) => {
-      if (!user?.id || !roomId) return;
-      const uid = user.id;
+      if (!myId || !roomId) return;
+      const uid = myId;
       const flip = (list: LocalVoiceMessage[]) =>
         list.map((m) =>
           m.id === messageId ? toggleReactionIn(m, emoji, uid) : m,
@@ -2417,7 +2492,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         { onError: () => setMessages(flip) },
       );
     },
-    [user?.id, roomId, reactMessageMutation],
+    [myId, roomId, reactMessageMutation],
   );
 
   const handlePinMessage = useCallback(
@@ -2429,7 +2504,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       pinMessageMutation.mutate(
         { roomId, messageId, pinned },
         {
-          onSuccess: () => toast.success(pinned ? "Pinned for everyone" : "Unpinned"),
+          onSuccess: () => toast.success(pinned ? tr("Pinned for everyone") : tr("Unpinned")),
           onError: () => {
             setMessages((prev) =>
               prev.map((m) =>
@@ -2531,7 +2606,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       }
       return page.length > 0;
     } catch {
-      toast.error("Couldn't load older messages");
+      toast.error(tr("Couldn't load older messages"));
       return false;
     } finally {
       loadingHistoryRef.current = false;
@@ -2540,7 +2615,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 
   const openAttachmentPreview = useCallback((file: File) => {
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      toast.error("File exceeds 50MB limit");
+      toast.error(tr("File exceeds 50MB limit"));
       return;
     }
     let kind: PendingAttachment["kind"] = "file";
@@ -2581,10 +2656,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const handleConfirmAttachmentSend = useCallback(
     async (caption: string) => {
       const pending = pendingAttachment;
-      if (!pending || !user?.id || !roomId || uploadingRef.current) return;
+      if (!pending || !myId || !roomId || uploadingRef.current) return;
 
       uploadingRef.current = true;
-      const toastId = toast.loading(`Uploading ${pending.file.name}…`);
+      const toastId = toast.loading(tr("Uploading {name}…", { name: pending.file.name }));
       try {
         const { uploadToCloudinary, kindToMessageType } =
           await import("../../lib/uploadToCloudinary");
@@ -2603,10 +2678,11 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 
         handleCancelAttachment();
         setReplyTo(null);
-        toast.success("Sent", { id: toastId });
+        toast.success(tr("Sent"), { id: toastId });
         scrollToBottom();
-      } catch (err: any) {
-        toast.error(err?.message || "Upload failed — please try again", {
+      } catch (caught) {
+        const err = asApiError(caught);
+        toast.error(err?.message || tr("Upload failed — please try again"), {
           id: toastId,
         });
       } finally {
@@ -2615,7 +2691,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     },
     [
       pendingAttachment,
-      user?.id,
+      myId,
       roomId,
       replyTo,
       socket,
@@ -2720,7 +2796,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         entry.firstAt = now;
       }
       if (entry.count >= MAX_REACTIONS_PER_USER_PER_EMOJI_PER_WINDOW) {
-        toast.warning("Slow down — too many reactions in a row", {
+        toast.warning(tr("Slow down — too many reactions in a row"), {
           duration: 1500,
         });
         return;
@@ -2733,7 +2809,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           id: `local-${now}-${Math.random().toString(36).slice(2)}`,
           emoji,
           userId: uid,
-          userName: (user as any)?.name,
+          userName: user?.name,
         });
       }
       if (broadcast) {
@@ -2765,7 +2841,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         setIsJoining(true);
         setJoinError(null);
         const response = await voiceApi.joinRoom(roomId);
-        const raw = response.data as any;
+        type JoinAnswer = { token?: string; liveKitRoomId?: string; data?: JoinAnswer };
+        const raw = response.data as JoinAnswer | undefined;
         const extractedToken =
           raw?.data?.token || raw?.token || raw?.data?.data?.token;
         const extractedRoomId =
@@ -2774,8 +2851,9 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         if (cancelled) return;
         setToken(extractedToken);
         setLiveKitRoomId(extractedRoomId);
-        toast.success("Connected to voice");
-      } catch (error: any) {
+        toast.success(tr("Connected to voice"));
+      } catch (caught) {
+        const error = asApiError(caught);
         if (cancelled) return;
         const message =
           error?.response?.data?.message ||
@@ -2795,20 +2873,19 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     };
   }, [roomId, user?.id, token, joinAttempt]);
 
+  if (!ready && token && room && (isLiveKitConnected || isMockMode)) setReady(true);
+
   useEffect(() => {
-    if (ready || !token || !room) return;
-    if (isLiveKitConnected || isMockMode) {
-      setReady(true);
-      return;
-    }
+    if (ready || !token || !room || isLiveKitConnected || isMockMode) return;
     const id = window.setTimeout(() => setReady(true), READY_FALLBACK_MS);
     return () => window.clearTimeout(id);
   }, [ready, token, room, isLiveKitConnected, isMockMode]);
 
-  useEffect(() => {
-    const source = cachedMessages ?? initialMessages;
-    if (!source) return;
-
+  const messageSource = cachedMessages ?? initialMessages;
+  const [mergedSource, setMergedSource] = useState<{ source: typeof messageSource; userId?: string } | null>(null);
+  if (messageSource && (mergedSource?.source !== messageSource || mergedSource?.userId !== user?.id)) {
+    const source = messageSource;
+    setMergedSource({ source, userId: user?.id });
     setMessages((prev) => {
       const prevById = new Map(prev.map((m) => [m.id, m]));
       const sourceIds = new Set(source.map((m) => m.id));
@@ -2850,12 +2927,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       const withHistory = history.length ? [...history, ...merged] : merged;
       return pending.length ? [...withHistory, ...pending] : withHistory;
     });
-  }, [cachedMessages, initialMessages, user?.id]);
+  }
 
   useEffect(() => {
     if (!socket) return;
 
-    const onNewMessage = (raw: any) => {
+    const onNewMessage = (raw: RawChatMessage) => {
       const message = normalizeChatMessage(
         { ...raw, status: "sent" as const },
         user?.id,
@@ -2929,7 +3006,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           ),
         );
       }
-      toast.error(data?.message || "Message not sent");
+      toast.error(data?.message || tr("Message not sent"));
     };
 
     socket.on("voice:chat", onNewMessage);
@@ -2944,12 +3021,15 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     };
   }, [socket, user?.id, scrollToBottom]);
 
-  useEffect(() => {
-    if (!showChat) return;
-    setUnreadCount(0);
-    setHasNewMessages(false);
-    setNewMessageCount(0);
-  }, [showChat]);
+  const [chatWasOpen, setChatWasOpen] = useState(showChat);
+  if (showChat !== chatWasOpen) {
+    setChatWasOpen(showChat);
+    if (showChat) {
+      setUnreadCount(0);
+      setHasNewMessages(false);
+      setNewMessageCount(0);
+    }
+  }
 
   useEffect(() => {
     if (!room?.startedAt) return;
@@ -3041,7 +3121,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         isVerified: p.isVerified,
         isPremium: p.isPremium,
         raisedHand: !!p.raisedHand,
-        raisedHandAt: (p as any).raisedHandAt,
+        raisedHandAt: (p as RoomParticipant & { raisedHandAt?: number }).raisedHandAt,
         isSpeaking: p.isSpeaking,
         isMuted: p.isMuted,
       })),
@@ -3058,16 +3138,14 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           role="alert"
           icon={WifiOff}
           tone="warning"
-          title="Couldn't connect to voice"
+          title={tr("Couldn't connect to voice")}
           body={joinError}
           actions={
             <>
               <RoomButton variant="ghost" onClick={onLeave}>
-                Back
-              </RoomButton>
+                {tr("Back")}</RoomButton>
               <RoomButton onClick={() => setJoinAttempt((n) => n + 1)}>
-                <RotateCcw className="w-4 h-4" /> Retry
-              </RoomButton>
+                <RotateCcw className="w-4 h-4" /> {" "}{tr("Retry")}</RoomButton>
             </>
           }
         />
@@ -3091,7 +3169,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     } else {
       return (
         <RoomStatusScreen>
-          <RoomJoiningIndicator label={label} icon={Mic} onCancel={onLeave} />
+          <RoomJoiningIndicator label={tr(label)} icon={Mic} onCancel={onLeave} />
         </RoomStatusScreen>
       );
     }
@@ -3102,9 +3180,9 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       <RoomStatusScreen>
         <RoomStatusCard
           icon={AlertCircle}
-          title="Room not found"
+          title={tr("Room not found")}
           body="This room may have ended or the link is incorrect."
-          actions={<RoomButton onClick={onLeave}>Back to rooms</RoomButton>}
+          actions={<RoomButton onClick={onLeave}>{tr("Back to rooms")}</RoomButton>}
         />
       </RoomStatusScreen>
     );
@@ -3130,27 +3208,27 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     {
       id: "people",
       icon: Users,
-      label: "In room",
+      label: msg("In room"),
       value: totalParticipants,
       color: THEME.colors.accent.primaryLight,
     },
     {
       id: "speaking",
       icon: Mic,
-      label: "Speaking",
+      label: msg("Speaking"),
       value: speakingCount,
       live: speakingCount > 0,
     },
     {
       id: "duration",
       icon: Clock,
-      label: "Duration",
+      label: msg("Duration"),
       value: formatRoomDuration(roomDuration),
     },
     {
       id: "messages",
       icon: MessageCircle,
-      label: "Messages",
+      label: msg("Messages"),
       value: messages.length,
     },
     ...(panels.stats
@@ -3158,13 +3236,13 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           {
             id: "online",
             icon: Wifi,
-            label: "Online",
+            label: msg("Online"),
             value: onlineCount,
           },
           {
             id: "reactions",
             icon: Smile,
-            label: "Reactions",
+            label: msg("Reactions"),
             value: stageReactions.length,
             live: stageReactions.length > 0,
             color: THEME.colors.accent.pink,
@@ -3176,7 +3254,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           {
             id: "recording",
             icon: Radio,
-            label: "Recording",
+            label: msg("Recording"),
             value: "REC",
             live: true,
             color: THEME.colors.status.recording,
@@ -3188,7 +3266,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const toolGroups: RoomToolGroup[] = [
     {
       id: "practice",
-      label: "Practice",
+      label: msg("Practice"),
       tools: [
         {
           id: "coach",
@@ -3215,7 +3293,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         },
         {
           id: "journal",
-          label: "Practice journal",
+          label: msg("Practice journal"),
           icon: BookOpen,
           active: panels.journal,
           badge: journal.stats.dueForReview.length,
@@ -3225,7 +3303,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     },
     {
       id: "audio",
-      label: "Audio",
+      label: msg("Audio"),
       tools: [
         {
           id: "effects",
@@ -3245,7 +3323,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     },
     {
       id: "host",
-      label: "Host tools",
+      label: msg("Host tools"),
       tools: [
         {
           id: "insights",
@@ -3268,18 +3346,18 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     },
     {
       id: "room",
-      label: "Room",
+      label: msg("Room"),
       tools: [
         {
           id: "invite",
-          label: "Invite people",
+          label: msg("Invite people"),
           icon: UserPlus,
           active: panels.invite,
           onClick: () => setPanel("invite", true),
         },
         {
           id: "bans",
-          label: "Removed people",
+          label: msg("Removed people"),
           icon: UserX,
           active: panels.bans,
           hidden: !isModerator,
@@ -3340,12 +3418,12 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       stageTitle={
         <>
           <LiveBadge
-            label={isMockMode ? "Demo" : isLiveKitConnected ? "Live" : "Offline"}
+            label={isMockMode ? tr("Demo") : isLiveKitConnected ? tr("Live") : tr("Offline")}
             tone={isLiveKitConnected && !isMockMode ? "live" : "idle"}
           />
           <div className="min-w-0">
             <div className="text-sm font-semibold leading-tight tracking-tight">
-              {isStageRoom ? "On stage" : "Conversation"}
+              {isStageRoom ? tr("On stage") : tr("Conversation")}
             </div>
             <div
               className="truncate text-xs leading-tight"
@@ -3417,7 +3495,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             setNewMessage(`@${participant.name} `);
             window.setTimeout(() => textareaRef.current?.focus(), 100);
           }}
-          onViewProfile={() => toast.info("👤 Viewing profile")}
+          onViewProfile={() => toast.info(tr("👤 Viewing profile"))}
           showChat={showChat}
           className="w-full"
           onInvite={() => setPanel("invite", true)}
@@ -3481,7 +3559,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           messages={chatPanelMessages}
           newMessage={newMessage}
           replyTo={
-            replyTo ? (normalizeChatMessage(replyTo, user?.id) as any) : null
+            replyTo ? (normalizeChatMessage(replyTo as RawChatMessage, user?.id) as ChatPanelMessage) : null
           }
           typingUsers={typingUsers}
           currentUserId={user?.id || ""}
@@ -3491,7 +3569,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           onEmojiPickerToggle={() => setShowEmojiPicker((v) => !v)}
           onMessageChange={handleComposerChange}
           onSendMessage={handleSendMessage}
-          onReply={(msg) => setReplyTo(msg as any)}
+          onReply={(msg) => setReplyTo(msg as VoiceMessage | null)}
           onPinMessage={handlePinMessage}
           onDeleteMessage={handleDeleteMessage}
           onEditMessage={handleEditMessage}
@@ -3582,14 +3660,14 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
               }}
             >
               {isDeafened
-                ? "Sound off"
+                ? tr("Sound off")
                 : isAudience
                   ? handRaised
-                    ? "Hand raised"
-                    : "Listening"
+                    ? tr("Hand raised")
+                    : tr("Listening")
                   : isMuted
-                    ? "Muted"
-                    : "Mic on"}
+                    ? tr("Muted")
+                    : tr("Mic on")}
             </div>
           </div>
         </div>
@@ -3649,7 +3727,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             },
             {
               id: "chat",
-              label: "Chat",
+              label: msg("Chat"),
               icon: MessageCircle,
               state: showChat ? "on" : "off",
               badge: unreadCount,
@@ -3657,7 +3735,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             },
             {
               id: "leave",
-              label: "Leave",
+              label: msg("Leave"),
               icon: PhoneOff,
               state: "danger",
               onClick: handleLeave,
@@ -3668,10 +3746,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       onShowShortcuts={() => setPanel("shortcuts", true)}
       shortcutHint={
         <>
-          <DockKey>M</DockKey> mute
-          <DockKey>C</DockKey> chat
-          <DockKey>A</DockKey> clap
-        </>
+          <DockKey>M</DockKey> {" "}{tr("mute")}<DockKey>C</DockKey> {" "}{tr("chat")}<DockKey>A</DockKey> {" "}{tr("clap")}</>
       }
     >
       {/* Connection lost / reconnecting */}
@@ -3709,8 +3784,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
                   animate={{ opacity: [1, 0.3, 1] }}
                   transition={{ duration: 1.1, repeat: Infinity }}
                 />
-                Reconnecting… you'll keep your place in the room
-              </span>
+                {tr("Reconnecting… you'll keep your place in the room")}</span>
             )}
             <button
               type="button"
@@ -3728,10 +3802,10 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
               }}
             >
               {liveKitError?.includes("another tab")
-                ? "Use this tab"
+                ? tr("Use this tab")
                 : connectionLost
-                  ? "Retry"
-                  : "Retry now"}
+                  ? tr("Retry")
+                  : tr("Retry now")}
             </button>
           </motion.div>
         )}

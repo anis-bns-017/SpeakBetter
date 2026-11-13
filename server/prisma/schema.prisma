@@ -289,6 +289,13 @@ enum OrderStatus {
 }
 
 // ----- Moderation -----
+/// Who may open the admin section, and what they may do there (src/admin/admin.roles.ts)
+enum PlatformRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
 enum ReportStatus {
   PENDING
   REVIEWING
@@ -511,6 +518,17 @@ model User {
   name         String
   avatarUrl    String?
 
+  // ===== ADMIN =====
+  /// USER for everyone; MODERATOR and ADMIN open the admin section (ADMIN_EMAILS in .env makes the first admins)
+  role             PlatformRole @default(USER)
+  /// While in the future, the account cannot sign in or use the app (9999-12-31 = permanent)
+  suspendedUntil   DateTime?
+  suspensionReason String?
+  adminActions     AdminAuditLog[] @relation("AdminActor")
+  passwordResets   PasswordResetToken[]
+
+  @@index([role])
+
   // ===== GOOGLE AUTH =====
   googleId String? @unique
 
@@ -641,6 +659,7 @@ model User {
   knownWords               KnownWord[]
   vocabSizeTests           VocabSizeTest[]
   reviewLogs               ReviewLog[]
+  memoryModel MemoryModel?
 }
 
 // One row per refresh token. A login starts a "family"; every refresh rotation
@@ -713,6 +732,8 @@ model Profile {
   /// CEFR level (A1–C2) once the placement test has been taken
   level             String?
   levelAssessedAt   DateTime?
+  /// When the first-day guide was finished or skipped; null shows the guide (web /welcome)
+  onboardedAt       DateTime?
   xp                Int       @default(0)
   streak            Int       @default(0)
   followersCount    Int       @default(0)
@@ -994,6 +1015,9 @@ model Community {
   ownerId     String
   owner       User          @relation("CommunityCreator", fields: [ownerId], references: [id], onDelete: Cascade)
   type        CommunityType @default(PUBLIC)
+  /// Hidden by a moderator: left out of lists and closed to visitors until unhidden
+  hiddenAt     DateTime?
+  hiddenReason String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -2114,6 +2138,43 @@ model ModerationLog {
   @@index([moderatorId])
 }
 
+/// A "forgot password" link. Only a SHA-256 hash of the token is stored; the token itself is in the email.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  /// Set when the link was used, or replaced by a newer one
+  usedAt    DateTime?
+  ip        String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// Every action taken in the admin section: who did what to what, and why. Never edited.
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AdminActor", fields: [actorId], references: [id], onDelete: SetNull)
+  /// Kept so the log still reads well after the account is gone
+  actorName  String
+  /// user.suspend, report.resolve, room.close, broadcast.send ...
+  action     String
+  targetType String?
+  targetId   String?
+  /// One line for the log ("Suspended Mina for 7 days: spam")
+  summary    String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@index([action])
+}
+
 model ContentFlag {
   id        String             @id @default(cuid())
   content   String
@@ -2754,6 +2815,27 @@ model ReviewLog {
 
   @@index([userId, reviewedAt])
   @@index([itemType, itemId])
+}
+
+/// A learner's own FSRS weights, fitted from their review history (learning/fsrs.fit.ts). Only used when `active`.
+model MemoryModel {
+  userId        String   @id
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The 17 FSRS weights
+  weights       Float[]
+  /// The fitted weights predicted better than the defaults on reviews held back from the fit
+  active        Boolean  @default(false)
+  /// Reviews a day or more apart that the fit learned from
+  lessons       Int      @default(0)
+  /// How far the predictions were from what happened (0-1), with the default and the fitted weights
+  defaultError  Float?
+  fittedError   Float?
+  defaultLoss   Float?
+  fittedLoss    Float?
+  /// ReviewLog rows that existed at the fit, to know when to fit again
+  logCount      Int      @default(0)
+  fittedAt      DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model LibraryProgress {

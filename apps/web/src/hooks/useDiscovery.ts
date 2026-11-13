@@ -8,6 +8,15 @@ export interface RoomCategory {
   roomCount: number;
 }
 
+/** Someone in a listed room (the list sends a light copy) */
+export interface DiscoveryParticipant {
+  userId?: string;
+  name?: string;
+  avatarUrl?: string;
+  isSpeaking?: boolean;
+  user?: { id?: string; name?: string; avatarUrl?: string };
+}
+
 export interface DiscoveryRoom {
   id: string;
   name: string;
@@ -17,9 +26,12 @@ export interface DiscoveryRoom {
     id: string;
     name: string;
     avatarUrl?: string;
+    isHost?: boolean;
   };
-  participants: any[];
+  participants: DiscoveryParticipant[];
   participantCount: number;
+  maxParticipants?: number;
+  category?: string;
   trendScore: number;
   language?: string;
   tags: string[];

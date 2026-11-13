@@ -10,6 +10,7 @@ import {
   Info,
   UserX,
 } from "lucide-react";
+import { tr } from "../i18n/core";
 
 export const BlockedPage = () => {
   const { data, isLoading, isError } = useBlockedUsers();
@@ -21,9 +22,9 @@ export const BlockedPage = () => {
     try {
       setUnblockingId(userId);
       await unblockMutation.mutateAsync(userId);
-      toast.success(`${userName} has been unblocked`);
+      toast.success(tr("{userName} has been unblocked", { userName }));
     } catch {
-      toast.error(`Failed to unblock ${userName}`);
+      toast.error(tr("Failed to unblock {userName}", { userName }));
     } finally {
       setUnblockingId(null);
     }
@@ -46,11 +47,9 @@ export const BlockedPage = () => {
             </div>
             <div>
               <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">
-                Blocked Accounts
-              </h1>
+                {tr("Blocked Accounts")}</h1>
               <p className="text-sm text-slate-500">
-                Manage accounts you've blocked from contacting or viewing your profile.
-              </p>
+                {tr("Manage accounts you've blocked from contacting or viewing your profile.")}</p>
             </div>
           </div>
 
@@ -60,7 +59,7 @@ export const BlockedPage = () => {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search blocked users..."
+                placeholder={tr("Search blocked users...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
@@ -96,11 +95,9 @@ export const BlockedPage = () => {
               <AlertCircle className="w-6 h-6" />
             </div>
             <h3 className="text-lg font-semibold text-slate-800">
-              Failed to load blocked users
-            </h3>
+              {tr("Failed to load blocked users")}</h3>
             <p className="text-sm text-slate-500">
-              Something went wrong while fetching your blocked list. Please try again later.
-            </p>
+              {tr("Something went wrong while fetching your blocked list. Please try again later.")}</p>
           </div>
         ) : !data || data.length === 0 ? (
           /* Empty State */
@@ -109,21 +106,17 @@ export const BlockedPage = () => {
               <UserX className="w-7 h-7" />
             </div>
             <h3 className="text-lg font-semibold text-slate-800">
-              No Blocked Users
-            </h3>
+              {tr("No Blocked Users")}</h3>
             <p className="text-sm text-slate-500 max-w-sm mx-auto">
-              You haven't blocked anyone yet. Users you block will appear here.
-            </p>
+              {tr("You haven't blocked anyone yet. Users you block will appear here.")}</p>
           </div>
         ) : filteredUsers.length === 0 ? (
           /* Search No Results */
           <div className="bg-surface p-8 rounded-2xl border border-line text-center space-y-2">
             <p className="text-slate-600 font-medium">
-              No blocked users match "{searchQuery}"
-            </p>
+              {tr("No blocked users match \"{searchQuery}\"", { searchQuery })}</p>
             <p className="text-xs text-slate-400">
-              Try searching with a different term.
-            </p>
+              {tr("Try searching with a different term.")}</p>
           </div>
         ) : (
           /* List of Blocked Users */
@@ -149,10 +142,10 @@ export const BlockedPage = () => {
                       {block.reason ? (
                         <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                           <Info className="w-3 h-3 shrink-0 text-slate-400" />
-                          <span>Reason: {block.reason}</span>
+                          <span>{tr("Reason:")}{" "}{block.reason}</span>
                         </p>
                       ) : (
-                        <p className="text-xs text-slate-400">No reason specified</p>
+                        <p className="text-xs text-slate-400">{tr("No reason specified")}</p>
                       )}
                     </div>
                   </div>
@@ -168,12 +161,12 @@ export const BlockedPage = () => {
                     {isUnblocking ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                        <span>Unblocking...</span>
+                        <span>{tr("Unblocking...")}</span>
                       </>
                     ) : (
                       <>
                         <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Unblock User</span>
+                        <span>{tr("Unblock User")}</span>
                       </>
                     )}
                   </button>

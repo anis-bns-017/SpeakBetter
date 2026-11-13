@@ -8,6 +8,8 @@ import React from "react";
 import { Gauge } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
 import type { CoachTip, FluencySnapshot } from "../../../hooks/useRoomCoach";
+import { useNow } from "../../../hooks/useNow";
+import { tr } from "../../../i18n/core";
 
 interface CoachHudProps {
   live: FluencySnapshot | null;
@@ -29,15 +31,16 @@ const ringColor = (score: number) =>
 const TIP_VISIBLE_MS = 25_000;
 
 export const CoachHud: React.FC<CoachHudProps> = ({ live, tip, onOpen }) => {
+  const now = useNow(5_000);
   if (!live || live.words === 0) return null;
 
   const score = live.fluency;
-  const showTip = tip && Date.now() - tip.at < TIP_VISIBLE_MS;
+  const showTip = tip && now - tip.at < TIP_VISIBLE_MS;
 
   return (
     <button
       onClick={onOpen}
-      aria-label={`Open room coach. Fluency ${score ?? "not yet measured"}`}
+      aria-label={tr("Open room coach. Fluency {value}", { value: score ?? "not yet measured" })}
       className="fixed bottom-36 left-4 z-20 hidden md:flex items-center gap-3 rounded-2xl border px-3 py-2 text-left backdrop-blur-xl transition-transform hover:scale-[1.02]"
       style={{
         background: "var(--sx-bg-10-10-18-850)",
@@ -71,15 +74,13 @@ export const CoachHud: React.FC<CoachHudProps> = ({ live, tip, onOpen }) => {
 
       <div className="min-w-0">
         <div className="text-[11px] font-semibold" style={{ color: THEME.colors.text.primary }}>
-          Your fluency
-        </div>
+          {tr("Your fluency")}</div>
         <div className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-          {live.wpm !== null ? `${live.wpm} wpm · ` : ""}
-          {live.fillerCount} filler{live.fillerCount === 1 ? "" : "s"} · {live.words} words
-        </div>
+          {live.wpm !== null ? tr("{wpm} wpm · ", { wpm: live.wpm }) : ""}
+          {tr("{fillerCount} filler{value} · {words} words", { fillerCount: live.fillerCount, value: live.fillerCount === 1 ? "" : "s", words: live.words })}</div>
         {showTip && (
           <div className="mt-1 text-[11px] leading-snug line-clamp-2" style={{ color: THEME.colors.accent.warning }}>
-            💡 {tip.text}
+            💡 {tr(tip.text)}
           </div>
         )}
       </div>

@@ -26,6 +26,7 @@ import { useProgressInsights, type ActivityKind, type ProgressInsights, type Wee
 import { useProgress } from "../hooks/useLearning";
 import { getXpLevel } from "../lib/xpLevels";
 import { PageHeader } from "../components/ui";
+import { tr, msg } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -41,11 +42,11 @@ const SLOT = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)"];
 
 /** Seven activities folded into five series, so the chart stays readable */
 const ACTIVITY_SERIES: Array<{ key: string; label: string; kinds: ActivityKind[] }> = [
-  { key: "speaking", label: "Speaking", kinds: ["speaking"] },
-  { key: "review", label: "Review", kinds: ["review"] },
-  { key: "pronunciation", label: "Pronunciation", kinds: ["pronunciation"] },
-  { key: "social", label: "Corrections & chat", kinds: ["corrections", "chat"] },
-  { key: "other", label: "Exercises & bonuses", kinds: ["exercises", "other"] },
+  { key: "speaking", label: msg("Speaking"), kinds: ["speaking"] },
+  { key: "review", label: msg("Review"), kinds: ["review"] },
+  { key: "pronunciation", label: msg("Pronunciation"), kinds: ["pronunciation"] },
+  { key: "social", label: msg("Corrections & chat"), kinds: ["corrections", "chat"] },
+  { key: "other", label: msg("Exercises & bonuses"), kinds: ["exercises", "other"] },
 ];
 
 const shortDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
@@ -101,7 +102,7 @@ const Legend: React.FC<{ items: Array<{ label: string; color: string }> }> = ({ 
     {items.map((i) => (
       <span key={i.label} className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
         <span className="w-2.5 h-2.5 rounded-sm" style={{ background: i.color }} aria-hidden />
-        {i.label}
+        {tr(i.label)}
       </span>
     ))}
   </div>
@@ -112,31 +113,29 @@ const Legend: React.FC<{ items: Array<{ label: string; color: string }> }> = ({ 
 // ============================================================
 
 const Delta: React.FC<{ now: number | null; before: number | null; lowerIsBetter?: boolean }> = ({ now, before, lowerIsBetter }) => {
-  if (now === null || before === null) return <span className="text-[11px] text-slate-400">no week before</span>;
+  if (now === null || before === null) return <span className="text-[11px] text-slate-400">{tr("no week before")}</span>;
   const diff = now - before;
   if (diff === 0) {
     return (
       <span className="inline-flex items-center gap-0.5 text-[11px] text-slate-400">
-        <Minus className="w-3 h-3" /> same as last week
-      </span>
+        <Minus className="w-3 h-3" /> {" "}{tr("same as last week")}</span>
     );
   }
   const good = lowerIsBetter ? diff < 0 : diff > 0;
   return (
     <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${good ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
       {diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-      {Math.abs(diff)} vs last week
-    </span>
+      {Math.abs(diff)} {" "}{tr("vs last week")}</span>
   );
 };
 
 const WEEK_TILES: Array<{ key: keyof WeekStats; label: string; unit?: string; lowerIsBetter?: boolean }> = [
-  { key: "minutes", label: "Minutes practised", unit: "min" },
-  { key: "xp", label: "XP earned" },
-  { key: "speakingMinutes", label: "Speaking", unit: "min" },
-  { key: "reviews", label: "Cards reviewed" },
-  { key: "pronunciationAverage", label: "Pronunciation score" },
-  { key: "activeDays", label: "Days you practised", unit: "of 7" },
+  { key: "minutes", label: msg("Minutes practised"), unit: "min" },
+  { key: "xp", label: msg("XP earned") },
+  { key: "speakingMinutes", label: msg("Speaking"), unit: "min" },
+  { key: "reviews", label: msg("Cards reviewed") },
+  { key: "pronunciationAverage", label: msg("Pronunciation score") },
+  { key: "activeDays", label: msg("Days you practised"), unit: "of 7" },
 ];
 
 const WeekCompare: React.FC<{ thisWeek: WeekStats; lastWeek: WeekStats }> = ({ thisWeek, lastWeek }) => (
@@ -146,7 +145,7 @@ const WeekCompare: React.FC<{ thisWeek: WeekStats; lastWeek: WeekStats }> = ({ t
       const before = lastWeek[t.key] as number | null;
       return (
         <div key={t.key} className={`${card} p-4`}>
-          <p className="text-xs text-slate-500">{t.label}</p>
+          <p className="text-xs text-slate-500">{tr(t.label)}</p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
             {now ?? "–"}
             {now !== null && t.unit && <span className="ml-1 text-sm font-semibold text-slate-400">{t.unit}</span>}
@@ -184,8 +183,8 @@ const ActivityCalendar: React.FC<{ days: ProgressInsights["days"] }> = ({ days }
   return (
     <section className={`${card} p-5`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Last 12 weeks</h2>
-        <p className="text-xs text-slate-500">You practised on {active} of {days.length} days</p>
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Last 12 weeks")}</h2>
+        <p className="text-xs text-slate-500">{tr("You practised on {active} of {length} days", { active, length: days.length })}</p>
       </div>
       <div data-tip-root className="relative mt-4 overflow-x-auto">
         <div className="grid grid-flow-col gap-[3px] w-max" style={{ gridTemplateRows: "repeat(7, 14px)", gridTemplateColumns: `repeat(${weeks}, 14px)` }}>
@@ -194,7 +193,7 @@ const ActivityCalendar: React.FC<{ days: ProgressInsights["days"] }> = ({ days }
               <button
                 key={d.date}
                 type="button"
-                aria-label={`${longDate(d.date)}: ${Math.round(d.minutes)} minutes, ${d.xp} XP`}
+                aria-label={tr("{value}: {Math} minutes, {xp} XP", { value: longDate(d.date), Math: Math.round(d.minutes), xp: d.xp })}
                 onMouseEnter={(e) => tip.show(e, [longDate(d.date), `${Math.round(d.minutes)} min · ${d.xp} XP`])}
                 onFocus={(e) => tip.show(e, [longDate(d.date), `${Math.round(d.minutes)} min · ${d.xp} XP`])}
                 onMouseLeave={tip.hide}
@@ -210,12 +209,10 @@ const ActivityCalendar: React.FC<{ days: ProgressInsights["days"] }> = ({ days }
         {tip.node}
       </div>
       <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-500">
-        Less
-        {STEP_STYLE.map((s, i) => (
+        {tr("Less")}{STEP_STYLE.map((s, i) => (
           <span key={i} className="w-3 h-3 rounded-[3px] bg-slate-100 dark:bg-white/[0.06]" style={s} aria-hidden />
         ))}
-        More
-        <span className="ml-2">(minutes of practice a day)</span>
+        {tr("More")}<span className="ml-2">{tr("(minutes of practice a day)")}</span>
       </div>
     </section>
   );
@@ -238,8 +235,8 @@ const XpByDay: React.FC<{ days: ProgressInsights["days"] }> = ({ days }) => {
 
   return (
     <section className={`${card} p-5`}>
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">XP per day, by activity</h2>
-      <p className="text-xs text-slate-500 mt-0.5">Last 30 days · best day {max === 1 && rows.every((r) => r.total === 0) ? "–" : `${max} XP`}</p>
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("XP per day, by activity")}</h2>
+      <p className="text-xs text-slate-500 mt-0.5">{tr("Last 30 days · best day")}{" "}{max === 1 && rows.every((r) => r.total === 0) ? "–" : `${max} XP`}</p>
       <div className="mt-3">
         <Legend items={ACTIVITY_SERIES.map((s, i) => ({ label: s.label, color: SLOT[i] }))} />
       </div>
@@ -277,20 +274,20 @@ const XpByDay: React.FC<{ days: ProgressInsights["days"] }> = ({ days }) => {
         {tip.node}
         <div className="mt-1 flex justify-between text-[11px] text-slate-400">
           <span>{shortDate(rows[0].date)}</span>
-          <span>Today</span>
+          <span>{tr("Today")}</span>
         </div>
       </div>
       <details className="mt-3 text-xs text-slate-500">
-        <summary className="cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-300">See the numbers</summary>
+        <summary className="cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-300">{tr("See the numbers")}</summary>
         <div className="mt-2 max-h-60 overflow-auto">
           <table className="w-full text-left tabular-nums">
             <thead>
               <tr className="text-slate-400">
-                <th className="py-1 pr-2 font-medium">Day</th>
+                <th className="py-1 pr-2 font-medium">{tr("Day")}</th>
                 {ACTIVITY_SERIES.map((s) => (
-                  <th key={s.key} className="py-1 pr-2 font-medium">{s.label}</th>
+                  <th key={s.key} className="py-1 pr-2 font-medium">{tr(s.label)}</th>
                 ))}
-                <th className="py-1 font-medium">Total</th>
+                <th className="py-1 font-medium">{tr("Total")}</th>
               </tr>
             </thead>
             <tbody>
@@ -330,8 +327,8 @@ const WeekBars: React.FC<{
   const last = values[values.length - 1];
   return (
     <section className={`${card} p-5`}>
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h2>
-      <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr(title)}</h2>
+      <p className="text-xs text-slate-500 mt-0.5">{tr(subtitle)}</p>
       {hasData ? (
         <div data-tip-root className="relative mt-4">
           <div className="flex items-end gap-1.5 border-b border-slate-200 dark:border-white/10" style={{ height }}>
@@ -355,14 +352,14 @@ const WeekBars: React.FC<{
           </div>
           {tip.node}
           <div className="mt-1 flex justify-between text-[11px] text-slate-400">
-            <span>{values[0].label}</span>
+            <span>{tr(values[0].label)}</span>
             <span className="font-semibold text-slate-600 dark:text-slate-300">
-              {last.label}: {last.value ?? "–"} {last.value !== null ? unit : ""}
+              {tr(last.label)}: {last.value ?? "–"} {last.value !== null ? unit : ""}
             </span>
           </div>
         </div>
       ) : (
-        <p className="mt-6 mb-2 text-sm text-slate-500">{empty}</p>
+        <p className="mt-6 mb-2 text-sm text-slate-500">{tr(empty)}</p>
       )}
     </section>
   );
@@ -381,19 +378,18 @@ const MistakesByWeek: React.FC<{ mistakes: ProgressInsights["mistakes"] }> = ({ 
   return (
     <section className={`${card} p-5`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Mistakes per week</h2>
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Mistakes per week")}</h2>
         <Link to="/flashcards?tab=mistakes" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-          My mistakes
-        </Link>
+          {tr("My mistakes")}</Link>
       </div>
-      <p className="text-xs text-slate-500 mt-0.5">Corrections you received · fewer is better</p>
+      <p className="text-xs text-slate-500 mt-0.5">{tr("Corrections you received · fewer is better")}</p>
       {has ? (
         <>
           <div className="mt-3">
             <Legend
               items={[
                 ...mistakes.patterns.map((p, i) => ({ label: p.label.split(" (")[0], color: SLOT[i] })),
-                { label: "Other", color: "rgb(148 163 184)" },
+                { label: msg("Other"), color: "rgb(148 163 184)" },
               ]}
             />
           </div>
@@ -406,7 +402,7 @@ const MistakesByWeek: React.FC<{ mistakes: ProgressInsights["mistakes"] }> = ({ 
                   <button
                     key={w.weeksAgo}
                     type="button"
-                    aria-label={`${weekLabel(w.weeksAgo)}: ${w.total} mistakes`}
+                    aria-label={tr("{value}: {total} mistakes", { value: weekLabel(w.weeksAgo), total: w.total })}
                     onMouseEnter={(e) =>
                       tip.show(e, [
                         `${weekLabel(w.weeksAgo)} · ${w.total} mistake${w.total === 1 ? "" : "s"}`,
@@ -435,12 +431,12 @@ const MistakesByWeek: React.FC<{ mistakes: ProgressInsights["mistakes"] }> = ({ 
             {tip.node}
             <div className="mt-1 flex justify-between text-[11px] text-slate-400">
               <span>{weekLabel(mistakes.byWeek[0].weeksAgo)}</span>
-              <span>This week</span>
+              <span>{tr("This week")}</span>
             </div>
           </div>
         </>
       ) : (
-        <p className="mt-6 mb-2 text-sm text-slate-500">No corrections in the last 8 weeks. When someone corrects you, the trend shows up here.</p>
+        <p className="mt-6 mb-2 text-sm text-slate-500">{tr("No corrections in the last 8 weeks. When someone corrects you, the trend shows up here.")}</p>
       )}
     </section>
   );
@@ -473,10 +469,9 @@ export const ProgressPage: React.FC = () => {
   if (isError || !data) {
     return (
       <div className="max-w-xl mx-auto px-6 py-24 text-center">
-        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">We couldn't load your progress</p>
+        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tr("We couldn't load your progress")}</p>
         <button type="button" onClick={() => refetch()} className="mt-5 px-4 h-10 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
-          Try again
-        </button>
+          {tr("Try again")}</button>
       </div>
     );
   }
@@ -487,13 +482,12 @@ export const ProgressPage: React.FC = () => {
 
   return (
     <div className={`max-w-5xl mx-auto px-4 sm:px-6 py-6 lg:py-10 space-y-5 ${SERIES_VARS}`}>
-      <PageHeader icon={TrendingUp} tone="indigo" eyebrow="Overview" title="Your progress" subtitle="How your practice is going, week by week." />
+      <PageHeader icon={TrendingUp} tone="indigo" eyebrow={tr("Overview")} title={tr("Your progress")} subtitle={tr("How your practice is going, week by week.")} />
 
       {data.summary.length > 0 && (
         <section className="rounded-3xl bg-indigo-900 ring-1 ring-inset ring-white/10 text-white p-5 shadow-md shadow-indigo-500/15">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" /> This week
-          </p>
+            <Sparkles className="w-3.5 h-3.5" /> {" "}{tr("This week")}</p>
           <ul className="mt-2 space-y-1.5">
             {data.summary.map((line) => (
               <li key={line} className="text-sm sm:text-base leading-snug">{line}</li>
@@ -506,29 +500,29 @@ export const ProgressPage: React.FC = () => {
         <div className={`${card} p-4 flex items-center gap-3`}>
           <span className="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-500 flex items-center justify-center shrink-0"><Trophy className="w-5 h-5" /></span>
           <div>
-            <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">Level {level}</p>
-            <p className="text-[11px] text-slate-500">{data.totalXp.toLocaleString()} XP in all</p>
+            <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">{tr("Level")}{" "}{level}</p>
+            <p className="text-[11px] text-slate-500">{data.totalXp.toLocaleString()} {" "}{tr("XP in all")}</p>
           </div>
         </div>
         <div className={`${card} p-4 flex items-center gap-3`}>
           <span className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0"><Flame className="w-5 h-5" /></span>
           <div>
-            <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">{data.streak.current} days</p>
-            <p className="text-[11px] text-slate-500">streak · best {data.streak.longest}</p>
+            <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">{data.streak.current} {" "}{tr("days")}</p>
+            <p className="text-[11px] text-slate-500">{tr("streak · best")}{" "}{data.streak.longest}</p>
           </div>
         </div>
         <div className={`${card} p-4 flex items-center gap-3`}>
           <span className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0"><CalendarDays className="w-5 h-5" /></span>
           <div>
-            <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">{data.streak.plan} days</p>
-            <p className="text-[11px] text-slate-500">daily plan finished in a row</p>
+            <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">{data.streak.plan} {" "}{tr("days")}</p>
+            <p className="text-[11px] text-slate-500">{tr("daily plan finished in a row")}</p>
           </div>
         </div>
         <div className={`${card} p-4 flex items-center gap-3`}>
           <span className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0"><Layers className="w-5 h-5" /></span>
           <div>
             <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">{data.cards.learned}</p>
-            <p className="text-[11px] text-slate-500">cards you remember for weeks</p>
+            <p className="text-[11px] text-slate-500">{tr("cards you remember for weeks")}</p>
           </div>
         </div>
       </div>
@@ -540,8 +534,8 @@ export const ProgressPage: React.FC = () => {
       <div className="grid lg:grid-cols-2 gap-5">
         <XpByDay days={data.days} />
         <WeekBars
-          title="Minutes per week"
-          subtitle="Estimated from what you did · last 12 weeks"
+          title={tr("Minutes per week")}
+          subtitle={tr("Estimated from what you did · last 12 weeks")}
           values={weeklyMinutes}
           unit="min"
           empty="No practice yet. Your weekly minutes will show up here."
@@ -552,22 +546,21 @@ export const ProgressPage: React.FC = () => {
         <MistakesByWeek mistakes={data.mistakes} />
         <section className={`${card} p-5`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Pronunciation</h2>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Pronunciation")}</h2>
             <Link to="/pronunciation" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-              Practise
-            </Link>
+              {tr("Practise")}</Link>
           </div>
           <WeekBarsInline values={pronunciationWeeks} />
           {data.pronunciation.weakSounds.length > 0 && (
             <div className="mt-4">
-              <p className="text-xs font-semibold text-slate-500">Sounds to work on</p>
+              <p className="text-xs font-semibold text-slate-500">{tr("Sounds to work on")}</p>
               <ul className="mt-2 space-y-1.5">
                 {data.pronunciation.weakSounds.map((s) => (
                   <li key={s.key} className="flex items-center justify-between gap-2 text-sm">
                     <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200 truncate">
-                      <AudioLines className="w-3.5 h-3.5 text-slate-400 shrink-0" /> {s.label}
+                      <AudioLines className="w-3.5 h-3.5 text-slate-400 shrink-0" /> {tr(s.label)}
                     </span>
-                    <span className="tabular-nums text-xs text-slate-500 shrink-0">avg {s.average} · {s.tries} tries</span>
+                    <span className="tabular-nums text-xs text-slate-500 shrink-0">{tr("avg {average} · {tries} tries", { average: s.average, tries: s.tries })}</span>
                   </li>
                 ))}
               </ul>
@@ -578,25 +571,24 @@ export const ProgressPage: React.FC = () => {
 
       <div className="grid lg:grid-cols-2 gap-5">
         <section className={`${card} p-5`}>
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Cards you have learned</h2>
-          <p className="text-xs text-slate-500 mt-0.5">A card counts once you remember it for 3 weeks or more</p>
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Cards you have learned")}</h2>
+          <p className="text-xs text-slate-500 mt-0.5">{tr("A card counts once you remember it for 3 weeks or more")}</p>
           <p className="mt-4 text-3xl font-bold tabular-nums text-slate-900 dark:text-white">
             {data.cards.learned}
-            <span className="text-base font-semibold text-slate-400"> of {data.cards.total}</span>
+            <span className="text-base font-semibold text-slate-400"> {" "}{tr("of")}{" "}{data.cards.total}</span>
           </p>
           <div className="mt-2 h-2 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden" aria-hidden>
             <div className="h-full rounded-full" style={{ width: `${learnedPct}%`, background: "var(--s1)" }} />
           </div>
           <Link to="/flashcards" className="mt-3 inline-block text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-            Review now
-          </Link>
+            {tr("Review now")}</Link>
         </section>
 
         <section className={`${card} p-5`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Your level</h2>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Your level")}</h2>
             <Link to="/placement" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-              {data.levels.length ? "Retake the test" : "Take the test"}
+              {data.levels.length ? tr("Retake the test") : tr("Take the test")}
             </Link>
           </div>
           {data.levels.length ? (
@@ -613,8 +605,7 @@ export const ProgressPage: React.FC = () => {
             </ol>
           ) : (
             <p className="mt-4 text-sm text-slate-500 flex items-center gap-1.5">
-              <Target className="w-4 h-4 text-slate-400" /> Take the level test to start tracking your level over time.
-            </p>
+              <Target className="w-4 h-4 text-slate-400" /> {" "}{tr("Take the level test to start tracking your level over time.")}</p>
           )}
         </section>
       </div>
@@ -622,14 +613,13 @@ export const ProgressPage: React.FC = () => {
       {skills.length > 0 && (
         <section className={`${card} p-5`}>
           <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-            <Zap className="w-4 h-4 text-amber-500" /> Course skills
-          </h2>
+            <Zap className="w-4 h-4 text-amber-500" /> {" "}{tr("Course skills")}</h2>
           <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/[0.06]">
             {skills.map((s, i) => (
               <li key={String(s.id ?? i)} className="py-2 flex items-center justify-between gap-3 text-sm">
                 <span className="text-slate-700 dark:text-slate-200">{String(s.skill ?? s.type ?? "Skill")}</span>
                 <span className="text-xs text-slate-500 tabular-nums">
-                  {typeof s.completionRate === "number" ? `${Math.round(s.completionRate * 100)}%` : s.mastered ? "Mastered" : ""}
+                  {typeof s.completionRate === "number" ? `${Math.round(s.completionRate * 100)}%` : s.mastered ? tr("Mastered") : ""}
                 </span>
               </li>
             ))}
@@ -638,8 +628,7 @@ export const ProgressPage: React.FC = () => {
       )}
 
       <p className="text-[11px] text-slate-400 text-center">
-        Speaking time is measured. Other minutes are estimated per action (a card review is about 25 seconds, a pronunciation try about 30).
-      </p>
+        {tr("Speaking time is measured. Other minutes are estimated per action (a card review is about 25 seconds, a pronunciation try about 30).")}</p>
     </div>
   );
 };
@@ -649,11 +638,11 @@ const WeekBarsInline: React.FC<{ values: Array<{ label: string; value: number | 
   const tip = useTip();
   const height = 90;
   const has = values.some((v) => v.value !== null);
-  if (!has) return <p className="mt-4 text-sm text-slate-500">No pronunciation practice yet. Your weekly average score will show here.</p>;
+  if (!has) return <p className="mt-4 text-sm text-slate-500">{tr("No pronunciation practice yet. Your weekly average score will show here.")}</p>;
   const last = [...values].reverse().find((v) => v.value !== null);
   return (
     <div data-tip-root className="relative mt-4">
-      <p className="text-xs text-slate-500">Average score per week, out of 100</p>
+      <p className="text-xs text-slate-500">{tr("Average score per week, out of 100")}</p>
       <div className="mt-2 flex items-end gap-1.5 border-b border-slate-200 dark:border-white/10" style={{ height }}>
         {values.map((v, i) => (
           <button
@@ -672,8 +661,8 @@ const WeekBarsInline: React.FC<{ values: Array<{ label: string; value: number | 
       </div>
       {tip.node}
       <div className="mt-1 flex justify-between text-[11px] text-slate-400">
-        <span>{values[0].label}</span>
-        {last && <span className="font-semibold text-slate-600 dark:text-slate-300">{last.label}: {last.value}</span>}
+        <span>{tr(values[0].label)}</span>
+        {last && <span className="font-semibold text-slate-600 dark:text-slate-300">{tr(last.label)}: {last.value}</span>}
       </div>
     </div>
   );

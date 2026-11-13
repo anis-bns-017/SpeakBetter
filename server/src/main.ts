@@ -11,6 +11,7 @@ import * as express from 'express';
 import type Redis from 'ioredis';
 import { REDIS_CLIENT } from './common/redis.module';
 import { RedisIoAdapter } from './common/redis-io.adapter';
+import { isPrivateNetworkDevOrigin } from './common/socket-origin';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -98,6 +99,11 @@ async function bootstrap() {
           /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
 
         if (isLocalDevelopment) {
+          return callback(null, true);
+        }
+
+        // Outside production, also this Wi-Fi network (a phone trying the site or the phone app)
+        if (isPrivateNetworkDevOrigin(origin)) {
           return callback(null, true);
         }
 

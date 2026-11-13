@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
 import type { VoiceCorrection } from "../../../hooks/useVoiceCorrections";
+import { tr } from "../../../i18n/core";
 
 interface CorrectionsInboxProps {
   isOpen: boolean;
@@ -89,15 +90,14 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                   className="text-sm font-semibold truncate"
                   style={{ color: THEME.colors.text.primary }}
                 >
-                  Corrections
-                </p>
+                  {tr("Corrections")}</p>
                 <p
                   className="text-[11px] truncate"
                   style={{ color: THEME.colors.text.muted }}
                 >
                   {pending.length === 0
-                    ? "No new corrections"
-                    : `${pending.length} to review`}
+                    ? tr("No new corrections")
+                    : tr("{pending} to review", { pending: pending.length })}
                 </p>
               </div>
             </div>
@@ -106,7 +106,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
               onClick={onClose}
               className="p-1.5 rounded-full hover:bg-white/10 transition-colors shrink-0"
               style={{ color: THEME.colors.text.muted }}
-              aria-label="Close"
+              aria-label={tr("Close")}
             >
               <X className="w-4 h-4" />
             </button>
@@ -128,8 +128,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                   className="text-xs"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  Corrections will show up here as people help you improve.
-                </p>
+                  {tr("Corrections will show up here as people help you improve.")}</p>
               </div>
             )}
 
@@ -187,7 +186,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                         className="text-[11px] mt-0.5 truncate"
                         style={{ color: THEME.colors.text.muted }}
                       >
-                        from {c.authorName}
+                        {tr("from")}{" "}{c.authorName}
                       </p>
                     </div>
 
@@ -223,13 +222,12 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                                 className="text-[9px] uppercase tracking-wider font-semibold mb-0.5"
                                 style={{ color: THEME.colors.text.muted }}
                               >
-                                Why
-                              </p>
+                                {tr("Why")}</p>
                               <p
                                 className="text-[11px] italic leading-relaxed"
                                 style={{ color: THEME.colors.text.secondary }}
                               >
-                                {c.note}
+                                {tr(c.note)}
                               </p>
                             </div>
                           )}
@@ -248,8 +246,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                               }}
                             >
                               <Check className="w-3 h-3" />
-                              Got it
-                            </button>
+                              {tr("Got it")}</button>
                             <button
                               type="button"
                               onClick={() => {
@@ -260,8 +257,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                               style={{ color: THEME.colors.accent.error }}
                             >
                               <Trash2 className="w-3 h-3" />
-                              Dismiss
-                            </button>
+                              {tr("Dismiss")}</button>
                           </div>
                         </div>
                       </motion.div>
@@ -281,8 +277,7 @@ export const CorrectionsInbox: React.FC<CorrectionsInboxProps> = ({
                   className="text-[9px] uppercase tracking-wider font-semibold mb-2"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  History ({resolved.length})
-                </p>
+                  {tr("History ({length})", { length: resolved.length })}</p>
                 <div className="space-y-1.5">
                   {resolved.slice(-5).reverse().map((c) => (
                     <div

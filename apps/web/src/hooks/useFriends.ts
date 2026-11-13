@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api/client';
 import { toast } from 'sonner';
+import { type ApiError } from "../lib/api/errors";
+import { tr } from "../i18n/core";
 
 // ---------- Types ----------
 export interface Friend {
@@ -62,12 +64,12 @@ export const useSendFriendRequest = () => {
       return response.data;
     },
     onSuccess: () => {
-      toast.success('Friend request sent!');
+      toast.success(tr("Friend request sent!"));
       queryClient.invalidateQueries({ queryKey: ['friends'] });
       queryClient.invalidateQueries({ queryKey: ['friend-requests'] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to send request');
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to send request"));
     },
   });
 };
@@ -80,12 +82,12 @@ export const useRespondFriendRequest = () => {
       return response.data;
     },
     onSuccess: (_, variables) => {
-      toast.success(variables.action === 'accepted' ? 'Friend request accepted!' : 'Friend request rejected');
+      toast.success(variables.action === 'accepted' ? tr("Friend request accepted!") : tr("Friend request rejected"));
       queryClient.invalidateQueries({ queryKey: ['friends'] });
       queryClient.invalidateQueries({ queryKey: ['friend-requests'] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to respond');
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to respond"));
     },
   });
 };
@@ -98,11 +100,11 @@ export const useCancelFriendRequest = () => {
       return response.data;
     },
     onSuccess: () => {
-      toast.success('Friend request cancelled');
+      toast.success(tr("Friend request cancelled"));
       queryClient.invalidateQueries({ queryKey: ['friend-requests'] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to cancel');
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to cancel"));
     },
   });
 };
@@ -157,12 +159,12 @@ export const useBlockUser = () => {
       return response.data;
     },
     onSuccess: () => {
-      toast.success('User blocked');
+      toast.success(tr("User blocked"));
       queryClient.invalidateQueries({ queryKey: ['friends'] });
       queryClient.invalidateQueries({ queryKey: ['blocked-users'] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to block user');
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to block user"));
     },
   });
 };
@@ -175,11 +177,11 @@ export const useUnblockUser = () => {
       return response.data;
     },
     onSuccess: () => {
-      toast.success('User unblocked');
+      toast.success(tr("User unblocked"));
       queryClient.invalidateQueries({ queryKey: ['blocked-users'] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to unblock user');
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || tr("Failed to unblock user"));
     },
   });
 };

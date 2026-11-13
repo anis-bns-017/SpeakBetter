@@ -3,6 +3,7 @@ import React from "react";
 import { LayoutGrid, List, RefreshCw, Search, X } from "lucide-react";
 import { COLORS, TYPE_ACCENTS, TYPE_LABELS } from "./lobbyTheme";
 import { SORT_LABELS, type SortKey } from "./lobbyUtils";
+import { tr } from "../../../i18n/core";
 
 interface LobbyToolbarProps {
   searchRef: React.RefObject<HTMLInputElement | null>;
@@ -85,8 +86,8 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
             type="text"
             value={searchQuery}
             onChange={(e) => onSearch(e.target.value)}
-            placeholder="Search rooms, topics, hosts..."
-            aria-label="Search rooms"
+            placeholder={tr("Search rooms, topics, hosts...")}
+            aria-label={tr("Search rooms")}
             className="h-11 w-full rounded-xl border pl-10 pr-12 text-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
             style={selectStyle}
           />
@@ -94,7 +95,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
             {searchQuery ? (
               <button
                 onClick={() => onSearch("")}
-                aria-label="Clear search"
+                aria-label={tr("Clear search")}
                 style={{ color: COLORS.textMuted }}
               >
                 <X className="w-4 h-4" />
@@ -107,8 +108,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
 
         <div className="flex items-center gap-2 flex-wrap">
           <label className="sr-only" htmlFor="lobby-sort">
-            Sort rooms
-          </label>
+            {tr("Sort rooms")}</label>
           <select
             id="lobby-sort"
             value={sort}
@@ -118,7 +118,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
           >
             {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
               <option key={key} value={key}>
-                {SORT_LABELS[key]}
+                {tr(SORT_LABELS[key])}
               </option>
             ))}
           </select>
@@ -126,8 +126,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
           {languages.length > 0 && (
             <>
               <label className="sr-only" htmlFor="lobby-language">
-                Filter by language
-              </label>
+                {tr("Filter by language")}</label>
               <select
                 id="lobby-language"
                 value={language ?? ""}
@@ -135,7 +134,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
                 className="h-11 rounded-xl border px-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                 style={selectStyle}
               >
-                <option value="">All languages</option>
+                <option value="">{tr("All languages")}</option>
                 {languages.map((l) => (
                   <option key={l} value={l}>
                     {l}
@@ -154,8 +153,8 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
                 key={mode}
                 onClick={() => onViewMode(mode)}
                 aria-pressed={viewMode === mode}
-                aria-label={`${mode} view`}
-                title={`${mode === "grid" ? "Grid" : "List"} view (G)`}
+                aria-label={tr("{mode} view", { mode })}
+                title={tr("{value} view (G)", { value: mode === "grid" ? "Grid" : "List" })}
                 className={`grid h-9 w-9 place-items-center rounded-lg transition-colors ${viewMode === mode ? "bg-slate-900/10 dark:bg-white/10" : ""}`}
                 style={{
                   color: viewMode === mode ? COLORS.textPrimary : COLORS.textMuted,
@@ -175,8 +174,8 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
             disabled={refreshing}
             className="grid h-11 w-11 place-items-center rounded-xl transition-colors hover:bg-slate-900/[0.05] disabled:opacity-50 dark:hover:bg-white/5"
             style={{ color: COLORS.textMuted }}
-            title="Refresh (R)"
-            aria-label="Refresh rooms"
+            title={tr("Refresh (R)")}
+            aria-label={tr("Refresh rooms")}
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
           </button>
@@ -199,7 +198,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
                 color: selected ? color : COLORS.textMuted,
               }}
             >
-              {type === "ALL" ? "All" : TYPE_LABELS[type]}
+              {type === "ALL" ? tr("All") : tr(TYPE_LABELS[type])}
             </button>
           );
         })}
@@ -216,8 +215,7 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
             onChange={(e) => onHideFull(e.target.checked)}
             className="h-4 w-4 accent-indigo-600"
           />
-          Hide full rooms
-        </label>
+          {tr("Hide full rooms")}</label>
 
         {topics.map((t) => (
           <button
@@ -246,10 +244,10 @@ export const LobbyToolbar: React.FC<LobbyToolbarProps> = (props) => {
               className="underline underline-offset-2 hover:opacity-80"
               style={{ color: COLORS.primary }}
             >
-              Clear {activeFilters} filter{activeFilters > 1 ? "s" : ""}
+              {tr("Clear {activeFilters} filter", { activeFilters })}{activeFilters > 1 ? "s" : ""}
             </button>
           )}
-          Showing {shown} of {total}
+          {tr("Showing {shown} of", { shown })}{" "}{total}
         </span>
       </div>
     </div>

@@ -4,7 +4,7 @@
  * review) and a short quiz with instant feedback. Words you miss in the quiz are added to your review.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { createElement, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, Layers, Loader2, Plus, RotateCcw, Trophy, Volume2, XCircle, Zap } from "lucide-react";
@@ -21,6 +21,7 @@ import { categoryTone, packIcon, topicTone } from "../components/packs/packIcons
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { ChallengeFriendButton } from "../components/challenges/ChallengeFriendButton";
 import { ChallengeOutcomes } from "../components/challenges/ChallengeOutcomes";
+import { tr, msg } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -45,26 +46,26 @@ const Example: React.FC<{ sentence: string; word: string }> = ({ sentence, word 
 };
 
 const FORM_LABEL: Record<string, string> = {
-  third: "he/she",
-  past: "past",
-  pastParticiple: "past participle",
-  ing: "-ing",
-  plural: "plural",
-  comparative: "comparative",
-  superlative: "superlative",
+  third: msg("he/she"),
+  past: msg("past"),
+  pastParticiple: msg("past participle"),
+  ing: msg("-ing"),
+  plural: msg("plural"),
+  comparative: msg("comparative"),
+  superlative: msg("superlative"),
 };
 
 const FREQUENCY: Record<NonNullable<PackWord["freq"]>, { label: string; tone: string }> = {
-  common: { label: "Common", tone: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" },
-  uncommon: { label: "Uncommon", tone: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" },
-  rare: { label: "Rare", tone: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300" },
+  common: { label: msg("Common"), tone: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" },
+  uncommon: { label: msg("Uncommon"), tone: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" },
+  rare: { label: msg("Rare"), tone: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300" },
 };
 
 /** One labelled line of related words, such as synonyms */
 const Detail: React.FC<{ label: string; items: string[] }> = ({ label, items }) =>
   items.length ? (
     <p className="text-xs text-slate-500">
-      <span className="font-semibold text-slate-400 uppercase tracking-wide text-[11px] mr-1.5">{label}</span>
+      <span className="font-semibold text-slate-400 uppercase tracking-wide text-[11px] mr-1.5">{tr(label)}</span>
       {items.join(", ")}
     </p>
   ) : null;
@@ -82,12 +83,12 @@ const WordCard: React.FC<{ word: PackWord; onSave: () => void; saving: boolean }
           <span className="text-lg font-bold text-slate-900 dark:text-white">{word.word}</span>
           <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide bg-slate-100 dark:bg-white/[0.07] text-slate-500">{word.pos}</span>
           {word.lv && <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">{word.lv}</span>}
-          {freq && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${freq.tone}`}>{freq.label}</span>}
+          {freq && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${freq.tone}`}>{tr(freq.label)}</span>}
           {word.tags?.map((tag) => (
             <span key={tag} className="rounded-full px-2 py-0.5 text-[11px] font-semibold bg-slate-100 dark:bg-white/[0.07] text-slate-500">{tag}</span>
           ))}
           {canSpeak() && (
-            <button type="button" onClick={() => void speak(word.word, { rate: 0.85 })} aria-label={`Listen to ${word.word}`} className="text-slate-400 hover:text-indigo-600">
+            <button type="button" onClick={() => void speak(word.word, { rate: 0.85 })} aria-label={tr("Listen to {word}", { word: word.word })} className="text-slate-400 hover:text-indigo-600">
               <Volume2 className="w-4 h-4" />
             </button>
           )}
@@ -102,7 +103,7 @@ const WordCard: React.FC<{ word: PackWord; onSave: () => void; saving: boolean }
         {!!word.examples?.length && (
           <details className="mt-1 text-sm text-slate-500">
             <summary className="cursor-pointer text-xs font-semibold text-indigo-600 dark:text-indigo-400 select-none">
-              {word.examples.length} more {word.examples.length === 1 ? "example" : "examples"}
+              {word.examples.length} {" "}{tr("more")}{" "}{word.examples.length === 1 ? tr("example") : tr("examples")}
             </summary>
             <ul className="mt-1 space-y-1 italic">
               {word.examples.map((sentence) => (
@@ -117,7 +118,7 @@ const WordCard: React.FC<{ word: PackWord; onSave: () => void; saving: boolean }
           <ul className="mt-2 space-y-1.5 border-l-2 border-slate-100 dark:border-white/[0.07] pl-3">
             {word.senses.map((sense, i) => (
               <li key={i} className="text-sm text-slate-600 dark:text-slate-300">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mr-1.5">Also</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mr-1.5">{tr("Also")}</span>
                 {sense.meaning}
                 {sense.example && <span className="block text-slate-500 italic">“{sense.example}”</span>}
               </li>
@@ -126,10 +127,10 @@ const WordCard: React.FC<{ word: PackWord; onSave: () => void; saving: boolean }
         )}
         {(word.syn?.length || word.ant?.length || word.fam?.length || forms.length > 0) && (
           <div className="mt-2 space-y-0.5">
-            <Detail label="Similar" items={word.syn ?? []} />
-            <Detail label="Opposite" items={word.ant ?? []} />
-            <Detail label="Word family" items={word.fam ?? []} />
-            <Detail label="Forms" items={forms} />
+            <Detail label={tr("Similar")} items={word.syn ?? []} />
+            <Detail label={tr("Opposite")} items={word.ant ?? []} />
+            <Detail label={tr("Word family")} items={word.fam ?? []} />
+            <Detail label={tr("Forms")} items={forms} />
           </div>
         )}
       </div>
@@ -137,8 +138,8 @@ const WordCard: React.FC<{ word: PackWord; onSave: () => void; saving: boolean }
         type="button"
         onClick={onSave}
         disabled={word.saved || saving}
-        aria-label={word.saved ? `${word.word} is saved` : `Save ${word.word} to review`}
-        title={word.saved ? "In your review" : "Add to your flashcard review"}
+        aria-label={word.saved ? tr("{word} is saved", { word: word.word }) : tr("Save {word} to review", { word: word.word })}
+        title={word.saved ? tr("In your review") : tr("Add to your flashcard review")}
         className={`shrink-0 h-9 w-9 rounded-full border flex items-center justify-center transition-colors ${
           word.saved
             ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
@@ -172,7 +173,9 @@ export const PackPage: React.FC = () => {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   // A different pack starts from the top; stop the voice when leaving
-  useEffect(() => {
+  const [shownPack, setShownPack] = useState(packId);
+  if (shownPack !== packId) {
+    setShownPack(packId);
     setTab("words");
     setStep("intro");
     setIndex(0);
@@ -180,7 +183,7 @@ export const PackPage: React.FC = () => {
     setFeedback(null);
     setAnswers({});
     setResult(null);
-  }, [packId]);
+  }
   useEffect(() => () => stopSpeaking(), []);
 
   if (isLoading) {
@@ -193,7 +196,7 @@ export const PackPage: React.FC = () => {
   if (isError || !pack) {
     return (
       <div className={`${card} max-w-xl mx-auto mt-16 p-8 text-center text-sm text-slate-500`}>
-        Couldn't load this pack. <Link to="/packs" className="text-indigo-600 underline">Back to word packs</Link>
+        {tr("Couldn't load this pack.")}{" "}<Link to="/packs" className="text-indigo-600 underline">{tr("Back to word packs")}</Link>
       </div>
     );
   }
@@ -207,7 +210,7 @@ export const PackPage: React.FC = () => {
     setSavingId(ids?.[0] ?? "all");
     try {
       const r = await save.mutateAsync(ids);
-      if (!ids) toast.success(r.added > 0 ? `${r.added} ${r.added === 1 ? "word" : "words"} added to your review` : "Already in your review");
+      if (!ids) toast.success(r.added > 0 ? tr("{added} {value} added to your review", { added: r.added, value: r.added === 1 ? "word" : "words" }) : tr("Already in your review"));
     } catch (e) {
       toast.error(errorMessage(e, "Couldn't save that. Try again."));
     } finally {
@@ -248,7 +251,7 @@ export const PackPage: React.FC = () => {
       const r = await finish.mutateAsync(answers);
       setResult(r);
       setStep("result");
-      if (r.firstPass) toast.success(`Pack passed! +${r.xp} XP`);
+      if (r.firstPass) toast.success(tr("Pack passed! +{xp} XP", { xp: r.xp }));
     } catch (e) {
       toast.error(errorMessage(e, "Couldn't save your result. Try again."));
     }
@@ -257,20 +260,18 @@ export const PackPage: React.FC = () => {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 lg:py-10 space-y-5">
       <Link to="/packs" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-        <ArrowLeft className="w-4 h-4" /> Word packs
-      </Link>
+        <ArrowLeft className="w-4 h-4" /> {" "}{tr("Word packs")}</Link>
 
       <header className="flex items-start gap-3">
         <span className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${pack.category === "everyday" ? topicTone(pack.topic) : categoryTone(pack.category)}`}>
-          <Icon className="w-6 h-6" />
+          {createElement(Icon, { className: "w-6 h-6", "aria-hidden": true })}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{pack.level} · {pack.topic}</p>
-          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{pack.title}</h1>
-          <p className="mt-1 text-sm text-slate-500">{pack.summary}</p>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{tr(pack.title)}</h1>
+          <p className="mt-1 text-sm text-slate-500">{tr(pack.summary)}</p>
           <p className="mt-2 text-xs text-slate-400">
-            {savedCount} of {pack.words.length} saved
-            {pack.progress && <> · quiz best {pack.progress.bestScore}/{pack.progress.total}{pack.progress.done ? " · passed" : ""}</>}
+            {savedCount} {" "}{tr("of {length} saved", { length: pack.words.length })}{pack.progress && <> {" "}{tr("· quiz best {bestScore}/", { bestScore: pack.progress.bestScore })}{pack.progress.total}{pack.progress.done ? tr(" · passed") : ""}</>}
           </p>
         </div>
       </header>
@@ -289,7 +290,7 @@ export const PackPage: React.FC = () => {
                 : "border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
             }`}
           >
-            {t === "words" ? "Words" : "Quiz"}
+            {t === "words" ? tr("Words") : tr("Quiz")}
           </button>
         ))}
       </div>
@@ -298,14 +299,13 @@ export const PackPage: React.FC = () => {
       {tab === "words" && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-slate-500">Tap + to add a word to your flashcard review.</p>
+            <p className="text-sm text-slate-500">{tr("Tap + to add a word to your flashcard review.")}</p>
             {allSaved ? (
               <Link to="/flashcards" className={ghostBtn}>
-                <Layers className="w-4 h-4" /> Review now
-              </Link>
+                <Layers className="w-4 h-4" /> {" "}{tr("Review now")}</Link>
             ) : (
               <button type="button" className={primaryBtn} onClick={() => void saveWords()} disabled={savingId === "all"}>
-                {savingId === "all" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Save all {pack.words.length - savedCount}
+                {savingId === "all" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} {" "}{tr("Save all")}{" "}{pack.words.length - savedCount}
               </button>
             )}
           </div>
@@ -316,7 +316,7 @@ export const PackPage: React.FC = () => {
           </ul>
           <div className="flex justify-end">
             <button type="button" className={primaryBtn} onClick={() => setTab("quiz")}>
-              Take the quiz <ArrowRight className="w-4 h-4" />
+              {tr("Take the quiz")}{" "}<ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </>
@@ -325,12 +325,11 @@ export const PackPage: React.FC = () => {
       {/* ---------------------------------------------------------------- quiz: intro */}
       {tab === "quiz" && step === "intro" && (
         <section className={`${card} p-6 text-center space-y-4`}>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{pack.quiz.length} quick questions</h2>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{pack.quiz.length} {" "}{tr("quick questions")}</h2>
           <p className="text-sm text-slate-500 max-w-sm mx-auto">
-            Match words to their meanings and fill the gaps. Get {Math.ceil(pack.quiz.length * 0.7)} right to pass. Words you miss go into your review.
-          </p>
+            {tr("Match words to their meanings and fill the gaps. Get {value} right to pass. Words you miss go into your review.", { value: Math.ceil(pack.quiz.length * 0.7) })}</p>
           <button type="button" className={primaryBtn} onClick={startQuiz}>
-            Start quiz <ArrowRight className="w-4 h-4" />
+            {tr("Start quiz")}{" "}<ArrowRight className="w-4 h-4" />
           </button>
         </section>
       )}
@@ -347,7 +346,7 @@ export const PackPage: React.FC = () => {
 
           <section className={`${card} p-5 sm:p-6 space-y-5`}>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-              {question.kind === "meaning" ? "Which word matches this meaning?" : "Which word fills the gap?"}
+              {question.kind === "meaning" ? tr("Which word matches this meaning?") : tr("Which word fills the gap?")}
             </p>
             <p className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white leading-relaxed">
               {question.kind === "meaning" ? question.prompt.charAt(0).toUpperCase() + question.prompt.slice(1) : question.prompt}
@@ -391,7 +390,7 @@ export const PackPage: React.FC = () => {
               >
                 <p className="font-semibold flex items-center gap-1.5">
                   {feedback.correct ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                  {feedback.correct ? "Correct!" : <>Not quite. The answer is <strong>{feedback.correctText}</strong></>}
+                  {feedback.correct ? tr("Correct!") : <>{tr("Not quite. The answer is")}{" "}<strong>{feedback.correctText}</strong></>}
                 </p>
                 <p className="mt-1 opacity-90">{feedback.meaning}</p>
                 <p className="mt-1 italic opacity-90">“{feedback.example}”</p>
@@ -402,12 +401,11 @@ export const PackPage: React.FC = () => {
           <div className="flex justify-end">
             {!feedback ? (
               <button type="button" className={primaryBtn} onClick={checkAnswer} disabled={pick === null || check.isPending}>
-                {check.isPending && <Loader2 className="w-4 h-4 animate-spin" />} Check
-              </button>
+                {check.isPending && <Loader2 className="w-4 h-4 animate-spin" />} {" "}{tr("Check")}</button>
             ) : (
               <button type="button" className={primaryBtn} onClick={next} disabled={finish.isPending} autoFocus>
                 {finish.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                {index < pack.quiz.length - 1 ? "Next" : "See results"} <ArrowRight className="w-4 h-4" />
+                {index < pack.quiz.length - 1 ? tr("Next") : tr("See results")} <ArrowRight className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -429,7 +427,7 @@ export const PackPage: React.FC = () => {
               {result.score}/{result.total}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              {result.perfect ? "Perfect! You know every word." : result.passed ? "Pack passed. Nice work." : "Almost. Look at the words again and try once more."}
+              {result.perfect ? tr("Perfect! You know every word.") : result.passed ? tr("Pack passed. Nice work.") : tr("Almost. Look at the words again and try once more.")}
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               {result.xp > 0 && (
@@ -439,14 +437,13 @@ export const PackPage: React.FC = () => {
               )}
               {result.wordsAdded > 0 && (
                 <Link to="/flashcards" className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20">
-                  <Layers className="w-3.5 h-3.5" /> {result.wordsAdded} missed {result.wordsAdded === 1 ? "word" : "words"} added to review
-                </Link>
+                  <Layers className="w-3.5 h-3.5" /> {result.wordsAdded} {" "}{tr("missed {value} added to review", { value: result.wordsAdded === 1 ? tr("word") : tr("words") })}</Link>
               )}
             </div>
           </section>
 
           <section className={`${card} p-5`}>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your answers</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Your answers")}</h2>
             <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/[0.06]">
               {result.results.map((r) => (
                 <li key={r.id} className="py-3 text-sm">
@@ -477,13 +474,12 @@ export const PackPage: React.FC = () => {
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button type="button" className={ghostBtn} onClick={startQuiz} disabled={isFetching}>
-              {isFetching ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} New quiz
-            </button>
+              {isFetching ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} {" "}{tr("New quiz")}</button>
             <div className="flex gap-2">
-              <Link to="/packs" className={ghostBtn}>All packs</Link>
+              <Link to="/packs" className={ghostBtn}>{tr("All packs")}</Link>
               {pack.next && (
                 <Link to={`/packs/${pack.next.id}`} className={primaryBtn}>
-                  Next: {pack.next.title} <ArrowRight className="w-4 h-4" />
+                  {tr("Next:")}{" "}{tr(pack.next.title)} <ArrowRight className="w-4 h-4" />
                 </Link>
               )}
             </div>

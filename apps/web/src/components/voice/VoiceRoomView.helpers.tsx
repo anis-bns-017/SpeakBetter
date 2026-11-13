@@ -112,7 +112,7 @@ export function renderMessageContent(content: string) {
 export function playNotificationBeep() {
   try {
     const AudioCtx =
-      (window as any).AudioContext || (window as any).webkitAudioContext;
+      window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
     const osc = ctx.createOscillator();

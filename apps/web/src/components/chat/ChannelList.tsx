@@ -11,6 +11,7 @@ import {
   ChevronRight,
   BellOff,
 } from 'lucide-react';
+import { tr } from "../../i18n/core";
 
 // Extended Chat interface fallback in case parentId/isPrivate aren't on core type
 interface ExtendedChat extends Omit<Chat, 'type'> {
@@ -36,17 +37,10 @@ interface ChannelItemProps {
   onSelect: (id: string) => void;
 }
 
-const getChannelIcon = (type: string) => {
-  switch (type) {
-    case 'VOICE':
-      return Volume2;
-    case 'ANNOUNCEMENT':
-      return Megaphone;
-    case 'CATEGORY':
-      return Folder;
-    default:
-      return Hash;
-  }
+const CHANNEL_ICONS: Record<string, typeof Hash> = {
+  VOICE: Volume2,
+  ANNOUNCEMENT: Megaphone,
+  CATEGORY: Folder,
 };
 
 const getChannelColor = (type: string, isSelected: boolean) => {
@@ -62,7 +56,7 @@ const getChannelColor = (type: string, isSelected: boolean) => {
 };
 
 const ChannelItem: React.FC<ChannelItemProps> = ({ channel, isSelected, onSelect }) => {
-  const Icon = getChannelIcon(channel.type);
+  const Icon = CHANNEL_ICONS[channel.type] ?? Hash;
   const iconColor = getChannelColor(channel.type, isSelected);
 
   return (
@@ -184,7 +178,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
               {isAdmin && onCreateChannel && (
                 <button
                   onClick={() => onCreateChannel(category.id)}
-                  title="Create Channel in Category"
+                  title={tr("Create Channel in Category")}
                   className="opacity-0 group-hover/cat:opacity-100 p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-opacity"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -216,7 +210,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
           className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          <span>Add Channel</span>
+          <span>{tr("Add Channel")}</span>
         </button>
       )}
     </div>

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { THEME } from '../VoiceRoomView.theme';
 import { initials, hueFromString, getCountryFlag } from '../VoiceRoomView.helpers';
+import { tr } from "../../../i18n/core";
 
 export interface RoomParticipant {
   id: string;
@@ -240,8 +241,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
               className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full text-[7px] font-bold whitespace-nowrap"
               style={{ background: THEME.colors.accent.primary, color: 'var(--sx-text-ffffff)' }}
             >
-              You
-            </div>
+              {tr("You")}</div>
           )}
         </div>
 
@@ -274,7 +274,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
                   color: THEME.colors.accent.success,
                 }}
               >
-                Learning {participant.learningLanguage}
+                {tr("Learning")}{" "}{participant.learningLanguage}
               </span>
             )}
           </div>
@@ -292,14 +292,14 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
             }}
           >
             {participant.isReconnecting
-              ? 'Reconnecting…'
+              ? tr("Reconnecting…")
               : isMuted
-              ? 'Muted'
+              ? tr("Muted")
               : isOnline
                 ? isSpeaking
-                  ? 'Speaking'
-                  : 'Listening'
-                : 'Away'}
+                  ? tr("Speaking")
+                  : tr("Listening")
+                : tr("Away")}
           </span>
 
           {(participant.spotlighted || participant.missionDone || participant.isQuiet) && (
@@ -309,25 +309,22 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
                   className="text-[10px] px-2 py-0.5 rounded-full font-semibold animate-pulse"
                   style={{ background: 'rgba(251,191,36,0.18)', color: THEME.colors.accent.warning }}
                 >
-                  Spotlight
-                </span>
+                  {tr("Spotlight")}</span>
               )}
               {participant.missionDone && (
                 <span
                   className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                   style={{ background: 'rgba(52,211,153,0.15)', color: THEME.colors.accent.success }}
                 >
-                  Mission done
-                </span>
+                  {tr("Mission done")}</span>
               )}
               {participant.isQuiet && (
                 <span
                   className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                  title="Has spoken much less than the others — try a spotlight"
+                  title={tr("Has spoken much less than the others — try a spotlight")}
                   style={{ background: 'rgba(251,191,36,0.1)', color: THEME.colors.accent.warning }}
                 >
-                  Quiet
-                </span>
+                  {tr("Quiet")}</span>
               )}
             </div>
           )}
@@ -353,7 +350,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
                 onFollow?.();
               }}
               className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
-              title="Follow"
+              title={tr("Follow")}
               style={{
                 color: isFollowing ? THEME.colors.accent.primary : THEME.colors.text.muted,
               }}
@@ -363,7 +360,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
             <button
               onClick={onSendMessage}
               className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
-              title="Send Message"
+              title={tr("Send Message")}
               style={{ color: THEME.colors.text.muted }}
             >
               <MessageSquare className="w-3 h-3" />
@@ -372,8 +369,8 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
               <button
                 onClick={onStageAction}
                 className={`p-1.5 rounded-lg transition-all ${stageActionKind === 'invite' ? 'hover:bg-emerald-500/20' : 'hover:bg-white/10'}`}
-                title={stageActionKind === 'invite' ? 'Invite to speak' : 'Move to audience'}
-                aria-label={stageActionKind === 'invite' ? `Invite ${participant.name} to speak` : `Move ${participant.name} to the audience`}
+                title={stageActionKind === 'invite' ? tr("Invite to speak") : tr("Move to audience")}
+                aria-label={stageActionKind === 'invite' ? tr("Invite {name} to speak", { name: participant.name }) : tr("Move {name} to the audience", { name: participant.name })}
                 style={{ color: stageActionKind === 'invite' ? THEME.colors.status.online : THEME.colors.text.muted }}
               >
                 {stageActionKind === 'invite' ? <MicVocal className="w-3 h-3" /> : <ArrowDownFromLine className="w-3 h-3" />}
@@ -384,7 +381,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
                 <button
                   onClick={onMute}
                   className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
-                  title="Toggle Mute"
+                  title={tr("Toggle Mute")}
                   style={{ color: THEME.colors.text.muted }}
                 >
                   <VolumeX className="w-3 h-3" />
@@ -392,7 +389,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
                 <button
                   onClick={onKick}
                   className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all"
-                  title="Kick"
+                  title={tr("Kick")}
                   style={{ color: THEME.colors.text.muted }}
                 >
                   <UserX className="w-3 h-3" />
@@ -401,7 +398,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
                   <button
                     onClick={onPromote}
                     className="p-1.5 rounded-lg hover:bg-yellow-500/20 transition-all"
-                    title="Make Host"
+                    title={tr("Make Host")}
                     style={{ color: THEME.colors.text.muted }}
                   >
                     <Crown className="w-3 h-3" />

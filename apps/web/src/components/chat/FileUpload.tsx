@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { File, Image as ImageIcon, Video, Music, FileText, X, Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { tr } from "../../i18n/core";
 
 interface FileUploadProps {
   onUpload: (file: File) => Promise<void>;
@@ -70,7 +71,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       Array.from(incomingFiles).forEach((file) => {
         // Size validation
         if (file.size > maxSizeMB * 1024 * 1024) {
-          toast.error(`${file.name} exceeds maximum limit of ${maxSizeMB}MB`);
+          toast.error(tr("{name} exceeds maximum limit of {maxSizeMB}MB", { name: file.name, maxSizeMB }));
           return;
         }
 
@@ -83,7 +84,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         });
 
         if (!isTypeAllowed && acceptedTypes.length > 0) {
-          toast.error(`${file.name} is not an allowed file format`);
+          toast.error(tr("{name} is not an allowed file format", { name: file.name }));
           return;
         }
 
@@ -172,18 +173,18 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         setFileList((prev) =>
           prev.map((item) => (item.id === currentItem.id ? { ...item, status: 'completed' } : item))
         );
-      } catch (error) {
+      } catch {
         setFileList((prev) =>
           prev.map((item) => (item.id === currentItem.id ? { ...item, status: 'error' } : item))
         );
-        toast.error(`Failed to upload ${currentItem.file.name}`);
+        toast.error(tr("Failed to upload {name}", { name: currentItem.file.name }));
       }
     }
 
     setIsUploading(false);
 
     if (successCount > 0) {
-      toast.success(`Successfully uploaded ${successCount} file(s)`);
+      toast.success(tr("Successfully uploaded {successCount} file(s)", { successCount }));
       setTimeout(() => {
         setFileList([]);
         onCancel?.();
@@ -223,11 +224,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             <Upload className={`w-6 h-6 ${isDragging ? 'text-blue-500' : 'text-gray-500'}`} />
           </div>
           <p className="text-sm font-medium text-gray-700">
-            <span className="text-blue-600 underline underline-offset-2">Click to upload</span> or drag and drop
-          </p>
+            <span className="text-blue-600 underline underline-offset-2">{tr("Click to upload")}</span> {" "}{tr("or drag and drop")}</p>
           <p className="text-xs text-gray-400">
-            {acceptedTypes.join(', ')} (Max {maxSizeMB}MB)
-          </p>
+            {acceptedTypes.join(', ')} {" "}{tr("(Max {maxSizeMB}MB)", { maxSizeMB })}</p>
         </div>
       </div>
 
@@ -274,7 +273,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       type="button"
                       onClick={() => removeItem(item.id)}
                       className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600 transition-colors"
-                      aria-label="Remove file"
+                      aria-label={tr("Remove file")}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -293,8 +292,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 disabled={isUploading}
                 className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
-                Cancel
-              </button>
+                {tr("Cancel")}</button>
             )}
 
             <button
@@ -306,10 +304,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               {isUploading ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Uploading...
-                </>
+                  {tr("Uploading...")}</>
               ) : (
-                `Upload ${fileList.length} ${fileList.length === 1 ? 'file' : 'files'}`
+                tr("Upload {fileList} {value}", { fileList: fileList.length, value: fileList.length === 1 ? 'file' : 'files' })
               )}
             </button>
           </div>

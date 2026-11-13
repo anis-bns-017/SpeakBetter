@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RateLimit, RateLimitGuard } from '../common/rate-limit.guard';
-import { SubmitAttemptDto } from './dto/pronunciation.dto';
+import { CheckSoundsDto, SubmitAttemptDto } from './dto/pronunciation.dto';
 import { PronunciationService } from './pronunciation.service';
 
 @ApiTags('pronunciation')
@@ -29,6 +29,14 @@ export class PronunciationController {
   @ApiOperation({ summary: 'Score one go at saying something: each word, the score, and tips for the sounds' })
   attempt(@Req() req: any, @Body() body: SubmitAttemptDto) {
     return this.pronunciation.submitAttempt(req.user.id, body);
+  }
+
+  @Post('attempts/:id/sounds')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'pronunciation-sounds', limit: 40, windowMs: 60_000 })
+  @ApiOperation({ summary: 'Judge each sound of an attempt from what the device heard in the recording (no audio is sent)' })
+  sounds(@Req() req: any, @Param('id') id: string, @Body() body: CheckSoundsDto) {
+    return this.pronunciation.checkSounds(req.user.id, id, body.frames);
   }
 
   @Get('progress')

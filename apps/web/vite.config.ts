@@ -13,7 +13,27 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
     ],
-    server: { port, strictPort: true },
+    // DEV_LAN=1 opens the dev server to this Wi-Fi network, to try the site or the phone app on a real phone.
+    // Off by default: anyone on the network can reach it while it's on.
+    server: { port, strictPort: true, host: env.DEV_LAN === "1" ? true : undefined },
+    build: {
+      rolldownOptions: {
+        output: {
+          // Pages are split per route (src/lib/lazyPage.ts). Without these groups every icon became its own tiny
+          // file (47 requests on first load); grouped, it is about 11, and the libraries file stays cached across
+          // releases because it rarely changes.
+          codeSplitting: {
+            groups: [
+              { name: "icons", test: /node_modules[\\/]lucide-react/ },
+              {
+                name: "vendor",
+                test: /node_modules[\\/](react|react-dom|react-router|@tanstack|framer-motion|motion-dom|motion-utils|sonner|axios)[\\/]/,
+              },
+            ],
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         // Shared types live in the monorepo's packages/types

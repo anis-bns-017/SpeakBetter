@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useJoinByInvite } from '../hooks/useCommunities';
 import { toast } from 'sonner';
 import { Loader2, ShieldAlert } from 'lucide-react';
+import { asApiError } from "../lib/api/errors";
+import { tr } from "../i18n/core";
 
 export const JoinCommunityPage = () => {
   const { code } = useParams<{ code: string }>();
@@ -21,9 +23,10 @@ export const JoinCommunityPage = () => {
     const processInvitation = async () => {
       try {
         const data = await joinByInvite.mutateAsync(code);
-        toast.success('Successfully joined the community!');
+        toast.success(tr("Successfully joined the community!"));
         navigate(`/communities/${data.id}`, { replace: true });
-      } catch (error: any) {
+      } catch (caught) {
+        const error = asApiError(caught);
         // Fallback message depending on API error body details if present
         const errorMsg = error?.response?.data?.message || 'Invalid or expired invitation link.';
         toast.error(errorMsg);
@@ -40,18 +43,16 @@ export const JoinCommunityPage = () => {
         {joinByInvite.isError ? (
           <>
             <ShieldAlert className="w-12 h-12 text-red-500 mb-4 animate-pulse" />
-            <h2 className="text-xl font-bold text-white mb-2">Processing Failed</h2>
+            <h2 className="text-xl font-bold text-white mb-2">{tr("Processing Failed")}</h2>
             <p className="text-sm text-gray-400">
-              We could not validate your invite link. Redirecting you back...
-            </p>
+              {tr("We could not validate your invite link. Redirecting you back...")}</p>
           </>
         ) : (
           <>
             <Loader2 className="w-12 h-12 text-blue-500 mb-4 animate-spin" />
-            <h2 className="text-xl font-bold text-white mb-2">Validating Invite</h2>
+            <h2 className="text-xl font-bold text-white mb-2">{tr("Validating Invite")}</h2>
             <p className="text-sm text-gray-400">
-              Checking records and processing workspace credentials...
-            </p>
+              {tr("Checking records and processing workspace credentials...")}</p>
           </>
         )}
       </div>

@@ -32,7 +32,7 @@ export interface VoiceRoomViewProps {
 export interface MinimizedRoomData {
   id: string;
   name: string;
-  participants: any[];
+  participants: RoomParticipant[];
   type: string;
   participantCount: number;
 }
@@ -115,42 +115,3 @@ export interface VoiceRoomStats {
   peakParticipants: number;
 }
 
-export interface VoiceRoomContextType {
-  roomId: string;
-  user: any;
-  room: any;
-  token: string | null;
-  isHost: boolean;
-  isModerator: boolean;
-  isMuted: boolean;
-  isDeafened: boolean;
-  volume: number;
-  audioLevel: number;
-  isConnected: boolean;
-  isLiveKitConnected: boolean;
-  isMockMode: boolean;
-  allParticipants: RoomParticipant[];
-  hostId: string | null;
-  messages: VoiceMessage[];
-  unreadCount: number;
-  typingUsers: Set<string>;
-  isRecording: boolean;
-  isRaisingHand: boolean;
-  roomDuration: number;
-  stats: VoiceRoomStats;
-  // Actions
-  toggleMute: () => Promise<void>;
-  toggleDeafen: () => void;
-  setVolume: (volume: number) => void;
-  sendMessage: (content: string, replyTo?: VoiceMessage) => void;
-  raiseHand: () => void;
-  leaveRoom: () => void;
-  startRecording: () => Promise<void>;
-  stopRecording: () => Promise<void>;
-  kickUser: (userId: string) => void;
-  muteUser: (userId: string) => void;
-  promoteHost: (userId: string) => void;
-  pinMessage: (messageId: string, pinned: boolean) => void;
-  deleteMessage: (messageId: string) => void;
-  reactToMessage: (messageId: string, emoji: string) => void;
-}

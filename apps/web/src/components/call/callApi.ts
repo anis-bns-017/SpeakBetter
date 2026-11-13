@@ -1,5 +1,6 @@
 // apps/web/src/components/call/callApi.ts
 import { apiClient } from "../../lib/api/client";
+import { SOCKET_URL } from "../../lib/api/serverUrl";
 
 export type CallLevel = "beginner" | "intermediate" | "advanced";
 export type CallGoal = "casual" | "interview" | "work" | "travel" | "fun";
@@ -77,7 +78,7 @@ export const callApi = {
 
 /** The call namespace sits next to the voice one on the same server */
 export const callSocketUrl = () =>
-  (import.meta.env.VITE_SOCKET_URL || "http://localhost:3000/voice").replace(
+  SOCKET_URL.replace(
     /\/voice\/?$/,
     "/call",
   );

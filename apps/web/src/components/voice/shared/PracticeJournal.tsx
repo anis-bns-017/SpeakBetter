@@ -27,6 +27,7 @@ import type {
   JournalEntry,
   MasteryLevel,
 } from "../../../hooks/usePracticeJournal";
+import { tr, msg } from "../../../i18n/core";
 
 type Tab = "browse" | "review" | "stats";
 
@@ -61,9 +62,9 @@ const MASTERY_META: Record<
   MasteryLevel,
   { label: string; color: string; icon: typeof Zap }
 > = {
-  new: { label: "New", color: "var(--sx-text-22d3ee)", icon: Sparkles },
-  learning: { label: "Learning", color: "var(--sx-text-fbbf24)", icon: Brain },
-  mastered: { label: "Mastered", color: "var(--sx-text-34d399)", icon: Trophy },
+  new: { label: msg("New"), color: "var(--sx-text-22d3ee)", icon: Sparkles },
+  learning: { label: msg("Learning"), color: "var(--sx-text-fbbf24)", icon: Brain },
+  mastered: { label: msg("Mastered"), color: "var(--sx-text-34d399)", icon: Trophy },
 };
 
 export const PracticeJournal: React.FC<PracticeJournalProps> = ({
@@ -116,9 +117,9 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("Journal downloaded");
+      toast.success(tr("Journal downloaded"));
     } catch {
-      toast.error("Download failed");
+      toast.error(tr("Download failed"));
     }
   };
 
@@ -177,15 +178,12 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                       className="text-base font-bold truncate"
                       style={{ color: THEME.colors.text.primary }}
                     >
-                      Practice Journal
-                    </h3>
+                      {tr("Practice Journal")}</h3>
                     <p
                       className="text-xs truncate"
                       style={{ color: THEME.colors.text.muted }}
                     >
-                      {stats.total} entries · {stats.byMastery.mastered} mastered ·{" "}
-                      {stats.dueForReview.length} due
-                    </p>
+                      {stats.total} {" "}{tr("entries · {mastered} mastered ·{value}{length} due", { mastered: stats.byMastery.mastered, value: " ", length: stats.dueForReview.length })}</p>
                   </div>
                 </div>
 
@@ -194,7 +192,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                   onClick={onClose}
                   className="p-1.5 rounded-full hover:bg-white/10 transition-colors shrink-0"
                   style={{ color: THEME.colors.text.muted }}
-                  aria-label="Close"
+                  aria-label={tr("Close")}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -204,13 +202,13 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
               <div className="flex items-center gap-1 mt-4">
                 {(
                   [
-                    { key: "browse", label: "Browse", icon: BookOpen },
+                    { key: "browse", label: msg("Browse"), icon: BookOpen },
                     {
                       key: "review",
                       label: `Review${reviewQueue.length ? ` (${reviewQueue.length})` : ""}`,
                       icon: Brain,
                     },
-                    { key: "stats", label: "Stats", icon: Trophy },
+                    { key: "stats", label: msg("Stats"), icon: Trophy },
                   ] as const
                 ).map(({ key, label, icon: Icon }) => {
                   const active = tab === key;
@@ -235,7 +233,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                       }}
                     >
                       <Icon className="w-3.5 h-3.5" />
-                      {label}
+                      {tr(label)}
                     </button>
                   );
                 })}
@@ -258,7 +256,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search entries…"
+                        placeholder={tr("Search entries…")}
                         className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none"
                         style={{
                           background: THEME.colors.background.primary,
@@ -307,8 +305,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                       className="text-[11px] uppercase tracking-wider font-semibold"
                       style={{ color: THEME.colors.text.muted }}
                     >
-                      Mastery
-                    </span>
+                      {tr("Mastery")}</span>
                     {(["new", "learning", "mastered"] as MasteryLevel[]).map(
                       (m) => {
                         const meta = MASTERY_META[m];
@@ -334,7 +331,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                             }}
                           >
                             <Icon className="w-2.5 h-2.5" />
-                            {meta.label}
+                            {tr(meta.label)}
                             <span className="opacity-70">({count})</span>
                           </button>
                         );
@@ -357,8 +354,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                         style={{ color: THEME.colors.accent.error }}
                       >
                         <Trash2 className="w-3 h-3" />
-                        Clear
-                      </button>
+                        {tr("Clear")}</button>
                     )}
                   </div>
 
@@ -397,21 +393,19 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                         className="text-sm font-semibold"
                         style={{ color: THEME.colors.text.primary }}
                       >
-                        All caught up!
-                      </p>
+                        {tr("All caught up!")}</p>
                       <p
                         className="text-xs mt-1"
                         style={{ color: THEME.colors.text.muted }}
                       >
-                        Come back later when entries are due for review.
-                      </p>
+                        {tr("Come back later when entries are due for review.")}</p>
                     </div>
                   ) : currentReview ? (
                     <div className="max-w-md mx-auto space-y-5">
                       {/* Progress */}
                       <div className="flex items-center justify-between text-[11px]">
                         <span style={{ color: THEME.colors.text.muted }}>
-                          Card {reviewIndex + 1} of {reviewQueue.length}
+                          {tr("Card {value} of", { value: reviewIndex + 1 })}{" "}{reviewQueue.length}
                         </span>
                         <span
                           className="px-2 py-0.5 rounded-full font-semibold"
@@ -420,7 +414,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                             color: MASTERY_META[currentReview.mastery].color,
                           }}
                         >
-                          {MASTERY_META[currentReview.mastery].label}
+                          {tr(MASTERY_META[currentReview.mastery].label)}
                         </span>
                       </div>
 
@@ -436,8 +430,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                           className="text-[11px] uppercase tracking-wider font-semibold mb-3"
                           style={{ color: THEME.colors.text.muted }}
                         >
-                          What you said
-                        </p>
+                          {tr("What you said")}</p>
                         <p
                           className="text-lg leading-snug mb-4"
                           style={{ color: THEME.colors.text.primary }}
@@ -460,8 +453,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                                 className="text-[11px] uppercase tracking-wider font-semibold mb-2"
                                 style={{ color: THEME.colors.accent.success }}
                               >
-                                Better way
-                              </p>
+                                {tr("Better way")}</p>
                               <p
                                 className="text-lg leading-snug"
                                 style={{ color: THEME.colors.accent.success }}
@@ -473,7 +465,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                                   className="text-xs italic mt-3"
                                   style={{ color: THEME.colors.text.muted }}
                                 >
-                                  {currentReview.note}
+                                  {tr(currentReview.note)}
                                 </p>
                               )}
                             </motion.div>
@@ -489,8 +481,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                                 color: THEME.colors.accent.primary,
                               }}
                             >
-                              Reveal answer
-                            </motion.button>
+                              {tr("Reveal answer")}</motion.button>
                           )}
                         </AnimatePresence>
                       </div>
@@ -513,8 +504,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                             }}
                           >
                             <RotateCcw className="w-4 h-4" />
-                            Still learning
-                          </button>
+                            {tr("Still learning")}</button>
                           <button
                             type="button"
                             onClick={() => handleReviewResult("good")}
@@ -525,8 +515,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                             }}
                           >
                             <Check className="w-4 h-4" />
-                            Got it
-                          </button>
+                            {tr("Got it")}</button>
                         </motion.div>
                       )}
                     </div>
@@ -541,19 +530,19 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                     <StatTile
                       icon={Sparkles}
                       color={MASTERY_META.new.color}
-                      label="New"
+                      label={tr("New")}
                       value={stats.byMastery.new}
                     />
                     <StatTile
                       icon={Brain}
                       color={MASTERY_META.learning.color}
-                      label="Learning"
+                      label={tr("Learning")}
                       value={stats.byMastery.learning}
                     />
                     <StatTile
                       icon={Trophy}
                       color={MASTERY_META.mastered.color}
-                      label="Mastered"
+                      label={tr("Mastered")}
                       value={stats.byMastery.mastered}
                     />
                   </div>
@@ -572,22 +561,18 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                         className="text-sm font-semibold"
                         style={{ color: THEME.colors.text.primary }}
                       >
-                        Mastery progress
-                      </p>
+                        {tr("Mastery progress")}</p>
                       <p
                         className="text-xs mt-0.5"
                         style={{ color: THEME.colors.text.muted }}
                       >
-                        {stats.byMastery.mastered} of {stats.total} entries
-                        mastered
-                      </p>
+                        {stats.byMastery.mastered} {" "}{tr("of {total} entries mastered", { total: stats.total })}</p>
                       <p
                         className="text-[11px] mt-2 flex items-center gap-1"
                         style={{ color: THEME.colors.accent.primary }}
                       >
                         <Calendar className="w-3 h-3" />
-                        {stats.thisWeek} added this week
-                      </p>
+                        {stats.thisWeek} {" "}{tr("added this week")}</p>
                     </div>
                   </div>
 
@@ -604,8 +589,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                         className="text-sm font-semibold mb-3"
                         style={{ color: THEME.colors.text.primary }}
                       >
-                        By category
-                      </p>
+                        {tr("By category")}</p>
                       <div className="space-y-2.5">
                         {Object.entries(stats.byCategory)
                           .sort((a, b) => b[1] - a[1])
@@ -663,8 +647,7 @@ export const PracticeJournal: React.FC<PracticeJournalProps> = ({
                       }}
                     >
                       <Download className="w-4 h-4" />
-                      Export journal
-                    </button>
+                      {tr("Export journal")}</button>
                   )}
                 </div>
               )}
@@ -716,14 +699,14 @@ const EntryCard: React.FC<{
               className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider"
               style={{ background: `color-mix(in srgb, ${meta.color} 13.3%, transparent)`, color: meta.color }}
             >
-              {meta.label}
+              {tr(meta.label)}
             </span>
             {entry.helperName && (
               <span
                 className="text-[9px]"
                 style={{ color: THEME.colors.text.muted }}
               >
-                from {entry.helperName}
+                {tr("from")}{" "}{entry.helperName}
               </span>
             )}
           </div>
@@ -747,7 +730,7 @@ const EntryCard: React.FC<{
               className="text-[11px] italic leading-snug"
               style={{ color: THEME.colors.text.muted }}
             >
-              {entry.note}
+              {tr(entry.note)}
             </p>
           )}
         </div>
@@ -757,7 +740,7 @@ const EntryCard: React.FC<{
           onClick={() => onRemove(entry.id)}
           className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all"
           style={{ color: THEME.colors.accent.error }}
-          aria-label="Remove entry"
+          aria-label={tr("Remove entry")}
         >
           <Trash2 className="w-3 h-3" />
         </button>
@@ -781,15 +764,15 @@ const EmptyJournal: React.FC<{ hasAny: boolean }> = ({ hasAny }) => (
       className="text-sm font-semibold"
       style={{ color: THEME.colors.text.primary }}
     >
-      {hasAny ? "No matches" : "Your journal is empty"}
+      {hasAny ? tr("No matches") : tr("Your journal is empty")}
     </p>
     <p
       className="text-xs mt-1 max-w-[280px] mx-auto leading-relaxed"
       style={{ color: THEME.colors.text.muted }}
     >
       {hasAny
-        ? "Try a different search or clear filters."
-        : "Accepted corrections will land here automatically, giving you a personal study list."}
+        ? tr("Try a different search or clear filters.")
+        : tr("Accepted corrections will land here automatically, giving you a personal study list.")}
     </p>
   </div>
 );
@@ -818,7 +801,7 @@ const StatTile: React.FC<{
       className="text-[11px] uppercase tracking-wider mt-0.5"
       style={{ color: THEME.colors.text.muted }}
     >
-      {label}
+      {tr(label)}
     </p>
   </div>
 );

@@ -1,77 +1,111 @@
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import type React from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
 import { NotificationBell, NotificationsLive } from "../components/notifications/NotificationBell";
 import { CelebrationLayer } from "../components/gamification/CelebrationLayer";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { useSidebar } from "../contexts/SidebarContext";
 import { SIDEBAR_WIDTH, MOBILE_TAB_BAR_HEIGHT } from "../lib/navLayout";
 import { syncPush } from "../lib/push";
 import { OfflineBanner } from "../components/OfflineBanner";
+import { ErrorBoundary, PageLoading } from "../components/common/ErrorBoundary";
+import { lazyPage } from "../lib/lazyPage";
+import { needsWelcome } from "./welcomeGate";
+import { tr } from "../i18n/core";
 
-// Main Pages
-import DashboardPage from "../pages/DashboardPage";
-import { DiscoveryPage } from "../pages/DiscoveryPage";
-import { MyWordsPage } from "../pages/MyWordsPage";
-import { DictionaryPage } from "../pages/DictionaryPage";
-import { DictionaryWordPage } from "../pages/DictionaryWordPage";
-import { FlashcardPage } from "../pages/FlashcardPage";
-import { GrammarPage } from "../pages/GrammarPage";
-import { PacksPage } from "../pages/PacksPage";
-import { DictationPage } from "../pages/DictationPage";
-import { ShadowingPage } from "../pages/ShadowingPage";
-import { ShadowingLessonPage } from "../pages/ShadowingLessonPage";
-import { RoleplayListPage } from "../pages/RoleplayListPage";
-import { RoleplayPage } from "../pages/RoleplayPage";
-import { SessionRecapPage } from "../pages/SessionRecapPage";
-import { SessionsPage } from "../pages/SessionsPage";
-import { PackPage } from "../pages/PackPage";
-import { PublicProfilePage } from "../pages/PublicProfilePage";
-import { GrammarCoursePage } from "../pages/GrammarCoursePage";
-import { GrammarLessonPage } from "../pages/GrammarLessonPage";
-import { ExercisesPage } from "../pages/ExercisesPage";
-import { VoicePage } from "../pages/VoicePage";
-import { RandomCallPage } from "../pages/RandomCallPage";
-import { CommunitiesPage } from "../pages/CommunitiesPage";
-import { ProgressPage } from "../pages/ProgressPage";
-import { PlacementPage } from "../pages/PlacementPage";
-import { AiPartnerPage } from "../pages/AiPartnerPage";
-import { PronunciationPage } from "../pages/PronunciationPage";
-import { LeaguesPage } from "../pages/LeaguesPage";
-import { ChallengePage } from "../pages/ChallengePage";
-import { LibraryPage } from "../pages/LibraryPage";
-import { LibraryReaderPage } from "../pages/LibraryReaderPage";
-import { WritingPage } from "../pages/WritingPage";
-import { WritingEditorPage } from "../pages/WritingEditorPage";
-import { PremiumPage } from "../pages/PremiumPage";
-import { CheckoutPage } from "../pages/CheckoutPage";
-import { ProfilePage } from "../pages/ProfilePage";
-import { SettingsPage } from "../pages/SettingsPage";
-import { ChatPage } from "../pages/ChatPage";
+// Pages: each is downloaded the first time it is opened (lib/lazyPage.ts), so the app starts fast
+const DashboardPage = lazyPage(() => import("../pages/DashboardPage"), "default");
+const DiscoveryPage = lazyPage(() => import("../pages/DiscoveryPage"), "DiscoveryPage");
+const MyWordsPage = lazyPage(() => import("../pages/MyWordsPage"), "MyWordsPage");
+const DictionaryPage = lazyPage(() => import("../pages/DictionaryPage"), "DictionaryPage");
+const DictionaryWordPage = lazyPage(() => import("../pages/DictionaryWordPage"), "DictionaryWordPage");
+const FlashcardPage = lazyPage(() => import("../pages/FlashcardPage"), "FlashcardPage");
+const GrammarPage = lazyPage(() => import("../pages/GrammarPage"), "GrammarPage");
+const PacksPage = lazyPage(() => import("../pages/PacksPage"), "PacksPage");
+const DictationPage = lazyPage(() => import("../pages/DictationPage"), "DictationPage");
+const ShadowingPage = lazyPage(() => import("../pages/ShadowingPage"), "ShadowingPage");
+const ShadowingLessonPage = lazyPage(() => import("../pages/ShadowingLessonPage"), "ShadowingLessonPage");
+const RoleplayListPage = lazyPage(() => import("../pages/RoleplayListPage"), "RoleplayListPage");
+const RoleplayPage = lazyPage(() => import("../pages/RoleplayPage"), "RoleplayPage");
+const SessionRecapPage = lazyPage(() => import("../pages/SessionRecapPage"), "SessionRecapPage");
+const SessionsPage = lazyPage(() => import("../pages/SessionsPage"), "SessionsPage");
+const PackPage = lazyPage(() => import("../pages/PackPage"), "PackPage");
+const PublicProfilePage = lazyPage(() => import("../pages/PublicProfilePage"), "PublicProfilePage");
+const GrammarCoursePage = lazyPage(() => import("../pages/GrammarCoursePage"), "GrammarCoursePage");
+const GrammarLessonPage = lazyPage(() => import("../pages/GrammarLessonPage"), "GrammarLessonPage");
+const ExercisesPage = lazyPage(() => import("../pages/ExercisesPage"), "ExercisesPage");
+const VoicePage = lazyPage(() => import("../pages/VoicePage"), "VoicePage");
+const RandomCallPage = lazyPage(() => import("../pages/RandomCallPage"), "RandomCallPage");
+const CommunitiesPage = lazyPage(() => import("../pages/CommunitiesPage"), "CommunitiesPage");
+const ProgressPage = lazyPage(() => import("../pages/ProgressPage"), "ProgressPage");
+const PlacementPage = lazyPage(() => import("../pages/PlacementPage"), "PlacementPage");
+const AiPartnerPage = lazyPage(() => import("../pages/AiPartnerPage"), "AiPartnerPage");
+const PronunciationPage = lazyPage(() => import("../pages/PronunciationPage"), "PronunciationPage");
+const LeaguesPage = lazyPage(() => import("../pages/LeaguesPage"), "LeaguesPage");
+const ChallengePage = lazyPage(() => import("../pages/ChallengePage"), "ChallengePage");
+const LibraryPage = lazyPage(() => import("../pages/LibraryPage"), "LibraryPage");
+const LibraryReaderPage = lazyPage(() => import("../pages/LibraryReaderPage"), "LibraryReaderPage");
+const WritingPage = lazyPage(() => import("../pages/WritingPage"), "WritingPage");
+const WritingEditorPage = lazyPage(() => import("../pages/WritingEditorPage"), "WritingEditorPage");
+const PremiumPage = lazyPage(() => import("../pages/PremiumPage"), "PremiumPage");
+const CheckoutPage = lazyPage(() => import("../pages/CheckoutPage"), "CheckoutPage");
+const ProfilePage = lazyPage(() => import("../pages/ProfilePage"), "ProfilePage");
+const SettingsPage = lazyPage(() => import("../pages/SettingsPage"), "SettingsPage");
+const ChatPage = lazyPage(() => import("../pages/ChatPage"), "ChatPage");
+
+const LoginPage = lazyPage(() => import("../pages/LoginPage"), "LoginPage");
+const RegisterPage = lazyPage(() => import("../pages/RegisterPage"), "RegisterPage");
+const FriendsPage = lazyPage(() => import("../pages/FriendsPage"), "FriendsPage");
+const SuggestionsPage = lazyPage(() => import("../pages/SuggestionsPage"), "SuggestionsPage");
+const BlockedPage = lazyPage(() => import("../pages/BlockedPage"), "BlockedPage");
+const CommunityPage = lazyPage(() => import("../pages/CommunityPage"), "CommunityPage");
+const JoinCommunityPage = lazyPage(() => import("../pages/JoinCommunityPage"), "JoinCommunityPage");
+// The admin section (moderators and admins): its own frame and pages, downloaded only by the team
+const AdminLayout = lazyPage(() => import("../components/admin/AdminLayout"), "AdminLayout");
+const AdminOverviewPage = lazyPage(() => import("../pages/admin/AdminOverviewPage"), "AdminOverviewPage");
+const AdminReportsPage = lazyPage(() => import("../pages/admin/AdminReportsPage"), "AdminReportsPage");
+const AdminUsersPage = lazyPage(() => import("../pages/admin/AdminUsersPage"), "AdminUsersPage");
+const AdminUserPage = lazyPage(() => import("../pages/admin/AdminUserPage"), "AdminUserPage");
+const AdminContentPage = lazyPage(() => import("../pages/admin/AdminContentPage"), "AdminContentPage");
+const AdminBroadcastPage = lazyPage(() => import("../pages/admin/AdminBroadcastPage"), "AdminBroadcastPage");
+const AdminBillingPage = lazyPage(() => import("../pages/admin/AdminBillingPage"), "AdminBillingPage");
+const AdminAuditPage = lazyPage(() => import("../pages/admin/AdminAuditPage"), "AdminAuditPage");
+const AdminSystemPage = lazyPage(() => import("../pages/admin/AdminSystemPage"), "AdminSystemPage");
+const LandingPage = lazyPage(() => import("../pages/LandingPage"), "LandingPage");
+const TermsPage = lazyPage(() => import("../pages/LegalPages"), "TermsPage");
+const PrivacyPage = lazyPage(() => import("../pages/LegalPages"), "PrivacyPage");
+const WelcomePage = lazyPage(() => import("../pages/WelcomePage"), "WelcomePage");
+const ForgotPasswordPage = lazyPage(() => import("../pages/ForgotPasswordPage"), "ForgotPasswordPage");
+const ResetPasswordPage = lazyPage(() => import("../pages/ResetPasswordPage"), "ResetPasswordPage");
+const NewConversationPage = lazyPage(() => import("../pages/NewConversationPage"), "NewConversationPage");
+const AuthCallbackPage = lazyPage(() => import("../pages/AuthCallbackPage"), "AuthCallbackPage");
 
 // ============================================================
-// ✅ MISSING COMPONENTS (added)
+// HOME: the landing page for visitors, the dashboard for people signed in
 // ============================================================
-import { LoginPage } from "../pages/LoginPage";
-import { RegisterPage } from "../pages/RegisterPage";
-import { FriendsPage } from "../pages/FriendsPage";
-import { SuggestionsPage } from "../pages/SuggestionsPage";
-import { BlockedPage } from "../pages/BlockedPage";
-import { CommunityPage } from "../pages/CommunityPage";
-import { JoinCommunityPage } from "../pages/JoinCommunityPage";
-import { NewConversationPage } from "../pages/NewConversationPage";
-import { AuthCallbackPage } from "../pages/AuthCallbackPage";
+const HomeRoute = () => {
+  const { user, isLoading } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-page" role="status" aria-label={tr("Loading")}>
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-200 border-t-indigo-600 dark:border-white/10 dark:border-t-indigo-400" />
+      </div>
+    );
+  }
+  return user ? <Navigate to="/dashboard" replace /> : <LandingPage />;
+};
 
 // ============================================================
 // PROTECTED ROUTE
 // ============================================================
 const ProtectedRoute = () => {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-page" role="status" aria-label="Loading">
+      <div className="flex items-center justify-center h-screen bg-page" role="status" aria-label={tr("Loading")}>
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-200 border-t-indigo-600 dark:border-white/10 dark:border-t-indigo-400" />
       </div>
     );
@@ -79,6 +113,11 @@ const ProtectedRoute = () => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // New accounts start with the first-day guide
+  if (needsWelcome(user, location.pathname)) {
+    return <Navigate to="/welcome" replace />;
   }
 
   return <Outlet />;
@@ -92,7 +131,7 @@ const PublicRoute = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-page" role="status" aria-label="Loading">
+      <div className="flex items-center justify-center h-screen bg-page" role="status" aria-label={tr("Loading")}>
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-200 border-t-indigo-600 dark:border-white/10 dark:border-t-indigo-400" />
       </div>
     );
@@ -122,6 +161,12 @@ const AppLayout = () => {
 
   // After a page change, send screen-reader and keyboard focus to the page, unless something already took it.
   // Not on the first load: there the first Tab stop must stay the "Skip to main content" link.
+  // Most visits end up on the dashboard: download it quietly once the app is idle
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((fn: () => void) => window.setTimeout(fn, 1500));
+    idle(() => void DashboardPage.preload());
+  }, []);
+
   const lastPath = useRef(location.pathname);
   useEffect(() => {
     if (lastPath.current === location.pathname) return;
@@ -143,8 +188,7 @@ const AppLayout = () => {
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[300] focus:rounded-xl focus:bg-indigo-600 focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-white/80"
       >
-        Skip to main content
-      </a>
+        {tr("Skip to main content")}</a>
       <OfflineBanner />
       <Sidebar />
       {/* Live notifications on every page; on phones the bell floats in the corner (the sidebar has its own) */}
@@ -158,7 +202,12 @@ const AppLayout = () => {
       )}
       <div className="min-h-screen transition-[padding] duration-300 lg:pl-[var(--sidebar-w)] pb-[var(--tabbar-h)] lg:pb-0">
         <main id="main" tabIndex={-1} className="min-h-screen focus:outline-none">
-          <Outlet />
+          {/* A crash or a failed download stays inside the page; the sidebar keeps working, and going elsewhere resets it */}
+          <ErrorBoundary variant="page" resetKey={location.pathname}>
+            <Suspense fallback={<PageLoading />}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
     </div>
@@ -170,6 +219,8 @@ const AppLayout = () => {
 // ============================================================
 const AppRoutes = () => {
   return (
+    // Sign-in pages load on demand too; inside the app, the layout shows its own loader
+    <Suspense fallback={<PageLoading />}>
     <Routes>
       {/* ===== PUBLIC ROUTES ===== */}
       <Route element={<PublicRoute />}>
@@ -177,14 +228,38 @@ const AppRoutes = () => {
         <Route path="/register" element={<RegisterPage />} />
       </Route>
 
+      {/* ===== HOME AND LEGAL PAGES: open to everyone ===== */}
+      <Route path="/" element={<HomeRoute />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+
+      {/* ===== PASSWORD RESET: open to everyone, signed in or not (the email link must always work) ===== */}
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+
       {/* ===== OAUTH CALLBACK — MUST be outside both PublicRoute and ProtectedRoute ===== */}
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
       {/* ===== PROTECTED ROUTES WITH SIDEBAR ===== */}
       <Route element={<ProtectedRoute />}>
+        {/* ===== FIRST-DAY GUIDE (its own full-screen page, no sidebar) ===== */}
+        <Route path="/welcome" element={<WelcomePage />} />
+
+        {/* ===== ADMIN SECTION (its own frame; AdminLayout lets only moderators and admins in) ===== */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminOverviewPage />} />
+          <Route path="reports" element={<AdminReportsPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="users/:userId" element={<AdminUserPage />} />
+          <Route path="content" element={<AdminContentPage />} />
+          <Route path="broadcast" element={<AdminBroadcastPage />} />
+          <Route path="billing" element={<AdminBillingPage />} />
+          <Route path="audit" element={<AdminAuditPage />} />
+          <Route path="system" element={<AdminSystemPage />} />
+        </Route>
+
         <Route element={<AppLayout />}>
           {/* Redirects */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
           {/* Main Pages */}
           <Route path="/dashboard" element={<DashboardPage />} />
@@ -253,6 +328,7 @@ const AppRoutes = () => {
       {/* ===== CATCH ALL ===== */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    </Suspense>
   );
 };
 

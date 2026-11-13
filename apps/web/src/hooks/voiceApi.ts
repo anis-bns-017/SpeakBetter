@@ -3,7 +3,7 @@ import { apiClient } from '../lib/api/client';
 
 export const voiceApi = {
   // Room Management
-  createRoom: (data: any) => apiClient.post('/voice/rooms', data),
+  createRoom: (data: Record<string, unknown>) => apiClient.post('/voice/rooms', data),
   getRoom: (roomId: string) => apiClient.get(`/voice/rooms/${roomId}`),
   joinRoom: (roomId: string) => apiClient.post(`/voice/rooms/${roomId}/join`),
   leaveRoom: (roomId: string) => apiClient.post(`/voice/rooms/${roomId}/leave`),

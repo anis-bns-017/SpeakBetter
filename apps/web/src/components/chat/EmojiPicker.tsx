@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { tr } from "../../i18n/core";
 
 interface EmojiPickerProps {
   onSelect: (emoji: string) => void;
@@ -82,7 +83,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, onClose }) =
         <div className="relative flex-1">
           <input
             type="text"
-            placeholder="Search emojis..."
+            placeholder={tr("Search emojis...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-8 pr-7 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-gray-400"
@@ -100,7 +101,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, onClose }) =
         <button
           onClick={onClose}
           className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          aria-label="Close emoji picker"
+          aria-label={tr("Close emoji picker")}
         >
           ✕
         </button>
@@ -130,8 +131,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, onClose }) =
       <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
         {search && (
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Search Results ({filteredEmojis.length})
-          </div>
+            {tr("Search Results ({length})", { length: filteredEmojis.length })}</div>
         )}
 
         {filteredEmojis.length > 0 ? (
@@ -152,7 +152,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, onClose }) =
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center p-4 text-gray-400">
             <span className="text-3xl mb-1">🔍</span>
-            <p className="text-sm">No emojis found</p>
+            <p className="text-sm">{tr("No emojis found")}</p>
           </div>
         )}
       </div>

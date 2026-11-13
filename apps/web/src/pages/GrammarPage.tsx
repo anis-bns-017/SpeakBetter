@@ -11,6 +11,7 @@ import {
   Globe2,
   Lightbulb,
 } from "lucide-react";
+import { tr } from "../i18n/core";
 
 export const GrammarPage = () => {
   const [language, setLanguage] = useState("");
@@ -61,10 +62,9 @@ export const GrammarPage = () => {
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Grammar Rules</h1>
+              <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{tr("Grammar Rules")}</h1>
               <p className="text-sm text-slate-500">
-                Master sentence structures, tenses, and usage patterns.
-              </p>
+                {tr("Master sentence structures, tenses, and usage patterns.")}</p>
             </div>
           </div>
         </div>
@@ -76,7 +76,7 @@ export const GrammarPage = () => {
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search rules or examples..."
+              placeholder={tr("Search rules or examples...")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
@@ -90,11 +90,11 @@ export const GrammarPage = () => {
               onChange={(e) => setLanguage(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
             >
-              <option value="">All Languages</option>
-              <option value="en">English</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
+              <option value="">{tr("All Languages")}</option>
+              <option value="en">{tr("English")}</option>
+              <option value="es">{tr("Spanish")}</option>
+              <option value="fr">{tr("French")}</option>
+              <option value="de">{tr("German")}</option>
             </select>
           </div>
 
@@ -105,10 +105,10 @@ export const GrammarPage = () => {
               onChange={(e) => setLevel(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
             >
-              <option value="">All Proficiency Levels</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
+              <option value="">{tr("All Proficiency Levels")}</option>
+              <option value="beginner">{tr("Beginner")}</option>
+              <option value="intermediate">{tr("Intermediate")}</option>
+              <option value="advanced">{tr("Advanced")}</option>
             </select>
           </div>
         </div>
@@ -134,14 +134,14 @@ export const GrammarPage = () => {
                     <div className="space-y-2 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-bold text-slate-800">
-                          {rule.title}
+                          {tr(rule.title)}
                         </h3>
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${getLevelBadgeColor(
                             rule.level
                           )}`}
                         >
-                          {rule.level || "General"}
+                          {rule.level || tr("General")}
                         </span>
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
                           <Globe2 className="w-3 h-3 text-slate-400" />
@@ -150,7 +150,7 @@ export const GrammarPage = () => {
                       </div>
 
                       <p className="text-xs text-slate-600 leading-relaxed">
-                        {rule.description}
+                        {tr(rule.description)}
                       </p>
                     </div>
 
@@ -171,7 +171,7 @@ export const GrammarPage = () => {
                   >
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-2">
                       <Lightbulb className="w-4 h-4 text-amber-500" />
-                      <span>Examples & Usage:</span>
+                      <span>{tr("Examples & Usage:")}</span>
                     </div>
 
                     <div className="grid grid-cols-1 gap-2">
@@ -187,8 +187,7 @@ export const GrammarPage = () => {
                         ))
                       ) : (
                         <p className="text-xs text-slate-400 italic">
-                          No examples available for this rule.
-                        </p>
+                          {tr("No examples available for this rule.")}</p>
                       )}
                     </div>
                   </div>
@@ -204,11 +203,9 @@ export const GrammarPage = () => {
             </div>
             <div className="space-y-1">
               <h3 className="text-lg font-bold text-slate-800">
-                No Grammar Rules Found
-              </h3>
+                {tr("No Grammar Rules Found")}</h3>
               <p className="text-sm text-slate-500 max-w-sm mx-auto">
-                No rules matched your current filter selection or search query. Try clearing filters to explore more topics.
-              </p>
+                {tr("No rules matched your current filter selection or search query. Try clearing filters to explore more topics.")}</p>
             </div>
             <button
               onClick={() => {
@@ -219,7 +216,7 @@ export const GrammarPage = () => {
               className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition-all shadow-sm mt-2"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Reset Filters</span>
+              <span>{tr("Reset Filters")}</span>
             </button>
           </div>
         )}

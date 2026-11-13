@@ -1,3 +1,4 @@
+import { assertNotSuspended, isSuspended } from '../common/suspension';
 import {
   Injectable,
   Logger,
@@ -162,6 +163,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Only after the password is right, so this can't be used to find out who is suspended
+    assertNotSuspended(user);
+
     await this.prisma.profile.update({
       where: {
         userId: user.id,
@@ -229,6 +233,7 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Failed to create or fetch user');
     }
+    assertNotSuspended(user);
 
     const tokens = await this.startSession(user, meta);
 
@@ -452,7 +457,55 @@ export class AuthService {
     return { success: true };
   }
 
-  /** Ends every login of a user. Service-level only; no endpoint uses it yet. */
+  /**
+   * Where this person is signed in: one entry per login (session family), described by its newest token row.
+   * `currentFamilyId` marks the one making the request.
+   */
+  async listSessions(userId: string, currentFamilyId: string | null) {
+    const rows = await this.prisma.session.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+      select: { familyId: true, createdAt: true, lastUsedAt: true, ip: true, userAgent: true },
+      take: 500,
+    });
+    const families = new Map<string, { firstSeen: Date; lastActive: Date; ip: string | null; userAgent: string | null }>();
+    for (const row of rows) {
+      const seen = families.get(row.familyId);
+      const active = row.lastUsedAt ?? row.createdAt;
+      if (!seen) {
+        families.set(row.familyId, { firstSeen: row.createdAt, lastActive: active, ip: row.ip, userAgent: row.userAgent });
+      } else {
+        if (row.createdAt < seen.firstSeen) seen.firstSeen = row.createdAt;
+        if (active > seen.lastActive) seen.lastActive = active;
+      }
+    }
+    return [...families.entries()]
+      .map(([familyId, f]) => ({ id: familyId, current: familyId === currentFamilyId, ...f }))
+      .sort((a, b) => Number(b.current) - Number(a.current) || b.lastActive.getTime() - a.lastActive.getTime());
+  }
+
+  /** Ends every login except the one making the request */
+  async logoutOthers(userId: string, keepFamilyId: string | null) {
+    const families = await this.prisma.session.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() }, ...(keepFamilyId ? { familyId: { not: keepFamilyId } } : {}) },
+      distinct: ['familyId'],
+      select: { familyId: true },
+      orderBy: { familyId: 'asc' },
+    });
+    for (const { familyId } of families) {
+      await this.revokeFamily(userId, familyId, 'signed_out_elsewhere');
+    }
+    return { success: true, signedOut: families.length };
+  }
+
+  /** Ends one login of this person (a device they no longer use) */
+  async logoutFamily(userId: string, familyId: string) {
+    const owned = await this.prisma.session.findFirst({ where: { userId, familyId }, select: { id: true } });
+    if (owned) await this.revokeFamily(userId, familyId, 'signed_out_by_user');
+    return { success: true };
+  }
+
+  /** Ends every login of a user (suspension, password reset, account deletion, the admin section) */
   async logoutAll(userId: string, reason = 'logout_all') {
     const families = await this.prisma.session.findMany({
       where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
@@ -770,8 +823,9 @@ export class AuthService {
    * model has no active / banned / deleted flag today, so existence is the
    * whole check; add the flag here when one is introduced.
    */
-  private canAuthenticate(_user: { id: string }) {
-    return true;
+  /** A suspended account can't use the app: every request and socket of it is turned away (common/suspension.ts) */
+  private canAuthenticate(user: { id: string; suspendedUntil?: Date | null }) {
+    return !isSuspended(user);
   }
 
   private hashToken(token: string) {

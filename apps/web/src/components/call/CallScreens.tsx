@@ -18,6 +18,7 @@ import { SafetyBar } from "./CallSafety";
 import { ConversationCardPanel } from "./ConversationCardPanel";
 import type { CardKind, ConversationCard } from "./callApi";
 import type { ActiveCall } from "./useRandomCall";
+import { tr } from "../../i18n/core";
 
 export const CallAvatar: React.FC<{
   name: string;
@@ -106,10 +107,9 @@ export const SearchingScreen: React.FC<{
         <CallAvatar name={userName} avatarUrl={userAvatar} size={112} ring={COLORS.live} />
       </div>
       <h2 className="mt-2 font-serif text-2xl" style={{ color: COLORS.textPrimary }}>
-        Looking for a partner...
-      </h2>
+        {tr("Looking for a partner...")}</h2>
       <p className="mt-1 text-sm" style={{ color: COLORS.textMuted }}>
-        {waiting > 1 ? `${waiting} people are looking right now` : "You are the first one here"}
+        {waiting > 1 ? tr("{waiting} people are looking right now", { waiting }) : tr("You are the first one here")}
         {" · "}
         {waitedSeconds}s
       </p>
@@ -122,8 +122,7 @@ export const SearchingScreen: React.FC<{
         className="mt-6 rounded-full border px-6 py-2.5 text-sm font-medium transition-colors hover:bg-white/5"
         style={{ borderColor: COLORS.borderLight, color: COLORS.textPrimary }}
       >
-        Cancel
-      </button>
+        {tr("Cancel")}</button>
     </div>
   );
 };
@@ -138,30 +137,24 @@ export const TimeoutScreen: React.FC<{
       <Radio className="h-8 w-8" style={{ color: COLORS.spotlight }} />
     </div>
     <h2 className="font-serif text-2xl" style={{ color: COLORS.textPrimary }}>
-      No one is free right now
-    </h2>
+      {tr("No one is free right now")}</h2>
     <p className="mt-2 text-sm" style={{ color: COLORS.textMuted }}>
-      It is quiet at your level. Try again in a moment, or join a live room where people are
-      already talking.
-    </p>
+      {tr("It is quiet at your level. Try again in a moment, or join a live room where people are already talking.")}</p>
     <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
       <button
         onClick={onRetry}
         className="rounded-full px-6 py-2.5 text-sm font-semibold"
         style={{ background: COLORS.spotlight, color: COLORS.void }}
       >
-        Keep looking
-      </button>
+        {tr("Keep looking")}</button>
       <button
         onClick={onRooms}
         className="rounded-full border px-6 py-2.5 text-sm font-medium hover:bg-white/5"
         style={{ borderColor: COLORS.borderLight, color: COLORS.textPrimary }}
       >
-        Browse voice rooms
-      </button>
+        {tr("Browse voice rooms")}</button>
       <button onClick={onBack} className="rounded-full px-4 py-2.5 text-sm hover:bg-white/5" style={{ color: COLORS.textMuted }}>
-        Change settings
-      </button>
+        {tr("Change settings")}</button>
     </div>
   </div>
 );
@@ -176,7 +169,7 @@ const TimerRing: React.FC<{ seconds: number; total: number; warn: boolean }> = (
   const fraction = Math.max(0, Math.min(1, seconds / total));
   const color = warn ? COLORS.danger : COLORS.live;
   return (
-    <div className="relative h-16 w-16" role="timer" aria-label={`${formatClock(seconds)} left`}>
+    <div className="relative h-16 w-16" role="timer" aria-label={tr("{value} left", { value: formatClock(seconds) })}>
       <svg viewBox="0 0 64 64" className="h-full w-full -rotate-90">
         <circle cx="32" cy="32" r={radius} fill="none" stroke={COLORS.border} strokeWidth="5" />
         <circle
@@ -217,8 +210,8 @@ const TalkBalance: React.FC<{ me: number; partner: number }> = ({ me, partner })
   return (
     <div className="w-full">
       <div className="mb-1.5 flex justify-between text-[11px]" style={{ color: COLORS.textMuted }}>
-        <span>You {mine}%</span>
-        <span>{100 - mine}% Them</span>
+        <span>{tr("You {mine}%", { mine })}</span>
+        <span>{100 - mine}{tr("% Them")}</span>
       </div>
       <div className="flex h-1.5 overflow-hidden rounded-full" style={{ background: COLORS.border }} aria-hidden="true">
         <div style={{ width: `${mine}%`, background: COLORS.spotlight, transition: "width 600ms" }} />
@@ -226,7 +219,7 @@ const TalkBalance: React.FC<{ me: number; partner: number }> = ({ me, partner })
       </div>
       {hint && (
         <p className="mt-1.5 text-center text-[11px]" style={{ color: COLORS.textSecondary }}>
-          {hint}
+          {tr(hint)}
         </p>
       )}
     </div>
@@ -277,8 +270,7 @@ export const InCallScreen: React.FC<{
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: COLORS.textMuted }}>
-            You are talking with
-          </p>
+            {tr("You are talking with")}</p>
           <h2 className="truncate font-serif text-2xl" style={{ color: COLORS.textPrimary }}>
             {p.call.partner.name}
           </h2>
@@ -289,13 +281,12 @@ export const InCallScreen: React.FC<{
                 {p.call.partner.country}
               </span>
             )}
-            {p.call.partner.nativeLanguage && <span>Speaks {languageName(p.call.partner.nativeLanguage)}</span>}
+            {p.call.partner.nativeLanguage && <span>{tr("Speaks")}{" "}{languageName(p.call.partner.nativeLanguage)}</span>}
             <span className="capitalize">{p.call.partner.level}</span>
           </p>
           {!!p.call.partner.sharedInterests?.length && (
             <p className="mt-1 text-xs" style={{ color: COLORS.textMuted }}>
-              You both like <span className="font-semibold" style={{ color: COLORS.textPrimary }}>{p.call.partner.sharedInterests.slice(0, 3).join(", ")}</span>. A good place to start!
-            </p>
+              {tr("You both like")}{" "}<span className="font-semibold" style={{ color: COLORS.textPrimary }}>{p.call.partner.sharedInterests.slice(0, 3).join(", ")}</span>{tr(". A good place to start!")}</p>
           )}
         </div>
         <TimerRing seconds={p.secondsLeft} total={total} warn={p.secondsLeft <= 30} />
@@ -312,13 +303,13 @@ export const InCallScreen: React.FC<{
         <div className="flex flex-col items-center gap-3">
           <CallAvatar name={p.call.partner.name} avatarUrl={p.call.partner.avatarUrl} speaking={p.partnerSpeaking} ring={COLORS.purple} />
           <span className="text-xs" style={{ color: COLORS.textMuted }}>
-            {p.partnerSpeaking ? "Speaking" : "Listening"}
+            {p.partnerSpeaking ? tr("Speaking") : tr("Listening")}
           </span>
         </div>
         <div className="flex flex-col items-center gap-3">
           <CallAvatar name={p.userName} avatarUrl={p.userAvatar} size={80} speaking={p.meSpeaking && !p.muted} ring={COLORS.spotlight} />
           <span className="text-xs" style={{ color: COLORS.textMuted }}>
-            {p.muted ? "Muted" : p.meSpeaking ? "You are speaking" : "You"}
+            {p.muted ? tr("Muted") : p.meSpeaking ? tr("You are speaking") : tr("You")}
           </span>
         </div>
         {p.extras.reactionFloat}
@@ -329,7 +320,7 @@ export const InCallScreen: React.FC<{
             role="status"
           >
             <Loader2 className="h-3 w-3 animate-spin" />
-            {p.mediaState === "reconnecting" ? "Reconnecting..." : "Connecting audio..."}
+            {p.mediaState === "reconnecting" ? tr("Reconnecting...") : tr("Connecting audio...")}
           </span>
         )}
       </div>
@@ -365,8 +356,7 @@ export const InCallScreen: React.FC<{
           className="rounded-2xl border px-4 py-2.5 text-center text-sm"
           style={{ borderColor: `color-mix(in srgb, ${COLORS.live} 26.7%, transparent)`, background: COLORS.liveDim, color: COLORS.live }}
         >
-          Quiet for a moment. Tap “Keep it going” on the card, or press “Surprise me” for a new question.
-        </motion.p>
+          {tr("Quiet for a moment. Tap “Keep it going” on the card, or press “Surprise me” for a new question.")}</motion.p>
       )}
 
       {(p.partnerWantsExtend || p.justExtended) && (
@@ -375,7 +365,7 @@ export const InCallScreen: React.FC<{
           role="status"
           style={{ borderColor: `color-mix(in srgb, ${COLORS.spotlight} 33.3%, transparent)`, background: COLORS.spotlightDim, color: COLORS.spotlight }}
         >
-          {p.justExtended ? "5 more minutes added. Enjoy!" : `${p.call.partner.name} would like to keep talking.`}
+          {p.justExtended ? tr("5 more minutes added. Enjoy!") : tr("{name} would like to keep talking.", { name: p.call.partner.name })}
         </p>
       )}
 
@@ -389,7 +379,7 @@ export const InCallScreen: React.FC<{
         <button
           onClick={p.onMute}
           aria-pressed={p.muted}
-          aria-label={p.muted ? "Unmute" : "Mute"}
+          aria-label={p.muted ? tr("Unmute") : tr("Mute")}
           className="flex h-14 w-14 items-center justify-center rounded-full border transition-colors"
           style={{
             borderColor: p.muted ? COLORS.danger : COLORS.borderLight,
@@ -408,19 +398,18 @@ export const InCallScreen: React.FC<{
             style={{ background: COLORS.spotlight, color: COLORS.void }}
           >
             <Plus className="h-4 w-4" />
-            {p.iWantExtend ? "Waiting for them..." : p.partnerWantsExtend ? "Yes, +5 min" : "Add 5 min"}
+            {p.iWantExtend ? tr("Waiting for them...") : p.partnerWantsExtend ? tr("Yes, +5 min") : tr("Add 5 min")}
           </button>
         )}
 
         <button
           onClick={p.onEnd}
-          aria-label="End call"
+          aria-label={tr("End call")}
           className="flex h-14 items-center gap-2 rounded-full px-6 text-sm font-semibold"
           style={{ background: COLORS.danger, color: "var(--sx-text-ffffff)" }}
         >
           <PhoneOff className="h-5 w-5" />
-          End call
-        </button>
+          {tr("End call")}</button>
       </div>
 
       <SafetyBar onReport={p.onReport} onBlock={p.onBlock} />

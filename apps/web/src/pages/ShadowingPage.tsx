@@ -21,14 +21,15 @@ import {
 } from "lucide-react";
 import { useShadowingOverview, type ShadowLevel } from "../hooks/useShadowing";
 import { card, scoreTone, trackIcon } from "../components/shadowing/shadowingUi";
+import { tr, msg } from "../i18n/core";
 
 const levelChip = "text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-slate-600 dark:text-slate-300";
 
 const MODES = [
-  { icon: Repeat2, title: "Repeat", desc: "Hear a line, then say it back." },
-  { icon: Layers, title: "Build up", desc: "Learn long lines end-first, a chunk at a time." },
-  { icon: Headphones, title: "Speak along", desc: "Talk at the same time as the voice." },
-  { icon: Target, title: "Blind", desc: "No text: shadow by ear alone." },
+  { icon: Repeat2, title: msg("Repeat"), desc: msg("Hear a line, then say it back.") },
+  { icon: Layers, title: msg("Build up"), desc: msg("Learn long lines end-first, a chunk at a time.") },
+  { icon: Headphones, title: msg("Speak along"), desc: msg("Talk at the same time as the voice.") },
+  { icon: Target, title: msg("Blind"), desc: msg("No text: shadow by ear alone.") },
 ];
 
 export const ShadowingPage: React.FC = () => {
@@ -61,8 +62,7 @@ export const ShadowingPage: React.FC = () => {
   if (isError || !data) {
     return (
       <div className={`${card} max-w-xl mx-auto mt-16 p-8 text-center text-sm text-slate-500`}>
-        Couldn't load shadowing. Check your connection and refresh to try again.
-      </div>
+        {tr("Couldn't load shadowing. Check your connection and refresh to try again.")}</div>
     );
   }
 
@@ -76,21 +76,21 @@ export const ShadowingPage: React.FC = () => {
           <Repeat2 className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Shadowing</h1>
-          <p className="text-sm text-slate-500">Listen to a native-like voice and say it back the same way: rhythm, stress, linking and tune.</p>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{tr("Shadowing")}</h1>
+          <p className="text-sm text-slate-500">{tr("Listen to a native-like voice and say it back the same way: rhythm, stress, linking and tune.")}</p>
         </div>
       </header>
 
       {/* Your numbers */}
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Lessons done", value: `${stats.done}/${stats.total}` },
-          { label: "Average best", value: stats.average === null ? "-" : String(stats.average), tone: stats.average !== null ? scoreTone(stats.average) : "" },
-          { label: "Lines spoken", value: String(stats.linesSpoken) },
-          { label: "Sessions", value: String(stats.sessions) },
+          { label: msg("Lessons done"), value: `${stats.done}/${stats.total}` },
+          { label: msg("Average best"), value: stats.average === null ? "-" : String(stats.average), tone: stats.average !== null ? scoreTone(stats.average) : "" },
+          { label: msg("Lines spoken"), value: String(stats.linesSpoken) },
+          { label: msg("Sessions"), value: String(stats.sessions) },
         ].map((s) => (
           <div key={s.label} className={`${card} p-4`}>
-            <p className="text-xs text-slate-500">{s.label}</p>
+            <p className="text-xs text-slate-500">{tr(s.label)}</p>
             <p className={`mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white ${s.tone ?? ""}`}>{s.value}</p>
           </div>
         ))}
@@ -107,29 +107,29 @@ export const ShadowingPage: React.FC = () => {
             className="group rounded-3xl p-5 bg-gradient-to-br from-fuchsia-600 to-violet-600 text-white shadow-md shadow-fuchsia-500/15 hover:shadow-fuchsia-500/30 transition-shadow"
           >
             <p className="text-[11px] font-bold uppercase tracking-wider opacity-80 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" /> Up next · {data.next.level}
+              <Sparkles className="w-3.5 h-3.5" /> {" "}{tr("Up next ·")}{" "}{data.next.level}
             </p>
-            <h2 className="mt-1 text-lg font-bold">{data.next.title}</h2>
+            <h2 className="mt-1 text-lg font-bold">{tr(data.next.title)}</h2>
             <p className="text-sm opacity-90">{data.next.focus}</p>
             <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold">
-              Start lesson <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              {tr("Start lesson")}{" "}<ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </span>
           </Link>
         ) : (
           <div className="rounded-3xl p-5 bg-gradient-to-br from-emerald-600 to-teal-600 text-white">
-            <p className="text-[11px] font-bold uppercase tracking-wider opacity-80">Course complete</p>
-            <h2 className="mt-1 text-lg font-bold">You finished every lesson!</h2>
-            <p className="text-sm opacity-90">Go back to any lesson to beat your best, or try the daily mix.</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider opacity-80">{tr("Course complete")}</p>
+            <h2 className="mt-1 text-lg font-bold">{tr("You finished every lesson!")}</h2>
+            <p className="text-sm opacity-90">{tr("Go back to any lesson to beat your best, or try the daily mix.")}</p>
           </div>
         )}
         <Link to="/shadowing/daily" className={`${card} group p-5 hover:border-fuchsia-300 dark:hover:border-fuchsia-500/40 transition-colors`}>
           <p className="text-[11px] font-bold uppercase tracking-wider text-fuchsia-600 dark:text-fuchsia-400 flex items-center gap-1.5">
-            <Shuffle className="w-3.5 h-3.5" /> Daily mix · {data.level}
+            <Shuffle className="w-3.5 h-3.5" /> {" "}{tr("Daily mix ·")}{" "}{data.level}
           </p>
-          <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">Six fresh sentences</h2>
-          <p className="text-sm text-slate-500">Mixed lines from the library at your level, new every day.</p>
+          <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">{tr("Six fresh sentences")}</h2>
+          <p className="text-sm text-slate-500">{tr("Mixed lines from the library at your level, new every day.")}</p>
           <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-fuchsia-600 dark:text-fuchsia-400">
-            Practise now <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            {tr("Practise now")}{" "}<ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </span>
         </Link>
       </section>
@@ -138,21 +138,19 @@ export const ShadowingPage: React.FC = () => {
       <section className={`${card} p-5`}>
         <div className="flex items-center gap-2">
           <Mic className="w-4 h-4 text-fuchsia-500" />
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Four ways to practise in every lesson</h2>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Four ways to practise in every lesson")}</h2>
         </div>
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
           {MODES.map((m) => (
             <div key={m.title} className="rounded-2xl bg-slate-50 dark:bg-white/[0.03] p-3">
               <m.icon className="w-4 h-4 text-fuchsia-500" />
-              <p className="mt-1.5 text-sm font-semibold text-slate-900 dark:text-white">{m.title}</p>
-              <p className="text-xs text-slate-500">{m.desc}</p>
+              <p className="mt-1.5 text-sm font-semibold text-slate-900 dark:text-white">{tr(m.title)}</p>
+              <p className="text-xs text-slate-500">{tr(m.desc)}</p>
             </div>
           ))}
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Each line shows <b className="text-slate-700 dark:text-slate-200">stressed words</b>, <span className="text-sky-600 dark:text-sky-400">weak forms</span>,
-          linking (‿) and whether your voice should go up or down. Record yourself and compare with the model.
-        </p>
+          {tr("Each line shows")}{" "}<b className="text-slate-700 dark:text-slate-200">{tr("stressed words")}</b>, <span className="text-sky-600 dark:text-sky-400">{tr("weak forms")}</span>{tr(", linking (‿) and whether your voice should go up or down. Record yourself and compare with the model.")}</p>
       </section>
 
       {/* Filters */}
@@ -162,11 +160,11 @@ export const ShadowingPage: React.FC = () => {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search lessons: linking, interview, questions..."
+            placeholder={tr("Search lessons: linking, interview, questions...")}
             className="w-full h-10 pl-10 pr-4 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm outline-none focus:border-fuchsia-400"
           />
         </div>
-        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Level">
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={tr("Level")}>
           {(["all", ...data.levels] as Array<ShadowLevel | "all">).map((lv) => (
             <button
               key={lv}
@@ -180,8 +178,8 @@ export const ShadowingPage: React.FC = () => {
                   : "border-line bg-surface text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.08]"
               }`}
             >
-              {lv === "all" ? "All" : lv}
-              {lv === data.level && <span className="opacity-70"> · you</span>}
+              {lv === "all" ? tr("All") : lv}
+              {lv === data.level && <span className="opacity-70"> {" "}{tr("· you")}</span>}
             </button>
           ))}
         </div>
@@ -189,7 +187,7 @@ export const ShadowingPage: React.FC = () => {
 
       {/* Tracks */}
       {tracks.length === 0 ? (
-        <p className={`${card} p-8 text-center text-sm text-slate-500`}>No lessons match. Try another level or search.</p>
+        <p className={`${card} p-8 text-center text-sm text-slate-500`}>{tr("No lessons match. Try another level or search.")}</p>
       ) : (
         <div className="space-y-6">
           {tracks.map((t) => {
@@ -201,8 +199,8 @@ export const ShadowingPage: React.FC = () => {
                     <Icon className="w-4.5 h-4.5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-base font-bold text-slate-900 dark:text-white">{t.label}</h2>
-                    <p className="text-xs text-slate-500">{t.description}</p>
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white">{tr(t.label)}</h2>
+                    <p className="text-xs text-slate-500">{tr(t.description)}</p>
                   </div>
                   <span className="text-xs text-slate-400 tabular-nums shrink-0">{t.done}/{t.lessons.length}</span>
                 </div>
@@ -218,13 +216,13 @@ export const ShadowingPage: React.FC = () => {
                         {l.done ? (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                            {l.bestScore !== null ? <span className={`tabular-nums ${scoreTone(l.bestScore)}`}>{l.bestScore}</span> : <span className="text-slate-400">done</span>}
+                            {l.bestScore !== null ? <span className={`tabular-nums ${scoreTone(l.bestScore)}`}>{l.bestScore}</span> : <span className="text-slate-400">{tr("done")}</span>}
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-400">{l.lines} lines</span>
+                          <span className="text-xs text-slate-400">{l.lines} {" "}{tr("lines")}</span>
                         )}
                       </div>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white leading-snug">{l.title}</p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white leading-snug">{tr(l.title)}</p>
                       <p className="text-xs text-slate-500">{l.focus}</p>
                     </Link>
                   ))}

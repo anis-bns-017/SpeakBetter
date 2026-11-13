@@ -3,6 +3,7 @@
 // speech-to-text key. Results are remembered on this device, so a message is only transcribed once.
 
 import type { WorkerRequest, WorkerResponse } from "./whisper.worker";
+import { API_URL } from "../api/serverUrl";
 
 /** Whisper listens to 16 kHz mono audio */
 const SAMPLE_RATE = 16000;
@@ -46,7 +47,7 @@ export const canTranscribeOnDevice = (): boolean =>
 /** Media links from the API may be relative to it */
 function absolute(url: string): string {
   if (/^https?:\/\//i.test(url)) return url;
-  const api = (import.meta.env.VITE_API_URL as string | undefined) ?? window.location.origin;
+  const api = import.meta.env.VITE_API_URL ? API_URL : window.location.origin;
   return new URL(url, api.endsWith("/") ? api : `${api}/`).toString();
 }
 

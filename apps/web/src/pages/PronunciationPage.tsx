@@ -3,6 +3,9 @@
  * Pronunciation practice: hear a word or sentence, say it, and see which words came across. Words that were
  * heard as something else get a tip for the sound behind it (th, v/w, r/l...). Scoring uses the browser's own
  * speech recognition, so it shows how understandable you are rather than grading your accent.
+ *
+ * "Check every sound" (the learner turns it on) goes one level deeper: the recording is listened to on this
+ * device by a small phone recogniser, and each sound of each word is marked clear, close, different or missing.
  */
 
 import React, { useState } from "react";
@@ -14,6 +17,7 @@ import {
   AudioLines,
   BookmarkPlus,
   CalendarCheck,
+  Ear,
   Gauge,
   Headphones,
   Lightbulb,
@@ -38,14 +42,19 @@ import {
   usePronunciationPractice,
   usePronunciationProgress,
   useRecorder,
+  useSoundCheck,
   useSubmitAttempt,
   type AttemptResult,
   type PracticeData,
+  type SoundCheckState,
   type SoundKey,
+  type SoundPhone,
   type SoundSet,
 } from "../hooks/usePronunciation";
+import { canCheckSounds, setSoundCheck, soundCheckIsOn, SOUND_CHECK_MB } from "../lib/phonemes/onDevice";
 import { NO_TRANSLATION, useLookupQuery } from "../hooks/useLookup";
 import { canSpeak, speak } from "../lib/speech";
+import { tr, msg } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -138,28 +147,25 @@ const DrillCard: React.FC<{ sounds: SoundSet[]; onStart: (s: Session) => void }>
           <CalendarCheck className="w-5 h-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-bold">Today's drill</h2>
+          <h2 className="text-base font-bold">{tr("Today's drill")}</h2>
           <p className="text-sm text-white/85 mt-0.5">{reason}.</p>
           <p className="text-xs text-white/70 mt-1">
-            {data.items.length} to say
-            {data.troubleWords.length > 0 && ` · includes ${data.troubleWords.length} word${data.troubleWords.length === 1 ? "" : "s"} you keep missing`}
-            {" · "}about {Math.max(2, Math.round(data.items.length * 0.4))} minutes
-          </p>
+            {data.items.length} {" "}{tr("to say")}{data.troubleWords.length > 0 && tr(" · includes {troubleWords} word{value} you keep missing", { troubleWords: data.troubleWords.length, value: data.troubleWords.length === 1 ? "" : "s" })}
+            {" · "}{tr("about {value} minutes", { value: Math.max(2, Math.round(data.items.length * 0.4)) })}</p>
         </div>
       </div>
       <button
         type="button"
         onClick={() =>
           onStart({
-            title: "Today's drill",
+            title: msg("Today's drill"),
             items: data.items,
             sounds,
           })
         }
         className="mt-4 w-full h-10 rounded-xl bg-white text-indigo-700 text-sm font-semibold hover:bg-white/90"
       >
-        Start today's drill
-      </button>
+        {tr("Start today's drill")}</button>
     </section>
   );
 };
@@ -168,8 +174,8 @@ const PractiseHome: React.FC<{ data: PracticeData; onStart: (s: Session) => void
   <div className="space-y-6">
     <DrillCard sounds={data.sounds} onStart={onStart} />
     <section>
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Sounds people often mix up</h2>
-      <p className="text-xs text-slate-500 mt-0.5">Pairs of words that differ by one sound, then a sentence full of it.</p>
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Sounds people often mix up")}</h2>
+      <p className="text-xs text-slate-500 mt-0.5">{tr("Pairs of words that differ by one sound, then a sentence full of it.")}</p>
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {data.sounds.map((s) => (
           <button
@@ -180,17 +186,17 @@ const PractiseHome: React.FC<{ data: PracticeData; onStart: (s: Session) => void
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">{s.label}</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">{tr(s.label)}</p>
                 <p className="text-xs text-slate-500 mt-0.5">
                   <span className="font-mono">{s.ipa}</span> · {s.pairs[0][0]} / {s.pairs[0][1]}
                 </p>
               </div>
               {s.best !== null ? (
-                <span className={`text-sm font-bold tabular-nums ${scoreTone(s.best)}`} title="Your best score in the last 30 days">
+                <span className={`text-sm font-bold tabular-nums ${scoreTone(s.best)}`} title={tr("Your best score in the last 30 days")}>
                   {s.best}
                 </span>
               ) : (
-                <span className="text-[11px] text-slate-400">New</span>
+                <span className="text-[11px] text-slate-400">{tr("New")}</span>
               )}
             </div>
           </button>
@@ -201,9 +207,9 @@ const PractiseHome: React.FC<{ data: PracticeData; onStart: (s: Session) => void
     <section>
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Sentences for your level ({data.level})</h2>
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Sentences for your level ({level})", { level: data.level })}</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Not your level? <Link to="/placement" className="text-indigo-600 dark:text-indigo-400 hover:underline">Take the level test</Link>
+            {tr("Not your level?")}{" "}<Link to="/placement" className="text-indigo-600 dark:text-indigo-400 hover:underline">{tr("Take the level test")}</Link>
           </p>
         </div>
         <button
@@ -211,8 +217,7 @@ const PractiseHome: React.FC<{ data: PracticeData; onStart: (s: Session) => void
           onClick={() => onStart({ title: `Sentences (${data.level})`, items: data.sentences.map((target) => ({ target, source: "sentence" })) })}
           className="h-8 px-3 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shrink-0"
         >
-          Practise all
-        </button>
+          {tr("Practise all")}</button>
       </div>
       <div className="mt-3 space-y-2">
         {data.sentences.map((target, i) => (
@@ -234,10 +239,10 @@ const PractiseHome: React.FC<{ data: PracticeData; onStart: (s: Session) => void
     </section>
 
     <section>
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Your words</h2>
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Your words")}</h2>
       {data.myWords.length > 0 ? (
         <>
-          <p className="text-xs text-slate-500 mt-0.5">Words you saved from chats, captions and calls.</p>
+          <p className="text-xs text-slate-500 mt-0.5">{tr("Words you saved from chats, captions and calls.")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {data.myWords.map((w, i) => (
               <button
@@ -245,7 +250,7 @@ const PractiseHome: React.FC<{ data: PracticeData; onStart: (s: Session) => void
                 type="button"
                 onClick={() =>
                   onStart({
-                    title: "Your words",
+                    title: msg("Your words"),
                     items: [...data.myWords.slice(i), ...data.myWords.slice(0, i)].map((t) => ({ target: t, source: "word" })),
                   })
                 }
@@ -258,8 +263,7 @@ const PractiseHome: React.FC<{ data: PracticeData; onStart: (s: Session) => void
         </>
       ) : (
         <p className="text-xs text-slate-500 mt-0.5">
-          Save words from a chat (select a word) or from live captions, and they will show up here to practise.
-        </p>
+          {tr("Save words from a chat (select a word) or from live captions, and they will show up here to practise.")}</p>
       )}
     </section>
   </div>
@@ -288,22 +292,21 @@ const WordGuide: React.FC<{ word: string; onClose?: () => void }> = ({ word, onC
           </p>
           {isFetching && !data ? (
             <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-              <Loader2 className="w-3 h-3 animate-spin" /> Looking up how it is said…
-            </p>
+              <Loader2 className="w-3 h-3 animate-spin" /> {" "}{tr("Looking up how it is said…")}</p>
           ) : phonetic ? (
             <>
               <p className="font-mono text-base text-indigo-700 dark:text-indigo-300 mt-0.5">{phonetic}</p>
               {phonetic.includes("ˈ") && (
-                <p className="text-[11px] text-slate-500">The mark ˈ comes just before the syllable to stress.</p>
+                <p className="text-[11px] text-slate-500">{tr("The mark ˈ comes just before the syllable to stress.")}</p>
               )}
             </>
           ) : (
-            <p className="text-xs text-slate-500 mt-0.5">No sound spelling for this word. Listen to it instead.</p>
+            <p className="text-xs text-slate-500 mt-0.5">{tr("No sound spelling for this word. Listen to it instead.")}</p>
           )}
           {meaning && <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 line-clamp-2">{meaning}</p>}
         </div>
         {onClose && (
-          <button type="button" onClick={onClose} aria-label="Close" className="p-1 -mr-1 rounded-lg text-slate-400 hover:bg-slate-200/60 dark:hover:bg-white/10">
+          <button type="button" onClick={onClose} aria-label={tr("Close")} className="p-1 -mr-1 rounded-lg text-slate-400 hover:bg-slate-200/60 dark:hover:bg-white/10">
             <X className="w-4 h-4" />
           </button>
         )}
@@ -311,11 +314,9 @@ const WordGuide: React.FC<{ word: string; onClose?: () => void }> = ({ word, onC
       {canSpeak() && (
         <div className="mt-2 flex gap-1.5">
           <button type="button" onClick={() => void speak(word)} className="h-7 px-2.5 rounded-lg bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 inline-flex items-center gap-1">
-            <Volume2 className="w-3.5 h-3.5" /> Hear it
-          </button>
+            <Volume2 className="w-3.5 h-3.5" /> {" "}{tr("Hear it")}</button>
           <button type="button" onClick={() => void speak(word, { rate: 0.5 })} className="h-7 px-2.5 rounded-lg bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 inline-flex items-center gap-1">
-            <Turtle className="w-3.5 h-3.5" /> Very slowly
-          </button>
+            <Turtle className="w-3.5 h-3.5" /> {" "}{tr("Very slowly")}</button>
         </div>
       )}
     </div>
@@ -347,22 +348,18 @@ const CompareBar: React.FC<{ target: string; recording: string | null }> = ({ ta
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
       <span className="text-xs text-slate-500 inline-flex items-center gap-1">
-        <Headphones className="w-3.5 h-3.5" /> Compare
-      </span>
+        <Headphones className="w-3.5 h-3.5" /> {" "}{tr("Compare")}</span>
       {canSpeak() && (
         <button type="button" onClick={() => void run("model")} disabled={!!playing} className={button}>
-          {playing === "model" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />} Model
-        </button>
+          {playing === "model" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />} {" "}{tr("Model")}</button>
       )}
       {recording && (
         <button type="button" onClick={() => void run("you")} disabled={!!playing} className={button}>
-          {playing === "you" ? <Loader2 className="w-4 h-4 animate-spin" /> : <User className="w-4 h-4" />} You
-        </button>
+          {playing === "you" ? <Loader2 className="w-4 h-4 animate-spin" /> : <User className="w-4 h-4" />} {" "}{tr("You")}</button>
       )}
       {recording && canSpeak() && (
         <button type="button" onClick={() => void run("both")} disabled={!!playing} className={button}>
-          {playing === "both" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} One after the other
-        </button>
+          {playing === "both" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} {" "}{tr("One after the other")}</button>
       )}
     </div>
   );
@@ -383,13 +380,13 @@ const ResultView: React.FC<{ result: AttemptResult }> = ({ result }) => {
         <span className={`text-5xl font-bold tabular-nums ${scoreTone(result.score)}`}>{result.score}</span>
         <div className="text-left">
           <p className="text-sm font-semibold text-slate-900 dark:text-white">
-            {result.verdict === "great" ? "Clear as a bell" : result.verdict === "good" ? "Nearly there" : "Let's try that again"}
+            {result.verdict === "great" ? tr("Clear as a bell") : result.verdict === "good" ? tr("Nearly there") : tr("Let's try that again")}
           </p>
-          <p className="text-xs text-slate-500">out of 100</p>
+          <p className="text-xs text-slate-500">{tr("out of 100")}</p>
         </div>
       </div>
 
-      <p className="flex flex-wrap justify-center gap-x-2 gap-y-3 text-lg leading-tight" aria-label="How each word came across">
+      <p className="flex flex-wrap justify-center gap-x-2 gap-y-3 text-lg leading-tight" aria-label={tr("How each word came across")}>
         {result.words.map((w, i) => (
           <span key={i} className="inline-flex flex-col items-center">
             <span
@@ -401,10 +398,10 @@ const ResultView: React.FC<{ result: AttemptResult }> = ({ result }) => {
                     : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
               }`}
             >
-              {w.text}
+              {tr(w.text)}
             </span>
             {w.status !== "good" && (
-              <span className="mt-0.5 text-[11px] text-slate-500">{w.heard ? `heard “${w.heard}”` : "not heard"}</span>
+              <span className="mt-0.5 text-[11px] text-slate-500">{w.heard ? tr("heard “{heard}”", { heard: w.heard }) : tr("not heard")}</span>
             )}
           </span>
         ))}
@@ -413,8 +410,8 @@ const ResultView: React.FC<{ result: AttemptResult }> = ({ result }) => {
       {result.pace && (
         <p className="flex items-center justify-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
           <Gauge className="w-4 h-4 text-slate-400" />
-          <span className={`font-semibold tabular-nums ${PACE_TONE[result.pace.verdict]}`}>{result.pace.wordsPerMinute} words a minute</span>
-          <span className="text-slate-500">· {result.pace.tip}</span>
+          <span className={`font-semibold tabular-nums ${PACE_TONE[result.pace.verdict]}`}>{result.pace.wordsPerMinute} {" "}{tr("words a minute")}</span>
+          <span className="text-slate-500">· {tr(result.pace.tip)}</span>
         </p>
       )}
 
@@ -423,7 +420,7 @@ const ResultView: React.FC<{ result: AttemptResult }> = ({ result }) => {
           {tips.map((t) => (
             <li key={t.sound ?? t.tip} className="flex gap-2 rounded-2xl bg-amber-50/70 dark:bg-amber-500/10 px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200">
               <Lightbulb className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
-              <span>{t.tip}</span>
+              <span>{tr(t.tip)}</span>
             </li>
           ))}
         </ul>
@@ -432,10 +429,154 @@ const ResultView: React.FC<{ result: AttemptResult }> = ({ result }) => {
       {result.addedToReview.length > 0 && (
         <p className="flex items-center justify-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400">
           <BookmarkPlus className="w-3.5 h-3.5" />
-          “{result.addedToReview.join("”, “")}” keeps tripping you up, so it is now in your{" "}
-          <Link to="/flashcards?pattern=PRONUNCIATION" className="font-semibold hover:underline">Review deck</Link>
+          {tr("“{value}” keeps tripping you up, so it is now in your", { value: result.addedToReview.join("”, “") })}{" "}
+          <Link to="/flashcards?pattern=PRONUNCIATION" className="font-semibold hover:underline">{tr("Review deck")}</Link>
         </p>
       )}
+    </div>
+  );
+};
+
+const PHONE_TONE: Record<SoundPhone["status"], string> = {
+  good: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+  close: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  wrong: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
+  missing: "bg-rose-50 text-rose-700 line-through decoration-2 dark:bg-rose-500/10 dark:text-rose-300",
+};
+
+const PHONE_TITLE: Record<SoundPhone["status"], string> = {
+  good: msg("Clear"),
+  close: msg("Close"),
+  wrong: msg("Sounded like another sound"),
+  missing: msg("Not heard"),
+};
+
+/**
+ * Each sound of each word, from listening to the recording on this device. Off until the learner turns it on,
+ * since the first check downloads the recogniser.
+ */
+const SoundCheckPanel: React.FC<{
+  on: boolean;
+  state: SoundCheckState;
+  onTurnOn: () => void;
+  onTurnOff: () => void;
+  onRun: () => void;
+}> = ({ on, state, onTurnOn, onTurnOff, onRun }) => {
+  const smallButton =
+    "h-8 px-3 rounded-xl text-xs font-semibold border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05]";
+
+  if (!on) {
+    return (
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 px-4 py-3 text-left">
+        <Ear className="w-5 h-5 shrink-0 text-indigo-500" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Check every sound")}</p>
+          <p className="text-xs text-slate-500">
+            {tr("See which single sounds were off, like the th in “think”. Your recording stays on this device. The first check downloads about {SOUND_CHECK_MB} MB.", { SOUND_CHECK_MB })}</p>
+        </div>
+        <button type="button" onClick={onTurnOn} className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shrink-0">
+          {tr("Turn on")}</button>
+      </div>
+    );
+  }
+
+  if (state.status === "idle") {
+    return (
+      <div className="mt-4 flex justify-center">
+        <button type="button" onClick={onRun} className={`${smallButton} inline-flex items-center gap-1.5`}>
+          <Ear className="w-3.5 h-3.5" /> {" "}{tr("Check every sound")}</button>
+      </div>
+    );
+  }
+
+  if (state.status === "working") {
+    const { stage } = state;
+    return (
+      <p className="mt-4 flex items-center justify-center gap-2 text-sm text-slate-500" role="status">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        {stage.stage === "download"
+          ? tr("Getting the sound checker… {loadedMb} of {totalMb} MB (first time only)", { loadedMb: stage.loadedMb, totalMb: stage.totalMb })
+          : stage.stage === "listening"
+            ? tr("Listening to each sound…")
+            : tr("Reading your recording…")}
+      </p>
+    );
+  }
+
+  if (state.status === "none" || state.status === "error") {
+    return (
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm text-slate-500">
+        <span>
+          {state.status === "none" ? tr("We couldn't match your recording to the words this time. Try again, a little slower.") : state.message}
+        </span>
+        {state.status === "error" && (
+          <button type="button" onClick={onRun} className={smallButton}>
+            {tr("Try again")}</button>
+        )}
+      </div>
+    );
+  }
+
+  const { result } = state;
+  return (
+    <div className="mt-5 rounded-2xl border border-line px-4 py-4 text-left">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white inline-flex items-center gap-1.5">
+          <Ear className="w-4 h-4 text-indigo-500" /> {" "}{tr("Sound by sound")}</h3>
+        <span className={`text-sm font-semibold tabular-nums ${scoreTone(result.score)}`}>
+          {result.score}% <span className="font-normal text-slate-500">{tr("of {judged} sounds clear", { judged: result.judged })}</span>
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-3" aria-label={tr("How each sound came across")}>
+        {result.words.map((w, i) => (
+          <div key={i} className="flex flex-col items-center">
+            <div className="flex gap-0.5">
+              {w.phones ? (
+                w.phones.map((ph, j) => (
+                  <span key={j} className="inline-flex flex-col items-center">
+                    <span
+                      title={ph.heardIpa ? `${PHONE_TITLE[ph.status]}: /${ph.heardIpa}/` : tr(PHONE_TITLE[ph.status])}
+                      className={`rounded-md px-1.5 py-0.5 font-mono text-sm ${PHONE_TONE[ph.status]}`}
+                    >
+                      {ph.ipa}
+                    </span>
+                    {ph.status === "wrong" && ph.heardIpa && <span className="mt-0.5 font-mono text-[10px] text-rose-600 dark:text-rose-400">{ph.heardIpa}</span>}
+                  </span>
+                ))
+              ) : (
+                <span className="rounded-md px-1.5 py-0.5 font-mono text-sm text-slate-400" title={tr("We don't have the sounds of this word")}>
+                  ·
+                </span>
+              )}
+            </div>
+            <span className="mt-1 text-[11px] text-slate-500">{tr(w.text)}</span>
+          </div>
+        ))}
+      </div>
+
+      {result.tips.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {result.tips.map((t, i) => (
+            <li key={i} className="flex gap-2 rounded-2xl bg-amber-50/70 dark:bg-amber-500/10 px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200">
+              <Lightbulb className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+              <span>
+                <span className="font-semibold">
+                  {tr("The {expectedHint}{value} in “{value2}”.", { expectedHint: t.expectedHint, value: t.heardHint ? ` sounded like the ${t.heardHint}` : tr(" was not heard"), value2: t.words.join("”, “") })}</span>{" "}
+                {t.sound ? tr(t.tip) : tr("Listen to the word slowly and copy that one sound.")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+        <span>
+          <span className="text-emerald-600 dark:text-emerald-400">{tr("Green")}</span> {" "}{tr("clear ·")}{" "}<span className="text-amber-600 dark:text-amber-400">{tr("amber")}</span> {" "}{tr("close ·")}{" "}
+          <span className="text-rose-600 dark:text-rose-400">{tr("red")}</span> {" "}{tr("different or missing. A best guess made on this device; noise can fool it.")}</span>
+        <button type="button" onClick={onTurnOff} className="underline hover:text-slate-600 dark:hover:text-slate-200">
+          {tr("Turn off")}</button>
+      </div>
     </div>
   );
 };
@@ -452,6 +593,8 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
   const { listening, interim, error, listen, stop } = useListenOnce();
   const recorder = useRecorder();
   const submit = useSubmitAttempt();
+  const soundCheck = useSoundCheck();
+  const [soundsOn, setSoundsOn] = useState(soundCheckIsOn);
   const supported = canListen();
 
   const done = index >= items.length;
@@ -469,6 +612,7 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
     setResult(null);
     setQuiet(false);
     recorder.clear();
+    soundCheck.reset();
     // Recording runs next to recognition: start both, then wait for what was said
     const recording = recorder.start();
     const heardPromise = listen();
@@ -490,6 +634,8 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
       });
       setResult(r);
       setBest((b) => ({ ...b, [item.target]: Math.max(b[item.target] ?? 0, r.score) }));
+      // The deeper look at each sound follows on its own; the score above does not wait for it
+      if (soundsOn && recorded && canCheckSounds()) void soundCheck.run(r.id, recorded.url);
     } catch (e) {
       toast.error(errorMessage(e, "Could not score that. Try again."));
     }
@@ -500,6 +646,7 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
     setGuideWord(null);
     setQuiet(false);
     recorder.clear();
+    soundCheck.reset();
     setIndex(i);
   };
 
@@ -517,16 +664,16 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
     const average = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
     return (
       <div className={`${card} p-8 text-center`}>
-        <p className="text-sm text-slate-500">{session.title}</p>
+        <p className="text-sm text-slate-500">{tr(session.title)}</p>
         {average !== null ? (
           <>
             <p className={`mt-2 text-5xl font-bold tabular-nums ${scoreTone(average)}`}>{average}</p>
             <p className="text-sm text-slate-500 mt-1">
-              Average of your best tries on {scores.length} of {scored.length}
+              {tr("Average of your best tries on {length} of", { length: scores.length })}{" "}{scored.length}
             </p>
           </>
         ) : (
-          <p className="mt-3 text-sm text-slate-500">You skipped them all. Have another go when you're ready.</p>
+          <p className="mt-3 text-sm text-slate-500">{tr("You skipped them all. Have another go when you're ready.")}</p>
         )}
         <div className="mt-6 flex justify-center gap-2">
           <button
@@ -538,11 +685,9 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
             }}
             className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] inline-flex items-center gap-1.5"
           >
-            <RotateCcw className="w-4 h-4" /> Practise again
-          </button>
+            <RotateCcw className="w-4 h-4" /> {" "}{tr("Practise again")}</button>
           <button type="button" onClick={onExit} className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">
-            Choose something else
-          </button>
+            {tr("Choose something else")}</button>
         </div>
       </div>
     );
@@ -552,8 +697,7 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <button type="button" onClick={onExit} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-          <ArrowLeft className="w-4 h-4" /> All practice
-        </button>
+          <ArrowLeft className="w-4 h-4" /> {" "}{tr("All practice")}</button>
         <span className="text-xs text-slate-500 tabular-nums">
           {index + 1} / {items.length}
         </span>
@@ -563,17 +707,17 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
         <div className="rounded-2xl bg-indigo-50/70 dark:bg-indigo-500/10 px-4 py-3">
           <button type="button" onClick={() => setShowTip((v) => !v)} className="w-full flex items-center justify-between gap-2 text-left">
             <span className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
-              {tipSound.label} <span className="font-mono font-normal">{tipSound.ipa}</span>
+              {tr(tipSound.label)} <span className="font-mono font-normal">{tipSound.ipa}</span>
             </span>
-            <span className="text-xs text-indigo-600 dark:text-indigo-300">{showTip ? "Hide tip" : "Show tip"}</span>
+            <span className="text-xs text-indigo-600 dark:text-indigo-300">{showTip ? tr("Hide tip") : tr("Show tip")}</span>
           </button>
-          {showTip && <p className="mt-1.5 text-sm text-indigo-900/80 dark:text-indigo-100/80">{tipSound.tip}</p>}
+          {showTip && <p className="mt-1.5 text-sm text-indigo-900/80 dark:text-indigo-100/80">{tr(tipSound.tip)}</p>}
         </div>
       )}
 
       <div className={`${card} p-6 sm:p-8 text-center`}>
         {item.piece && (
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Part of the sentence</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{tr("Part of the sentence")}</p>
         )}
         {isWord ? (
           <p className="text-4xl font-bold text-slate-900 dark:text-white leading-snug">{item.target}</p>
@@ -586,7 +730,7 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
                   <button
                     type="button"
                     onClick={() => word && setGuideWord((w) => (w === word ? null : word))}
-                    title="How do I say this word?"
+                    title={tr("How do I say this word?")}
                     className={`rounded-md px-0.5 transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-500/10 ${guideWord === word ? "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300" : ""}`}
                   >
                     {token}
@@ -596,14 +740,14 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
             })}
           </p>
         )}
-        {item.avoid && <p className="mt-2 text-sm text-slate-500">not “{item.avoid}”</p>}
+        {item.avoid && <p className="mt-2 text-sm text-slate-500">{tr("not “{avoid}”", { avoid: item.avoid })}</p>}
 
         {isWord ? (
           <WordGuide word={plainWord(item.target) || item.target} />
         ) : guideWord ? (
           <WordGuide word={guideWord} onClose={() => setGuideWord(null)} />
         ) : (
-          <p className="mt-2 text-[11px] text-slate-400">Tap any word to see how it is said</p>
+          <p className="mt-2 text-[11px] text-slate-400">{tr("Tap any word to see how it is said")}</p>
         )}
 
         <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -614,26 +758,23 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
                 onClick={() => void speak(item.target)}
                 className="h-9 px-3 rounded-xl bg-slate-100 dark:bg-white/[0.06] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/10 inline-flex items-center gap-1.5"
               >
-                <Volume2 className="w-4 h-4" /> Listen
-              </button>
+                <Volume2 className="w-4 h-4" /> {" "}{tr("Listen")}</button>
               <button
                 type="button"
                 onClick={() => void speak(item.target, { rate: 0.6 })}
                 className="h-9 px-3 rounded-xl bg-slate-100 dark:bg-white/[0.06] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/10 inline-flex items-center gap-1.5"
               >
-                <Turtle className="w-4 h-4" /> Slowly
-              </button>
+                <Turtle className="w-4 h-4" /> {" "}{tr("Slowly")}</button>
             </>
           )}
           {parts.length > 0 && (
             <button
               type="button"
               onClick={practiseInParts}
-              title="Say it a few words at a time, then the whole sentence"
+              title={tr("Say it a few words at a time, then the whole sentence")}
               className="h-9 px-3 rounded-xl bg-slate-100 dark:bg-white/[0.06] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/10 inline-flex items-center gap-1.5"
             >
-              <Scissors className="w-4 h-4" /> Practise in {parts.length} parts
-            </button>
+              <Scissors className="w-4 h-4" /> {" "}{tr("Practise in {length} parts", { length: parts.length })}</button>
           )}
         </div>
 
@@ -642,7 +783,7 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
             type="button"
             onClick={() => void record()}
             disabled={!supported || submit.isPending}
-            aria-label={listening ? "Stop listening" : "Say it"}
+            aria-label={listening ? tr("Stop listening") : tr("Say it")}
             className={`w-20 h-20 rounded-full flex items-center justify-center text-white shadow-lg transition-all disabled:opacity-50 ${
               listening ? "bg-rose-500" : "bg-indigo-600 hover:bg-indigo-700 hover:scale-105"
             }`}
@@ -657,11 +798,11 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
             </div>
           )}
           <p className="mt-2 text-xs text-slate-500 min-h-[1rem]">
-            {submit.isPending ? "Scoring…" : listening ? interim || "Listening… say it now" : result ? "Tap to try again" : "Tap and say it"}
+            {submit.isPending ? tr("Scoring…") : listening ? interim || tr("Listening… say it now") : result ? tr("Tap to try again") : tr("Tap and say it")}
           </p>
           {error && <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{error}</p>}
           {quiet && !error && (
-            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">We could barely hear you. Move closer to the microphone or speak up.</p>
+            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{tr("We could barely hear you. Move closer to the microphone or speak up.")}</p>
           )}
         </div>
 
@@ -671,21 +812,37 @@ const PracticeSession: React.FC<{ session: Session; onExit: () => void }> = ({ s
             <div className="mt-4">
               <CompareBar target={item.target} recording={recorder.url} />
             </div>
+            {recorder.url && canCheckSounds() && (
+              <SoundCheckPanel
+                on={soundsOn}
+                state={soundCheck.state}
+                onRun={() => recorder.url && void soundCheck.run(result.id, recorder.url)}
+                onTurnOn={() => {
+                  setSoundCheck(true);
+                  setSoundsOn(true);
+                  if (recorder.url) void soundCheck.run(result.id, recorder.url);
+                }}
+                onTurnOff={() => {
+                  setSoundCheck(false);
+                  setSoundsOn(false);
+                  soundCheck.reset();
+                }}
+              />
+            )}
           </>
         )}
       </div>
 
       <div className="flex justify-between gap-2">
         <button type="button" onClick={() => goTo(index + 1)} className="h-10 px-4 rounded-xl text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-          Skip
-        </button>
+          {tr("Skip")}</button>
         <button
           type="button"
           onClick={() => goTo(index + 1)}
           disabled={!result}
           className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-40"
         >
-          {index + 1 < items.length ? "Next" : "Finish"} <ArrowRight className="w-4 h-4" />
+          {index + 1 < items.length ? tr("Next") : tr("Finish")} <ArrowRight className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -708,7 +865,7 @@ const ProgressView: React.FC<{ sounds: SoundSet[]; onPractise: (s: Session) => v
   if (data.attempts === 0) {
     return (
       <div className={`${card} p-8 text-center`}>
-        <p className="text-sm text-slate-500">No practice in the last {data.days} days yet. Your scores and weak sounds will show up here.</p>
+        <p className="text-sm text-slate-500">{tr("No practice in the last {days} days yet. Your scores and weak sounds will show up here.", { days: data.days })}</p>
       </div>
     );
   }
@@ -718,27 +875,27 @@ const ProgressView: React.FC<{ sounds: SoundSet[]; onPractise: (s: Session) => v
     <div className="space-y-5">
       <div className="grid grid-cols-3 gap-2.5">
         <div className={`${card} p-4`}>
-          <p className="text-xs text-slate-500">Attempts</p>
+          <p className="text-xs text-slate-500">{tr("Attempts")}</p>
           <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{data.attempts}</p>
-          <p className="text-[11px] text-slate-400">last {data.days} days</p>
+          <p className="text-[11px] text-slate-400">{tr("last {days} days", { days: data.days })}</p>
         </div>
         <div className={`${card} p-4`}>
-          <p className="text-xs text-slate-500">Average</p>
+          <p className="text-xs text-slate-500">{tr("Average")}</p>
           <p className={`text-2xl font-bold tabular-nums ${scoreTone(data.average ?? 0)}`}>{data.average ?? "–"}</p>
-          <p className="text-[11px] text-slate-400">out of 100</p>
+          <p className="text-[11px] text-slate-400">{tr("out of 100")}</p>
         </div>
         <div className={`${card} p-4`}>
-          <p className="text-xs text-slate-500">This week</p>
+          <p className="text-xs text-slate-500">{tr("This week")}</p>
           <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{data.last7 ?? "–"}</p>
           <p className="text-[11px] text-slate-400 inline-flex items-center gap-1">
             {trend === null ? (
-              "no week before"
+              tr("no week before")
             ) : trend > 0 ? (
-              <><TrendingUp className="w-3 h-3 text-emerald-500" /> {trend} up on last week</>
+              <><TrendingUp className="w-3 h-3 text-emerald-500" /> {trend} {" "}{tr("up on last week")}</>
             ) : trend < 0 ? (
-              <><TrendingDown className="w-3 h-3 text-rose-500" /> {-trend} down on last week</>
+              <><TrendingDown className="w-3 h-3 text-rose-500" /> {-trend} {" "}{tr("down on last week")}</>
             ) : (
-              <><Minus className="w-3 h-3" /> same as last week</>
+              <><Minus className="w-3 h-3" /> {" "}{tr("same as last week")}</>
             )}
           </p>
         </div>
@@ -746,7 +903,7 @@ const ProgressView: React.FC<{ sounds: SoundSet[]; onPractise: (s: Session) => v
 
       {data.sounds.length > 0 && (
         <section className={`${card} p-4`}>
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Your sounds, weakest first</h2>
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Your sounds, weakest first")}</h2>
           <ul className="mt-3 space-y-3">
             {data.sounds.map((s) => {
               const set = sounds.find((x) => x.key === s.key);
@@ -754,7 +911,7 @@ const ProgressView: React.FC<{ sounds: SoundSet[]; onPractise: (s: Session) => v
                 <li key={s.key} className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="truncate text-slate-700 dark:text-slate-200">{s.label}</span>
+                      <span className="truncate text-slate-700 dark:text-slate-200">{tr(s.label)}</span>
                       <span className={`font-semibold tabular-nums ${scoreTone(s.average)}`}>{s.average}</span>
                     </div>
                     <div className="mt-1 h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden">
@@ -764,7 +921,7 @@ const ProgressView: React.FC<{ sounds: SoundSet[]; onPractise: (s: Session) => v
                       />
                     </div>
                     <p className="mt-0.5 text-[11px] text-slate-400">
-                      {s.attempts} attempt{s.attempts === 1 ? "" : "s"} · best {s.best}
+                      {s.attempts} {" "}{tr("attempt{value} · best", { value: s.attempts === 1 ? "" : "s" })}{" "}{s.best}
                     </p>
                   </div>
                   {set && (
@@ -773,8 +930,7 @@ const ProgressView: React.FC<{ sounds: SoundSet[]; onPractise: (s: Session) => v
                       onClick={() => onPractise(soundSession(set))}
                       className="h-8 px-3 rounded-xl text-xs font-semibold border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] shrink-0"
                     >
-                      Practise
-                    </button>
+                      {tr("Practise")}</button>
                   )}
                 </li>
               );
@@ -783,24 +939,44 @@ const ProgressView: React.FC<{ sounds: SoundSet[]; onPractise: (s: Session) => v
         </section>
       )}
 
+      {data.weakPhones && data.weakPhones.length > 0 && (
+        <section className={`${card} p-4`}>
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Sounds to work on")}</h2>
+          <p className="mt-0.5 text-xs text-slate-500">{tr("From the sound checks of your recordings")}</p>
+          <ul className="mt-2 divide-y divide-slate-100 dark:divide-white/[0.06]">
+            {data.weakPhones.map((ph) => (
+              <li key={ph.p} className="py-2 flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0">
+                  <span className="font-mono font-semibold text-slate-900 dark:text-white">/{ph.ipa}/</span>{" "}
+                  <span className="text-slate-600 dark:text-slate-300">{tr(ph.hint)}</span>
+                  {ph.heardAs && <span className="block text-xs text-slate-500">{tr("often sounds like the")}{" "}{ph.heardAs}</span>}
+                </span>
+                <span className={`shrink-0 text-xs font-semibold tabular-nums ${scoreTone(ph.accuracy)}`}>
+                  {ph.accuracy}% <span className="font-normal text-slate-500">{tr("of")}{" "}{ph.tries}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {data.troubleWords.length > 0 && (
         <section className={`${card} p-4`}>
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Words you keep missing</h2>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Words you keep missing")}</h2>
             <button
               type="button"
-              onClick={() => onPractise({ title: "Words you keep missing", items: data.troubleWords.map((w) => ({ target: w.word, avoid: w.heardAs ?? undefined, source: "word" })) })}
+              onClick={() => onPractise({ title: msg("Words you keep missing"), items: data.troubleWords.map((w) => ({ target: w.word, avoid: w.heardAs ?? undefined, source: "word" })) })}
               className="h-8 px-3 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white"
             >
-              Practise these
-            </button>
+              {tr("Practise these")}</button>
           </div>
           <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/[0.06]">
             {data.troubleWords.map((w) => (
               <li key={w.word} className="py-2 flex items-center justify-between gap-2 text-sm">
                 <span className="font-medium text-slate-800 dark:text-slate-100">{w.word}</span>
                 <span className="text-xs text-slate-500">
-                  {w.heardAs ? `heard as “${w.heardAs}” · ` : ""}
+                  {w.heardAs ? tr("heard as “{heardAs}” · ", { heardAs: w.heardAs }) : ""}
                   {w.count}×
                 </span>
               </li>
@@ -810,7 +986,7 @@ const ProgressView: React.FC<{ sounds: SoundSet[]; onPractise: (s: Session) => v
       )}
 
       <section className={`${card} p-4`}>
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Recent attempts</h2>
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Recent attempts")}</h2>
         <ul className="mt-2 divide-y divide-slate-100 dark:divide-white/[0.06]">
           {data.recent.map((r, i) => (
             <li key={`${r.createdAt}-${i}`} className="py-2 flex items-center justify-between gap-3 text-sm">
@@ -841,16 +1017,14 @@ export const PronunciationPage: React.FC = () => {
           <AudioLines className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Pronunciation</h1>
-          <p className="text-sm text-slate-500">Say it, see which words came across, and fix the sounds that trip you up</p>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{tr("Pronunciation")}</h1>
+          <p className="text-sm text-slate-500">{tr("Say it, see which words came across, and fix the sounds that trip you up")}</p>
         </div>
       </header>
 
       {!supported && (
         <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-          Your browser cannot turn speech into text, so it cannot score you. Open SpeakBetter in Chrome or Edge to practise.
-          You can still listen to every word here.
-        </div>
+          {tr("Your browser cannot turn speech into text, so it cannot score you. Open SpeakBetter in Chrome or Edge to practise. You can still listen to every word here.")}</div>
       )}
 
       {session ? (
@@ -869,7 +1043,7 @@ export const PronunciationPage: React.FC = () => {
                   tab === t ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                 }`}
               >
-                {t === "practise" ? "Practise" : "My progress"}
+                {t === "practise" ? tr("Practise") : tr("My progress")}
               </button>
             ))}
           </div>
@@ -879,7 +1053,7 @@ export const PronunciationPage: React.FC = () => {
               <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
             </div>
           ) : isError || !data ? (
-            <div className={`${card} p-8 text-center text-sm text-slate-500`}>Could not load the practice. Refresh the page to try again.</div>
+            <div className={`${card} p-8 text-center text-sm text-slate-500`}>{tr("Could not load the practice. Refresh the page to try again.")}</div>
           ) : tab === "practise" ? (
             <PractiseHome data={data} onStart={setSession} />
           ) : (
@@ -887,8 +1061,7 @@ export const PronunciationPage: React.FC = () => {
           )}
 
           <p className="text-[11px] text-slate-400 text-center">
-            Scores come from your browser's speech recognition: they show how clearly you came across, not every detail of your accent.
-          </p>
+            {tr("Scores come from your browser's speech recognition: they show how clearly you came across, not every detail of your accent.")}</p>
         </>
       )}
     </div>

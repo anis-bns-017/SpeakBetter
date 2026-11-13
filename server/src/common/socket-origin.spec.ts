@@ -34,6 +34,22 @@ describe('socket origin rule', () => {
     );
   });
 
+  it('allows the local network outside production only (phone app testing)', () => {
+    const env = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'development';
+      expect(isAllowedSocketOrigin('http://192.168.1.20:15173')).toBe(true);
+      expect(isAllowedSocketOrigin('http://10.0.2.2:15173')).toBe(true);
+      expect(isAllowedSocketOrigin('http://172.20.0.5:15173')).toBe(true);
+      expect(isAllowedSocketOrigin('http://172.40.0.5:15173')).toBe(false);
+      expect(isAllowedSocketOrigin('http://192.168.1.20.evil.example:80')).toBe(false);
+      process.env.NODE_ENV = 'production';
+      expect(isAllowedSocketOrigin('http://192.168.1.20:15173')).toBe(false);
+    } finally {
+      process.env.NODE_ENV = env;
+    }
+  });
+
   it('lets non-browser clients (no Origin header) in, like the REST rule', () => {
     expect(isAllowedSocketOrigin(undefined)).toBe(true);
   });

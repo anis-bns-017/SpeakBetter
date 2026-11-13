@@ -3,11 +3,13 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Trophy } from "lucide-react";
 import { useAchievements, useCurrentLeague } from "../../hooks/useGamification";
 import { BadgeIcon } from "./BadgeIcon";
+import { useT } from "../../i18n";
 
 /** Dashboard card: your league this week and your latest badges */
 export const LeagueSummary: React.FC = () => {
   const { data: league } = useCurrentLeague();
   const { data: achievements } = useAchievements();
+  const { t } = useT();
   if (!league) return null;
 
   const me = league.standings.find((s) => s.isMe);
@@ -20,18 +22,18 @@ export const LeagueSummary: React.FC = () => {
             <Trophy className="w-5 h-5" />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-900 dark:text-white">{league.tier.name} league</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-white">{t("{tier} league", { tier: t(league.tier.name) })}</p>
             <p className="text-xs text-slate-500 truncate">
               {league.joined && me
-                ? `#${me.rank} of ${league.standings.length} · ${me.xp} XP${
-                    zone === "promote" ? " · in the promotion zone" : zone === "demote" ? " · in the demotion zone" : ""
+                ? `${t("#{rank} of {count}", { rank: me.rank, count: league.standings.length })} · ${me.xp} XP${
+                    zone === "promote" ? ` · ${t("in the promotion zone")}` : zone === "demote" ? ` · ${t("in the demotion zone")}` : ""
                   }`
-                : "Earn XP this week to join a group"}
+                : t("Earn XP this week to join a group")}
             </p>
           </div>
         </div>
         <Link to="/leagues" className="text-xs font-semibold text-indigo-600 dark:text-indigo-300 flex items-center gap-1 shrink-0">
-          See league <ArrowRight className="w-3.5 h-3.5" />
+          {t("See league")} <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
 
@@ -45,7 +47,7 @@ export const LeagueSummary: React.FC = () => {
             )}
           </div>
           <span className="text-xs text-slate-600 dark:text-slate-300">
-            <span className="font-semibold">{achievements.earned}</span> of {achievements.total} badges
+            {t("{earned} of {total} badges", { earned: achievements.earned, total: achievements.total })}
           </span>
         </Link>
       )}

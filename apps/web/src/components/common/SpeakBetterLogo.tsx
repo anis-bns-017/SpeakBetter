@@ -10,6 +10,7 @@
 
 import React, { useId } from "react";
 import "./speakBetterLogo.css";
+import { tr } from "../../i18n/core";
 
 /** The bars, left to right: x, and height (they all stand on the same line) */
 const BARS: Array<[number, number]> = [
@@ -106,8 +107,8 @@ export function SpeakBetterLogo({ animated = true }: { animated?: boolean }) {
       <LogoMark size={38} animated={animated} />
       <span className="sb-logo-fade relative min-w-0 text-left">
         <span className="block text-[17px] font-extrabold leading-none tracking-[-0.04em] text-slate-900 dark:text-white">
-          Speak
-          <span className="relative inline-block">
+          {/* The brand name is never translated */}
+          Speak<span className="relative inline-block">
             <span className="sb-logo-shimmer bg-clip-text text-transparent">Better</span>
             {/* A little voice wave draws itself under "Better" */}
             <svg viewBox="0 0 52 6" className="absolute left-0 -bottom-[5px] w-full h-[6px] overflow-visible" aria-hidden="true">
@@ -128,7 +129,7 @@ export function SpeakBetterLogo({ animated = true }: { animated?: boolean }) {
             </svg>
           </span>
         </span>
-        <span className="mt-2 block whitespace-nowrap text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">English · out loud</span>
+        <span className="mt-2 block whitespace-nowrap text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{tr("English · out loud")}</span>
       </span>
     </span>
   );

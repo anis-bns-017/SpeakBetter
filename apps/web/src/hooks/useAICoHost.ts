@@ -201,7 +201,11 @@ export const useAICoHost = ({
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [isEnabled, setIsEnabled] = useState(enabled);
 
-  const lastSpeechAtRef = useRef<number>(Date.now());
+  // Set when the hook starts (below), so silence is measured from joining
+  const lastSpeechAtRef = useRef<number>(0);
+  useEffect(() => {
+    lastSpeechAtRef.current = Date.now();
+  }, []);
   const lastSuggestionAtRef = useRef<number>(0);
   const lastActivityCountRef = useRef(0);
 

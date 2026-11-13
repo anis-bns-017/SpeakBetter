@@ -11,9 +11,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MicOff, Crown, Volume2 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
 import { initials, hueFromString } from "../VoiceRoomView.helpers";
+import type { RoomParticipant } from "../VoiceRoomView.types";
+import { tr } from "../../../i18n/core";
 
 interface ActiveSpeakerStripProps {
-  participants: any[];
+  participants: RoomParticipant[];
   currentUserId?: string;
   onSelect?: (id: string) => void;
   /** Also show recently-muted speakers for a moment? default: no */
@@ -77,7 +79,7 @@ export const ActiveSpeakerStrip: React.FC<ActiveSpeakerStripProps> = ({
                 className="text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
                 style={{ color: THEME.colors.text.muted }}
               >
-                {speakers.length === 1 ? "Speaking" : "Live now"}
+                {speakers.length === 1 ? tr("Speaking") : tr("Live now")}
               </span>
             </div>
 
@@ -108,14 +110,14 @@ export const ActiveSpeakerStrip: React.FC<ActiveSpeakerStripProps> = ({
 // ------------------------------------------------------------
 
 const SpeakerChip: React.FC<{
-  participant: any;
+  participant: RoomParticipant;
   isMe?: boolean;
   onSelect?: (id: string) => void;
 }> = ({ participant, isMe, onSelect }) => {
   const hue = hueFromString(participant.name || "?");
   const level = Math.max(0, Math.min(1, Number(participant.audioLevel || 0)));
   const isMuted = Boolean(participant.isMuted);
-  const isHost = participant.role === "HOST" || Boolean(participant.isHost);
+  const isHost = participant.role === "HOST";
 
   const handleClick = () => {
     onSelect?.(participant.id || participant.userId);

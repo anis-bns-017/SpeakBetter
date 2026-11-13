@@ -100,6 +100,16 @@ export async function syncPush(): Promise<void> {
   if (subscription) await sendToServer(subscription);
 }
 
+/** After the account is deleted: stop this browser's push without asking the server (the record is already gone) */
+export async function forgetPushLocally(): Promise<void> {
+  try {
+    const subscription = await currentSubscription();
+    await subscription?.unsubscribe();
+  } catch {
+    /* nothing left to do */
+  }
+}
+
 /** For signing out: this device must stop getting the previous person's notifications. Never throws. */
 export async function removePushOnSignOut(): Promise<void> {
   try {

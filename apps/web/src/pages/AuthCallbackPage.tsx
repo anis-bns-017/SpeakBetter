@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
+import { tr } from "../i18n/core";
 
 export const AuthCallbackPage = () => {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ export const AuthCallbackPage = () => {
     <div className="min-h-screen bg-[#050816] text-white flex items-center justify-center">
       <div className="text-center">
         <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto" />
-        <p className="mt-4 text-slate-400">Signing you in…</p>
+        <p className="mt-4 text-slate-400">{tr("Signing you in…")}</p>
       </div>
     </div>
   );

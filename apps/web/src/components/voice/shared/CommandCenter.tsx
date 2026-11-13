@@ -16,6 +16,7 @@ import {
   Radio,
 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
+import { tr, msg } from "../../../i18n/core";
 
 interface CommandCenterProps {
   isHost: boolean;
@@ -60,7 +61,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
         icon: isMuted ? MicOff : Mic,
         active: isMuted,
         onClick: onMute,
-        hint: "Ctrl/Cmd + Shift + M",
+        hint: msg("Ctrl/Cmd + Shift + M"),
         color: isMuted
           ? THEME.colors.accent.error
           : THEME.colors.accent.primary,
@@ -70,7 +71,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
         icon: isDeafened ? Volume2 : VolumeOff,
         active: isDeafened,
         onClick: onDeafen,
-        hint: "Local output",
+        hint: msg("Local output"),
         color: isDeafened
           ? THEME.colors.accent.warning
           : THEME.colors.text.secondary,
@@ -80,7 +81,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
         icon: soundEnabled ? Bell : BellOff,
         active: !soundEnabled,
         onClick: onToggleSound,
-        hint: "Notifications",
+        hint: msg("Notifications"),
         color: soundEnabled
           ? THEME.colors.text.secondary
           : THEME.colors.accent.error,
@@ -90,7 +91,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
         icon: MessageCircle,
         active: showChat,
         onClick: onToggleChat,
-        hint: "Chat panel",
+        hint: msg("Chat panel"),
         color: showChat
           ? THEME.colors.accent.primary
           : THEME.colors.text.secondary,
@@ -100,7 +101,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
         icon: TrendingUp,
         active: showLiveStats,
         onClick: onToggleStats,
-        hint: "Live metrics",
+        hint: msg("Live metrics"),
         color: showLiveStats
           ? THEME.colors.accent.primary
           : THEME.colors.text.secondary,
@@ -139,11 +140,9 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
             className="text-sm font-semibold"
             style={{ color: THEME.colors.text.primary }}
           >
-            Room controls
-          </p>
+            {tr("Room controls")}</p>
           <p className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-            Everything you need without leaving the conversation
-          </p>
+            {tr("Everything you need without leaving the conversation")}</p>
         </div>
         <button
           onClick={onClose}
@@ -171,7 +170,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
                   ? "rgba(79,102,200,0.35)"
                   : THEME.colors.border.primary,
               }}
-              title={action.hint}
+              title={tr(action.hint)}
             >
               <Icon
                 className="w-5 h-5 mx-auto mb-1.5"
@@ -190,7 +189,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
                   fontWeight: isActive ? 600 : 400,
                 }}
               >
-                {action.label}
+                {tr(action.label)}
               </span>
             </button>
           );
@@ -206,8 +205,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
             className="text-[9px] uppercase tracking-wider font-semibold mb-2"
             style={{ color: THEME.colors.text.muted }}
           >
-            Moderation
-          </p>
+            {tr("Moderation")}</p>
           <div className="flex gap-2">
             <span
               className="flex-1 px-3 py-2 rounded-xl text-[11px] flex items-center gap-1.5"
@@ -218,7 +216,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
               }}
             >
               <ShieldCheck className="w-4 h-4" />
-              {isHost ? "Host controls enabled" : "Moderator controls enabled"}
+              {isHost ? tr("Host controls enabled") : tr("Moderator controls enabled")}
             </span>
             {isHost && isRecording && (
               <span
@@ -230,8 +228,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
                 }}
               >
                 <Radio className="w-4 h-4" />
-                Recording
-              </span>
+                {tr("Recording")}</span>
             )}
           </div>
         </div>
@@ -257,13 +254,11 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
               className="w-2 h-2 rounded-full animate-pulse"
               style={{ background: THEME.colors.accent.error }}
             />
-            Recording active
-          </span>
+            {tr("Recording active")}</span>
         ) : (
           <span className="flex items-center justify-center gap-2">
             <Radio className="w-4 h-4" />
-            Start room recording
-          </span>
+            {tr("Start room recording")}</span>
         )}
       </button>
     </motion.div>

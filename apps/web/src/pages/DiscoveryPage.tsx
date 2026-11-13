@@ -46,6 +46,8 @@ import {
   useLiveRoomsCount,
   useTrendingRooms,
   useRecommendedRooms,
+  type DiscoveryParticipant,
+  type DiscoveryRoom,
 } from "../hooks/useDiscovery";
 import {
   Search,
@@ -83,6 +85,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence, LayoutGroup, useReducedMotion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
+import { useNow } from "../hooks/useNow";
+import { tr, msg } from "../i18n/core";
 
 // ============================================================
 // Theme
@@ -202,10 +206,7 @@ function useCountUp(target: number, duration = 800): number {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    if (reduced) {
-      setCount(target);
-      return;
-    }
+    if (reduced) return;
     let raf = 0;
     const start = performance.now();
     const animate = (now: number) => {
@@ -219,7 +220,8 @@ function useCountUp(target: number, duration = 800): number {
     return () => cancelAnimationFrame(raf);
   }, [target, duration, reduced]);
 
-  return count;
+  // With reduced motion the number just shows, no count-up
+  return reduced ? target : count;
 }
 
 // ============================================================
@@ -435,7 +437,7 @@ const CapacityBar: React.FC<{
 // ============================================================
 
 const AvatarStack: React.FC<{
-  participants: any[];
+  participants: DiscoveryParticipant[];
   max?: number;
   size?: number;
 }> = ({ participants, max = 4, size = 24 }) => {
@@ -444,7 +446,7 @@ const AvatarStack: React.FC<{
 
   return (
     <div className="flex -space-x-2">
-      {shown.map((p: any, i: number) => (
+      {shown.map((p, i) => (
         <div
           key={i}
           className="rounded-full ring-2 overflow-hidden flex items-center justify-center text-[11px] font-bold text-white shrink-0"
@@ -455,7 +457,7 @@ const AvatarStack: React.FC<{
             background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
             boxShadow: `0 0 0 2px ${THEME.void}`,
           }}
-          title={p.name || p.user?.name || "Participant"}
+          title={p.name || p.user?.name || tr("Participant")}
         >
           {p.avatarUrl || p.user?.avatarUrl ? (
             <img
@@ -493,7 +495,7 @@ const AvatarStack: React.FC<{
 type ViewMode = "grid" | "list";
 
 const RoomCard: React.FC<{
-  room: any;
+  room: DiscoveryRoom;
   index: number;
   viewMode: ViewMode;
   featured?: boolean;
@@ -501,18 +503,19 @@ const RoomCard: React.FC<{
   const navigate = useNavigate();
   const reduced = useReducedMotion();
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const now = useNow();
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
 
   const participantCount =
     room.participantCount || room.participants?.length || 0;
-  const isFull = room.maxParticipants && participantCount >= room.maxParticipants;
+  const isFull = Boolean(room.maxParticipants && participantCount >= room.maxParticipants);
   const isAlmostFull =
     room.maxParticipants && participantCount / room.maxParticipants >= 0.8;
-  const isNew = Date.now() - new Date(room.createdAt).getTime() < 3600000;
+  const isNew = now - new Date(room.createdAt).getTime() < 3600000;
 
   const activeSpeakers =
-    room.participants?.filter((p: any) => p.isSpeaking).length || 0;
+    room.participants?.filter((p) => p.isSpeaking).length || 0;
   const catStyle = getCategoryStyle(room.category);
 
   const handleMouseMove = useCallback(
@@ -588,8 +591,7 @@ const RoomCard: React.FC<{
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live
-            </span>
+              {tr("Live")}</span>
             {isNew && (
               <span
                 className="text-[11px] font-medium px-1.5 py-0.5 rounded-full"
@@ -598,18 +600,15 @@ const RoomCard: React.FC<{
                   color: THEME.status.waiting,
                 }}
               >
-                New
-              </span>
+                {tr("New")}</span>
             )}
             {isAlmostFull && !isFull && (
               <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">
-                Almost Full
-              </span>
+                {tr("Almost Full")}</span>
             )}
             {isFull && (
               <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400">
-                Full
-              </span>
+                {tr("Full")}</span>
             )}
             {room.type === "PRIVATE" && (
               <Lock className="w-3 h-3" style={{ color: THEME.text.muted }} />
@@ -649,7 +648,7 @@ const RoomCard: React.FC<{
               className={`mt-0.5 ${featured ? "line-clamp-2" : "line-clamp-1"} text-xs`}
               style={{ color: THEME.text.muted }}
             >
-              {room.description}
+              {tr(room.description)}
             </p>
           )}
         </div>
@@ -710,8 +709,7 @@ const RoomCard: React.FC<{
                     className="w-1.5 h-1.5 rounded-full animate-pulse"
                     style={{ background: THEME.status.speaking }}
                   />
-                  {activeSpeakers} speaking
-                </span>
+                  {activeSpeakers} {" "}{tr("speaking")}</span>
               </span>
             )}
           </div>
@@ -745,7 +743,7 @@ const RoomCard: React.FC<{
               className="text-[11px] truncate"
               style={{ color: THEME.text.muted }}
             >
-              {room.creator?.name || "Unknown"}
+              {room.creator?.name || tr("Unknown")}
             </span>
             {room.creator?.isHost && (
               <Crown className="w-3 h-3 text-amber-400" />
@@ -789,7 +787,7 @@ const RoomCard: React.FC<{
                 cursor: isFull ? "not-allowed" : "pointer",
               }}
             >
-              {isFull ? "Full" : featured ? "Join Room" : "Join"}
+              {isFull ? tr("Full") : featured ? tr("Join Room") : tr("Join")}
               {!isFull && <ChevronRight className="w-3 h-3" />}
             </motion.button>
           </div>
@@ -814,14 +812,14 @@ const RoomCard: React.FC<{
 // FeaturedRoom — large hero card for the top trending room
 // ============================================================
 
-const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
+const FeaturedRoom: React.FC<{ room: DiscoveryRoom }> = ({ room }) => {
   const navigate = useNavigate();
   const reduced = useReducedMotion();
   const catStyle = getCategoryStyle(room.category);
   const participantCount =
     room.participantCount || room.participants?.length || 0;
   const activeSpeakers =
-    room.participants?.filter((p: any) => p.isSpeaking).length || 0;
+    room.participants?.filter((p) => p.isSpeaking).length || 0;
 
   return (
     <motion.div
@@ -870,8 +868,7 @@ const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Featured
-            </span>
+              {tr("Featured")}</span>
             {room.category && (
               <span
                 className="text-[11px] font-medium px-2 py-0.5 rounded-full"
@@ -897,7 +894,7 @@ const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
               className="text-sm leading-relaxed mb-4 max-w-xl"
               style={{ color: THEME.text.secondary }}
             >
-              {room.description}
+              {tr(room.description)}
             </p>
           )}
 
@@ -922,8 +919,7 @@ const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
                   className="w-1.5 h-1.5 rounded-full animate-pulse"
                   style={{ background: THEME.status.speaking }}
                 />
-                {activeSpeakers} speaking now
-              </span>
+                {activeSpeakers} {" "}{tr("speaking now")}</span>
             )}
             {room.language && (
               <span
@@ -970,8 +966,7 @@ const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
             }}
           >
             <Zap className="w-4 h-4" />
-            Join Now
-            <ArrowRight className="w-4 h-4" />
+            {tr("Join Now")}<ArrowRight className="w-4 h-4" />
           </motion.button>
         </div>
       </div>
@@ -983,7 +978,7 @@ const FeaturedRoom: React.FC<{ room: any }> = ({ room }) => {
 // RecommendedCarousel — horizontal scroll row
 // ============================================================
 
-const RecommendedCarousel: React.FC<{ rooms: any[] }> = ({ rooms }) => {
+const RecommendedCarousel: React.FC<{ rooms: DiscoveryRoom[] }> = ({ rooms }) => {
   const reduced = useReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -1011,8 +1006,7 @@ const RecommendedCarousel: React.FC<{ rooms: any[] }> = ({ rooms }) => {
             className="text-sm font-semibold"
             style={{ color: THEME.text.primary }}
           >
-            Recommended for You
-          </h2>
+            {tr("Recommended for You")}</h2>
         </div>
         <div className="flex gap-1.5">
           <button
@@ -1023,7 +1017,7 @@ const RecommendedCarousel: React.FC<{ rooms: any[] }> = ({ rooms }) => {
               color: THEME.text.muted,
               border: `1px solid ${THEME.border}`,
             }}
-            aria-label="Scroll left"
+            aria-label={tr("Scroll left")}
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -1035,7 +1029,7 @@ const RecommendedCarousel: React.FC<{ rooms: any[] }> = ({ rooms }) => {
               color: THEME.text.muted,
               border: `1px solid ${THEME.border}`,
             }}
-            aria-label="Scroll right"
+            aria-label={tr("Scroll right")}
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -1139,10 +1133,10 @@ export const DiscoveryPage: React.FC = () => {
     label: string;
     icon: LucideIcon;
   }[] = [
-    { value: "trending", label: "Trending", icon: TrendingUp },
-    { value: "newest", label: "Newest", icon: Sparkles },
-    { value: "popular", label: "Popular", icon: Flame },
-    { value: "recommended", label: "Recommended", icon: Star },
+    { value: "trending", label: msg("Trending"), icon: TrendingUp },
+    { value: "newest", label: msg("Newest"), icon: Sparkles },
+    { value: "popular", label: msg("Popular"), icon: Flame },
+    { value: "recommended", label: msg("Recommended"), icon: Star },
   ];
 
   // Keyboard shortcuts: `/` focuses search, `Esc` clears, `g`/`l` view
@@ -1165,12 +1159,16 @@ export const DiscoveryPage: React.FC = () => {
         setViewMode("grid");
         try {
           localStorage.setItem("speakbetter-discovery-view", "grid");
-        } catch {}
+        } catch {
+          /* storage blocked (private mode): the view choice just isn't remembered */
+        }
       } else if (e.key === "l" && !e.ctrlKey && !e.metaKey) {
         setViewMode("list");
         try {
           localStorage.setItem("speakbetter-discovery-view", "list");
-        } catch {}
+        } catch {
+          /* storage blocked (private mode): the view choice just isn't remembered */
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -1220,15 +1218,13 @@ export const DiscoveryPage: React.FC = () => {
                 className="text-3xl font-serif font-bold"
                 style={{ color: THEME.text.primary }}
               >
-                Discover Voice Rooms
-              </h1>
+                {tr("Discover Voice Rooms")}</h1>
               <div className="flex items-center gap-3 mt-0.5">
                 <span
                   className="text-sm"
                   style={{ color: THEME.text.muted }}
                 >
-                  Find your next conversation
-                </span>
+                  {tr("Find your next conversation")}</span>
                 <span
                   className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
                   style={{
@@ -1237,8 +1233,7 @@ export const DiscoveryPage: React.FC = () => {
                   }}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {animatedLiveCount} live now
-                </span>
+                  {animatedLiveCount} {" "}{tr("live now")}</span>
               </div>
             </div>
           </div>
@@ -1255,8 +1250,7 @@ export const DiscoveryPage: React.FC = () => {
             }}
           >
             <Plus className="w-4 h-4" />
-            Create Room
-          </motion.button>
+            {tr("Create Room")}</motion.button>
         </div>
 
         {/* ====================================================
@@ -1287,7 +1281,7 @@ export const DiscoveryPage: React.FC = () => {
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search rooms by name, topic, or language..."
+              placeholder={tr("Search rooms by name, topic, or language...")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-12 pr-20 py-3.5 rounded-2xl border outline-none text-sm transition-all focus:border-purple-500 focus-visible:ring-2 focus-visible:ring-purple-400/30"
@@ -1316,7 +1310,7 @@ export const DiscoveryPage: React.FC = () => {
                 onClick={() => setSearchQuery("")}
                 className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60"
                 style={{ color: THEME.text.muted }}
-                aria-label="Clear search"
+                aria-label={tr("Clear search")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1339,8 +1333,7 @@ export const DiscoveryPage: React.FC = () => {
             }}
           >
             <SlidersHorizontal className="w-4 h-4" />
-            Filters
-            {activeFilterCount > 0 && (
+            {tr("Filters")}{activeFilterCount > 0 && (
               <span
                 className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold"
                 style={{
@@ -1372,7 +1365,9 @@ export const DiscoveryPage: React.FC = () => {
                     "speakbetter-discovery-view",
                     "grid",
                   );
-                } catch {}
+                } catch {
+          /* storage blocked (private mode): the view choice just isn't remembered */
+        }
               }}
               className="p-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60"
               style={{
@@ -1385,8 +1380,8 @@ export const DiscoveryPage: React.FC = () => {
                     ? "#fff"
                     : THEME.text.muted,
               }}
-              aria-label="Grid view"
-              title="Grid view (g)"
+              aria-label={tr("Grid view")}
+              title={tr("Grid view (g)")}
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
@@ -1398,7 +1393,9 @@ export const DiscoveryPage: React.FC = () => {
                     "speakbetter-discovery-view",
                     "list",
                   );
-                } catch {}
+                } catch {
+          /* storage blocked (private mode): the view choice just isn't remembered */
+        }
               }}
               className="p-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60"
               style={{
@@ -1411,8 +1408,8 @@ export const DiscoveryPage: React.FC = () => {
                     ? "#fff"
                     : THEME.text.muted,
               }}
-              aria-label="List view"
-              title="List view (l)"
+              aria-label={tr("List view")}
+              title={tr("List view (l)")}
             >
               <List className="w-4 h-4" />
             </button>
@@ -1444,8 +1441,7 @@ export const DiscoveryPage: React.FC = () => {
                       className="text-xs font-medium block mb-2"
                       style={{ color: THEME.text.secondary }}
                     >
-                      Language
-                    </label>
+                      {tr("Language")}</label>
                     <div className="flex flex-wrap gap-1.5">
                       {languages.map((lang) => (
                         <button
@@ -1479,11 +1475,10 @@ export const DiscoveryPage: React.FC = () => {
                       className="text-xs font-medium block mb-2"
                       style={{ color: THEME.text.secondary }}
                     >
-                      Participants ({minParticipants} – {maxParticipants})
-                    </label>
+                      {tr("Participants ({minParticipants} – {maxParticipants})", { minParticipants, maxParticipants })}</label>
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-xs">
-                        <span style={{ color: THEME.text.muted }}>Min</span>
+                        <span style={{ color: THEME.text.muted }}>{tr("Min")}</span>
                         <input
                           type="range"
                           min="0"
@@ -1503,7 +1498,7 @@ export const DiscoveryPage: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-xs">
-                        <span style={{ color: THEME.text.muted }}>Max</span>
+                        <span style={{ color: THEME.text.muted }}>{tr("Max")}</span>
                         <input
                           type="range"
                           min="0"
@@ -1534,8 +1529,8 @@ export const DiscoveryPage: React.FC = () => {
                       style={{ color: THEME.text.muted }}
                     >
                       {activeFilterCount > 0
-                        ? `Clear ${activeFilterCount} filter${activeFilterCount > 1 ? "s" : ""}`
-                        : "No active filters"}
+                        ? tr("Clear {activeFilterCount} filter{value}", { activeFilterCount, value: activeFilterCount > 1 ? "s" : "" })
+                        : tr("No active filters")}
                     </button>
                   </div>
                 </div>
@@ -1558,8 +1553,7 @@ export const DiscoveryPage: React.FC = () => {
                 className="text-sm font-medium"
                 style={{ color: THEME.text.secondary }}
               >
-                Categories
-              </span>
+                {tr("Categories")}</span>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2">
               <button
@@ -1576,9 +1570,8 @@ export const DiscoveryPage: React.FC = () => {
                       : THEME.text.muted,
                 }}
               >
-                All
-              </button>
-              {categories.map((cat: any) => {
+                {tr("All")}</button>
+              {categories.map((cat) => {
                 const style = getCategoryStyle(cat.name);
                 const Icon = style.icon;
                 const isSelected = selectedCategory === cat.name;
@@ -1615,8 +1608,7 @@ export const DiscoveryPage: React.FC = () => {
             className="text-xs font-medium"
             style={{ color: THEME.text.muted }}
           >
-            Sort by:
-          </span>
+            {tr("Sort by:")}</span>
           <div
             className="relative flex gap-1 rounded-xl p-1"
             style={{ background: "var(--sx-bg-255-255-255-40)" }}
@@ -1649,7 +1641,7 @@ export const DiscoveryPage: React.FC = () => {
                   )}
                   <span className="relative z-10 flex items-center gap-1.5">
                     <Icon className="w-3 h-3" />
-                    {label}
+                    {tr(label)}
                   </span>
                 </button>
               );
@@ -1701,7 +1693,7 @@ export const DiscoveryPage: React.FC = () => {
                   : "grid-cols-1"
               }`}
             >
-              {displayRooms.map((room: any, index: number) => (
+              {displayRooms.map((room, index) => (
                 <RoomCard
                   key={room.id}
                   room={room}
@@ -1735,15 +1727,14 @@ export const DiscoveryPage: React.FC = () => {
                 className="text-xl font-serif mb-2"
                 style={{ color: THEME.text.primary }}
               >
-                No rooms found
-              </h3>
+                {tr("No rooms found")}</h3>
               <p
                 className="text-sm mb-4"
                 style={{ color: THEME.text.muted }}
               >
                 {searchQuery
-                  ? "Try adjusting your search or filters"
-                  : "Be the first to create a room!"}
+                  ? tr("Try adjusting your search or filters")
+                  : tr("Be the first to create a room!")}
               </p>
               {!searchQuery && (
                 <motion.button
@@ -1756,8 +1747,7 @@ export const DiscoveryPage: React.FC = () => {
                     color: "var(--sx-text-ffffff)",
                   }}
                 >
-                  Create a Room
-                </motion.button>
+                  {tr("Create a Room")}</motion.button>
               )}
               {(searchQuery || activeFilterCount > 0) && (
                 <button
@@ -1771,8 +1761,7 @@ export const DiscoveryPage: React.FC = () => {
                     color: THEME.text.secondary,
                   }}
                 >
-                  Clear all
-                </button>
+                  {tr("Clear all")}</button>
               )}
             </motion.div>
           )}
@@ -1791,7 +1780,7 @@ export const DiscoveryPage: React.FC = () => {
                   background: "var(--sx-bg-255-255-255-40)",
                   color: THEME.text.muted,
                 }}
-                aria-label="Previous page"
+                aria-label={tr("Previous page")}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -1828,7 +1817,7 @@ export const DiscoveryPage: React.FC = () => {
                   background: "var(--sx-bg-255-255-255-40)",
                   color: THEME.text.muted,
                 }}
-                aria-label="Next page"
+                aria-label={tr("Next page")}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -1846,11 +1835,7 @@ export const DiscoveryPage: React.FC = () => {
           backdropFilter: "blur(10px)",
         }}
       >
-        <kbd className="font-mono">/</kbd> search ·
-        <kbd className="font-mono">g</kbd> grid ·
-        <kbd className="font-mono">l</kbd> list ·
-        <kbd className="font-mono">Esc</kbd> clear
-      </div>
+        <kbd className="font-mono">/</kbd> {" "}{tr("search ·")}<kbd className="font-mono">g</kbd> {" "}{tr("grid ·")}<kbd className="font-mono">l</kbd> {" "}{tr("list ·")}<kbd className="font-mono">Esc</kbd> {" "}{tr("clear")}</div>
     </div>
   );
 };

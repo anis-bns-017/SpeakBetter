@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api/client';
+import { hearSounds, type SoundStage } from '../lib/phonemes/onDevice';
 
 export type SoundKey = 'TH' | 'V_W' | 'V_B' | 'R_L' | 'I_EE' | 'A_E' | 'S_SH' | 'Z_S' | 'F_P' | 'U_OO';
 
@@ -65,6 +66,8 @@ export interface PronunciationProgress {
   prev7: number | null;
   sounds: Array<{ key: SoundKey; label: string; attempts: number; average: number; best: number }>;
   troubleWords: Array<{ word: string; count: number; heardAs: string | null }>;
+  /** Single sounds that keep going wrong, weakest first (filled in once sound checking has been used) */
+  weakPhones?: Array<{ p: string; ipa: string; hint: string; tries: number; accuracy: number; heardAs: string | null }>;
   recent: Array<{ target: string; score: number; sound: SoundKey | null; createdAt: string }>;
 }
 
@@ -381,4 +384,93 @@ export function useRecorder() {
   }, []);
 
   return { url, level, start, stop, clear };
+}
+
+// ---------- checking each sound, on this device ----------
+
+export interface SoundPhone {
+  /** The sound expected, and how it is written for learners ("iː") */
+  p: string;
+  ipa: string;
+  status: 'good' | 'close' | 'wrong' | 'missing';
+  /** What it sounded like instead */
+  heard?: string;
+  heardIpa?: string;
+}
+
+export interface SoundWord {
+  word: string;
+  /** The word as written in the sentence */
+  text: string;
+  /** Null when we do not know how this word should sound */
+  phones: SoundPhone[] | null;
+  score: number | null;
+}
+
+export interface SoundTip {
+  sound: SoundKey | null;
+  expected: string;
+  heard: string | null;
+  expectedHint: string;
+  heardHint: string | null;
+  words: string[];
+  tip: string;
+}
+
+export interface SoundCheck {
+  score: number;
+  judged: number;
+  words: SoundWord[];
+  tips: SoundTip[];
+}
+
+export type SoundCheckState =
+  | { status: 'idle' }
+  | { status: 'working'; stage: SoundStage }
+  | { status: 'done'; result: SoundCheck }
+  /** The recording could not be lined up with the words */
+  | { status: 'none' }
+  | { status: 'error'; message: string };
+
+/**
+ * Checks every sound of an attempt: the recording is listened to in this browser (it is never uploaded),
+ * and the server says which sounds were off. Only the latest run counts, so a slow check of an earlier
+ * try never overwrites a newer one.
+ */
+export function useSoundCheck() {
+  const queryClient = useQueryClient();
+  const [state, setState] = useState<SoundCheckState>({ status: 'idle' });
+  const latest = useRef(0);
+
+  const run = useCallback(
+    async (attemptId: string, recordingUrl: string) => {
+      const mine = ++latest.current;
+      const current = () => latest.current === mine;
+      setState({ status: 'working', stage: { stage: 'audio' } });
+      try {
+        const frames = await hearSounds(recordingUrl, (stage) => {
+          if (current()) setState({ status: 'working', stage });
+        });
+        if (!current()) return;
+        const { data } = await apiClient.post<{ sounds: SoundCheck | null }>(`/pronunciation/attempts/${attemptId}/sounds`, { frames });
+        if (!current()) return;
+        setState(data.sounds ? { status: 'done', result: data.sounds } : { status: 'none' });
+        if (data.sounds) queryClient.invalidateQueries({ queryKey: ['pronunciation-progress'] });
+      } catch (error) {
+        if (!current()) return;
+        const fromServer = (error as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
+        const message = typeof fromServer === 'string' ? fromServer : (error as Error)?.message || 'Could not check the sounds';
+        setState({ status: 'error', message });
+      }
+    },
+    [queryClient],
+  );
+
+  /** Forgets the last check (for the next word, or a new try) */
+  const reset = useCallback(() => {
+    latest.current++;
+    setState({ status: 'idle' });
+  }, []);
+
+  return { state, run, reset };
 }

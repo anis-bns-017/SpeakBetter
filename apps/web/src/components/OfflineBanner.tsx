@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
+import { tr } from "../i18n/core";
 
 /** A small bar at the top while the device is offline */
 export const OfflineBanner: React.FC = () => {
@@ -20,7 +21,7 @@ export const OfflineBanner: React.FC = () => {
   return (
     <div role="status" className="fixed top-0 inset-x-0 z-[60] flex items-center justify-center gap-2 bg-slate-900 px-4 py-2 text-xs font-medium text-white">
       <WifiOff className="h-3.5 w-3.5 shrink-0" />
-      <span>You're offline. Saved lessons, stories and word packs still work; other things will come back when you reconnect.</span>
+      <span>{tr("You're offline. Saved lessons, stories and word packs still work; other things will come back when you reconnect.")}</span>
     </div>
   );
 };

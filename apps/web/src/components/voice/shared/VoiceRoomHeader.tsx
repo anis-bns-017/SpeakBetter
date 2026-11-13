@@ -17,6 +17,9 @@ import {
   WifiOff,
 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
+import type { VoiceRoom } from "../../../hooks/useVoice";
+import type { MinimizedRoomData } from "../VoiceRoomView.types";
+import { tr } from "../../../i18n/core";
 
 // ---- Connection Health badge ----
 const ConnectionHealth: React.FC<{
@@ -38,14 +41,14 @@ const ConnectionHealth: React.FC<{
     >
       {healthy ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
       <span>
-        {isMockMode ? "Demo" : healthy ? "Connected" : "Reconnecting"}
+        {isMockMode ? tr("Demo") : healthy ? tr("Connected") : tr("Reconnecting")}
       </span>
     </div>
   );
 };
 
 interface VoiceRoomHeaderProps {
-  room: any;
+  room: VoiceRoom;
   isHost: boolean;
   isLiveKitConnected: boolean;
   isMockMode: boolean;
@@ -59,7 +62,7 @@ interface VoiceRoomHeaderProps {
   onToggleCommandCenter: () => void;
   onShowDetails: () => void;
   onShowShortcuts: () => void;
-  onMinimize?: (data: any) => void;
+  onMinimize?: (data: MinimizedRoomData) => void;
   onShare: () => void;
   onLeave: () => void;
   onEndRoom: () => void;
@@ -137,7 +140,7 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
                     : THEME.colors.text.muted,
                 }}
               />
-              {isLiveKitConnected ? "Live" : isMockMode ? "Demo" : "Connecting"}
+              {isLiveKitConnected ? tr("Live") : isMockMode ? tr("Demo") : tr("Connecting")}
             </div>
 
             {/* Host badge */}
@@ -149,8 +152,7 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
                   color: THEME.colors.accent.warning,
                 }}
               >
-                <Crown className="w-3 h-3" aria-hidden /> Host
-              </div>
+                <Crown className="w-3 h-3" aria-hidden /> {" "}{tr("Host")}</div>
             )}
           </div>
 
@@ -172,10 +174,9 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
                   ))}
                 </span>
               )}
-              {speakingCount} speaking
-            </span>
+              {speakingCount} {" "}{tr("speaking")}</span>
             <span>·</span>
-            <span>{onlineCount} online</span>
+            <span>{onlineCount} {" "}{tr("online")}</span>
           </div>
         </div>
       </div>
@@ -192,8 +193,8 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
               ? THEME.colors.accent.primary
               : THEME.colors.text.muted,
           }}
-          title="Toggle Chat"
-          aria-label={showChat ? "Hide chat" : "Show chat"}
+          title={tr("Toggle Chat")}
+          aria-label={showChat ? tr("Hide chat") : tr("Show chat")}
           aria-pressed={showChat}
         >
           <MessageCircle className="w-4 h-4" />
@@ -216,8 +217,8 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
           }}
           className="relative grid h-9 w-9 place-items-center rounded-full hover:bg-white/[0.08] transition-[background-color,transform] active:scale-90"
           style={{ color: THEME.colors.text.muted }}
-          title="Room controls"
-          aria-label="Open room controls"
+          title={tr("Room controls")}
+          aria-label={tr("Open room controls")}
         >
           <Settings className="w-4 h-4" />
         </button>
@@ -228,8 +229,8 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
           onClick={onShowDetails}
           className="hidden sm:inline-grid relative grid h-9 w-9 place-items-center rounded-full hover:bg-white/[0.08] transition-[background-color,transform] active:scale-90"
           style={{ color: THEME.colors.text.muted }}
-          title="Room details"
-          aria-label="Open room details"
+          title={tr("Room details")}
+          aria-label={tr("Open room details")}
         >
           <PanelRight className="w-4 h-4" />
         </button>
@@ -240,8 +241,8 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
           onClick={onShowShortcuts}
           className="hidden md:inline-grid relative grid h-9 w-9 place-items-center rounded-full hover:bg-white/[0.08] transition-[background-color,transform] active:scale-90"
           style={{ color: THEME.colors.text.muted }}
-          title="Keyboard shortcuts"
-          aria-label="Open keyboard shortcuts"
+          title={tr("Keyboard shortcuts")}
+          aria-label={tr("Open keyboard shortcuts")}
         >
           <Keyboard className="w-4 h-4" />
         </button>
@@ -261,8 +262,8 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
             }
             className="relative grid h-9 w-9 place-items-center rounded-full hover:bg-white/[0.08] transition-[background-color,transform] active:scale-90"
             style={{ color: THEME.colors.text.muted }}
-            title="Minimize"
-            aria-label="Minimize room"
+            title={tr("Minimize")}
+            aria-label={tr("Minimize room")}
           >
             <Minimize2 className="w-4 h-4" />
           </button>
@@ -274,8 +275,8 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
           onClick={onShare}
           className="relative grid h-9 w-9 place-items-center rounded-full hover:bg-white/[0.08] transition-[background-color,transform] active:scale-90"
           style={{ color: THEME.colors.text.muted }}
-          title="Share Room"
-          aria-label="Copy room link"
+          title={tr("Share Room")}
+          aria-label={tr("Copy room link")}
         >
           <Share2 className="w-4 h-4" />
         </button>
@@ -287,8 +288,8 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
             onClick={onEndRoom}
             className="relative grid h-9 w-9 place-items-center rounded-full hover:bg-red-500/15 transition-[background-color,transform] active:scale-90"
             style={{ color: THEME.colors.accent.error }}
-            title="End room for everyone"
-            aria-label="End room"
+            title={tr("End room for everyone")}
+            aria-label={tr("End room")}
           >
             <PhoneOff className="w-4 h-4" />
           </button>
@@ -298,8 +299,8 @@ export const VoiceRoomHeader: React.FC<VoiceRoomHeaderProps> = ({
             onClick={onLeave}
             className="relative grid h-9 w-9 place-items-center rounded-full hover:bg-white/[0.08] transition-[background-color,transform] active:scale-90"
             style={{ color: THEME.colors.text.muted }}
-            title="Leave room"
-            aria-label="Leave room"
+            title={tr("Leave room")}
+            aria-label={tr("Leave room")}
           >
             <LogOut className="w-4 h-4" />
           </button>

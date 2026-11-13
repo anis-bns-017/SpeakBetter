@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { toast } from "sonner";
+import { tr } from "../i18n/core";
 
 export type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1";
 export const CEFR_LEVELS: CefrLevel[] = ["A1", "A2", "B1", "B2", "C1"];
@@ -170,7 +171,7 @@ export const useRoomCoach = ({
     const onStarted = (m: MissionPublic) => {
       setMission(m);
       setLastResult(null);
-      toast.info("🎯 Mission round started! Check your secret word.");
+      toast.info(tr("🎯 Mission round started! Check your secret word."));
     };
 
     const onWord = (w: MissionPrivate | null) => setMyMission(w);
@@ -189,8 +190,8 @@ export const useRoomCoach = ({
       const done = r.results.filter((x) => x.completed).length;
       toast.info(
         r.reason === "timeout"
-          ? `⏱️ Mission round over — ${done}/${r.results.length} completed`
-          : `🏁 Mission round ended — ${done}/${r.results.length} completed`,
+          ? tr("⏱️ Mission round over — {done}/{results} completed", { done, results: r.results.length })
+          : tr("🏁 Mission round ended — {done}/{results} completed", { done, results: r.results.length }),
       );
     };
 
@@ -198,7 +199,7 @@ export const useRoomCoach = ({
     const onSpotlight = (s: Spotlight) => {
       setSpotlight(s);
       if (s.target?.userId === userIdRef.current) {
-        toast("🔦 You're in the spotlight — your turn to talk!");
+        toast(tr("🔦 You're in the spotlight — your turn to talk!"));
       }
     };
 

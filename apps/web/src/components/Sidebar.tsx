@@ -58,8 +58,10 @@ import {
   Crown,
   BookA,
   type LucideIcon,
+  ShieldCheck,
 } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
+import { useT } from "../i18n";
 import { useSidebar } from "../contexts/SidebarContext";
 import { SIDEBAR_WIDTH, MOBILE_TAB_BAR_HEIGHT } from "../lib/navLayout";
 import { LogoMark, SpeakBetterLogo } from "./common/SpeakBetterLogo";
@@ -69,6 +71,7 @@ import { useLiveRoomsCount, useTrendingRooms } from "../hooks/useDiscovery";
 import { useChats } from "../hooks/useChat";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
 import { ThemeSwitch } from "./theme/ThemePicker";
+import { tr, msg } from "../i18n/core";
 
 // ============================================================
 // Types & config
@@ -91,43 +94,43 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: "Home",
+    title: msg("Home"),
     items: [
-      { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, keywords: "home overview" },
-      { label: "Discover", to: "/discover", icon: Compass, keywords: "explore find rooms trending" },
+      { label: msg("Dashboard"), to: "/dashboard", icon: LayoutDashboard, keywords: "home overview" },
+      { label: msg("Discover"), to: "/discover", icon: Compass, keywords: "explore find rooms trending" },
     ],
   },
   {
-    title: "Speak",
+    title: msg("Speak"),
     items: [
-      { label: "Voice Rooms", to: "/voice", icon: AudioLines, keywords: "talk speak live audio stage" },
-      { label: "Random Call", to: "/call", icon: Phone, keywords: "random call one to one partner match talk 1:1" },
-      { label: "Chat", to: "/chat", icon: MessageCircle, keywords: "messages dm conversation" },
-      { label: "Communities", to: "/communities", icon: Hash, keywords: "groups clubs channels" },
-      { label: "Friends", to: "/friends", icon: Users, keywords: "partners people suggestions", matches: ["/suggestions", "/blocked"] },
-      { label: "Daily challenge", to: "/challenge", icon: Megaphone, keywords: "daily speaking challenge question answer record prompt" },
-      { label: "My sessions", to: "/sessions", icon: History, keywords: "sessions recap history voice rooms past calls report fluency" },
-      { label: "Role-play", to: "/roleplay", icon: Drama, keywords: "role play roleplay scenarios conversation practice cafe hotel interview doctor directions" },
-      { label: "AI Partner", to: "/ai-partner", icon: Bot, keywords: "ai tutor practice talk speaking conversation roleplay interview" },
+      { label: msg("Voice Rooms"), to: "/voice", icon: AudioLines, keywords: "talk speak live audio stage" },
+      { label: msg("Random Call"), to: "/call", icon: Phone, keywords: "random call one to one partner match talk 1:1" },
+      { label: msg("Chat"), to: "/chat", icon: MessageCircle, keywords: "messages dm conversation" },
+      { label: msg("Communities"), to: "/communities", icon: Hash, keywords: "groups clubs channels" },
+      { label: msg("Friends"), to: "/friends", icon: Users, keywords: "partners people suggestions", matches: ["/suggestions", "/blocked"] },
+      { label: msg("Daily challenge"), to: "/challenge", icon: Megaphone, keywords: "daily speaking challenge question answer record prompt" },
+      { label: msg("My sessions"), to: "/sessions", icon: History, keywords: "sessions recap history voice rooms past calls report fluency" },
+      { label: msg("Role-play"), to: "/roleplay", icon: Drama, keywords: "role play roleplay scenarios conversation practice cafe hotel interview doctor directions" },
+      { label: msg("AI Partner"), to: "/ai-partner", icon: Bot, keywords: "ai tutor practice talk speaking conversation roleplay interview" },
     ],
   },
   {
-    title: "Learn",
+    title: msg("Learn"),
     items: [
-      { label: "Library", to: "/library", icon: Library, keywords: "reading listening stories dialogues articles read listen comprehension" },
-      { label: "Writing", to: "/writing", icon: PenLine, keywords: "writing write essay email grammar spelling check compose" },
-      { label: "Dictionary", to: "/dictionary", icon: BookA, keywords: "dictionary 10000 words meanings definitions pronunciation vocabulary size test word map level a1 b2 c1 synonyms" },
-      { label: "My words", to: "/words", icon: BookOpen, keywords: "vocabulary words saved word bank meanings my words", matches: ["/vocabulary"] },
-      { label: "Dictation", to: "/dictation", icon: Headphones, keywords: "listening dictation listen type hear spelling ears" },
-      { label: "Word packs", to: "/packs", icon: Package, keywords: "vocabulary packs themed words travel work food idioms phrasal verbs ielts quiz" },
-      { label: "Flashcards", to: "/flashcards", icon: Layers, keywords: "review cards spaced repetition" },
-      { label: "Shadowing", to: "/shadowing", icon: Repeat2, keywords: "shadowing repeat after listen speak echo fluency rhythm" },
-      { label: "Pronunciation", to: "/pronunciation", icon: Mic, keywords: "pronounce speaking sounds accent th say aloud score" },
-      { label: "Grammar", to: "/grammar", icon: GraduationCap, keywords: "rules tenses lessons articles prepositions conditionals passive exercises drills" },
-      { label: "Exercises", to: "/exercises", icon: Dumbbell, keywords: "practice quiz" },
-      { label: "Progress", to: "/progress", icon: TrendingUp, keywords: "stats streak xp level" },
-      { label: "Leagues", to: "/leagues", icon: Trophy, keywords: "league leaderboard rank badges achievements weekly competition" },
-      { label: "Level test", to: "/placement", icon: Sparkles, keywords: "placement cefr a1 b2 c1 assessment find my english level" },
+      { label: msg("Library"), to: "/library", icon: Library, keywords: "reading listening stories dialogues articles read listen comprehension" },
+      { label: msg("Writing"), to: "/writing", icon: PenLine, keywords: "writing write essay email grammar spelling check compose" },
+      { label: msg("Dictionary"), to: "/dictionary", icon: BookA, keywords: "dictionary 10000 words meanings definitions pronunciation vocabulary size test word map level a1 b2 c1 synonyms" },
+      { label: msg("My words"), to: "/words", icon: BookOpen, keywords: "vocabulary words saved word bank meanings my words", matches: ["/vocabulary"] },
+      { label: msg("Dictation"), to: "/dictation", icon: Headphones, keywords: "listening dictation listen type hear spelling ears" },
+      { label: msg("Word packs"), to: "/packs", icon: Package, keywords: "vocabulary packs themed words travel work food idioms phrasal verbs ielts quiz" },
+      { label: msg("Flashcards"), to: "/flashcards", icon: Layers, keywords: "review cards spaced repetition" },
+      { label: msg("Shadowing"), to: "/shadowing", icon: Repeat2, keywords: "shadowing repeat after listen speak echo fluency rhythm" },
+      { label: msg("Pronunciation"), to: "/pronunciation", icon: Mic, keywords: "pronounce speaking sounds accent th say aloud score" },
+      { label: msg("Grammar"), to: "/grammar", icon: GraduationCap, keywords: "rules tenses lessons articles prepositions conditionals passive exercises drills" },
+      { label: msg("Exercises"), to: "/exercises", icon: Dumbbell, keywords: "practice quiz" },
+      { label: msg("Progress"), to: "/progress", icon: TrendingUp, keywords: "stats streak xp level" },
+      { label: msg("Leagues"), to: "/leagues", icon: Trophy, keywords: "league leaderboard rank badges achievements weekly competition" },
+      { label: msg("Level test"), to: "/placement", icon: Sparkles, keywords: "placement cefr a1 b2 c1 assessment find my english level" },
     ],
   },
 ];
@@ -165,9 +168,9 @@ const ACCENTS: Record<string, Accent> = {
 let introPlayed = false;
 
 const ACCOUNT_ITEMS: NavItem[] = [
-  { label: "Profile", to: "/profile", icon: User, keywords: "me account" },
-  { label: "Settings", to: "/settings", icon: Settings, keywords: "preferences notifications privacy" },
-  { label: "Premium", to: "/premium", icon: Crown, keywords: "pro upgrade subscription billing plan pay price", matches: ["/billing"] },
+  { label: msg("Profile"), to: "/profile", icon: User, keywords: "me account" },
+  { label: msg("Settings"), to: "/settings", icon: Settings, keywords: "preferences notifications privacy" },
+  { label: msg("Premium"), to: "/premium", icon: Crown, keywords: "pro upgrade subscription billing plan pay price", matches: ["/billing"] },
 ];
 
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -314,13 +317,12 @@ const Badge: React.FC<{ count?: number; live?: boolean; compact?: boolean }> = (
         <span className="relative w-1.5 h-1.5 rounded-full bg-rose-500">
           <span className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-70" />
         </span>
-        {text} live
-      </span>
+        {tr(text)} {" "}{tr("live")}</span>
     );
   }
   return compact ? (
     <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-slate-50 dark:ring-shell">
-      {text}
+      {tr(text)}
     </span>
   ) : (
     <motion.span
@@ -330,7 +332,7 @@ const Badge: React.FC<{ count?: number; live?: boolean; compact?: boolean }> = (
       transition={{ type: "spring", stiffness: 600, damping: 16 }}
       className="relative ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 text-white text-[10px] font-bold tabular-nums flex items-center justify-center shadow-md shadow-rose-500/15"
     >
-      {text}
+      {tr(text)}
     </motion.span>
   );
 };
@@ -349,8 +351,8 @@ const Tooltip: React.FC<{ label: string; hint?: string }> = ({ label, hint }) =>
     role="tooltip"
     className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 z-[100] flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 dark:bg-slate-700 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:opacity-100 transition-all duration-150 shadow-xl"
   >
-    {label}
-    {hint && <span className="text-white/60">{hint}</span>}
+    {tr(label)}
+    {hint && <span className="text-white/60">{tr(hint)}</span>}
   </span>
 );
 
@@ -379,6 +381,7 @@ const SidebarLink: React.FC<{
   intro: boolean;
   index: number;
 }> = ({ item, collapsed, active, badge, accent, hovered, onHover, intro, index }) => {
+  const { t } = useT();
   const Icon = item.icon;
   return (
     <motion.div
@@ -388,7 +391,7 @@ const SidebarLink: React.FC<{
     >
       <NavLink
         to={item.to}
-        aria-label={collapsed ? item.label : undefined}
+        aria-label={collapsed ? t(item.label) : undefined}
         onMouseEnter={() => onHover(item.to)}
         onFocus={() => onHover(item.to)}
         className={`group relative flex items-center rounded-xl h-10 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${
@@ -435,12 +438,12 @@ const SidebarLink: React.FC<{
         </span>
         {!collapsed && (
           <span className={`relative text-[13.5px] truncate motion-safe:transition-transform motion-safe:duration-200 ${active ? "font-semibold" : "font-medium motion-safe:group-hover:translate-x-0.5"}`}>
-            {item.label}
+            {t(item.label)}
           </span>
         )}
         {!collapsed && <Badge {...badge} />}
         {collapsed && <Badge {...badge} compact />}
-        {collapsed && <Tooltip label={item.label} hint={badge.count ? (badge.live ? `${badge.count} live` : `${badge.count} unread`) : undefined} />}
+        {collapsed && <Tooltip label={t(item.label)} hint={badge.count ? (badge.live ? t("{n} live", { n: badge.count }) : t("{n} unread", { n: badge.count })) : undefined} />}
       </NavLink>
     </motion.div>
   );
@@ -465,6 +468,7 @@ const CommandPalette: React.FC<{
   onClose: () => void;
   entries: PaletteEntry[];
 }> = ({ open, onClose, entries }) => {
+  const { t } = useT();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -518,7 +522,7 @@ const CommandPalette: React.FC<{
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Command palette"
+            aria-label={tr("Command palette")}
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -533,20 +537,20 @@ const CommandPalette: React.FC<{
                 autoFocus
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setActive(0); }}
-                placeholder="Search pages, actions and live rooms…"
+                placeholder={tr("Search pages, actions and live rooms…")}
                 className="flex-1 bg-transparent outline-none text-[15px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-                aria-label="Search"
+                aria-label={tr("Search")}
                 role="combobox"
                 aria-expanded="true"
                 aria-controls="command-palette-list"
                 aria-activedescendant={results[activeIndex] ? `cmd-${results[activeIndex].id}` : undefined}
               />
-              <Kbd>Esc</Kbd>
+              <Kbd>{tr("Esc")}</Kbd>
             </div>
 
             <div ref={listRef} id="command-palette-list" role="listbox" className="max-h-[50vh] overflow-y-auto p-2">
               {results.length === 0 ? (
-                <p className="px-3 py-8 text-center text-sm text-slate-500">No matches for “{query.trim()}”</p>
+                <p className="px-3 py-8 text-center text-sm text-slate-500">{tr("No matches for “{value}”", { value: query.trim() })}</p>
               ) : (
                 results.map((entry, index) => {
                   const Icon = entry.icon;
@@ -573,8 +577,8 @@ const CommandPalette: React.FC<{
                         <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${entry.group === "Live now" ? "bg-rose-500/10 text-rose-500" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400"}`}>
                           <Icon className="w-4 h-4" />
                         </span>
-                        <span className="flex-1 min-w-0 truncate text-sm font-medium">{entry.label}</span>
-                        {entry.hint && <span className="text-xs text-slate-400 shrink-0">{entry.hint}</span>}
+                        <span className="flex-1 min-w-0 truncate text-sm font-medium">{t(entry.label)}</span>
+                        {entry.hint && <span className="text-xs text-slate-400 shrink-0">{tr(entry.hint)}</span>}
                         {isActive && <CornerDownLeft className="w-4 h-4 text-slate-400 shrink-0" />}
                       </button>
                     </React.Fragment>
@@ -584,9 +588,9 @@ const CommandPalette: React.FC<{
             </div>
 
             <div className="flex items-center gap-4 px-4 h-10 border-t border-slate-100 dark:border-white/5 text-[11px] text-slate-400">
-              <span className="flex items-center gap-1"><ArrowUp className="w-3 h-3" /><ArrowDown className="w-3 h-3" /> navigate</span>
-              <span className="flex items-center gap-1"><CornerDownLeft className="w-3 h-3" /> open</span>
-              <span className="ml-auto flex items-center gap-1"><Kbd>{MOD_KEY}</Kbd><Kbd>B</Kbd> collapse sidebar</span>
+              <span className="flex items-center gap-1"><ArrowUp className="w-3 h-3" /><ArrowDown className="w-3 h-3" /> {" "}{tr("navigate")}</span>
+              <span className="flex items-center gap-1"><CornerDownLeft className="w-3 h-3" /> {" "}{tr("open")}</span>
+              <span className="ml-auto flex items-center gap-1"><Kbd>{MOD_KEY}</Kbd><Kbd>B</Kbd> {" "}{tr("collapse sidebar")}</span>
             </div>
           </motion.div>
         </motion.div>
@@ -600,6 +604,7 @@ const CommandPalette: React.FC<{
 // ============================================================
 
 const StreakCard: React.FC<{ data: SidebarData; onOpen: () => void }> = ({ data, onOpen }) => {
+  const { t } = useT();
   const reduced = useReducedMotion();
   return (
     <motion.button
@@ -619,20 +624,20 @@ const StreakCard: React.FC<{ data: SidebarData; onOpen: () => void }> = ({ data,
         </div>
         <div className="min-w-0">
           <p className="text-[15px] font-bold text-slate-900 dark:text-slate-100 leading-tight tabular-nums">
-            {data.streak > 0 ? `${data.streak}-day streak` : "Start a streak"}
+            {data.streak > 0 ? t("{n}-day streak", { n: data.streak }) : t("Start a streak")}
           </p>
           <p className="text-[11.5px] text-slate-500 dark:text-slate-400 truncate">
             {data.streak > 0
               ? data.practicedToday
-                ? "Done for today. See you tomorrow"
-                : "Practise today to keep it going"
-              : "Speak or study today to begin"}
+                ? t("Done for today. See you tomorrow")
+                : t("Practise today to keep it going")
+              : t("Speak or study today to begin")}
           </p>
         </div>
         {data.freezes > 0 && (
           <span
             className="ml-auto shrink-0 inline-flex items-center gap-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-300 px-1.5 py-1 text-[11px] font-bold tabular-nums"
-            title={`${data.freezes} streak ${data.freezes === 1 ? "freeze" : "freezes"}: a missed day won't break your streak`}
+            title={tr("{freezes} streak {value}: a missed day won't break your streak", { freezes: data.freezes, value: data.freezes === 1 ? "freeze" : "freezes" })}
           >
             <Snowflake className="w-3 h-3" /> {data.freezes}
           </span>
@@ -640,7 +645,7 @@ const StreakCard: React.FC<{ data: SidebarData; onOpen: () => void }> = ({ data,
       </div>
       <div className="relative mt-3">
         <div className="flex items-center justify-between text-[11px] mb-1.5">
-          <span className="font-semibold text-slate-700 dark:text-slate-300">Level {data.level}</span>
+          <span className="font-semibold text-slate-700 dark:text-slate-300">{tr("Level")}{" "}{data.level}</span>
           <span className="text-slate-500 dark:text-slate-400 tabular-nums">{data.xp.toLocaleString()} XP</span>
         </div>
         <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
@@ -654,7 +659,7 @@ const StreakCard: React.FC<{ data: SidebarData; onOpen: () => void }> = ({ data,
           </motion.div>
         </div>
         <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">
-          {data.xpToNext > 0 ? `${data.xpToNext.toLocaleString()} XP to Level ${data.level + 1}` : "Max level reached 🎉"}
+          {data.xpToNext > 0 ? tr("{xpToNext} XP to Level {value}", { xpToNext: data.xpToNext.toLocaleString(), value: data.level + 1 }) : tr("Max level reached 🎉")}
         </p>
       </div>
     </motion.button>
@@ -662,6 +667,7 @@ const StreakCard: React.FC<{ data: SidebarData; onOpen: () => void }> = ({ data,
 };
 
 const LiveNowList: React.FC<{ data: SidebarData; onJoin: (roomId: string) => void }> = ({ data, onJoin }) => {
+  const { t } = useT();
   if (!data.liveRooms.length) return null;
   return (
     <div>
@@ -669,8 +675,7 @@ const LiveNowList: React.FC<{ data: SidebarData; onJoin: (roomId: string) => voi
         <span className="relative w-1.5 h-1.5 rounded-full bg-rose-500">
           <span className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-70" />
         </span>
-        Live now
-      </p>
+        {tr("Live now")}</p>
       <div className="space-y-1">
         {data.liveRooms.map((room) => (
           <button
@@ -678,7 +683,7 @@ const LiveNowList: React.FC<{ data: SidebarData; onJoin: (roomId: string) => voi
             type="button"
             onClick={() => onJoin(room.id)}
             className="group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-            title={`Join ${room.name}`}
+            title={tr("Join {name}", { name: room.name })}
           >
             <span className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0">
               <Radio className="w-4 h-4" />
@@ -686,10 +691,10 @@ const LiveNowList: React.FC<{ data: SidebarData; onJoin: (roomId: string) => voi
             <span className="min-w-0 flex-1">
               <span className="block text-[13px] font-medium text-slate-800 dark:text-slate-200 truncate">{room.name}</span>
               <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                {room.participantCount} listening{room.language ? ` · ${room.language}` : ""}
+                {room.participantCount} {" "}{tr("listening")}{room.language ? ` · ${room.language}` : ""}
               </span>
             </span>
-            <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity">Join</span>
+            <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity">{t("Join")}</span>
           </button>
         ))}
       </div>
@@ -703,6 +708,7 @@ const LiveNowList: React.FC<{ data: SidebarData; onJoin: (roomId: string) => voi
 
 export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
   const { user, logout } = useAuth();
+  const { t } = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -804,11 +810,11 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
       run: () => navigate(`/voice/${room.id}`),
     }));
     const actions: PaletteEntry[] = [
-      { id: "start-room", label: "Start a voice room", group: "Actions", icon: Mic, keywords: "create host speak talk new room", run: () => navigate("/voice") },
-      { id: "new-chat", label: "New conversation", group: "Actions", icon: Plus, keywords: "message dm chat", run: () => navigate("/chat/new") },
-      { id: "find-partners", label: "Find speaking partners", group: "Actions", icon: Sparkles, keywords: "friends suggestions people", run: () => navigate("/suggestions") },
+      { id: "start-room", label: msg("Start a voice room"), group: "Actions", icon: Mic, keywords: "create host speak talk new room", run: () => navigate("/voice") },
+      { id: "new-chat", label: msg("New conversation"), group: "Actions", icon: Plus, keywords: "message dm chat", run: () => navigate("/chat/new") },
+      { id: "find-partners", label: msg("Find speaking partners"), group: "Actions", icon: Sparkles, keywords: "friends suggestions people", run: () => navigate("/suggestions") },
       { id: "toggle-sidebar", label: collapsed ? "Expand sidebar" : "Collapse sidebar", group: "Actions", icon: collapsed ? ChevronRight : ChevronLeft, hint: `${MOD_KEY} B`, run: toggleSidebar },
-      { id: "logout", label: "Log out", group: "Actions", icon: LogOut, keywords: "sign out", run: () => void handleLogout() },
+      { id: "logout", label: msg("Log out"), group: "Actions", icon: LogOut, keywords: "sign out", run: () => void handleLogout() },
     ];
     const pages: PaletteEntry[] = [...NAV_SECTIONS.flatMap((s) => s.items), ...ACCOUNT_ITEMS].map((item) => ({
       id: `page-${item.to}`,
@@ -829,7 +835,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
   // ---------------- Desktop ----------------
   const desktop = (
     <aside
-      aria-label="Main navigation"
+      aria-label={tr("Main navigation")}
       className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-slate-50 dark:bg-shell border-r border-slate-200/80 dark:border-white/[0.06] transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${className ?? ""}`}
       style={{ width: collapsed ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded }}
     >
@@ -842,7 +848,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
           whileTap={{ scale: 0.96 }}
           transition={{ type: "spring", stiffness: 500, damping: 22 }}
           className="group flex items-center min-w-0 rounded-xl p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-          aria-label="SpeakBetter home"
+          aria-label={tr("SpeakBetter home")}
         >
           {collapsed ? (
             <LogoMark size={40} />
@@ -857,8 +863,8 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
               type="button"
               onClick={toggleSidebar}
               className="group relative w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-              aria-label="Collapse sidebar"
-              title={`Collapse (${MOD_KEY}+B)`}
+              aria-label={tr("Collapse sidebar")}
+              title={tr("Collapse ({MOD_KEY}+B)", { MOD_KEY })}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -878,12 +884,12 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
           type="button"
           onClick={openPalette}
           className={`group relative w-full h-9 flex items-center rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${collapsed ? "justify-center" : "gap-2 px-3"}`}
-          aria-label="Search and jump to"
+          aria-label={tr("Search and jump to")}
         >
           <Search className="w-4 h-4 shrink-0" />
-          {!collapsed && <span className="text-[13px] flex-1 text-left">Search…</span>}
+          {!collapsed && <span className="text-[13px] flex-1 text-left">{t("Search…")}</span>}
           {!collapsed && <span className="flex gap-0.5"><Kbd>{MOD_KEY}</Kbd><Kbd>K</Kbd></span>}
-          {collapsed && <Tooltip label="Search" hint={`${MOD_KEY} K`} />}
+          {collapsed && <Tooltip label={tr("Search")} hint={`${MOD_KEY} K`} />}
         </button>
 
         <motion.button
@@ -893,12 +899,12 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 500, damping: 24 }}
           className="group relative overflow-visible w-full h-10 flex items-center justify-center gap-2 rounded-xl text-white font-semibold text-[13.5px] bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 shadow-[inset_0_1px_0_rgb(255_255_255/0.16),var(--shadow-sm)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-shell"
-          aria-label="Start speaking"
+          aria-label={tr("Start speaking")}
         >
           <Mic className="relative w-4 h-4 motion-safe:transition-transform motion-safe:group-hover:scale-110" />
-          {!collapsed && <span className="relative">Start speaking</span>}
+          {!collapsed && <span className="relative">{t("Start speaking")}</span>}
           {!collapsed && <span className="relative"><Equalizer /></span>}
-          {collapsed && <Tooltip label="Start speaking" />}
+          {collapsed && <Tooltip label={tr("Start speaking")} />}
         </motion.button>
       </div>
 
@@ -927,7 +933,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                   className="px-3 mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500"
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
-                  {section.title}
+                  {t(section.title)}
                   <span className="flex-1 h-px bg-line" />
                 </motion.p>
               )}
@@ -981,15 +987,20 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                 const Icon = item.icon;
                 return (
                   <button key={item.to} type="button" role="menuitem" onClick={() => { setMenuOpen(false); navigate(item.to); }} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5">
-                    <Icon className="w-4 h-4 text-slate-400" /> {item.label}
+                    <Icon className="w-4 h-4 text-slate-400" /> {t(item.label)}
                   </button>
                 );
               })}
+              {(user?.role === "ADMIN" || user?.role === "MODERATOR") && (
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); navigate("/admin"); }} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-400/10">
+                  <ShieldCheck className="w-4 h-4" /> {t("Admin")}
+                </button>
+              )}
               <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); openPalette(); }} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5">
-                <Search className="w-4 h-4 text-slate-400" /> Command palette <span className="ml-auto flex gap-0.5"><Kbd>{MOD_KEY}</Kbd><Kbd>K</Kbd></span>
+                <Search className="w-4 h-4 text-slate-400" /> {" "}{tr("Command palette")}{" "}<span className="ml-auto flex gap-0.5"><Kbd>{MOD_KEY}</Kbd><Kbd>K</Kbd></span>
               </button>
               <div className="px-1.5 pt-1.5 pb-1">
-                <p className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Theme</p>
+                <p className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Theme")}</p>
                 <ThemeSwitch />
               </div>
               <div className="my-1 h-px bg-slate-100 dark:bg-white/5" />
@@ -999,7 +1010,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                 onClick={() => (confirmLogout ? void handleLogout() : setConfirmLogout(true))}
                 className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-medium transition-colors ${confirmLogout ? "bg-rose-500 text-white" : "text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10"}`}
               >
-                <LogOut className="w-4 h-4" /> {confirmLogout ? "Click again to log out" : "Log out"}
+                <LogOut className="w-4 h-4" /> {confirmLogout ? t("Click again to log out") : t("Log out")}
               </button>
             </motion.div>
           )}
@@ -1019,11 +1030,11 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
             <span className="min-w-0 flex-1 text-left">
               <span className="block text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 truncate">{userName}</span>
               <span className="flex items-center gap-1 text-[11.5px] text-slate-500 dark:text-slate-400">
-                <Flame className={`w-3 h-3 ${data.streak > 0 ? "text-orange-500" : ""}`} /> {data.streak} · Level {data.level}
+                <Flame className={`w-3 h-3 ${data.streak > 0 ? "text-orange-500" : ""}`} /> {data.streak} {" "}{tr("· Level")}{" "}{data.level}
               </span>
             </span>
           )}
-          {collapsed && <Tooltip label={userName} hint={`Level ${data.level}`} />}
+          {collapsed && <Tooltip label={userName} hint={tr("Level {level}", { level: data.level })} />}
         </button>
 
         {collapsed && (
@@ -1031,10 +1042,10 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
             type="button"
             onClick={toggleSidebar}
             className="group relative mt-2 w-full h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-            aria-label="Expand sidebar"
+            aria-label={tr("Expand sidebar")}
           >
             <ChevronRight className="w-4 h-4" />
-            <Tooltip label="Expand" hint={`${MOD_KEY} B`} />
+            <Tooltip label={tr("Expand")} hint={`${MOD_KEY} B`} />
           </button>
         )}
       </div>
@@ -1044,16 +1055,16 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
   // ---------------- Mobile tab bar ----------------
   const learnPaths = NAV_SECTIONS.find((s) => s.title === "Learn")!.items;
   const tabs: Array<{ label: string; icon: LucideIcon; to?: string; active: boolean; badge?: { count?: number; live?: boolean }; onClick?: () => void }> = [
-    { label: "Home", icon: LayoutDashboard, to: "/dashboard", active: isActive(NAV_SECTIONS[0].items[0]) },
-    { label: "Speak", icon: AudioLines, to: "/voice", active: location.pathname.startsWith("/voice"), badge: badgeFor(NAV_SECTIONS[1].items[0], data) },
-    { label: "Chat", icon: MessageCircle, to: "/chat", active: location.pathname.startsWith("/chat"), badge: badgeFor(NAV_SECTIONS[1].items[1], data) },
-    { label: "Learn", icon: BookOpen, to: "/words", active: learnPaths.some(isActive) },
-    { label: "More", icon: Menu, active: isMobileMenuOpen, onClick: () => setMobileMenuOpen(true) },
+    { label: msg("Home"), icon: LayoutDashboard, to: "/dashboard", active: isActive(NAV_SECTIONS[0].items[0]) },
+    { label: msg("Speak"), icon: AudioLines, to: "/voice", active: location.pathname.startsWith("/voice"), badge: badgeFor(NAV_SECTIONS[1].items[0], data) },
+    { label: msg("Chat"), icon: MessageCircle, to: "/chat", active: location.pathname.startsWith("/chat"), badge: badgeFor(NAV_SECTIONS[1].items[1], data) },
+    { label: msg("Learn"), icon: BookOpen, to: "/words", active: learnPaths.some(isActive) },
+    { label: msg("More"), icon: Menu, active: isMobileMenuOpen, onClick: () => setMobileMenuOpen(true) },
   ];
 
   const mobile = !inVoiceRoom && (
     <nav
-      aria-label="Main navigation"
+      aria-label={tr("Main navigation")}
       className="lg:hidden fixed left-0 right-0 bottom-0 z-50 border-t border-slate-200/80 dark:border-white/[0.06] bg-white/90 dark:bg-shell/90 backdrop-blur-xl"
       style={{ height: MOBILE_TAB_BAR_HEIGHT, paddingBottom: "env(safe-area-inset-bottom)" }}
     >
@@ -1081,14 +1092,14 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                   {tab.badge && <Badge {...tab.badge} compact />}
                 </motion.span>
               </span>
-              <span className={`text-[11px] ${tab.active ? "font-semibold" : "font-medium"}`}>{tab.label}</span>
+              <span className={`text-[11px] ${tab.active ? "font-semibold" : "font-medium"}`}>{t(tab.label)}</span>
             </>
           );
           const cls = `relative flex flex-col items-center justify-center gap-0.5 transition-colors ${tab.active ? "text-indigo-600 dark:text-indigo-300" : "text-slate-500 dark:text-slate-400"}`;
           return tab.to ? (
-            <NavLink key={tab.label} to={tab.to} className={cls} aria-label={tab.label}>{content}</NavLink>
+            <NavLink key={tab.label} to={tab.to} className={cls} aria-label={t(tab.label)}>{content}</NavLink>
           ) : (
-            <button key={tab.label} type="button" onClick={tab.onClick} className={cls} aria-label={tab.label} aria-expanded={isMobileMenuOpen}>{content}</button>
+            <button key={tab.label} type="button" onClick={tab.onClick} className={cls} aria-label={t(tab.label)} aria-expanded={isMobileMenuOpen}>{content}</button>
           );
         })}
       </div>
@@ -1109,7 +1120,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Menu"
+            aria-label={tr("Menu")}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
@@ -1128,13 +1139,13 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                 <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{userName}</p>
                 <p className="text-xs text-slate-500 truncate">{userEmail}</p>
               </div>
-              <button type="button" onClick={() => setMobileMenuOpen(false)} className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200/60 dark:hover:bg-white/5" aria-label="Close menu">
+              <button type="button" onClick={() => setMobileMenuOpen(false)} className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200/60 dark:hover:bg-white/5" aria-label={tr("Close menu")}>
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <button type="button" onClick={() => { setMobileMenuOpen(false); openPalette(); }} className="w-full h-11 mb-4 flex items-center gap-2 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-500">
-              <Search className="w-4 h-4" /> <span className="text-sm">Search pages and rooms…</span>
+              <Search className="w-4 h-4" /> <span className="text-sm">{t("Search pages and rooms…")}</span>
             </button>
 
             <div className="mb-4"><StreakCard data={data} onOpen={() => go("/progress")} /></div>
@@ -1145,14 +1156,14 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
               </div>
             )}
 
-            {[...NAV_SECTIONS, { title: "Account", items: ACCOUNT_ITEMS }].map((section, sectionIndex, all) => {
+            {[...NAV_SECTIONS, { title: msg("Account"), items: ACCOUNT_ITEMS }].map((section, sectionIndex, all) => {
               const accent = ACCENTS[section.title] ?? ACCENTS.Home;
               const offset = all.slice(0, sectionIndex).reduce((n, s) => n + s.items.length, 0);
               return (
                 <div key={section.title} className="mb-4">
                   <p className="px-1 mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400">
                     <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
-                    {section.title}
+                    {t(section.title)}
                   </p>
                   <div className="grid grid-cols-3 gap-2">
                     {section.items.map((item, i) => {
@@ -1178,7 +1189,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
                             <Icon className="w-5 h-5" />
                             <Badge {...badge} compact />
                           </span>
-                          <span className="text-xs font-medium">{item.label}</span>
+                          <span className="text-xs font-medium">{t(item.label)}</span>
                         </motion.button>
                       );
                     })}
@@ -1188,7 +1199,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
             })}
 
             <div className="mb-4">
-              <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Theme</p>
+              <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Theme")}</p>
               <ThemeSwitch size="md" />
             </div>
 
@@ -1197,7 +1208,7 @@ export const Sidebar: React.FC<{ className?: string }> = ({ className }) => {
               onClick={() => (confirmLogout ? void handleLogout() : setConfirmLogout(true))}
               className={`w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm transition-colors ${confirmLogout ? "bg-rose-500 text-white" : "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"}`}
             >
-              <LogOut className="w-4 h-4" /> {confirmLogout ? "Tap again to log out" : "Log out"}
+              <LogOut className="w-4 h-4" /> {confirmLogout ? tr("Tap again to log out") : tr("Log out")}
             </button>
           </motion.div>
         </motion.div>

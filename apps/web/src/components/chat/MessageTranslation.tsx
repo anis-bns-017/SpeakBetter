@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Translation } from '@speakbetter/types';
 import { Languages, ChevronDown, ChevronUp, Loader2, RotateCcw } from 'lucide-react';
+import { tr } from "../../i18n/core";
 
 interface MessageTranslationProps {
   translations: Translation[];
@@ -58,7 +59,7 @@ export const MessageTranslation: React.FC<MessageTranslationProps> = ({
 
     try {
       await onTranslate(code);
-    } catch (error) {
+    } catch {
       // Allow fallback / reset on failure
     } finally {
       setIsTranslating(false);
@@ -85,7 +86,7 @@ export const MessageTranslation: React.FC<MessageTranslationProps> = ({
         }`}
       >
         <Languages className="w-3.5 h-3.5" />
-        <span>{selectedLang ? 'Translated' : 'Translate'}</span>
+        <span>{selectedLang ? tr("Translated") : tr("Translate")}</span>
         {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
       </button>
 
@@ -103,7 +104,7 @@ export const MessageTranslation: React.FC<MessageTranslationProps> = ({
             >
               <div className="flex items-center justify-between text-[11px] opacity-75 mb-1">
                 <span>
-                  Translated to{' '}
+                  {tr("Translated to")}{' '}
                   <strong className="font-semibold">
                     {languageMap.get(selectedLang) || selectedLang.toUpperCase()}
                   </strong>
@@ -117,14 +118,13 @@ export const MessageTranslation: React.FC<MessageTranslationProps> = ({
                   }`}
                 >
                   <RotateCcw className="w-3 h-3" />
-                  Original
-                </button>
+                  {tr("Original")}</button>
               </div>
 
               {isTranslating ? (
                 <div className="flex items-center gap-2 py-1 text-xs opacity-80">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Translating...</span>
+                  <span>{tr("Translating...")}</span>
                 </div>
               ) : activeTranslation ? (
                 <p className="leading-relaxed whitespace-pre-wrap">
@@ -132,8 +132,7 @@ export const MessageTranslation: React.FC<MessageTranslationProps> = ({
                 </p>
               ) : (
                 <p className="text-xs italic opacity-80">
-                  Unable to translate content to this language.
-                </p>
+                  {tr("Unable to translate content to this language.")}</p>
               )}
             </div>
           )}
@@ -169,8 +168,7 @@ export const MessageTranslation: React.FC<MessageTranslationProps> = ({
                     }`}
                   >
                     <option value="" disabled>
-                      More...
-                    </option>
+                      {tr("More...")}</option>
                     {secondaryLanguages.map((lang) => (
                       <option key={lang.code} value={lang.code}>
                         {lang.name}

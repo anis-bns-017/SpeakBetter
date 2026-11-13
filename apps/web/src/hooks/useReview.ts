@@ -48,6 +48,17 @@ export interface ReviewStats {
   forecast: Array<{ day: string; due: number }>;
   /** Reviews at least a day apart in the last 30 days, and how many you remembered */
   last30: { reviews: number; remembered: number; retention: number | null };
+  /** Whether the schedule follows the learner's own memory yet (null if it could not be read) */
+  model: {
+    personal: boolean;
+    /** Reviews a day or more apart so far, and how many a first fit needs */
+    lessons: number;
+    needed: number;
+    fittedAt: string | null;
+    /** How far predictions were from what happened (0-1): standard weights, then the learner's own */
+    defaultError: number | null;
+    fittedError: number | null;
+  } | null;
 }
 
 export const useReviewStats = () =>

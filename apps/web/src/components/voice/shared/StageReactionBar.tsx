@@ -2,6 +2,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SmilePlus, X } from "lucide-react";
+import { tr } from "../../../i18n/core";
 
 const QUICK_EMOJIS = ["❤️", "🔥", "👏", "😂", "🎉", "💯", "🙌", "😮"];
 const ALL_EMOJIS = [
@@ -98,7 +99,7 @@ export const StageReactionBar: React.FC<StageReactionBarProps> = ({
                   type="button"
                   onClick={() => handleSend(emoji)}
                   disabled={disabled}
-                  aria-label={`Send ${emoji} reaction`}
+                  aria-label={tr("Send {emoji} reaction", { emoji })}
                   whileHover={{ scale: 1.3, y: -6 }}
                   whileTap={{ scale: 0.88 }}
                   transition={{ type: "spring", stiffness: 520, damping: 18 }}
@@ -123,7 +124,7 @@ export const StageReactionBar: React.FC<StageReactionBarProps> = ({
                   type="button"
                   onClick={() => handleSend(emoji)}
                   disabled={disabled}
-                  aria-label={`Send ${emoji} reaction`}
+                  aria-label={tr("Send {emoji} reaction", { emoji })}
                   whileHover={{ scale: 1.3, y: -6 }}
                   whileTap={{ scale: 0.88 }}
                   transition={{ type: "spring", stiffness: 520, damping: 18 }}
@@ -142,8 +143,8 @@ export const StageReactionBar: React.FC<StageReactionBarProps> = ({
           onClick={() => setExpanded((v) => !v)}
           className="ml-1 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors shrink-0"
           style={{ color: "var(--sx-text-255-255-255-600)" }}
-          title={expanded ? "Show fewer reactions" : "More reactions"}
-          aria-label={expanded ? "Show fewer reactions" : "More reactions"}
+          title={expanded ? tr("Show fewer reactions") : tr("More reactions")}
+          aria-label={expanded ? tr("Show fewer reactions") : tr("More reactions")}
           aria-expanded={expanded}
         >
           {expanded ? (

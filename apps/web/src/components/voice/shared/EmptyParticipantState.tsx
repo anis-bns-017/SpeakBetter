@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { THEME } from "../VoiceRoomView.theme";
+import { tr, msg } from "../../../i18n/core";
 
 type EmptyVariant = "no-participants" | "no-speakers" | "search" | "filter";
 
@@ -52,27 +53,27 @@ interface EmptyParticipantStateProps {
 
 const ICEBREAKERS: { text: string; icon: typeof Coffee; color: string }[] = [
   {
-    text: "What language are you learning this week?",
+    text: msg("What language are you learning this week?"),
     icon: Globe,
     color: "cyan",
   },
   {
-    text: "Share a phrase that trips you up in your target language",
+    text: msg("Share a phrase that trips you up in your target language"),
     icon: MessageCircle,
     color: "violet",
   },
   {
-    text: "What's your favourite word in any language?",
+    text: msg("What's your favourite word in any language?"),
     icon: Sparkles,
     color: "pink",
   },
-  { text: "Coffee or tea while you study?", icon: Coffee, color: "amber" },
+  { text: msg("Coffee or tea while you study?"), icon: Coffee, color: "amber" },
   {
-    text: "One tip that changed how you learn languages",
+    text: msg("One tip that changed how you learn languages"),
     icon: Lightbulb,
     color: "emerald",
   },
-  { text: "Introduce yourself in 3 words", icon: Zap, color: "yellow" },
+  { text: msg("Introduce yourself in 3 words"), icon: Zap, color: "yellow" },
 ];
 
 const COLOR_MAP: Record<string, { fg: string; bg: string }> = {
@@ -104,16 +105,16 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
         return {
           icon: Users,
           color: THEME.colors.accent.primary,
-          title: "It's just you in here",
+          title: msg("It's just you in here"),
           subtitle:
-            "Invite friends or wait for others to join. New rooms fill up fast!",
+            msg("Invite friends or wait for others to join. New rooms fill up fast!"),
           primaryAction: isHost ? "Invite friends" : "Raise your hand",
         };
       case "no-speakers":
         return {
           icon: Mic,
           color: THEME.colors.accent.warning,
-          title: "It's quiet right now",
+          title: msg("It's quiet right now"),
           subtitle: isHost
             ? "Break the ice with a topic below, or invite someone to speak."
             : "Nobody is speaking yet. Raise your hand if you'd like to start!",
@@ -123,7 +124,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
         return {
           icon: Search,
           color: THEME.colors.accent.cyan,
-          title: "No one matches your search",
+          title: msg("No one matches your search"),
           subtitle: searchQuery
             ? `We couldn't find anyone matching "${searchQuery}".`
             : "Try a different keyword or clear the search.",
@@ -133,9 +134,9 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
         return {
           icon: Sparkles,
           color: THEME.colors.accent.secondary,
-          title: "No one matches this filter",
+          title: msg("No one matches this filter"),
           subtitle:
-            "Switch to a different filter, or clear all filters to see everyone.",
+            msg("Switch to a different filter, or clear all filters to see everyone."),
           primaryAction: "Clear filters",
         };
     }
@@ -161,10 +162,10 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
     try {
       await navigator.clipboard.writeText(topic);
       setCopiedTopic(topic);
-      toast.success("Topic copied — paste it in chat");
+      toast.success(tr("Topic copied — paste it in chat"));
       window.setTimeout(() => setCopiedTopic(null), 1800);
     } catch {
-      toast.error("Couldn't copy topic");
+      toast.error(tr("Couldn't copy topic"));
     }
   };
 
@@ -212,7 +213,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
         className="text-base font-semibold mb-1"
         style={{ color: THEME.colors.text.primary }}
       >
-        {config.title}
+        {tr(config.title)}
       </motion.h3>
 
       <motion.p
@@ -222,7 +223,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
         className="text-xs max-w-[320px] leading-relaxed mb-5"
         style={{ color: THEME.colors.text.muted }}
       >
-        {config.subtitle}
+        {tr(config.subtitle)}
       </motion.p>
 
       {/* Primary action */}
@@ -269,8 +270,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
             className="text-[11px] w-full mb-1"
             style={{ color: THEME.colors.text.muted }}
           >
-            Quick ideas
-          </span>
+            {tr("Quick ideas")}</span>
           {["Speak Spanish?", "English practice", "Language games"].map(
             (idea) => (
               <button
@@ -278,7 +278,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
                 type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(idea).catch(() => {});
-                  toast.success("Copied — share it in chat");
+                  toast.success(tr("Copied — share it in chat"));
                 }}
                 className="text-[11px] px-2.5 py-1 rounded-full border transition-all hover:-translate-y-0.5"
                 style={{
@@ -308,16 +308,14 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
                 className="text-[11px] font-semibold uppercase tracking-wider"
                 style={{ color: THEME.colors.text.muted }}
               >
-                Icebreakers
-              </span>
+                {tr("Icebreakers")}</span>
               <button
                 type="button"
                 onClick={() => setShowTopics(false)}
                 className="text-[11px]"
                 style={{ color: THEME.colors.text.muted }}
               >
-                Hide
-              </button>
+                {tr("Hide")}</button>
             </div>
             <div className="space-y-1.5">
               {ICEBREAKERS.map((t) => {
@@ -353,7 +351,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
                       className="text-xs leading-snug flex-1"
                       style={{ color: THEME.colors.text.primary }}
                     >
-                      {t.text}
+                      {tr(t.text)}
                     </span>
                     {isCopied ? (
                       <Check
@@ -374,8 +372,7 @@ export const EmptyParticipantState: React.FC<EmptyParticipantStateProps> = ({
               className="text-[9px] text-center mt-2.5"
               style={{ color: THEME.colors.text.muted }}
             >
-              Tap a topic to copy it, then paste it in the chat
-            </p>
+              {tr("Tap a topic to copy it, then paste it in the chat")}</p>
           </motion.div>
         )}
       </AnimatePresence>

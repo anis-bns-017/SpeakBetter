@@ -1,10 +1,14 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ActivityService } from '../learning/activity.service';
 import { ReviewService } from '../learning/review.service';
 import { words } from '../learning/mistakes';
 import { isSoundKey, LEVELS, SENTENCES, SOUND_KEYS, SOUNDS, type PracticeLevel, type SoundKey } from './pronunciation.data';
 import { paceOf, scoreAttempt, type Pace, type PronunciationIssue, type WordResult } from './pronunciation.score';
+import { getDictionary } from '../dictionary/dictionary.data';
+import { checkSounds, readFrames, type SoundCheck } from './phoneme.align';
+import { pronunciationsOf } from './phoneme.lexicon';
+import { PHONE_LABEL } from './phonemes';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const MAX_TARGET_CHARS = 200;
@@ -25,7 +29,13 @@ interface AttemptResult {
   words: WordResult[];
   issues: PronunciationIssue[];
   pace?: Pace | null;
+  /** Each sound of each word, when the learner's device checked the recording */
+  sounds?: SoundCheck | null;
 }
+
+/** A sound needs this many tries before it is called weak, and to be right less often than this */
+const WEAK_PHONE_MIN_TRIES = 5;
+const WEAK_PHONE_BELOW = 80;
 
 export interface DrillItem {
   target: string;
@@ -179,6 +189,38 @@ export class PronunciationService {
   }
 
   /**
+   * Judges every sound of an attempt from what the learner's device heard in the recording (frame by frame
+   * guesses at the sound; the audio itself never leaves the device). Saved with the attempt, so progress
+   * can show which sounds need work. Gives `sounds: null` when the recording could not be matched.
+   */
+  async checkSounds(userId: string, attemptId: string, rawFrames: unknown) {
+    const attempt = await this.prisma.pronunciationAttempt.findFirst({ where: { id: attemptId, userId } });
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    const frames = readFrames(rawFrames);
+    if (!frames) throw new BadRequestException('No speech was found in the recording');
+
+    const stored = (attempt.result ?? {}) as unknown as AttemptResult;
+    const targets = Array.isArray(stored.words) && stored.words.length
+      ? stored.words.map((w) => ({ text: w.text, word: w.word }))
+      : words(attempt.target).map((word) => ({ text: word, word }));
+
+    let sounds: SoundCheck | null = null;
+    try {
+      const dict = getDictionary();
+      sounds = checkSounds(targets.map((t) => ({ word: t.word, variants: pronunciationsOf(dict, t.word) })), frames);
+    } catch (error) {
+      this.logger.warn(`Could not check the sounds of attempt ${attemptId}: ${(error as Error)?.message}`);
+    }
+    if (!sounds) return { sounds: null };
+
+    await this.prisma.pronunciationAttempt.update({
+      where: { id: attempt.id },
+      data: { result: { ...stored, sounds } as any },
+    });
+    return { sounds: { ...sounds, words: sounds.words.map((w, i) => ({ ...w, text: targets[i]?.text ?? w.word })) } };
+  }
+
+  /**
    * A short practice made for you today: the two sounds you find hardest (or two you have not tried yet),
    * the words you keep missing, and a couple of sentences for your level. It changes from day to day.
    */
@@ -297,8 +339,19 @@ export class PronunciationService {
 
     const sounds = new Map<string, number[]>();
     const missed = new Map<string, { count: number; heardAs: Map<string, number> }>();
+    const phones = new Map<string, { tries: number; right: number; heardAs: Map<string, number> }>();
     for (const a of attempts) {
       if (a.sound) sounds.set(a.sound, [...(sounds.get(a.sound) ?? []), a.score]);
+      for (const word of (a.result as unknown as AttemptResult | null)?.sounds?.words ?? []) {
+        for (const phone of word.phones ?? []) {
+          const p = phones.get(phone.p) ?? { tries: 0, right: 0, heardAs: new Map<string, number>() };
+          p.tries++;
+          if (phone.status === 'good') p.right++;
+          else if (phone.status === 'close') p.right += 0.6;
+          if (phone.heard && phone.status === 'wrong') p.heardAs.set(phone.heard, (p.heardAs.get(phone.heard) ?? 0) + 1);
+          phones.set(phone.p, p);
+        }
+      }
       const issues = ((a.result as unknown as AttemptResult | null)?.issues ?? []) as PronunciationIssue[];
       for (const word of a.missedWords) {
         const m = missed.get(word) ?? { count: 0, heardAs: new Map<string, number>() };
@@ -335,6 +388,23 @@ export class PronunciationService {
           count: m.count,
           heardAs: [...m.heardAs.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null,
         })),
+      // Single sounds that keep going wrong, weakest first (only when sound checking was used)
+      weakPhones: [...phones.entries()]
+        .filter(([key, p]) => PHONE_LABEL[key] && p.tries >= WEAK_PHONE_MIN_TRIES)
+        .map(([key, p]) => {
+          const heard = [...p.heardAs.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+          return {
+            p: key,
+            ipa: PHONE_LABEL[key].ipa,
+            hint: PHONE_LABEL[key].hint,
+            tries: p.tries,
+            accuracy: Math.round((100 * p.right) / p.tries),
+            heardAs: heard && PHONE_LABEL[heard] ? PHONE_LABEL[heard].hint : null,
+          };
+        })
+        .filter((p) => p.accuracy < WEAK_PHONE_BELOW)
+        .sort((a, b) => a.accuracy - b.accuracy)
+        .slice(0, 6),
       recent: attempts.slice(0, 10).map((a) => ({ target: a.target, score: a.score, sound: a.sound, createdAt: a.createdAt })),
     };
   }

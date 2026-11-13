@@ -23,6 +23,7 @@ import {
 import { THEME } from "../VoiceRoomView.theme";
 import type { VoiceEffectsState } from "../../../hooks/useVoiceEffects";
 import { PRESETS } from "../../../hooks/useVoiceEffects";
+import { tr, msg } from "../../../i18n/core";
 
 interface VoiceEffectsPanelProps {
   isOpen: boolean;
@@ -43,12 +44,12 @@ const PRESET_META: Record<
   keyof typeof PRESETS,
   { label: string; icon: typeof Sparkles; color: string }
 > = {
-  clean: { label: "Clean", icon: Volume2, color: "var(--sx-text-94a3b8)" },
-  bass: { label: "Bass", icon: Waves, color: "var(--sx-text-22d3ee)" },
-  radio: { label: "Radio", icon: Radio, color: "var(--sx-text-fbbf24)" },
-  cave: { label: "Cave", icon: Music, color: "var(--sx-text-a78bfa)" },
-  cathedral: { label: "Hall", icon: Waveform, color: "var(--sx-text-818cf8)" },
-  robot: { label: "Robot", icon: Bot, color: "var(--sx-text-f472b6)" },
+  clean: { label: msg("Clean"), icon: Volume2, color: "var(--sx-text-94a3b8)" },
+  bass: { label: msg("Bass"), icon: Waves, color: "var(--sx-text-22d3ee)" },
+  radio: { label: msg("Radio"), icon: Radio, color: "var(--sx-text-fbbf24)" },
+  cave: { label: msg("Cave"), icon: Music, color: "var(--sx-text-a78bfa)" },
+  cathedral: { label: msg("Hall"), icon: Waveform, color: "var(--sx-text-818cf8)" },
+  robot: { label: msg("Robot"), icon: Bot, color: "var(--sx-text-f472b6)" },
 };
 
 export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
@@ -101,13 +102,12 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                   className="text-sm font-semibold truncate"
                   style={{ color: THEME.colors.text.primary }}
                 >
-                  Voice effects
-                </p>
+                  {tr("Voice effects")}</p>
                 <p
                   className="text-[11px] truncate"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  {state.bypass ? "Off — clean mic" : `${state.preset} preset`}
+                  {state.bypass ? tr("Off — clean mic") : tr("{preset} preset", { preset: state.preset })}
                 </p>
                 {!state.bypass && (
                   <p
@@ -119,10 +119,10 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                       style={{ background: isLive ? THEME.colors.status.online : THEME.colors.accent.warning }}
                     />
                     {isLive
-                      ? "Live — everyone hears this"
+                      ? tr("Live — everyone hears this")
                       : canApply
-                        ? "Starting…"
-                        : "Applies when you're speaking"}
+                        ? tr("Starting…")
+                        : tr("Applies when you're speaking")}
                   </p>
                 )}
               </div>
@@ -134,7 +134,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                 onClick={reset}
                 className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
                 style={{ color: THEME.colors.text.muted }}
-                title="Reset"
+                title={tr("Reset")}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -143,7 +143,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                 onClick={onClose}
                 className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
                 style={{ color: THEME.colors.text.muted }}
-                aria-label="Close"
+                aria-label={tr("Close")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -185,7 +185,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                       : THEME.colors.text.primary,
                   }}
                 >
-                  {state.bypass ? "Effects off" : "Effects on"}
+                  {state.bypass ? tr("Effects off") : tr("Effects on")}
                 </span>
               </div>
               <span
@@ -218,8 +218,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                   className="text-[11px] font-semibold uppercase tracking-wider"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  Presets
-                </span>
+                  {tr("Presets")}</span>
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {(
@@ -261,7 +260,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                             : THEME.colors.text.secondary,
                         }}
                       >
-                        {meta.label}
+                        {tr(meta.label)}
                       </span>
                     </button>
                   );
@@ -283,12 +282,11 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                   className="text-[11px] font-semibold uppercase tracking-wider"
                   style={{ color: THEME.colors.text.muted }}
                 >
-                  Manual tuning
-                </span>
+                  {tr("Manual tuning")}</span>
               </div>
 
               <Knob
-                label="Bass"
+                label={tr("Bass")}
                 value={state.bass}
                 min={-15}
                 max={15}
@@ -299,7 +297,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
               />
 
               <Knob
-                label="Treble"
+                label={tr("Treble")}
                 value={state.treble}
                 min={-15}
                 max={15}
@@ -310,7 +308,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
               />
 
               <Knob
-                label="Reverb"
+                label={tr("Reverb")}
                 value={state.reverb}
                 min={0}
                 max={1}
@@ -321,7 +319,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
               />
 
               <Knob
-                label="Echo"
+                label={tr("Echo")}
                 value={state.delay}
                 min={0}
                 max={1}
@@ -332,7 +330,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
               />
 
               <Knob
-                label="Radio"
+                label={tr("Radio")}
                 value={state.radio}
                 min={0}
                 max={1}
@@ -343,7 +341,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
               />
 
               <Knob
-                label="Gain"
+                label={tr("Gain")}
                 value={state.gain}
                 min={0.5}
                 max={1.5}
@@ -365,12 +363,11 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
               >
                 <span className="min-w-0">
                   <span className="block text-xs font-semibold" style={{ color: THEME.colors.text.primary }}>
-                    Noise suppression
-                  </span>
+                    {tr("Noise suppression")}</span>
                   <span className="block text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
                     {noiseSuppression
-                      ? "Filters background noise — best for talking"
-                      : "Studio mode — natural sound for singing or music"}
+                      ? tr("Filters background noise — best for talking")
+                      : tr("Studio mode — natural sound for singing or music")}
                   </span>
                 </span>
                 <span
@@ -383,8 +380,7 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
             )}
 
             <p className="text-[11px] leading-relaxed" style={{ color: THEME.colors.text.muted }}>
-              Effects change what the room hears from your mic. Turn them off any time to go back to your clean voice.
-            </p>
+              {tr("Effects change what the room hears from your mic. Turn them off any time to go back to your clean voice.")}</p>
           </div>
         </motion.div>
       )}
@@ -416,7 +412,7 @@ const Knob: React.FC<{
         className="text-[11px] font-medium w-14 shrink-0"
         style={{ color: THEME.colors.text.muted }}
       >
-        {label}
+        {tr(label)}
       </span>
 
       <div className="relative flex-1">

@@ -5,6 +5,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, History, Loader2, Mic } from "lucide-react";
 import { formatDuration, useMySessions } from "../hooks/useSessionRecap";
+import { tr } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -19,8 +20,8 @@ export const SessionsPage: React.FC = () => {
           <History className="w-6 h-6" />
         </div>
         <div>
-          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">My sessions</h1>
-          <p className="text-sm text-slate-500">Your time in voice rooms, with a recap of each one.</p>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{tr("My sessions")}</h1>
+          <p className="text-sm text-slate-500">{tr("Your time in voice rooms, with a recap of each one.")}</p>
         </div>
       </header>
 
@@ -29,14 +30,13 @@ export const SessionsPage: React.FC = () => {
           <Loader2 className="w-7 h-7 animate-spin text-slate-400" />
         </div>
       ) : isError ? (
-        <div className={`${card} p-8 text-center text-sm text-slate-500`}>Couldn't load your sessions. Refresh to try again.</div>
+        <div className={`${card} p-8 text-center text-sm text-slate-500`}>{tr("Couldn't load your sessions. Refresh to try again.")}</div>
       ) : !data?.length ? (
         <div className={`${card} p-8 text-center space-y-3`}>
-          <p className="text-base font-semibold text-slate-900 dark:text-white">No sessions yet</p>
-          <p className="text-sm text-slate-500">Join a voice room. When you leave, you'll get a recap here.</p>
+          <p className="text-base font-semibold text-slate-900 dark:text-white">{tr("No sessions yet")}</p>
+          <p className="text-sm text-slate-500">{tr("Join a voice room. When you leave, you'll get a recap here.")}</p>
           <Link to="/voice" className="inline-flex h-10 items-center gap-1.5 rounded-full bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-700">
-            <Mic className="w-4 h-4" /> Find a room
-          </Link>
+            <Mic className="w-4 h-4" /> {" "}{tr("Find a room")}</Link>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -46,10 +46,9 @@ export const SessionsPage: React.FC = () => {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{s.roomName}</p>
                   <p className="text-xs text-slate-500">
-                    {new Date(s.updatedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })} · {formatDuration(s.durationSec)} in the room ·{" "}
-                    {s.words ? `spoke ${formatDuration(s.speakingSec)}` : "listened"}
-                    {s.fluencyScore !== null && ` · fluency ${s.fluencyScore}`}
-                    {s.correctionsReceived > 0 && ` · ${s.correctionsReceived} corrections`}
+                    {new Date(s.updatedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })} {" "}{tr("· {value} in the room ·{value2}", { value: formatDuration(s.durationSec), value2: " " })}{s.words ? tr("spoke {value}", { value: formatDuration(s.speakingSec) }) : tr("listened")}
+                    {s.fluencyScore !== null && tr(" · fluency {fluencyScore}", { fluencyScore: s.fluencyScore })}
+                    {s.correctionsReceived > 0 && tr(" · {correctionsReceived} corrections", { correctionsReceived: s.correctionsReceived })}
                   </p>
                 </div>
                 <ArrowRight className="w-4 h-4 text-slate-400 shrink-0" />

@@ -28,10 +28,18 @@ if (typeof window !== "undefined") {
   });
 }
 
-/** Opened from the home screen or the installed app window, not a browser tab */
+/**
+ * Running inside the SpeakBetter phone app (apps/mobile), which shows this site in a web view and adds
+ * "SpeakBetterApp/<version>" to the browser's name. Install offers and browser alerts don't apply there.
+ */
+export const isNativeApp = (): boolean => typeof navigator !== "undefined" && /\bSpeakBetterApp\//.test(navigator.userAgent);
+
+/** Opened from the home screen, the installed app window or the phone app, not a browser tab */
 export const isStandalone = (): boolean =>
   typeof window !== "undefined" &&
-  (window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
+  (isNativeApp() ||
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true);
 
 /** iPhones and iPads (including iPadOS, which calls itself a Mac) only install from Safari's Share menu */
 export const isIos = (): boolean =>

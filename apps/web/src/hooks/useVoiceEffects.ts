@@ -19,6 +19,7 @@ import type {
   Track,
   TrackProcessor,
 } from "livekit-client";
+import { tr } from "../i18n/core";
 
 export interface VoiceEffectsState {
   bypass: boolean;
@@ -317,7 +318,7 @@ export const useVoiceEffects = ({ localTrack }: UseVoiceEffectsOptions) => {
     localTrack.setProcessor(processor).catch((err: unknown) => {
       console.warn("Voice effects could not start:", err);
       if (!active) return;
-      toast.error("Voice effects aren't supported in this browser");
+      toast.error(tr("Voice effects aren't supported in this browser"));
       setState(DEFAULT_EFFECTS);
     });
 
@@ -383,9 +384,9 @@ export const useVoiceEffects = ({ localTrack }: UseVoiceEffectsOptions) => {
           echoCancellation: true,
           channelCount: 1,
         });
-        toast.success(on ? "Noise suppression on" : "Studio mode — natural sound, no noise filtering");
+        toast.success(on ? tr("Noise suppression on") : tr("Studio mode — natural sound, no noise filtering"));
       } catch {
-        toast.error("Couldn't change microphone settings");
+        toast.error(tr("Couldn't change microphone settings"));
       }
     },
     [localTrack],

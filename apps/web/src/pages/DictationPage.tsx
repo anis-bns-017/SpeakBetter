@@ -19,6 +19,7 @@ import {
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { ChallengeFriendButton } from "../components/challenges/ChallengeFriendButton";
 import { ChallengeOutcomes } from "../components/challenges/ChallengeOutcomes";
+import { tr } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -31,7 +32,7 @@ const errorMessage = (e: unknown, fallback: string) => (e as { response?: { data
 
 /** One sentence, marked word by word */
 export const MarkedSentence: React.FC<{ tokens: DictationToken[] }> = ({ tokens }) => (
-  <p className="text-base leading-8 text-slate-800 dark:text-slate-100" aria-label="Your answer, marked">
+  <p className="text-base leading-8 text-slate-800 dark:text-slate-100" aria-label={tr("Your answer, marked")}>
     {tokens.map((t, i) => {
       const gap = i > 0 ? " " : "";
       switch (t.kind) {
@@ -41,7 +42,7 @@ export const MarkedSentence: React.FC<{ tokens: DictationToken[] }> = ({ tokens 
           return (
             <span key={i}>
               {gap}
-              <span className="rounded bg-amber-50 dark:bg-amber-500/10 px-1" title={`You wrote "${t.typed}"`}>
+              <span className="rounded bg-amber-50 dark:bg-amber-500/10 px-1" title={tr("You wrote \"{typed}\"", { typed: t.typed })}>
                 <span className="line-through decoration-amber-500/70 text-amber-700 dark:text-amber-400">{t.typed}</span>{" "}
                 <span className="font-semibold text-slate-900 dark:text-white">{t.word}</span>
               </span>
@@ -51,7 +52,7 @@ export const MarkedSentence: React.FC<{ tokens: DictationToken[] }> = ({ tokens 
           return (
             <span key={i}>
               {gap}
-              <span className="rounded bg-rose-50 dark:bg-rose-500/10 px-1" title={`You wrote "${t.typed}"`}>
+              <span className="rounded bg-rose-50 dark:bg-rose-500/10 px-1" title={tr("You wrote \"{typed}\"", { typed: t.typed })}>
                 <span className="line-through decoration-rose-500/70 text-rose-600 dark:text-rose-400">{t.typed}</span>{" "}
                 <span className="font-semibold text-slate-900 dark:text-white">{t.word}</span>
               </span>
@@ -61,7 +62,7 @@ export const MarkedSentence: React.FC<{ tokens: DictationToken[] }> = ({ tokens 
           return (
             <span key={i}>
               {gap}
-              <span className="font-semibold text-sky-700 dark:text-sky-300 underline decoration-dashed underline-offset-4" title="You missed this word">
+              <span className="font-semibold text-sky-700 dark:text-sky-300 underline decoration-dashed underline-offset-4" title={tr("You missed this word")}>
                 {t.word}
               </span>
             </span>
@@ -70,7 +71,7 @@ export const MarkedSentence: React.FC<{ tokens: DictationToken[] }> = ({ tokens 
           return (
             <span key={i}>
               {gap}
-              <span className="line-through decoration-rose-500/70 text-rose-500/80" title="Not in the sentence">{t.word}</span>
+              <span className="line-through decoration-rose-500/70 text-rose-500/80" title={tr("Not in the sentence")}>{t.word}</span>
             </span>
           );
       }
@@ -80,10 +81,10 @@ export const MarkedSentence: React.FC<{ tokens: DictationToken[] }> = ({ tokens 
 
 const Legend: React.FC = () => (
   <p className="text-[11px] text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
-    <span><span className="text-emerald-600">green</span> right</span>
-    <span><span className="text-amber-600">amber</span> spelling</span>
-    <span><span className="text-rose-600">red</span> wrong or extra</span>
-    <span><span className="text-sky-600 underline decoration-dashed">blue</span> missed</span>
+    <span><span className="text-emerald-600">{tr("green")}</span> {" "}{tr("right")}</span>
+    <span><span className="text-amber-600">{tr("amber")}</span> {" "}{tr("spelling")}</span>
+    <span><span className="text-rose-600">{tr("red")}</span> {" "}{tr("wrong or extra")}</span>
+    <span><span className="text-sky-600 underline decoration-dashed">{tr("blue")}</span> {" "}{tr("missed")}</span>
   </p>
 );
 
@@ -115,9 +116,16 @@ export const DictationPage: React.FC = () => {
   };
 
   // Read each new sentence once as it appears (the first time follows the Start tap, which browsers allow)
+  const sentenceKey = `${step}:${item?.id ?? ""}`;
+  const [countedFor, setCountedFor] = useState(sentenceKey);
+  if (countedFor !== sentenceKey) {
+    setCountedFor(sentenceKey);
+    if (step === "running" && item && !feedback) setPlays(0);
+  }
   useEffect(() => {
     if (step === "running" && item && !feedback) {
-      setPlays(0);
+      // Speaking is the outside effect; play() also counts the listen
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void play(item.text);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -131,7 +139,7 @@ export const DictationPage: React.FC = () => {
     );
   }
   if (isError || !session) {
-    return <div className={`${card} max-w-xl mx-auto mt-16 p-8 text-center text-sm text-slate-500`}>Couldn't load a dictation. Refresh to try again.</div>;
+    return <div className={`${card} max-w-xl mx-auto mt-16 p-8 text-center text-sm text-slate-500`}>{tr("Couldn't load a dictation. Refresh to try again.")}</div>;
   }
 
   const total = session.items.length;
@@ -169,7 +177,7 @@ export const DictationPage: React.FC = () => {
       const r = await finish.mutateAsync(answers);
       setResult(r);
       setStep("result");
-      if (r.xp > 0) toast.success(`Dictation done! +${r.xp} XP`);
+      if (r.xp > 0) toast.success(tr("Dictation done! +{xp} XP", { xp: r.xp }));
     } catch (e) {
       toast.error(errorMessage(e, "Couldn't save your result. Try again."));
     }
@@ -182,31 +190,28 @@ export const DictationPage: React.FC = () => {
           <Headphones className="w-6 h-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">Dictation</h1>
-          <p className="text-sm text-slate-500">Listen to a sentence and type exactly what you hear.</p>
+          <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white">{tr("Dictation")}</h1>
+          <p className="text-sm text-slate-500">{tr("Listen to a sentence and type exactly what you hear.")}</p>
         </div>
         <span className="text-xs text-slate-500 shrink-0">{session.level}</span>
       </header>
 
       {!canSpeak() && (
         <div className={`${card} p-4 text-sm text-amber-700 dark:text-amber-400`}>
-          This browser can't read text aloud, so dictation won't work here. Try Chrome, Edge or Safari.
-        </div>
+          {tr("This browser can't read text aloud, so dictation won't work here. Try Chrome, Edge or Safari.")}</div>
       )}
 
       {step === "intro" && (
         <section className={`${card} p-6 text-center space-y-4`}>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{total} sentences at your level</h2>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{total} {" "}{tr("sentences at your level")}</h2>
           <p className="text-sm text-slate-500 max-w-sm mx-auto">
-            Each sentence plays once on its own. Play it again or slow it down as often as you like, then type it. Sentences you miss go into your flashcard review.
-          </p>
+            {tr("Each sentence plays once on its own. Play it again or slow it down as often as you like, then type it. Sentences you miss go into your flashcard review.")}</p>
           <p className="text-xs text-slate-400">
-            {session.doneToday > 0 ? `${session.doneToday} done today` : "Your first one today earns XP"}
-            {session.bestScore !== null && ` · best ${session.bestScore}%`}
+            {session.doneToday > 0 ? tr("{doneToday} done today", { doneToday: session.doneToday }) : tr("Your first one today earns XP")}
+            {session.bestScore !== null && tr(" · best {bestScore}%", { bestScore: session.bestScore })}
           </p>
           <button type="button" className={primaryBtn} onClick={start} disabled={!canSpeak()}>
-            <Play className="w-4 h-4" /> Start
-          </button>
+            <Play className="w-4 h-4" /> {" "}{tr("Start")}</button>
         </section>
       )}
 
@@ -222,7 +227,7 @@ export const DictationPage: React.FC = () => {
           <section className={`${card} p-5 sm:p-6 space-y-4`}>
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => void play(item.text)} className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold">
-                <Play className="w-4 h-4" /> {plays > 0 ? "Play again" : "Play"}
+                <Play className="w-4 h-4" /> {plays > 0 ? tr("Play again") : tr("Play")}
               </button>
               <button
                 type="button"
@@ -232,9 +237,8 @@ export const DictationPage: React.FC = () => {
                   slow ? "border-sky-500 bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300" : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300"
                 }`}
               >
-                <Turtle className="w-4 h-4" /> Slower
-              </button>
-              <span className="text-xs text-slate-400 ml-auto">{plays} {plays === 1 ? "play" : "plays"}</span>
+                <Turtle className="w-4 h-4" /> {" "}{tr("Slower")}</button>
+              <span className="text-xs text-slate-400 ml-auto">{plays} {plays === 1 ? tr("play") : tr("plays")}</span>
             </div>
 
             {!feedback ? (
@@ -250,8 +254,8 @@ export const DictationPage: React.FC = () => {
                 }}
                 rows={3}
                 maxLength={400}
-                placeholder="Type what you hear…"
-                aria-label="What you heard"
+                placeholder={tr("Type what you hear…")}
+                aria-label={tr("What you heard")}
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
@@ -261,7 +265,7 @@ export const DictationPage: React.FC = () => {
             ) : (
               <div className="space-y-3" role="status">
                 <p className={`text-sm font-semibold ${feedback.score === 100 ? "text-emerald-600 dark:text-emerald-400" : feedback.score >= 70 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}>
-                  {feedback.score === 100 ? "Perfect!" : `${feedback.correct} of ${feedback.total} words`} · {feedback.score}%
+                  {feedback.score === 100 ? tr("Perfect!") : tr("{correct} of {total} words", { correct: feedback.correct, total: feedback.total })} · {feedback.score}%
                 </p>
                 <MarkedSentence tokens={feedback.tokens} />
                 <Legend />
@@ -272,12 +276,11 @@ export const DictationPage: React.FC = () => {
           <div className="flex justify-end">
             {!feedback ? (
               <button type="button" className={primaryBtn} onClick={checkNow} disabled={!typed.trim() || check.isPending}>
-                {check.isPending && <Loader2 className="w-4 h-4 animate-spin" />} Check
-              </button>
+                {check.isPending && <Loader2 className="w-4 h-4 animate-spin" />} {" "}{tr("Check")}</button>
             ) : (
               <button type="button" className={primaryBtn} onClick={next} disabled={finish.isPending} autoFocus>
                 {finish.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                {index < total - 1 ? "Next sentence" : "See results"} <ArrowRight className="w-4 h-4" />
+                {index < total - 1 ? tr("Next sentence") : tr("See results")} <ArrowRight className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -292,7 +295,7 @@ export const DictationPage: React.FC = () => {
             </div>
             <h2 className="mt-3 text-3xl font-bold tabular-nums text-slate-900 dark:text-white">{result.score}%</h2>
             <p className="mt-1 text-sm text-slate-500">
-              {result.perfect ? "Every word right. Great ears!" : `${result.correctWords} of ${result.totalWords} words right.`}
+              {result.perfect ? tr("Every word right. Great ears!") : tr("{correctWords} of {totalWords} words right.", { correctWords: result.correctWords, totalWords: result.totalWords })}
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               {result.xp > 0 && (
@@ -302,15 +305,14 @@ export const DictationPage: React.FC = () => {
               )}
               {result.cardsAdded > 0 && (
                 <Link to="/flashcards" className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20">
-                  <Layers className="w-3.5 h-3.5" /> {result.cardsAdded} {result.cardsAdded === 1 ? "sentence" : "sentences"} added to review
-                </Link>
+                  <Layers className="w-3.5 h-3.5" /> {result.cardsAdded} {" "}{tr("{value} added to review", { value: result.cardsAdded === 1 ? tr("sentence") : tr("sentences") })}</Link>
               )}
             </div>
           </section>
 
           <section className={`${card} p-5 space-y-4`}>
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your sentences</h2>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Your sentences")}</h2>
               <Legend />
             </div>
             <ol className="space-y-4">
@@ -322,7 +324,7 @@ export const DictationPage: React.FC = () => {
                     <p className="text-xs text-slate-400">{r.score}%</p>
                   </div>
                   {canSpeak() && (
-                    <button type="button" onClick={() => void speak(r.text, { rate: 0.9 })} aria-label="Listen again" className="text-slate-400 hover:text-sky-600 shrink-0 mt-1.5">
+                    <button type="button" onClick={() => void speak(r.text, { rate: 0.9 })} aria-label={tr("Listen again")} className="text-slate-400 hover:text-sky-600 shrink-0 mt-1.5">
                       <Play className="w-4 h-4" />
                     </button>
                   )}
@@ -336,10 +338,9 @@ export const DictationPage: React.FC = () => {
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button type="button" className={ghostBtn} onClick={start} disabled={isFetching}>
-              {isFetching ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} New dictation
-            </button>
+              {isFetching ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} {" "}{tr("New dictation")}</button>
             <Link to="/library" className={ghostBtn}>
-              Read stories in the library <ArrowRight className="w-4 h-4" />
+              {tr("Read stories in the library")}{" "}<ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </>

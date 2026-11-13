@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Bell, BellRing, CalendarClock } from "lucide-react";
 import { useToggleRoomInterest, useUpcomingRooms } from "../../hooks/useNotifications";
+import { tr } from "../../i18n/core";
 
 const when = (iso: string) => {
   const date = new Date(iso);
@@ -25,16 +26,15 @@ export const UpcomingRooms: React.FC<{ limit?: number }> = ({ limit = 3 }) => {
   return (
     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 flex items-center gap-1.5">
-        <CalendarClock className="w-3.5 h-3.5" /> Coming up
-      </p>
+        <CalendarClock className="w-3.5 h-3.5" /> {" "}{tr("Coming up")}</p>
       <ul className="mt-2 space-y-1">
         {rooms.map((room) => (
           <li key={room.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.03]">
             <Link to="/voice" className="min-w-0 flex-1">
               <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{room.name}</span>
               <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
-                {when(room.scheduledFor)} · {room.isHost ? "You're hosting" : room.creator.name}
-                {room.interestedCount > 0 ? ` · ${room.interestedCount} going` : ""}
+                {when(room.scheduledFor)} · {room.isHost ? tr("You're hosting") : room.creator.name}
+                {room.interestedCount > 0 ? tr(" · {interestedCount} going", { interestedCount: room.interestedCount }) : ""}
               </span>
             </Link>
             {!room.isHost && (
@@ -44,8 +44,8 @@ export const UpcomingRooms: React.FC<{ limit?: number }> = ({ limit = 3 }) => {
                   toggle.mutate(
                     { roomId: room.id, interested: !room.interested },
                     {
-                      onSuccess: (r) => toast.success(r.interested ? "We'll remind you 10 minutes before" : "Reminder removed"),
-                      onError: () => toast.error("Couldn't update the reminder"),
+                      onSuccess: (r) => toast.success(r.interested ? tr("We'll remind you 10 minutes before") : tr("Reminder removed")),
+                      onError: () => toast.error(tr("Couldn't update the reminder")),
                     },
                   )
                 }
@@ -57,7 +57,7 @@ export const UpcomingRooms: React.FC<{ limit?: number }> = ({ limit = 3 }) => {
                 }`}
               >
                 {room.interested ? <BellRing className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
-                {room.interested ? "Set" : "Remind me"}
+                {room.interested ? tr("Set") : tr("Remind me")}
               </button>
             )}
           </li>

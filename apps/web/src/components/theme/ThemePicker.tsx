@@ -3,12 +3,13 @@ import { Anchor, Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import type { ThemePreference } from "../../lib/theme";
 import { useChooseTheme } from "../../hooks/useChooseTheme";
+import { tr, msg } from "../../i18n/core";
 
 const THEME_CHOICES: Array<{ value: ThemePreference; label: string; description: string; icon: LucideIcon }> = [
-  { value: "light", label: "Light", description: "Bright and clear for daytime", icon: Sun },
-  { value: "dark", label: "Dark", description: "Charcoal night mode, easy on the eyes", icon: Moon },
-  { value: "navy", label: "Navy", description: "Deep navy blue, calm and focused", icon: Anchor },
-  { value: "system", label: "Auto", description: "Light or dark, matching your device", icon: Monitor },
+  { value: "light", label: msg("Light"), description: msg("Bright and clear for daytime"), icon: Sun },
+  { value: "dark", label: msg("Dark"), description: msg("Charcoal night mode, easy on the eyes"), icon: Moon },
+  { value: "navy", label: msg("Navy"), description: msg("Deep navy blue, calm and focused"), icon: Anchor },
+  { value: "system", label: msg("Auto"), description: msg("Light or dark, matching your device"), icon: Monitor },
 ];
 
 /** Four small buttons: Light, Dark, Navy, Auto. Used in the sidebar menu and the phone sheet. */
@@ -17,7 +18,7 @@ export const ThemeSwitch: React.FC<{ className?: string; size?: "sm" | "md" }> =
   const choose = useChooseTheme();
   const height = size === "md" ? "h-10" : "h-8";
   return (
-    <div role="radiogroup" aria-label="Theme" className={`grid grid-cols-4 gap-1 rounded-xl bg-slate-100 dark:bg-white/[0.06] p-1 ${className}`}>
+    <div role="radiogroup" aria-label={tr("Theme")} className={`grid grid-cols-4 gap-1 rounded-xl bg-slate-100 dark:bg-white/[0.06] p-1 ${className}`}>
       {THEME_CHOICES.map((c) => {
         const Icon = c.icon;
         const selected = theme === c.value;
@@ -27,7 +28,7 @@ export const ThemeSwitch: React.FC<{ className?: string; size?: "sm" | "md" }> =
             type="button"
             role="radio"
             aria-checked={selected}
-            title={c.description}
+            title={tr(c.description)}
             onClick={() => choose(c.value)}
             className={`${height} rounded-lg inline-flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${
               selected
@@ -36,7 +37,7 @@ export const ThemeSwitch: React.FC<{ className?: string; size?: "sm" | "md" }> =
             }`}
           >
             <Icon className="w-3.5 h-3.5" />
-            {c.label}
+            {tr(c.label)}
           </button>
         );
       })}
@@ -84,7 +85,7 @@ const Preview: React.FC<{ value: ThemePreference }> = ({ value }) => (
 
 /** Big cards with a preview of each theme, for the Settings page. Changes apply at once. */
 export const ThemeCards: React.FC<{ value: ThemePreference; onChange: (value: ThemePreference) => void }> = ({ value, onChange }) => (
-  <div role="radiogroup" aria-label="Theme" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+  <div role="radiogroup" aria-label={tr("Theme")} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
     {THEME_CHOICES.map((c) => {
       const Icon = c.icon;
       const selected = value === c.value;
@@ -103,9 +104,9 @@ export const ThemeCards: React.FC<{ value: ThemePreference; onChange: (value: Th
         >
           <Preview value={c.value} />
           <span className="mt-2.5 flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-white">
-            <Icon className={`w-4 h-4 ${selected ? "text-indigo-500" : "text-slate-400"}`} /> {c.label}
+            <Icon className={`w-4 h-4 ${selected ? "text-indigo-500" : "text-slate-400"}`} /> {tr(c.label)}
           </span>
-          <span className="mt-0.5 block text-[11px] leading-4 text-slate-500 dark:text-slate-400">{c.description}</span>
+          <span className="mt-0.5 block text-[11px] leading-4 text-slate-500 dark:text-slate-400">{tr(c.description)}</span>
         </button>
       );
     })}

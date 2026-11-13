@@ -7,12 +7,13 @@ import { COLORS } from "../voice/lobby/lobbyTheme";
 import { callApi } from "./callApi";
 import { CallAvatar } from "./CallScreens";
 import type { EndedCall } from "./useRandomCall";
+import { tr, msg } from "../../i18n/core";
 
 const REASON_TEXT: Record<string, string> = {
-  COMPLETED: "Time is up",
-  LEFT: "The call ended",
-  REPORTED: "The call was ended after a report",
-  DISCONNECTED: "The connection was lost",
+  COMPLETED: msg("Time is up"),
+  LEFT: msg("The call ended"),
+  REPORTED: msg("The call was ended after a report"),
+  DISCONNECTED: msg("The connection was lost"),
 };
 
 const formatDuration = (seconds: number) =>
@@ -48,9 +49,9 @@ export const CallRecap: React.FC<{
         talkSeconds: ended.meTalkSeconds,
       });
       setResult({ mutualFriend: res.mutualFriend });
-      if (res.mutualFriend) toast.success(`You and ${ended.partnerName} are now friends`);
+      if (res.mutualFriend) toast.success(tr("You and {partnerName} are now friends", { partnerName: ended.partnerName }));
     } catch {
-      toast.error("Could not save your rating. Try again.");
+      toast.error(tr("Could not save your rating. Try again."));
     } finally {
       setBusy(false);
     }
@@ -62,7 +63,7 @@ export const CallRecap: React.FC<{
         {value}
       </p>
       <p className="mt-0.5 text-[11px]" style={{ color: COLORS.textMuted }}>
-        {label}
+        {tr(label)}
       </p>
     </div>
   );
@@ -72,10 +73,10 @@ export const CallRecap: React.FC<{
       <div className="flex flex-col items-center text-center">
         <CallAvatar name={ended.partnerName} size={84} />
         <h2 className="mt-4 font-serif text-2xl" style={{ color: COLORS.textPrimary }}>
-          {reported ? "Thanks for telling us" : `Great practice with ${ended.partnerName}`}
+          {reported ? tr("Thanks for telling us") : tr("Great practice with {partnerName}", { partnerName: ended.partnerName })}
         </h2>
         <p className="mt-1 text-sm" style={{ color: COLORS.textMuted }}>
-          {REASON_TEXT[ended.reason] ?? "The call ended"}
+          {tr(REASON_TEXT[ended.reason]) ?? tr("The call ended")}
         </p>
       </div>
 
@@ -91,20 +92,19 @@ export const CallRecap: React.FC<{
           role="status"
           style={{ borderColor: `color-mix(in srgb, ${COLORS.spotlight} 33.3%, transparent)`, background: COLORS.spotlightDim, color: COLORS.spotlight }}
         >
-          <Sparkles className="h-4 w-4" />+{ended.xp} XP for speaking today
-        </p>
+          <Sparkles className="h-4 w-4" />{tr("+{xp} XP for speaking today", { xp: ended.xp })}</p>
       )}
 
       {tips.length > 0 && (
-        <section className="mt-6 rounded-3xl border p-5" style={{ borderColor: COLORS.border, background: COLORS.surface }} aria-label="Tips from your partner">
+        <section className="mt-6 rounded-3xl border p-5" style={{ borderColor: COLORS.border, background: COLORS.surface }} aria-label={tr("Tips from your partner")}>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold" style={{ color: COLORS.textPrimary }}>
             <Lightbulb className="h-4 w-4" style={{ color: COLORS.spotlight }} />
-            Tips from {ended.partnerName}
+            {tr("Tips from")}{" "}{ended.partnerName}
           </h3>
           <ul className="space-y-2">
             {tips.map((tip, i) => (
               <li key={`${i}-${tip}`} className="rounded-xl border px-3 py-2 text-sm" style={{ borderColor: COLORS.border, color: COLORS.textPrimary }}>
-                {tip}
+                {tr(tip)}
               </li>
             ))}
           </ul>
@@ -112,11 +112,10 @@ export const CallRecap: React.FC<{
       )}
 
       {savedWords.length > 0 && (
-        <section className="mt-4 rounded-3xl border p-5" style={{ borderColor: COLORS.border, background: COLORS.surface }} aria-label="Words you saved">
+        <section className="mt-4 rounded-3xl border p-5" style={{ borderColor: COLORS.border, background: COLORS.surface }} aria-label={tr("Words you saved")}>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold" style={{ color: COLORS.textPrimary }}>
             <BookmarkPlus className="h-4 w-4" style={{ color: COLORS.live }} />
-            Words you saved
-          </h3>
+            {tr("Words you saved")}</h3>
           <div className="flex flex-wrap gap-2">
             {savedWords.map((word) => (
               <span key={word} className="rounded-full px-3 py-1 text-sm" style={{ background: COLORS.liveDim, color: COLORS.live }}>
@@ -125,23 +124,21 @@ export const CallRecap: React.FC<{
             ))}
           </div>
           <p className="mt-2 text-xs" style={{ color: COLORS.textMuted }}>
-            They are in your word bank, ready to review.
-          </p>
+            {tr("They are in your word bank, ready to review.")}</p>
         </section>
       )}
 
       {!reported && !result && (
         <div className="mt-6 rounded-3xl border p-5" style={{ borderColor: COLORS.border, background: COLORS.surface }}>
           <p className="text-center text-sm font-medium" style={{ color: COLORS.textPrimary }}>
-            How was the conversation?
-          </p>
-          <div className="mt-3 flex justify-center gap-1" role="radiogroup" aria-label="Rating">
+            {tr("How was the conversation?")}</p>
+          <div className="mt-3 flex justify-center gap-1" role="radiogroup" aria-label={tr("Rating")}>
             {[1, 2, 3, 4, 5].map((value) => (
               <button
                 key={value}
                 role="radio"
                 aria-checked={rating === value}
-                aria-label={`${value} star${value > 1 ? "s" : ""}`}
+                aria-label={tr("{value} star{value2}", { value, value2: value > 1 ? "s" : "" })}
                 onMouseEnter={() => setHover(value)}
                 onMouseLeave={() => setHover(0)}
                 onClick={() => setRating(value)}
@@ -164,12 +161,9 @@ export const CallRecap: React.FC<{
             <span>
               <span className="flex items-center gap-1.5 font-medium" style={{ color: COLORS.textPrimary }}>
                 <Handshake className="h-4 w-4" style={{ color: COLORS.spotlight }} />
-                Keep in touch
-              </span>
+                {tr("Keep in touch")}</span>
               <span className="mt-0.5 block text-xs" style={{ color: COLORS.textMuted }}>
-                You become friends only if {ended.partnerName} says yes too. They will not see your choice
-                otherwise.
-              </span>
+                {tr("You become friends only if {partnerName} says yes too. They will not see your choice otherwise.", { partnerName: ended.partnerName })}</span>
             </span>
           </label>
 
@@ -180,8 +174,7 @@ export const CallRecap: React.FC<{
             style={{ background: COLORS.spotlight, color: COLORS.void }}
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            Save
-          </button>
+            {tr("Save")}</button>
         </div>
       )}
 
@@ -193,25 +186,23 @@ export const CallRecap: React.FC<{
         >
           <Check className="h-4 w-4" />
           {result.mutualFriend
-            ? `You and ${ended.partnerName} are friends now.`
+            ? tr("You and {partnerName} are friends now.", { partnerName: ended.partnerName })
             : keep
-              ? `Saved. If ${ended.partnerName} says yes too, you will be friends.`
-              : "Thanks, saved."}
+              ? tr("Saved. If {partnerName} says yes too, you will be friends.", { partnerName: ended.partnerName })
+              : tr("Thanks, saved.")}
         </p>
       )}
 
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <button onClick={onAgain} className="rounded-full px-6 py-2.5 text-sm font-semibold" style={{ background: COLORS.spotlight, color: COLORS.void }}>
-          Call again
-        </button>
+          {tr("Call again")}</button>
         <button onClick={onLobby} className="rounded-full border px-6 py-2.5 text-sm font-medium hover:bg-white/5" style={{ borderColor: COLORS.borderLight, color: COLORS.textPrimary }}>
-          Back to rooms
-        </button>
+          {tr("Back to rooms")}</button>
       </div>
 
       {!reported && (
         <button onClick={onReport} className="mx-auto mt-5 flex items-center gap-1.5 text-xs hover:opacity-80" style={{ color: COLORS.textMuted }}>
-          <Flag className="h-3.5 w-3.5" /> Something went wrong? Report {ended.partnerName}
+          <Flag className="h-3.5 w-3.5" /> {" "}{tr("Something went wrong? Report")}{" "}{ended.partnerName}
         </button>
       )}
     </motion.div>

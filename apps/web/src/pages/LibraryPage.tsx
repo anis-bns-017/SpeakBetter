@@ -10,11 +10,12 @@ import { Link } from "react-router-dom";
 import { ArrowRight, BookOpen, CheckCircle2, Clock, Loader2, MessagesSquare, Newspaper, ScrollText, Search, X } from "lucide-react";
 import { useLibrary, type LibraryItem, type LibraryLevel, type TextKind } from "../hooks/useLibrary";
 import { Chip, EmptyState, PageHeader, Stat } from "../components/ui";
+import { tr, msg } from "../i18n/core";
 
 const KIND: Record<TextKind, { label: string; icon: typeof BookOpen; tone: string }> = {
-  story: { label: "Story", icon: ScrollText, tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
-  dialogue: { label: "Dialogue", icon: MessagesSquare, tone: "bg-sky-500/10 text-sky-700 dark:text-sky-300" },
-  article: { label: "Article", icon: Newspaper, tone: "bg-violet-500/10 text-violet-700 dark:text-violet-300" },
+  story: { label: msg("Story"), icon: ScrollText, tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
+  dialogue: { label: msg("Dialogue"), icon: MessagesSquare, tone: "bg-sky-500/10 text-sky-700 dark:text-sky-300" },
+  article: { label: msg("Article"), icon: Newspaper, tone: "bg-violet-500/10 text-violet-700 dark:text-violet-300" },
 };
 
 const LEVEL_NAME: Record<LibraryLevel, string> = {
@@ -38,25 +39,23 @@ const TextCard: React.FC<{ t: LibraryItem }> = ({ t }) => {
     >
       <div className="flex items-center justify-between gap-2">
         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${kind.tone}`}>
-          <Icon className="h-3 w-3" aria-hidden /> {kind.label}
+          <Icon className="h-3 w-3" aria-hidden /> {tr(kind.label)}
         </span>
         {t.done ? (
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> {t.bestScore}/{t.questions}
           </span>
         ) : t.started ? (
-          <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">In progress</span>
+          <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">{tr("In progress")}</span>
         ) : (
           <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
-            <Clock className="h-3 w-3" aria-hidden /> {t.minutes} min
-          </span>
+            <Clock className="h-3 w-3" aria-hidden /> {t.minutes} {" "}{tr("min")}</span>
         )}
       </div>
-      <h2 className="mt-3 text-base font-bold leading-snug text-slate-900 dark:text-white">{t.title}</h2>
-      <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">{t.summary}</p>
+      <h2 className="mt-3 text-base font-bold leading-snug text-slate-900 dark:text-white">{tr(t.title)}</h2>
+      <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">{tr(t.summary)}</p>
       <p className="mt-3 text-[11px] text-slate-500">
-        {t.topic} · {t.words} words · {t.keyWords} key words
-      </p>
+        {t.topic} {" "}{tr("· {words} words · {keyWords} key words", { words: t.words, keyWords: t.keyWords })}</p>
     </Link>
   );
 };
@@ -88,12 +87,12 @@ export const LibraryPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-7 w-7 animate-spin text-slate-500" aria-label="Loading" />
+        <Loader2 className="h-7 w-7 animate-spin text-slate-500" aria-label={tr("Loading")} />
       </div>
     );
   }
   if (isError || !data) {
-    return <div className="mx-auto mt-16 max-w-xl rounded-3xl border border-line bg-surface p-8 text-center text-sm text-slate-600 shadow-sm">Couldn't load the library. Refresh to try again.</div>;
+    return <div className="mx-auto mt-16 max-w-xl rounded-3xl border border-line bg-surface p-8 text-center text-sm text-slate-600 shadow-sm">{tr("Couldn't load the library. Refresh to try again.")}</div>;
   }
 
   const current = data.levels.find((l) => l.level === level);
@@ -110,18 +109,18 @@ export const LibraryPage: React.FC = () => {
       <PageHeader
         icon={BookOpen}
         tone="emerald"
-        title="Library"
-        subtitle={`${data.texts.length} stories, dialogues and articles from A1 to C2. Listen, learn the key words, tap any word, then check what you understood.`}
+        title={tr("Library")}
+        subtitle={tr("{texts} stories, dialogues and articles from A1 to C2. Listen, learn the key words, tap any word, then check what you understood.", { texts: data.texts.length })}
       />
 
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-line bg-line sm:grid-cols-4">
         {[
-          { label: "Texts read", value: `${data.done} / ${data.texts.length}` },
-          { label: "Words read", value: data.stats.wordsRead.toLocaleString() },
-          { label: "Reading time", value: `${data.stats.minutesRead} min` },
-          { label: "Perfect scores", value: data.stats.perfect },
+          { label: msg("Texts read"), value: `${data.done} / ${data.texts.length}` },
+          { label: msg("Words read"), value: data.stats.wordsRead.toLocaleString() },
+          { label: msg("Reading time"), value: `${data.stats.minutesRead} min` },
+          { label: msg("Perfect scores"), value: data.stats.perfect },
         ].map((s) => (
-          <Stat key={s.label} label={s.label} value={s.value} className="bg-surface p-5" />
+          <Stat key={s.label} label={tr(s.label)} value={s.value} className="bg-surface p-5" />
         ))}
       </div>
 
@@ -131,18 +130,18 @@ export const LibraryPage: React.FC = () => {
           className="group flex flex-wrap items-center gap-x-6 gap-y-3 rounded-3xl bg-indigo-900 p-6 text-white ring-1 ring-inset ring-white/10 transition-colors hover:bg-indigo-800 sm:p-7"
         >
           <div className="min-w-0 flex-1">
-            <p className="t-eyebrow text-indigo-200">Up next · {data.recommended.level}</p>
-            <h2 className="font-display mt-1.5 text-[26px] font-semibold leading-tight sm:text-[32px]">{data.recommended.title}</h2>
-            <p className="mt-1 text-sm text-indigo-100">About {data.recommended.minutes} min · {LEVEL_NAME[data.recommended.level]}</p>
+            <p className="t-eyebrow text-indigo-200">{tr("Up next ·")}{" "}{data.recommended.level}</p>
+            <h2 className="font-display mt-1.5 text-[26px] font-semibold leading-tight sm:text-[32px]">{tr(data.recommended.title)}</h2>
+            <p className="mt-1 text-sm text-indigo-100">{tr("About {minutes} min ·", { minutes: data.recommended.minutes })}{" "}{LEVEL_NAME[data.recommended.level]}</p>
           </div>
           <span className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-indigo-900 transition-transform group-hover:translate-x-0.5">
-            {data.done === 0 ? "Start reading" : "Continue"} <ArrowRight className="h-4 w-4" aria-hidden />
+            {data.done === 0 ? tr("Start reading") : tr("Continue")} <ArrowRight className="h-4 w-4" aria-hidden />
           </span>
         </Link>
       )}
 
-      <section aria-label="Levels" className="space-y-3">
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Level">
+      <section aria-label={tr("Levels")} className="space-y-3">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label={tr("Level")}>
           {data.levels.map((l) => {
             const selected = level === l.level;
             return (
@@ -176,12 +175,12 @@ export const LibraryPage: React.FC = () => {
         </div>
         <p className="text-sm text-slate-600 dark:text-slate-400">
           <span className="font-semibold text-slate-900 dark:text-white">{level} · {LEVEL_NAME[level]}</span>
-          {level === data.level && " · your level"}
-          {current && ` · ${current.done} of ${current.total} read`}
+          {level === data.level && tr(" · your level")}
+          {current && tr(" · {done} of {total} read", { done: current.done, total: current.total })}
         </p>
       </section>
 
-      <section aria-label="Find a text" className="space-y-3">
+      <section aria-label={tr("Find a text")} className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
@@ -189,21 +188,20 @@ export const LibraryPage: React.FC = () => {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by title, topic or idea"
-              aria-label="Search the library"
+              placeholder={tr("Search by title, topic or idea")}
+              aria-label={tr("Search the library")}
               className="h-11 w-full rounded-xl border border-line bg-surface pl-10 pr-3 text-[16px] text-slate-900 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 dark:text-white sm:text-sm"
             />
           </div>
           <label className="sr-only" htmlFor="library-topic">
-            Topic
-          </label>
+            {tr("Topic")}</label>
           <select
             id="library-topic"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             className="h-11 rounded-xl border border-line bg-surface px-3 text-[16px] text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 dark:text-white sm:w-56 sm:text-sm"
           >
-            <option value="">All topics</option>
+            <option value="">{tr("All topics")}</option>
             {topicsHere.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -215,32 +213,31 @@ export const LibraryPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           {(["all", "story", "dialogue", "article"] as const).map((k) => (
             <Chip key={k} selected={kind === k} onClick={() => setKind(k)}>
-              {k === "all" ? "All kinds" : KIND[k].label + "s"}
+              {k === "all" ? tr("All kinds") : KIND[k].label + "s"}
             </Chip>
           ))}
           <span className="mx-1 hidden h-5 w-px bg-line sm:block" aria-hidden />
           {(["all", "todo", "done"] as const).map((s) => (
             <Chip key={s} selected={status === s} onClick={() => setStatus(s)}>
-              {s === "all" ? "Any progress" : s === "todo" ? "To read" : "Finished"}
+              {s === "all" ? tr("Any progress") : s === "todo" ? tr("To read") : tr("Finished")}
             </Chip>
           ))}
           {filtered && (
             <button type="button" onClick={clear} className="ml-auto inline-flex h-9 items-center gap-1 rounded-full px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-white/5">
-              <X className="h-3.5 w-3.5" aria-hidden /> Clear filters
-            </button>
+              <X className="h-3.5 w-3.5" aria-hidden /> {" "}{tr("Clear filters")}</button>
           )}
         </div>
         <p className="text-xs text-slate-500" aria-live="polite">
-          Showing {shown.length} of {atLevel.length} at {level}
+          {tr("Showing {length} of {length2} at", { length: shown.length, length2: atLevel.length })}{" "}{level}
         </p>
       </section>
 
       {shown.length === 0 ? (
         <EmptyState
           icon={Search}
-          title="Nothing matches"
+          title={tr("Nothing matches")}
           text={filtered ? "Try a different word, or clear the filters." : "There are no texts at this level yet."}
-          action={filtered ? <button type="button" onClick={clear} className="h-10 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">Clear filters</button> : undefined}
+          action={filtered ? <button type="button" onClick={clear} className="h-10 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">{tr("Clear filters")}</button> : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">

@@ -14,6 +14,7 @@ import type {
   MissionPrivate,
   MissionPublic,
 } from "../../../hooks/useRoomCoach";
+import { tr } from "../../../i18n/core";
 
 const fmtClock = (ms: number) => {
   const s = Math.max(0, Math.ceil(ms / 1000));
@@ -39,7 +40,11 @@ export const MissionBar: React.FC<MissionBarProps> = ({ mission, myMission, onOp
 
   // A new word (new round or a swap) starts hidden again
   const word = myMission?.word;
-  useEffect(() => setReveal(false), [word]);
+  const [revealFor, setRevealFor] = useState(word);
+  if (revealFor !== word) {
+    setRevealFor(word);
+    setReveal(false);
+  }
 
   if (!mission) return null;
 
@@ -57,11 +62,11 @@ export const MissionBar: React.FC<MissionBarProps> = ({ mission, myMission, onOp
         boxShadow: "0 0 30px var(--sx-shadow-99-102-241-120)",
       }}
       role="status"
-      aria-label="Secret word mission"
+      aria-label={tr("Secret word mission")}
     >
       <div className="flex items-center justify-between mb-2">
         <button onClick={onOpen} className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: THEME.colors.accent.primaryLight }}>
-          <Target className="w-3.5 h-3.5" /> Mission · {mission.level}
+          <Target className="w-3.5 h-3.5" /> {" "}{tr("Mission ·")}{" "}{mission.level}
         </button>
         <span
           className={`font-mono text-xs font-bold ${urgent ? "animate-pulse" : ""}`}
@@ -79,7 +84,7 @@ export const MissionBar: React.FC<MissionBarProps> = ({ mission, myMission, onOp
         ) : (
           <button
             onClick={() => setReveal((v) => !v)}
-            aria-label={reveal ? "Hide my secret word" : "Show my secret word"}
+            aria-label={reveal ? tr("Hide my secret word") : tr("Show my secret word")}
             className="w-full flex items-center justify-between rounded-lg px-2.5 py-1.5 text-left"
             style={{ background: "var(--sx-bg-255-255-255-50)" }}
           >
@@ -98,15 +103,13 @@ export const MissionBar: React.FC<MissionBarProps> = ({ mission, myMission, onOp
         )
       ) : (
         <div className="text-xs" style={{ color: THEME.colors.text.muted }}>
-          You're not in this round.
-        </div>
+          {tr("You're not in this round.")}</div>
       )}
 
       <div className="mt-2.5">
         <div className="flex items-center justify-between text-[11px] mb-1" style={{ color: THEME.colors.text.muted }}>
           <span>
-            {done}/{mission.total} finished
-          </span>
+            {done}{tr("/{total} finished", { total: mission.total })}</span>
           {mission.completed[0] && <span>🥇 {mission.completed[0].userName}</span>}
         </div>
         <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--sx-bg-255-255-255-70)" }}>
@@ -186,11 +189,10 @@ export const MissionCelebration: React.FC<CelebrationProps> = ({ celebration, us
             }}
           >
             <div className="text-[11px] uppercase tracking-widest mb-1" style={{ color: THEME.colors.text.muted }}>
-              Mission complete · #{celebration.place}
+              {tr("Mission complete · #")}{celebration.place}
             </div>
             <div className="text-xl font-bold" style={{ color: THEME.colors.text.primary }}>
-              {mine ? "You" : celebration.userName} used “{celebration.word}”!
-            </div>
+              {mine ? tr("You") : celebration.userName} {" "}{tr("used “{word}”!", { word: celebration.word })}</div>
             <div className="text-xs mt-1" style={{ color: THEME.colors.text.secondary }}>
               {celebration.meaning}
             </div>

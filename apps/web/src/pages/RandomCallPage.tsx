@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { COLORS } from "../components/voice/lobby/lobbyTheme";
 import { ConfirmationModal } from "../components/voice/lobby/LobbyModals";
 import { useRandomCall } from "../components/call/useRandomCall";
@@ -22,6 +22,7 @@ import {
 } from "../components/call/CallExtras";
 import { useWordBank } from "../hooks/useWordBank";
 import { fetchMeaning } from "../hooks/useLookup";
+import { tr } from "../i18n/core";
 
 /** Random one-to-one calls: pick a level and goal, get matched, talk for five minutes */
 export const RandomCallPage = () => {
@@ -79,10 +80,10 @@ export const RandomCallPage = () => {
     if (!reporting) return;
     try {
       await callApi.report(reporting.callId, { reason, details: details || undefined });
-      toast.success("Thanks. We will review this.");
+      toast.success(tr("Thanks. We will review this."));
       setReporting(null);
     } catch {
-      toast.error("Could not send the report. Try again.");
+      toast.error(tr("Could not send the report. Try again."));
     }
   };
 
@@ -90,9 +91,9 @@ export const RandomCallPage = () => {
     if (!rc.call) return;
     try {
       await callApi.block(rc.call.callId);
-      toast.success(`${rc.call.partner.name} is blocked`);
+      toast.success(tr("{name} is blocked", { name: rc.call.partner.name }));
     } catch {
-      toast.error("Could not block. Try again.");
+      toast.error(tr("Could not block. Try again."));
     }
   };
 
@@ -113,14 +114,12 @@ export const RandomCallPage = () => {
             style={{ color: COLORS.textMuted }}
           >
             <ArrowLeft className="h-4 w-4" />
-            Voice rooms
-          </button>
+            {tr("Voice rooms")}</button>
         )}
 
         {rc.phase === "loading" && (
           <p className="py-24 text-center text-sm" style={{ color: COLORS.textMuted }} role="status">
-            Getting ready...
-          </p>
+            {tr("Getting ready...")}</p>
         )}
 
         {rc.phase === "setup" && (
@@ -240,8 +239,8 @@ export const RandomCallPage = () => {
             isOpen={confirmBlock}
             onClose={() => setConfirmBlock(false)}
             onConfirm={doBlock}
-            title={`Block ${rc.call?.partner.name ?? "this person"}?`}
-            message="The call ends now and you will never be matched with them again."
+            title={tr("Block {value}?", { value: rc.call?.partner.name ?? "this person" })}
+            message={tr("The call ends now and you will never be matched with them again.")}
             confirmText="Block and end call"
             confirmColor={COLORS.danger}
           />

@@ -29,6 +29,7 @@ import {
   Timer,
 } from "lucide-react";
 import { THEME } from "../VoiceRoomView.theme";
+import { tr } from "../../../i18n/core";
 
 export interface SpeakingTime {
   userId: string;
@@ -135,13 +136,12 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
               className="text-sm font-semibold truncate"
               style={{ color: THEME.colors.text.primary }}
             >
-              Session insights
-            </p>
+              {tr("Session insights")}</p>
             <p
               className="text-[11px] truncate"
               style={{ color: THEME.colors.text.muted }}
             >
-              {isHost ? "Host view" : isModerator ? "Moderator view" : "Live stats"}
+              {isHost ? tr("Host view") : isModerator ? tr("Moderator view") : tr("Live stats")}
             </p>
           </div>
         </div>
@@ -150,7 +150,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
           onClick={onClose}
           className="p-1.5 rounded-full hover:bg-white/10 transition-colors shrink-0"
           style={{ color: THEME.colors.text.muted }}
-          aria-label="Close"
+          aria-label={tr("Close")}
         >
           <X className="w-4 h-4" />
         </button>
@@ -160,25 +160,25 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
       <div className="p-3 grid grid-cols-2 gap-2">
         <MetricTile
           icon={<Clock className="w-3.5 h-3.5" />}
-          label="Duration"
+          label={tr("Duration")}
           value={formatDuration(roomDuration)}
           color={THEME.colors.accent.primary}
         />
         <MetricTile
           icon={<Mic className="w-3.5 h-3.5" />}
-          label="Speakers"
+          label={tr("Speakers")}
           value={`${uniqueSpeakers}/${totalParticipants}`}
           color={THEME.colors.accent.success}
         />
         <MetricTile
           icon={<MessageCircle className="w-3.5 h-3.5" />}
-          label="Messages"
+          label={tr("Messages")}
           value={String(messages)}
           color={THEME.colors.accent.cyan}
         />
         <MetricTile
           icon={<Smile className="w-3.5 h-3.5" />}
-          label="Reactions"
+          label={tr("Reactions")}
           value={String(reactions)}
           color={THEME.colors.accent.warning}
         />
@@ -202,8 +202,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
               className="text-[11px] font-semibold"
               style={{ color: THEME.colors.text.secondary }}
             >
-              Participation
-            </span>
+              {tr("Participation")}</span>
           </div>
           <span
             className="text-xs font-bold tabular-nums"
@@ -230,12 +229,10 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
 
         <div className="flex items-center justify-between mt-1.5 text-[9px]">
           <span style={{ color: THEME.colors.text.muted }}>
-            {uniqueSpeakers} spoke
-          </span>
+            {uniqueSpeakers} {" "}{tr("spoke")}</span>
           {silentCount > 0 && (
             <span style={{ color: THEME.colors.text.muted }}>
-              {silentCount} listening
-            </span>
+              {silentCount} {" "}{tr("listening")}</span>
           )}
         </div>
       </div>
@@ -251,8 +248,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
             className="text-[11px] font-semibold"
             style={{ color: THEME.colors.text.secondary }}
           >
-            Top contributors
-          </span>
+            {tr("Top contributors")}</span>
         </div>
 
         {topContributors.length === 0 ? (
@@ -262,8 +258,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
               style={{ color: THEME.colors.text.muted }}
             />
             <p className="text-[11px]" style={{ color: THEME.colors.text.muted }}>
-              No one has spoken yet
-            </p>
+              {tr("No one has spoken yet")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -359,7 +354,7 @@ export const SessionInsights: React.FC<SessionInsightsProps> = ({
         }}
       >
         <div className="flex items-center justify-between">
-          <span>Avg per speaker</span>
+          <span>{tr("Avg per speaker")}</span>
           <span
             className="font-semibold tabular-nums"
             style={{ color: THEME.colors.text.secondary }}
@@ -400,7 +395,7 @@ const MetricTile: React.FC<{
         className="text-[9px] font-medium uppercase tracking-wider truncate"
         style={{ color: THEME.colors.text.muted }}
       >
-        {label}
+        {tr(label)}
       </span>
     </div>
     <span

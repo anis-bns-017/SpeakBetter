@@ -20,6 +20,7 @@ import {
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
 import { ChallengeFriendButton } from "../components/challenges/ChallengeFriendButton";
 import { ChallengeOutcomes } from "../components/challenges/ChallengeOutcomes";
+import { tr } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
@@ -75,14 +76,16 @@ export const GrammarLessonPage: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // A different lesson starts from the top; stop the voice when leaving
-  useEffect(() => {
+  const [shownLesson, setShownLesson] = useState(lessonId);
+  if (shownLesson !== lessonId) {
+    setShownLesson(lessonId);
     setStep("learn");
     setIndex(0);
     setDraft(emptyDraft);
     setFeedback(null);
     setAnswers({});
     setResult(null);
-  }, [lessonId]);
+  }
   useEffect(() => () => stopSpeaking(), []);
   useEffect(() => {
     if (step === "practise") window.scrollTo({ top: 0, behavior: "smooth" });
@@ -103,7 +106,7 @@ export const GrammarLessonPage: React.FC = () => {
   if (isError || !lesson) {
     return (
       <div className={`${card} max-w-xl mx-auto mt-16 p-8 text-center text-sm text-slate-500`}>
-        Couldn't load this lesson. <Link to="/grammar" className="text-indigo-600 underline">Back to grammar</Link>
+        {tr("Couldn't load this lesson.")}{" "}<Link to="/grammar" className="text-indigo-600 underline">{tr("Back to grammar")}</Link>
       </div>
     );
   }
@@ -142,7 +145,7 @@ export const GrammarLessonPage: React.FC = () => {
       const r = await finishMutation.mutateAsync(answers);
       setResult(r);
       setStep("result");
-      if (r.firstPass) toast.success(`Lesson passed! +${r.xp} XP`);
+      if (r.firstPass) toast.success(tr("Lesson passed! +{xp} XP", { xp: r.xp }));
     } catch (e) {
       toast.error(errorMessage(e, "Couldn't save your result. Try again."));
     }
@@ -156,10 +159,9 @@ export const GrammarLessonPage: React.FC = () => {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 lg:py-10 space-y-5">
       <div className="flex items-center justify-between gap-3">
         <Link to="/grammar" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-          <ArrowLeft className="w-4 h-4" /> Grammar
-        </Link>
+          <ArrowLeft className="w-4 h-4" /> {" "}{tr("Grammar")}</Link>
         <span className="text-xs text-slate-400">
-          {lesson.level} · lesson {lesson.positionInLevel.index} of {lesson.positionInLevel.of}
+          {lesson.level} {" "}{tr("· lesson {index} of", { index: lesson.positionInLevel.index })}{" "}{lesson.positionInLevel.of}
         </span>
       </div>
 
@@ -167,12 +169,11 @@ export const GrammarLessonPage: React.FC = () => {
       {step === "learn" && (
         <>
           <header>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{lesson.title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{tr(lesson.title)}</h1>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{lesson.intro}</p>
             {lesson.progress && (
               <p className="mt-2 text-xs text-slate-400">
-                Your best: {lesson.progress.bestScore}/{lesson.progress.total}
-                {lesson.progress.done ? " · passed" : ""}
+                {tr("Your best: {bestScore}/{total}", { bestScore: lesson.progress.bestScore, total: lesson.progress.total })}{lesson.progress.done ? tr(" · passed") : ""}
               </p>
             )}
           </header>
@@ -182,7 +183,7 @@ export const GrammarLessonPage: React.FC = () => {
               <section key={rule.title} className={`${card} p-5`}>
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-300 text-xs flex items-center justify-center tabular-nums">{n + 1}</span>
-                  {rule.title}
+                  {tr(rule.title)}
                 </h2>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{rule.body}</p>
                 <ul className="mt-3 space-y-1.5">
@@ -190,7 +191,7 @@ export const GrammarLessonPage: React.FC = () => {
                     <li key={ex} className="flex items-start gap-2 rounded-xl bg-slate-50 dark:bg-white/[0.04] px-3 py-2 text-sm text-slate-800 dark:text-slate-100">
                       <span className="flex-1">{ex}</span>
                       {canSpeak() && (
-                        <button type="button" onClick={() => hear(ex)} aria-label={`Listen to: ${ex}`} className="text-slate-400 hover:text-indigo-600 shrink-0 mt-0.5">
+                        <button type="button" onClick={() => hear(ex)} aria-label={tr("Listen to: {ex}", { ex })} className="text-slate-400 hover:text-indigo-600 shrink-0 mt-0.5">
                           <Volume2 className="w-4 h-4" />
                         </button>
                       )}
@@ -202,7 +203,7 @@ export const GrammarLessonPage: React.FC = () => {
           </div>
 
           <section className={`${card} p-5`}>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Common mistakes</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Common mistakes")}</h2>
             <ul className="mt-3 space-y-3">
               {lesson.mistakes.map((m) => (
                 <li key={m.wrong} className="text-sm">
@@ -220,7 +221,7 @@ export const GrammarLessonPage: React.FC = () => {
 
           <div className="flex justify-end">
             <button type="button" className={primaryBtn} onClick={() => setStep("practise")}>
-              Practise ({total} exercises) <ArrowRight className="w-4 h-4" />
+              {tr("Practise ({total} exercises)", { total })}{" "}<ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </>
@@ -230,7 +231,7 @@ export const GrammarLessonPage: React.FC = () => {
       {step === "practise" && exercise && (
         <>
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => setStep("learn")} aria-label="Back to the rules" className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+            <button type="button" onClick={() => setStep("learn")} aria-label={tr("Back to the rules")} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
               <X className="w-5 h-5" />
             </button>
             <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-white/[0.08] overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={index + (feedback ? 1 : 0)}>
@@ -281,9 +282,9 @@ export const GrammarLessonPage: React.FC = () => {
               >
                 <p className="font-semibold flex items-center gap-1.5">
                   {feedback.correct ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                  {feedback.correct ? "Correct!" : "Not quite"}
+                  {feedback.correct ? tr("Correct!") : tr("Not quite")}
                 </p>
-                {!feedback.correct && <p className="mt-1">Right answer: <strong>{feedback.correctText}</strong></p>}
+                {!feedback.correct && <p className="mt-1">{tr("Right answer:")}{" "}<strong>{feedback.correctText}</strong></p>}
                 <p className="mt-1 opacity-90">{feedback.explanation}</p>
               </div>
             )}
@@ -292,12 +293,11 @@ export const GrammarLessonPage: React.FC = () => {
           <div className="flex items-center justify-end gap-2">
             {!feedback ? (
               <button type="button" className={primaryBtn} onClick={check} disabled={!isReady(exercise, draft) || checkMutation.isPending}>
-                {checkMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />} Check
-              </button>
+                {checkMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />} {" "}{tr("Check")}</button>
             ) : (
               <button type="button" className={primaryBtn} onClick={next} disabled={finishMutation.isPending} autoFocus>
                 {finishMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                {index < total - 1 ? "Next" : "See results"} <ArrowRight className="w-4 h-4" />
+                {index < total - 1 ? tr("Next") : tr("See results")} <ArrowRight className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -319,7 +319,7 @@ export const GrammarLessonPage: React.FC = () => {
               {result.score}/{result.total}
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              {result.perfect ? "Perfect! Every exercise right." : result.passed ? "Lesson passed. Nice work." : "Almost. Read the rules again and try once more."}
+              {result.perfect ? tr("Perfect! Every exercise right.") : result.passed ? tr("Lesson passed. Nice work.") : tr("Almost. Read the rules again and try once more.")}
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               {result.xp > 0 && (
@@ -329,14 +329,13 @@ export const GrammarLessonPage: React.FC = () => {
               )}
               {result.cardsAdded > 0 && (
                 <Link to="/flashcards" className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20">
-                  <Layers className="w-3.5 h-3.5" /> {result.cardsAdded} new {result.cardsAdded === 1 ? "flashcard" : "flashcards"} to review
-                </Link>
+                  <Layers className="w-3.5 h-3.5" /> {result.cardsAdded} {" "}{tr("new {value} to review", { value: result.cardsAdded === 1 ? tr("flashcard") : tr("flashcards") })}</Link>
               )}
             </div>
           </section>
 
           <section className={`${card} p-5`}>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your answers</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Your answers")}</h2>
             <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/[0.06]">
               {result.results.map((r) => (
                 <li key={r.id} className="py-3 text-sm">
@@ -365,13 +364,12 @@ export const GrammarLessonPage: React.FC = () => {
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button type="button" className={ghostBtn} onClick={restart}>
-              <RotateCcw className="w-4 h-4" /> Try again
-            </button>
+              <RotateCcw className="w-4 h-4" /> {" "}{tr("Try again")}</button>
             <div className="flex gap-2">
-              <Link to="/grammar" className={ghostBtn}>All lessons</Link>
+              <Link to="/grammar" className={ghostBtn}>{tr("All lessons")}</Link>
               {lesson.next && (
                 <Link to={`/grammar/${lesson.next.id}`} className={primaryBtn}>
-                  Next: {lesson.next.title} <ArrowRight className="w-4 h-4" />
+                  {tr("Next:")}{" "}{tr(lesson.next.title)} <ArrowRight className="w-4 h-4" />
                 </Link>
               )}
             </div>
@@ -460,8 +458,8 @@ const OrderBoard: React.FC<{
   const chip = "h-10 px-3.5 rounded-xl border text-sm font-medium transition-colors";
   return (
     <div className="space-y-4">
-      <div className={`min-h-[3.5rem] flex flex-wrap gap-2 rounded-2xl border-2 border-dashed p-2.5 ${tone}`} aria-label="Your sentence">
-        {draft.placed.length === 0 && <span className="text-sm text-slate-400 self-center px-1">Tap the words below in the right order</span>}
+      <div className={`min-h-[3.5rem] flex flex-wrap gap-2 rounded-2xl border-2 border-dashed p-2.5 ${tone}`} aria-label={tr("Your sentence")}>
+        {draft.placed.length === 0 && <span className="text-sm text-slate-400 self-center px-1">{tr("Tap the words below in the right order")}</span>}
         {draft.placed.map((wordIndex, position) => (
           <button
             key={`${wordIndex}-${position}`}
@@ -474,7 +472,7 @@ const OrderBoard: React.FC<{
           </button>
         ))}
       </div>
-      <div className="flex flex-wrap gap-2" aria-label="Word bank">
+      <div className="flex flex-wrap gap-2" aria-label={tr("Word bank")}>
         {exercise.words.map((word, wordIndex) => {
           const used = draft.placed.includes(wordIndex);
           return (
@@ -496,8 +494,7 @@ const OrderBoard: React.FC<{
       </div>
       {!locked && draft.placed.length > 0 && (
         <button type="button" onClick={() => setDraft((d) => ({ ...d, placed: [] }))} className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline">
-          Clear
-        </button>
+          {tr("Clear")}</button>
       )}
     </div>
   );
@@ -533,7 +530,7 @@ const TypeBlank: React.FC<{
             onEnter();
           }
         }}
-        aria-label="Your answer"
+        aria-label={tr("Your answer")}
         autoComplete="off"
         autoCapitalize="off"
         autoCorrect="off"

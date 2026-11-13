@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNow } from "./useNow";
 
 export type JournalCategory =
   | "grammar"
@@ -99,12 +100,18 @@ export const usePracticeJournal = ({
   // ------------------------------------------------------------
   // Load on mount
   // ------------------------------------------------------------
-  useEffect(() => {
+  // Signed out (or someone else): nothing to show until the new journal loads
+  const [journalFor, setJournalFor] = useState<string | null>(null);
+  if (journalFor !== (userId || "")) {
+    setJournalFor(userId || "");
     if (!userId) {
       setEntries([]);
       setIsLoading(false);
-      return;
     }
+  }
+
+  useEffect(() => {
+    if (!userId) return;
 
     let cancelled = false;
 
@@ -248,6 +255,7 @@ export const usePracticeJournal = ({
   // ------------------------------------------------------------
   // Derived stats
   // ------------------------------------------------------------
+  const now = useNow();
   const stats = useMemo(() => {
     const total = entries.length;
     const byMastery = {
@@ -261,7 +269,6 @@ export const usePracticeJournal = ({
       return acc;
     }, {});
 
-    const now = Date.now();
     const dueForReview = entries.filter((e) => e.nextReviewAt <= now);
 
     const weekAgo = now - 1000 * 60 * 60 * 24 * 7;
@@ -278,7 +285,7 @@ export const usePracticeJournal = ({
       thisWeek,
       masteryRate,
     };
-  }, [entries]);
+  }, [entries, now]);
 
   // ------------------------------------------------------------
   // Export

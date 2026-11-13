@@ -11,6 +11,9 @@ import { SessionCleanupService } from './session-cleanup.service';
 
 import { PrismaService } from '../prisma.service';
 import { UsersModule } from '../users/users.module';
+import { MailModule } from '../mail/mail.module';
+import { PasswordResetService } from './password-reset.service';
+import { AccountDeletionService } from './account-deletion.service';
 
 @Module({
   imports: [
@@ -32,6 +35,7 @@ import { UsersModule } from '../users/users.module';
     }),
 
     UsersModule,
+    MailModule,
   ],
 
   controllers: [AuthController],
@@ -42,6 +46,8 @@ import { UsersModule } from '../users/users.module';
     JwtStrategy,
     GoogleStrategy,
     SessionCleanupService,
+    PasswordResetService,
+    AccountDeletionService,
   ],
 
   exports: [JwtModule, PassportModule, JwtStrategy, AuthService],

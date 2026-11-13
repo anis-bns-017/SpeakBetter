@@ -29,7 +29,7 @@ import {
   Wand2,
   type LucideIcon,
 } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import { ensureFreshSession } from "../../lib/api/client";
 import { getStoredToken } from "../../hooks/useChat";
 import {
@@ -39,8 +39,10 @@ import {
   type AppNotification,
   type NotificationPage,
 } from "../../hooks/useNotifications";
+import { tr, msg } from "../../i18n/core";
+import { API_URL } from "../../lib/api/serverUrl";
 
-const SOCKET_URL = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/+$/, "");
+const SOCKET_URL = API_URL;
 
 const TYPE: Record<string, { icon: LucideIcon; tone: string }> = {
   ROOM_REMINDER: { icon: CalendarClock, tone: "bg-amber-500/10 text-amber-500" },
@@ -114,7 +116,7 @@ export const NotificationsLive: React.FC = () => {
 
       toast(n.title, {
         description: n.message,
-        action: n.actionUrl ? { label: "Open", onClick: () => navigateRef.current(n.actionUrl as string) } : undefined,
+        action: n.actionUrl ? { label: msg("Open"), onClick: () => navigateRef.current(n.actionUrl as string) } : undefined,
       });
       if (document.hidden && canNotifyDesktop() && Notification.permission === "granted") {
         try {
@@ -189,7 +191,7 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
     if (!canNotifyDesktop()) return;
     const result = await Notification.requestPermission();
     setPermission(result);
-    if (result === "granted") toast.success("Desktop alerts are on");
+    if (result === "granted") toast.success(tr("Desktop alerts are on"));
   };
 
   const button =
@@ -206,7 +208,7 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+        aria-label={unread ? tr("Notifications, {unread} unread", { unread }) : tr("Notifications")}
         aria-expanded={open}
         className={button}
       >
@@ -223,12 +225,12 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
           <div
             ref={panelRef}
             role="dialog"
-            aria-label="Notifications"
+            aria-label={tr("Notifications")}
             className="fixed z-[120] w-[min(92vw,380px)] max-h-[min(70vh,560px)] flex flex-col rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-panel shadow-2xl overflow-hidden"
             style={panelPosition}
           >
             <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100 dark:border-white/[0.06]">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Notifications</h2>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">{tr("Notifications")}</h2>
               <div className="flex items-center gap-1">
                 {unread > 0 && (
                   <button
@@ -236,8 +238,7 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
                     onClick={() => markRead.mutate({ all: true })}
                     className="h-7 px-2 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 inline-flex items-center gap-1"
                   >
-                    <CheckCheck className="w-3.5 h-3.5" /> Mark all read
-                  </button>
+                    <CheckCheck className="w-3.5 h-3.5" /> {" "}{tr("Mark all read")}</button>
                 )}
                 <button
                   type="button"
@@ -245,7 +246,7 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
                     setOpen(false);
                     navigate("/settings#notifications");
                   }}
-                  aria-label="Notification settings"
+                  aria-label={tr("Notification settings")}
                   className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"
                 >
                   <Settings className="w-4 h-4" />
@@ -259,20 +260,18 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
                 onClick={() => void askDesktop()}
                 className="mx-3 mt-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 px-3 py-2 text-left text-xs text-indigo-800 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-500/15"
               >
-                <span className="font-semibold">Turn on desktop alerts</span> to hear about rooms going live while this tab is in the background.
-              </button>
+                <span className="font-semibold">{tr("Turn on desktop alerts")}</span> {" "}{tr("to hear about rooms going live while this tab is in the background.")}</button>
             )}
 
             <div className="flex-1 overflow-y-auto py-1">
               {!data ? (
-                <p className="px-4 py-8 text-center text-sm text-slate-500">Loading…</p>
+                <p className="px-4 py-8 text-center text-sm text-slate-500">{tr("Loading…")}</p>
               ) : data.items.length === 0 ? (
                 <div className="px-6 py-10 text-center">
                   <Bell className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
-                  <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Nothing yet</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{tr("Nothing yet")}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Follow people and tap “Remind me” on scheduled rooms. You'll hear when they go live.
-                  </p>
+                    {tr("Follow people and tap “Remind me” on scheduled rooms. You'll hear when they go live.")}</p>
                 </div>
               ) : (
                 <ul>
@@ -289,13 +288,13 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
                             <Icon className="w-4 h-4" />
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug">{n.title}</span>
+                            <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug">{tr(n.title)}</span>
                             <span className="block text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">{n.message}</span>
                             <span className="block text-[11px] text-slate-400 mt-1">
                               {formatDistanceToNowStrict(new Date(n.createdAt), { addSuffix: true })}
                             </span>
                           </span>
-                          {!n.isRead && <span className="w-2 h-2 rounded-full bg-indigo-500 mt-2 shrink-0" aria-label="Unread" />}
+                          {!n.isRead && <span className="w-2 h-2 rounded-full bg-indigo-500 mt-2 shrink-0" aria-label={tr("Unread")} />}
                         </button>
                       </li>
                     );

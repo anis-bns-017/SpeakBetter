@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { apiClient } from '../lib/api/client';
 import { installState, promptInstall, subscribeInstallState, isIos, type InstallState } from '../lib/pwa';
 import { PushError, currentSubscription, disablePush, enablePush, pushPermission, pushSupported, type PushPermission } from '../lib/push';
+import { tr } from "../i18n/core";
 
 export interface PushConfig {
   /** False when the server has no VAPID keys */
@@ -46,19 +47,25 @@ export function usePushDevice() {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let live = true;
+    currentSubscription()
+      .then((sub) => live && setSubscribed(!!sub))
+      .catch(() => live && setSubscribed(false));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const enable = async (): Promise<boolean> => {
     const key = config.data?.publicKey;
     if (!key) {
-      toast.error('Notifications are not set up on this server yet.');
+      toast.error(tr("Notifications are not set up on this server yet."));
       return false;
     }
     setBusy(true);
     try {
       await enablePush(key);
-      toast.success('Notifications are on for this device');
+      toast.success(tr("Notifications are on for this device"));
       return true;
     } catch (e) {
       toast.error(errorText(e, "Couldn't turn notifications on."));
@@ -74,7 +81,7 @@ export function usePushDevice() {
     setBusy(true);
     try {
       await disablePush();
-      toast.success('Notifications are off for this device');
+      toast.success(tr("Notifications are off for this device"));
     } catch (e) {
       toast.error(errorText(e, "Couldn't turn notifications off."));
     } finally {
@@ -87,8 +94,8 @@ export function usePushDevice() {
   const test = useMutation({
     mutationFn: async () => (await apiClient.post<{ sent: number; enabled: boolean }>('/push/test')).data,
     onSuccess: ({ sent }) => {
-      if (sent > 0) toast.success('Sent. It should appear in a moment.');
-      else toast.error('Nothing was delivered. Check that push notifications are switched on in your settings.');
+      if (sent > 0) toast.success(tr("Sent. It should appear in a moment."));
+      else toast.error(tr("Nothing was delivered. Check that push notifications are switched on in your settings."));
     },
     onError: (e) => toast.error(errorText(e, "Couldn't send a test.")),
   });

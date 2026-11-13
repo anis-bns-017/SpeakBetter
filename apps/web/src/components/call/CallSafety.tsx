@@ -5,6 +5,7 @@ import { Ban, Flag, Loader2, ShieldCheck, X } from "lucide-react";
 import { COLORS } from "../voice/lobby/lobbyTheme";
 import type { ReportReason } from "./callApi";
 import { REPORT_OPTIONS } from "./callOptions";
+import { tr } from "../../i18n/core";
 
 /** Report dialog: choosing a reason ends the call and blocks the person for you */
 export const ReportDialog: React.FC<{
@@ -40,7 +41,7 @@ export const ReportDialog: React.FC<{
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label={`Report ${partnerName}`}
+            aria-label={tr("Report {partnerName}", { partnerName })}
             initial={{ scale: 0.92, opacity: 0, y: 16 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.92, opacity: 0, y: 16 }}
@@ -51,18 +52,17 @@ export const ReportDialog: React.FC<{
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h3 className="font-serif text-xl" style={{ color: COLORS.textPrimary }}>
-                  Report {partnerName}
+                  {tr("Report")}{" "}{partnerName}
                 </h3>
                 <p className="mt-1 text-xs" style={{ color: COLORS.textMuted }}>
-                  The call ends now and you will never be matched with them again.
-                </p>
+                  {tr("The call ends now and you will never be matched with them again.")}</p>
               </div>
-              <button onClick={onClose} aria-label="Close" style={{ color: COLORS.textMuted }}>
+              <button onClick={onClose} aria-label={tr("Close")} style={{ color: COLORS.textMuted }}>
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-2" role="radiogroup" aria-label="Reason">
+            <div className="space-y-2" role="radiogroup" aria-label={tr("Reason")}>
               {REPORT_OPTIONS.map((option) => {
                 const selected = reason === option.value;
                 return (
@@ -86,10 +86,10 @@ export const ReportDialog: React.FC<{
                     />
                     <span>
                       <span className="block text-sm font-medium" style={{ color: COLORS.textPrimary }}>
-                        {option.label}
+                        {tr(option.label)}
                       </span>
                       <span className="block text-[11px]" style={{ color: COLORS.textMuted }}>
-                        {option.hint}
+                        {tr(option.hint)}
                       </span>
                     </span>
                   </button>
@@ -102,8 +102,8 @@ export const ReportDialog: React.FC<{
               onChange={(e) => setDetails(e.target.value)}
               maxLength={1000}
               rows={3}
-              placeholder="Anything else a moderator should know? (optional)"
-              aria-label="Details"
+              placeholder={tr("Anything else a moderator should know? (optional)")}
+              aria-label={tr("Details")}
               className="mt-3 w-full resize-none rounded-xl border px-3 py-2.5 text-sm outline-none"
               style={{
                 background: COLORS.surfaceRaised,
@@ -118,8 +118,7 @@ export const ReportDialog: React.FC<{
                 className="rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-white/5"
                 style={{ color: COLORS.textMuted }}
               >
-                Cancel
-              </button>
+                {tr("Cancel")}</button>
               <button
                 onClick={submit}
                 disabled={!reason || busy}
@@ -127,8 +126,7 @@ export const ReportDialog: React.FC<{
                 style={{ background: COLORS.danger, color: "var(--sx-text-ffffff)" }}
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4" />}
-                Report and end call
-              </button>
+                {tr("Report and end call")}</button>
             </div>
           </motion.div>
         </motion.div>
@@ -148,21 +146,18 @@ export const SafetyBar: React.FC<{
   >
     <span className="inline-flex items-center gap-1.5">
       <ShieldCheck className="h-3.5 w-3.5" style={{ color: COLORS.live }} />
-      Not recorded. You can leave any time.
-    </span>
+      {tr("Not recorded. You can leave any time.")}</span>
     <button
       onClick={onReport}
       className="inline-flex items-center gap-1.5 font-medium hover:opacity-80"
       style={{ color: COLORS.danger }}
     >
-      <Flag className="h-3.5 w-3.5" /> Report
-    </button>
+      <Flag className="h-3.5 w-3.5" /> {" "}{tr("Report")}</button>
     <button
       onClick={onBlock}
       className="inline-flex items-center gap-1.5 font-medium hover:opacity-80"
       style={{ color: COLORS.textPrimary }}
     >
-      <Ban className="h-3.5 w-3.5" /> Block
-    </button>
+      <Ban className="h-3.5 w-3.5" /> {" "}{tr("Block")}</button>
   </div>
 );
