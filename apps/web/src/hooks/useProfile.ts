@@ -27,6 +27,8 @@ export interface Profile {
     email: string;
     name: string;
     avatarUrl?: string;
+    /** Shown around the avatar while talking in voice rooms (Settings → Speaking effect); null = classic */
+    speakingEffect?: string | null;
   };
 }
 

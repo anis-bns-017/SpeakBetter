@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview",
+    "tunnel": "cloudflared tunnel --no-autoupdate --url http://localhost:15173",
     "theme:fallback": "node scripts/gen-dark-fallback.mjs"
   },
   "dependencies": {

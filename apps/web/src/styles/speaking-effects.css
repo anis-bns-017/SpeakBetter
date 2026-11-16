@@ -1,0 +1,43 @@
+/*
+ * Avatar frames and speaking effects (components/voice/effects/SpeakingEffect.tsx). The art and its motion live in
+ * the SVGs; this file only places them and switches the speaking extras.
+ *   .se-frame-art   a box twice the avatar's size, centred on it, so the SVG's middle circle is the avatar
+ *   .se-talk        parts that only show while the owner talks (sparks, ripples, notes)
+ *   --se-swell      how much the frame grows with the voice (1 = still)
+ */
+
+.se-frame {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.se-frame-art svg {
+  display: block;
+  overflow: visible;
+}
+
+.se-swell {
+  transform-origin: 100px 100px;
+  transform: scale(var(--se-swell, 1));
+  transition: transform 140ms ease-out;
+}
+
+.se-talk {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+.se-frame[data-talking="true"] .se-talk {
+  opacity: 1;
+}
+
+/* Classic: the original halo (styles/voice-stage.css), filling the avatar's own box */
+.se-classic {
+  position: absolute;
+  inset: 0;
+}
+.se-classic .vr-halo-glow {
+  inset: -14px;
+}

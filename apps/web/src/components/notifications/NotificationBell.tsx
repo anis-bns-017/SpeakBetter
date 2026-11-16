@@ -40,9 +40,9 @@ import {
   type NotificationPage,
 } from "../../hooks/useNotifications";
 import { tr, msg } from "../../i18n/core";
-import { API_URL } from "../../lib/api/serverUrl";
+import { SOCKET_ORIGIN } from "../../lib/api/serverUrl";
 
-const SOCKET_URL = API_URL;
+const SOCKET_URL = SOCKET_ORIGIN;
 
 const TYPE: Record<string, { icon: LucideIcon; tone: string }> = {
   ROOM_REMINDER: { icon: CalendarClock, tone: "bg-amber-500/10 text-amber-500" },

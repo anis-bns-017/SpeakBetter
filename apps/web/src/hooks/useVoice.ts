@@ -20,6 +20,7 @@ import {
 } from "livekit-client";
 import { type ApiError } from "../lib/api/errors";
 import { tr } from "../i18n/core";
+import { microphoneErrorMessage, microphoneSupport, microphoneUnavailableMessage } from "../lib/microphone";
 import { SOCKET_URL, LIVEKIT_URL } from "../lib/api/serverUrl";
 
 // ---------- Environment Variables ----------
@@ -193,7 +194,8 @@ export interface VoiceRoom {
 /** Someone in the room as the voice socket reports them (lighter than VoiceParticipant) */
 export interface RoomSocketParticipant {
   userId: string;
-  user?: { id?: string; name?: string; avatarUrl?: string | null };
+  /** speakingEffect: their chosen speaking effect (Settings) */
+  user?: { id?: string; name?: string; avatarUrl?: string | null; speakingEffect?: string | null };
   role?: string;
   raisedHand?: boolean;
   isMuted?: boolean;
@@ -1738,6 +1740,13 @@ export const useLiveKitRoom = (
       return true;
     }
 
+    // Unmuting needs the microphone: on a plain-http page (or an old browser) there is none to turn on
+    const support = microphoneSupport();
+    if (isMuted && support !== "ok") {
+      toast.error(microphoneUnavailableMessage(support));
+      return isMuted;
+    }
+
     try {
       const nextMuted = !isMuted;
       await room.localParticipant.setMicrophoneEnabled(!nextMuted);
@@ -1745,6 +1754,7 @@ export const useLiveKitRoom = (
       return nextMuted;
     } catch (error) {
       console.error("❌ Failed to toggle microphone:", error);
+      toast.error(microphoneErrorMessage(error));
       return isMuted;
     }
   }, [room, isMuted]);
@@ -2125,7 +2135,22 @@ export const useLiveKitRoom = (
           return;
         }
 
-        await livekitRoom.localParticipant.setMicrophoneEnabled(true);
+        // No usable microphone (plain-http page, blocked or missing): stay in the room and listen, muted,
+        // instead of failing the whole join. Unmute explains what's wrong.
+        const support = microphoneSupport();
+        if (support !== "ok") {
+          setIsMuted(true);
+          toast.info(microphoneUnavailableMessage(support), { id: "voice-mic-unavailable" });
+          return;
+        }
+        try {
+          await livekitRoom.localParticipant.setMicrophoneEnabled(true);
+        } catch (micError) {
+          console.warn("Microphone could not start; listening only:", micError);
+          setIsMuted(true);
+          toast.error(microphoneErrorMessage(micError), { id: "voice-mic-unavailable" });
+          return;
+        }
         setIsMuted(false);
 
         const microphonePublication =

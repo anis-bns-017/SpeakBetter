@@ -5,7 +5,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { asApiError, type ApiError } from "../lib/api/errors";
 import { tr } from "../i18n/core";
-import { API_URL } from "../lib/api/serverUrl";
+import { getMicrophone, microphoneSupport, microphoneUnavailableMessage } from "../lib/microphone";
+import { SOCKET_ORIGIN } from "../lib/api/serverUrl";
 
 // ---------- Types ----------
 export interface Chat {
@@ -817,7 +818,7 @@ export const useSearchMessages = (chatId: string, query: string) => {
  *   WebSocket after the initial authenticated handshake. This is more
  *   tolerant of browser/proxy/WebSocket differences during development.
  */
-const SOCKET_URL = API_URL;
+const SOCKET_URL = SOCKET_ORIGIN;
 
 const CHAT_SOCKET_NAMESPACE = "/chat";
 
@@ -1744,27 +1745,21 @@ export const useVoiceMessageRecorder = () => {
   const startRecording = useCallback(async () => {
     if (isRecording) return;
 
-    if (
-      typeof navigator === "undefined" ||
-      !navigator.mediaDevices?.getUserMedia
-    ) {
-      const error = new Error(
-        "This browser does not support microphone recording.",
-      );
-      toast.error(tr("Your browser does not support microphone recording."));
-      throw error;
+    const support = microphoneSupport();
+    if (support !== "ok") {
+      const message = microphoneUnavailableMessage(support);
+      toast.error(message);
+      throw new Error(message);
     }
 
     try {
       setAudioBlob(null);
       chunksRef.current = [];
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+      const stream = await getMicrophone({
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
       });
 
       streamRef.current = stream;

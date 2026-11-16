@@ -22,9 +22,35 @@ export function serverUrl(configured: string | undefined, fallback: string): str
   return raw;
 }
 
+/**
+ * Paths where the dev server forwards the API and LiveKit (vite.config.ts, server.proxy). Socket.IO keeps its own
+ * /socket.io path, which the dev server forwards too.
+ */
+export const DEV_PROXY = { api: "/__api", livekit: "/__livekit" } as const;
+
+/**
+ * The page's own address when, in development, it is opened over https: through a tunnel to the dev server, so a
+ * phone gets the microphone (browsers only allow it on secure pages). An https page can't call the plain-http API
+ * next door, so everything goes through the dev server's forwarding instead. null otherwise.
+ */
+export function devProxyOrigin(): string | null {
+  if (!import.meta.env.DEV || typeof window === "undefined") return null;
+  return window.location.protocol === "https:" ? window.location.origin : null;
+}
+
+const proxyOrigin = devProxyOrigin();
+
 /** The REST API */
-export const API_URL = serverUrl(import.meta.env.VITE_API_URL, "http://localhost:3000");
+export const API_URL = proxyOrigin
+  ? proxyOrigin + DEV_PROXY.api
+  : serverUrl(import.meta.env.VITE_API_URL, "http://localhost:3000");
+/** The server that runs Socket.IO; namespaces such as /chat go after it */
+export const SOCKET_ORIGIN = proxyOrigin ?? serverUrl(import.meta.env.VITE_API_URL, "http://localhost:3000");
 /** Socket.IO voice namespace */
-export const SOCKET_URL = serverUrl(import.meta.env.VITE_SOCKET_URL, "http://localhost:3000/voice");
+export const SOCKET_URL = proxyOrigin
+  ? `${proxyOrigin}/voice`
+  : serverUrl(import.meta.env.VITE_SOCKET_URL, "http://localhost:3000/voice");
 /** LiveKit (voice rooms audio) */
-export const LIVEKIT_URL = serverUrl(import.meta.env.VITE_LIVEKIT_URL, "ws://localhost:18080");
+export const LIVEKIT_URL = proxyOrigin
+  ? proxyOrigin.replace(/^https:/, "wss:") + DEV_PROXY.livekit
+  : serverUrl(import.meta.env.VITE_LIVEKIT_URL, "ws://localhost:18080");

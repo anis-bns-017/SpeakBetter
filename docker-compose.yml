@@ -33,17 +33,21 @@ services:
     volumes:
       - meili_data:/meili_data
 
+  # Voice rooms and calls. Start it with `pnpm livekit` (scripts/livekit.mjs), which fills in LIVEKIT_NODE_IP.
+  # Browsers send voice straight to LiveKit at the address and ports it announces. Inside Docker it only knows its
+  # container address (172.17.x.x), which nothing outside can reach, so it announces this computer's Wi-Fi address
+  # instead, and the two media ports keep the same numbers outside Docker as inside.
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:v1.13.5
     container_name: lingoverse_livekit
-    command: --dev
+    restart: unless-stopped
+    command: --dev --bind 0.0.0.0 --node-ip ${LIVEKIT_NODE_IP:-127.0.0.1}
     ports:
-      - "18080:7880"
-      - "18081:7881"
-      - "18082:7882/udp"
+      - "18080:7880"     # signalling: VITE_LIVEKIT_URL / LIVEKIT_WS_URL
+      - "7881:7881"      # voice over TCP (fallback)
+      - "7882:7882/udp"  # voice over UDP
     environment:
-      LIVEKIT_API_KEY: devkey
-      LIVEKIT_API_SECRET: secret
+      LIVEKIT_KEYS: "devkey: secret"
 
 volumes:
   postgres_data:

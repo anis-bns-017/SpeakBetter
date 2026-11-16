@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api/client';
 import { hearSounds, type SoundStage } from '../lib/phonemes/onDevice';
+import { canUseMicrophone, getMicrophone } from '../lib/microphone';
 
 export type SoundKey = 'TH' | 'V_W' | 'V_B' | 'R_L' | 'I_EE' | 'A_E' | 'S_SH' | 'Z_S' | 'F_P' | 'U_OO';
 
@@ -278,7 +279,7 @@ interface LiveRecording {
 }
 
 export const canRecord = () =>
-  typeof window !== 'undefined' && typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+  typeof window !== 'undefined' && typeof MediaRecorder !== 'undefined' && canUseMicrophone();
 
 /**
  * Records the microphone while you speak, so you can play yourself back next to the model voice, and shows
@@ -313,7 +314,7 @@ export function useRecorder() {
   const start = useCallback(async (): Promise<boolean> => {
     if (!canRecord() || live.current) return false;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const stream = await getMicrophone({ echoCancellation: true, noiseSuppression: true });
       const recorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => {

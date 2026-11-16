@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import { apiClient } from "../../lib/api/client";
 import { asApiError } from "../../lib/api/errors";
 import { tr, msg } from "../../i18n/core";
+import { getMicrophone, microphoneErrorMessage } from "../../lib/microphone";
 
 interface MessageInputProps {
   onSend: (
@@ -329,12 +330,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+      const stream = await getMicrophone({
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
       });
       streamRef.current = stream;
 
@@ -417,9 +416,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       }, 1000);
     } catch (err) {
       console.error("Microphone error:", err);
-      toast.error(
-        tr("Unable to access microphone. Please check permissions in your browser settings."),
-      );
+      toast.error(microphoneErrorMessage(err));
       stopVisualizer();
       stopTracks();
       setIsRecording(false);

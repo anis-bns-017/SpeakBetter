@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, Linking, Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
+import type { AppWebView } from "./speechBridge";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { APP_USER_AGENT, WEB_ORIGIN, WEB_URL } from "./config";
 import { useSpeechBridge } from "./speechBridge";
@@ -26,7 +27,7 @@ const staysInApp = (url: string) =>
 export function AppShell() {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
   const colors = COLORS[scheme];
-  const webView = useRef<WebView>(null);
+  const webView = useRef<AppWebView>(null);
   // The phone's speech recognizer, offered to the site as window.SpeechRecognition
   const speech = useSpeechBridge(webView);
   const [canGoBack, setCanGoBack] = useState(false);
@@ -67,7 +68,8 @@ export function AppShell() {
 
   return (
     <SafeAreaView style={[styles.fill, { backgroundColor: colors.page }]} edges={["top", "left", "right"]}>
-      <WebView
+      {/* <object>: react-native-webview 14 defaults the extra-props type to undefined, which makes every prop invalid */}
+      <WebView<object>
         ref={webView}
         source={{ uri: WEB_URL }}
         style={[styles.fill, { backgroundColor: colors.page }]}

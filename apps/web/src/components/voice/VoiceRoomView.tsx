@@ -1559,6 +1559,8 @@ interface LooseMemberUser {
   interests?: string[];
   isVerified?: boolean;
   isPremium?: boolean;
+  /** Their chosen speaking effect (Settings) */
+  speakingEffect?: string | null;
 }
 interface LooseMember extends LooseMemberUser {
   userId: string;
@@ -1769,7 +1771,11 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 
   const [isDeafened, setIsDeafened] = useState(false);
   const [volume, setVolume] = useState(80);
-  const [showChat, setShowChat] = useState(true);
+  // Chat starts open beside the stage on tablets and desktops. On phones it is a sheet over the whole stage, so it
+  // starts closed there and the room opens on the people in it (the dock's Chat button opens it).
+  const [showChat, setShowChat] = useState(
+    () => typeof window === "undefined" || typeof window.matchMedia !== "function" || window.matchMedia("(min-width: 768px)").matches,
+  );
   const [messages, setMessages] = useState<LocalVoiceMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [replyTo, setReplyTo] = useState<VoiceMessage | null>(null);
@@ -1976,6 +1982,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         audioLevel: Number(p.audioLevel || 0),
         isVerified: p.isVerified || p.user?.isVerified,
         isPremium: p.isPremium || p.user?.isPremium,
+        speakingEffect: p.speakingEffect ?? p.user?.speakingEffect,
       });
     });
 
@@ -2000,6 +2007,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         audioLevel: 0,
         isVerified: p.user?.isVerified,
         isPremium: p.user?.isPremium,
+        speakingEffect: p.user?.speakingEffect,
       });
     });
 

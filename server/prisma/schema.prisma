@@ -517,6 +517,8 @@ model User {
   passwordHash String?
   name         String
   avatarUrl    String?
+  /// What plays around their avatar while they talk in voice rooms (src/profile/speaking-effects.ts); null = classic
+  speakingEffect String?
 
   // ===== ADMIN =====
   /// USER for everyone; MODERATOR and ADMIN open the admin section (ADMIN_EMAILS in .env makes the first admins)

@@ -256,4 +256,10 @@ export const part17: Record<string, string> = {
   // Inside the phone app
   "Phone alerts in the SpeakBetter app are coming in an update. For now, reminders work when SpeakBetter is open in Chrome, Edge or Safari.":
     "SpeakBetter অ্যাপে ফোনের অ্যালার্ট পরের একটি আপডেটে আসছে। আপাতত Chrome, Edge বা Safari-তে SpeakBetter খোলা থাকলে রিমাইন্ডার কাজ করে।",
+
+  // Microphone on a page that can't use it (plain http, old browser)
+  "The microphone only works on a secure (https) connection. Open SpeakBetter from its https address to use it.":
+    "মাইক্রোফোন শুধু নিরাপদ (https) সংযোগে কাজ করে। মাইক্রোফোন ব্যবহার করতে SpeakBetter-এর https ঠিকানা থেকে খুলুন।",
+  "This browser can't use the microphone. Try Chrome, Edge or Safari.":
+    "এই ব্রাউজার মাইক্রোফোন ব্যবহার করতে পারে না। Chrome, Edge বা Safari ব্যবহার করে দেখুন।",
 };

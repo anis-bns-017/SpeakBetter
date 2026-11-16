@@ -175,7 +175,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   return (
     <section
       className={cn(
-        "flex-1 min-w-0 px-4 py-4 transition-all duration-300 overflow-y-auto",
+        "flex-1 min-w-0 px-4 pt-4 pb-32 md:pb-4 transition-all duration-300 overflow-y-auto",
         className,
       )}
       style={{
@@ -327,7 +327,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
       )}
 
       {/* Grid — centered vertically when sparse */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-7 max-w-5xl mx-auto min-h-[50vh] place-content-center">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-7 max-w-5xl mx-auto content-start md:min-h-[50vh] md:place-content-center">
         {filteredParticipants.length === 0 ? (
           <div className="col-span-full">
             <EmptyParticipantState

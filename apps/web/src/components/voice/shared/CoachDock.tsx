@@ -36,11 +36,16 @@ interface CoachDockProps {
 
 const STORAGE_KEY = "sb.coachDock.collapsed";
 
+/** Phones have room for the coach or the people, not both: there it starts folded until you open it */
+const isPhone = () =>
+  typeof window !== "undefined" && typeof window.matchMedia === "function" && !window.matchMedia("(min-width: 768px)").matches;
+
 const readCollapsed = () => {
   try {
-    return localStorage.getItem(STORAGE_KEY) === "1";
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved === null ? isPhone() : saved === "1";
   } catch {
-    return false;
+    return isPhone();
   }
 };
 

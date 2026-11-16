@@ -5,6 +5,8 @@
 @import "./styles/stage-palette.css";
 /* Voice room motion: aurora, edge light, speaker halos */
 @import "./styles/voice-stage.css";
+/* The speaking effects people pick for their avatar: animals, imperial, nature (Settings) */
+@import "./styles/speaking-effects.css";
 /* Echo, the dashboard mascot: float, blink, antenna, talking waveform */
 @import "./styles/mascot.css";
 

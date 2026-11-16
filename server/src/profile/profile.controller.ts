@@ -2,6 +2,7 @@ import { Controller, Get, Put, Body, UseGuards, Request } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { OnboardingDto } from './dto/onboarding.dto';
+import { SpeakingEffectDto } from './dto/speaking-effect.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('profile')
@@ -18,6 +19,12 @@ export class ProfileController {
   @Put('me/onboarding')
   async completeOnboarding(@Request() req, @Body() body: OnboardingDto) {
     return this.profileService.completeOnboarding(req.user.id, body);
+  }
+
+  /** The effect others see around your avatar while you talk in voice rooms */
+  @Put('me/speaking-effect')
+  async setSpeakingEffect(@Request() req, @Body() body: SpeakingEffectDto) {
+    return this.profileService.setSpeakingEffect(req.user.id, body.effect);
   }
 
   @Put('me')

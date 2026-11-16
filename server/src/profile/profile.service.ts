@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { readOnboarding, SELF_LEVELS, type OnboardingInput } from './onboarding';
+import { storedSpeakingEffect, type SpeakingEffectId } from './speaking-effects';
 
 @Injectable()
 export class ProfileService {
@@ -10,7 +11,7 @@ export class ProfileService {
   async getProfileByUserId(userId: string) {
     const profile = await this.prisma.profile.findUnique({
       where: { userId },
-      include: { user: { select: { id: true, email: true, name: true, avatarUrl: true } } },
+      include: { user: { select: { id: true, email: true, name: true, avatarUrl: true, speakingEffect: true } } },
     });
     if (!profile) {
       throw new NotFoundException('Profile not found');
@@ -46,6 +47,16 @@ export class ProfileService {
     return { ok: true, saved: answers };
   }
 
+  /** Saves the speaking effect (classic is stored as null, the default) */
+  async setSpeakingEffect(userId: string, effect: SpeakingEffectId) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { speakingEffect: storedSpeakingEffect(effect) },
+      select: { speakingEffect: true },
+    });
+    return { speakingEffect: user.speakingEffect ?? 'classic' };
+  }
+
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     // Ensure profile exists
     const existing = await this.prisma.profile.findUnique({ where: { userId } });
@@ -63,7 +74,7 @@ export class ProfileService {
         goals: dto.goals,
         bio: dto.bio,
       },
-      include: { user: { select: { id: true, email: true, name: true, avatarUrl: true } } },
+      include: { user: { select: { id: true, email: true, name: true, avatarUrl: true, speakingEffect: true } } },
     });
   }
 }

@@ -235,7 +235,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
 
   return (
     // Above the speaker queue while the transcript or a word card is open, so neither is covered
-    <div className={`absolute inset-x-0 bottom-28 ${showTranscript || picked ? "z-40" : "z-30"} flex flex-col items-center gap-2 px-4 pointer-events-none`}>
+    <div className={`absolute inset-x-0 bottom-2 md:bottom-28 ${showTranscript || picked ? "z-40" : "z-30"} flex flex-col items-center gap-2 px-4 pointer-events-none`}>
       <AnimatePresence>
         {enabled && picked && (
           <motion.div
@@ -403,7 +403,8 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
       {/* Nothing to show yet: say whether we are listening, or why not */}
       {enabled && !showTranscript && lines.length === 0 && (status !== "listening" || listening) && (
         <div
-          className="pointer-events-auto max-w-[min(94%,560px)] rounded-xl border px-3 py-2 text-xs flex items-center gap-2 backdrop-blur-xl"
+          // On phones the card sits over the people; "this browser can't caption" is not something they can fix there
+          className={`pointer-events-auto max-w-[min(94%,560px)] rounded-xl border px-3 py-2 text-xs items-center gap-2 backdrop-blur-xl ${status === "unsupported" ? "hidden md:flex" : "flex"}`}
           style={{
             background: "var(--sx-bg-14-14-26-800)",
             borderColor: status === "listening" ? THEME.colors.border.primary : THEME.colors.border.accent,

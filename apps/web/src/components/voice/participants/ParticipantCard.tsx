@@ -17,6 +17,8 @@ import {
 import { THEME } from '../VoiceRoomView.theme';
 import { initials, hueFromString, getCountryFlag } from '../VoiceRoomView.helpers';
 import { tr } from "../../../i18n/core";
+import { SpeakingEffect } from "../effects/SpeakingEffect";
+import { readSpeakingEffect } from "../effects/speakingEffects";
 
 export interface RoomParticipant {
   id: string;
@@ -47,6 +49,8 @@ export interface RoomParticipant {
   missionDone?: boolean;
   /** Room coach: the host spotlighted them with a topic card */
   spotlighted?: boolean;
+  /** What plays around their avatar while they talk, chosen in Settings (effects/speakingEffects.ts) */
+  speakingEffect?: string | null;
 }
 
 
@@ -104,6 +108,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
   const voiceLevel = isSpeaking
     ? Math.min(1, Math.max(0.25, Number(participant.audioLevel) || 0.35))
     : 0;
+  const effect = readSpeakingEffect(participant.speakingEffect);
 
   return (
     <motion.div
@@ -115,8 +120,14 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      <div className="cursor-pointer" onClick={onViewProfile}>
-        <div className="relative">
+      {/* Room around the avatar for frames: crowns and ears above, ribbons below (the same for everyone, so rows line up) */}
+      <div className="cursor-pointer" onClick={onViewProfile} style={{ paddingTop: Math.round(s.avatar * 0.24) }}>
+        <div className="relative" style={{ marginBottom: Math.round(s.avatar * 0.1) }}>
+          {/* A chosen frame (Settings → Speaking effect) is always on; its speaking extras play while they talk */}
+          {effect !== 'classic' && (
+            <SpeakingEffect effect={effect} layer="back" size={s.avatar} level={voiceLevel} talking={isSpeaking} />
+          )}
+
           {/* Speaking halo: a breathing aura, a slowly turning ring and two ripples. The aura and ring follow the
               voice level; everything fades with opacity so it never jumps (see styles/voice-stage.css) */}
           <div
@@ -124,7 +135,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
             className="absolute inset-0 pointer-events-none"
             style={{ opacity: isSpeaking ? 1 : 0, transition: 'opacity 350ms ease' }}
           >
-            {isSpeaking && (
+            {isSpeaking && effect === 'classic' && (
               <>
                 <span className="vr-halo-glow" style={{ opacity: 0.55 + voiceLevel * 0.45, inset: -(8 + voiceLevel * 12) }} />
                 <span className="vr-halo-ripple" />
@@ -157,6 +168,11 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
           >
             {!participant.avatarUrl && initials(participant.name)}
           </div>
+
+          {/* The chosen effect's front parts (ears, crowns, petals…) sit over the face */}
+          {effect !== 'classic' && (
+            <SpeakingEffect effect={effect} layer="front" size={s.avatar} level={voiceLevel} talking={isSpeaking} />
+          )}
 
           {/* Online status dot */}
           {isOnline && !isMuted && !isSpeaking && (
@@ -246,7 +262,8 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
         </div>
 
         {/* Name and details */}
-        <div className={`mt-1.5 text-center ${s.gap}`}>
+        {/* relative: the name stays above a frame's lowest parts */}
+        <div className={`relative mt-1.5 text-center ${s.gap}`}>
           <span
             className={`${s.nameSize} font-semibold tracking-tight truncate max-w-[120px] block`}
             style={{ color: THEME.colors.text.primary }}

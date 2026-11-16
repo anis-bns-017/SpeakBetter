@@ -5,6 +5,7 @@ import { PageHeader } from '../components/ui';
 import { DeleteAccountCard } from '../components/settings/DeleteAccountCard';
 import { SessionsCard } from '../components/settings/SessionsCard';
 import { LanguageCard } from '../components/settings/LanguageCard';
+import { SpeakingEffectCard } from '../components/settings/SpeakingEffectCard';
 import { useT } from '../i18n';
 import { tr } from "../i18n/core";
 
@@ -54,6 +55,8 @@ export const SettingsPage = () => {
         />
 
         <LanguageCard />
+
+        <SpeakingEffectCard />
 
         {/* Main Settings Form Container */}
         <div className="bg-surface p-6 sm:p-8 rounded-3xl border border-line shadow-sm">

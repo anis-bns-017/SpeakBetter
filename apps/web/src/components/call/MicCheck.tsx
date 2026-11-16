@@ -3,14 +3,17 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { COLORS } from "../voice/lobby/lobbyTheme";
 import { tr } from "../../i18n/core";
+import { getMicrophone, isMicrophoneUnavailable } from "../../lib/microphone";
 
-type State = "idle" | "starting" | "listening" | "heard" | "denied" | "missing";
+type State = "idle" | "starting" | "listening" | "heard" | "denied" | "missing" | "unavailable";
 
 /** Listens to your microphone for a few seconds and shows a level meter before you queue */
 export const MicCheck: React.FC = () => {
   const [state, setState] = useState<State>("idle");
   const [level, setLevel] = useState(0);
   const [label, setLabel] = useState("");
+  /** Why this page can't use the microphone at all (plain http, old browser) */
+  const [unavailable, setUnavailable] = useState("");
   const stopRef = useRef<(() => void) | null>(null);
 
   const stop = useCallback(() => {
@@ -26,8 +29,13 @@ export const MicCheck: React.FC = () => {
     setLevel(0);
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await getMicrophone(true);
     } catch (error) {
+      if (isMicrophoneUnavailable(error)) {
+        setUnavailable(error.message);
+        setState("unavailable");
+        return;
+      }
       const name = (error as DOMException)?.name;
       setState(name === "NotFoundError" || name === "OverconstrainedError" ? "missing" : "denied");
       return;
@@ -71,7 +79,7 @@ export const MicCheck: React.FC = () => {
     frame = requestAnimationFrame(tick);
   };
 
-  const failed = state === "denied" || state === "missing";
+  const failed = state === "denied" || state === "missing" || state === "unavailable";
 
   return (
     <div className="mt-5 rounded-2xl border p-4" style={{ borderColor: COLORS.border }}>
@@ -79,13 +87,14 @@ export const MicCheck: React.FC = () => {
         <div className="min-w-0">
           <p className="text-sm font-medium" style={{ color: COLORS.textPrimary }}>
             {tr("Check your microphone")}</p>
-          <p className="truncate text-xs" style={{ color: failed ? COLORS.danger : COLORS.textMuted }} role={failed ? "alert" : undefined}>
+          <p className={`${state === "unavailable" ? "" : "truncate "}text-xs`} style={{ color: failed ? COLORS.danger : COLORS.textMuted }} role={failed ? "alert" : undefined}>
             {state === "idle" && tr("Make sure your partner can hear you.")}
             {state === "starting" && tr("Waiting for permission...")}
             {state === "listening" && tr("Say something, like “hello, how are you?”")}
             {state === "heard" && tr("Your microphone works{value}", { value: label ? `: ${label}` : "." })}
             {state === "denied" && tr("Microphone access is blocked. Allow it in your browser's address bar.")}
             {state === "missing" && tr("No microphone found. Plug one in or pick another device.")}
+            {state === "unavailable" && unavailable}
           </p>
         </div>
         <button

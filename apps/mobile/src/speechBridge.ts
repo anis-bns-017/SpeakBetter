@@ -7,8 +7,15 @@
 // There the bridge is simply off and the site behaves as in a browser without speech recognition.
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import { Platform } from "react-native";
+import { requireOptionalNativeModule } from "expo";
 import type { WebView, WebViewMessageEvent } from "react-native-webview";
 import { SPEECH_POLYFILL } from "./speechPolyfill";
+
+/**
+ * The app's web view. react-native-webview 14 declares WebView<P = undefined> with props WebViewProps & P, and
+ * "& undefined" makes every prop invalid in TypeScript, so the extra-props type is given explicitly.
+ */
+export type AppWebView = WebView<object>;
 
 interface Subscription {
   remove(): void;
@@ -27,8 +34,13 @@ interface SpeechModule {
   addListener(event: string, listener: (event: Record<string, unknown>) => void): Subscription;
 }
 
-/** The native module, or null in Expo Go (requiring it there throws) */
+/**
+ * The native module, or null in Expo Go. Ask first with requireOptionalNativeModule, which returns null when it's
+ * missing: requiring expo-speech-recognition without it throws, and in development Expo reports that as a crash
+ * ("Cannot find native module 'ExpoSpeechRecognition'") even though the error is caught here.
+ */
 function loadSpeechModule(): SpeechModule | null {
+  if (!requireOptionalNativeModule("ExpoSpeechRecognition")) return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("expo-speech-recognition").ExpoSpeechRecognitionModule as SpeechModule | undefined;
@@ -50,7 +62,7 @@ interface PageMessage {
   options?: { lang?: string; continuous?: boolean; interimResults?: boolean; maxAlternatives?: number };
 }
 
-export function useSpeechBridge(webView: RefObject<WebView | null>) {
+export function useSpeechBridge(webView: RefObject<AppWebView | null>) {
   const speech = useMemo(loadSpeechModule, []);
   /** The page's recognition object that the phone's recognizer is working for */
   const activeId = useRef<string | null>(null);

@@ -321,7 +321,8 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
         </div>
 
         {stats.length > 0 && (
-          <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto px-3 pt-2.5 sm:px-4" style={{ scrollbarWidth: "none" }}>
+          // Phones skip these: the header already shows who's here and speaking, and the people need the room
+          <div className="hidden shrink-0 items-center gap-1.5 overflow-x-auto px-3 pt-2.5 sm:px-4 md:flex" style={{ scrollbarWidth: "none" }}>
             {stats.map((stat) => (
               <StatChip key={stat.id} stat={stat} />
             ))}

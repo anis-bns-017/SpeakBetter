@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -8,6 +8,27 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const port = Number(env.DEV_PORT) || 5173;
 
+  // Forwarding for a page opened over https through a tunnel (src/lib/api/serverUrl.ts, devProxyOrigin): the page
+  // can't call the plain-http API and LiveKit itself, so the dev server passes their requests on. Sign-in cookies
+  // then belong to the page's own address. The API only accepts known origins, so forwarded requests say they
+  // come from this dev server, which is what they are.
+  const apiTarget = new URL(env.VITE_API_URL || "http://localhost:3001").origin;
+  const livekitTarget = (env.VITE_LIVEKIT_URL || "ws://localhost:18080").replace(/^ws/, "http");
+  const asDevServer: ProxyOptions["configure"] = (proxy) => {
+    const origin = `http://localhost:${port}`;
+    proxy.on("proxyReq", (req) => {
+      if (req.getHeader("origin")) req.setHeader("origin", origin);
+    });
+    proxy.on("proxyReqWs", (req) => {
+      if (req.getHeader("origin")) req.setHeader("origin", origin);
+    });
+  };
+  const proxy: Record<string, ProxyOptions> = {
+    "/__api": { target: apiTarget, changeOrigin: true, rewrite: (path) => path.replace(/^\/__api/, ""), configure: asDevServer },
+    "/socket.io": { target: apiTarget, changeOrigin: true, ws: true, configure: asDevServer },
+    "/__livekit": { target: livekitTarget, changeOrigin: true, ws: true, rewrite: (path) => path.replace(/^\/__livekit/, "") },
+  };
+
   return {
     plugins: [
       react(),
@@ -15,7 +36,14 @@ export default defineConfig(({ mode }) => {
     ],
     // DEV_LAN=1 opens the dev server to this Wi-Fi network, to try the site or the phone app on a real phone.
     // Off by default: anyone on the network can reach it while it's on.
-    server: { port, strictPort: true, host: env.DEV_LAN === "1" ? true : undefined },
+    // allowedHosts: the https tunnel addresses (pnpm --filter web tunnel) may reach it too.
+    server: {
+      port,
+      strictPort: true,
+      host: env.DEV_LAN === "1" ? true : undefined,
+      allowedHosts: [".trycloudflare.com"],
+      proxy,
+    },
     build: {
       rolldownOptions: {
         output: {

@@ -9,6 +9,7 @@ import {
   type RemoteAudioTrack,
 } from "livekit-client";
 import { ensureFreshSession } from "../../lib/api/client";
+import { isMicrophoneUnavailable, MicrophoneUnavailableError, microphoneErrorMessage, microphoneSupport } from "../../lib/microphone";
 import {
   callApi,
   callSocketUrl,
@@ -174,9 +175,16 @@ export function useRandomCall() {
         await room.connect(info.liveKit.url, info.liveKit.token);
         setMediaState("connected");
         try {
+          const support = microphoneSupport();
+          if (support !== "ok") throw new MicrophoneUnavailableError(support);
           await room.localParticipant.setMicrophoneEnabled(true);
-        } catch {
-          setMicError("We could not use your microphone. Allow it in your browser and try again.");
+        } catch (micProblem) {
+          setMuted(true);
+          setMicError(
+            isMicrophoneUnavailable(micProblem)
+              ? micProblem.message
+              : "We could not use your microphone. Allow it in your browser and try again.",
+          );
         }
       } catch {
         setError({ code: "MEDIA", message: "Could not connect the audio. Check your connection." });
@@ -406,10 +414,12 @@ export function useRandomCall() {
     if (!room) return;
     const next = !muted;
     try {
+      const support = microphoneSupport();
+      if (!next && support !== "ok") throw new MicrophoneUnavailableError(support);
       await room.localParticipant.setMicrophoneEnabled(!next);
       setMuted(next);
-    } catch {
-      setMicError("Could not change your microphone.");
+    } catch (micProblem) {
+      setMicError(isMicrophoneUnavailable(micProblem) ? microphoneErrorMessage(micProblem) : "Could not change your microphone.");
     }
   }, [muted]);
 
