@@ -5,7 +5,7 @@
  * Minutes are an estimate built from what you did (speaking time is measured; the rest is per action).
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowDownRight,
@@ -53,8 +53,8 @@ const shortDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateStrin
 const longDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 /** "This week", "Last week", or the date the week started */
 const weekLabel = (weeksAgo: number) => {
-  if (weeksAgo === 0) return "This week";
-  if (weeksAgo === 1) return "Last week";
+  if (weeksAgo === 0) return tr("This week");
+  if (weeksAgo === 1) return tr("Last week");
   const start = new Date();
   start.setDate(start.getDate() - weeksAgo * 7 - 6);
   return start.toLocaleDateString(undefined, { day: "numeric", month: "short" });
@@ -130,12 +130,12 @@ const Delta: React.FC<{ now: number | null; before: number | null; lowerIsBetter
 };
 
 const WEEK_TILES: Array<{ key: keyof WeekStats; label: string; unit?: string; lowerIsBetter?: boolean }> = [
-  { key: "minutes", label: msg("Minutes practised"), unit: "min" },
+  { key: "minutes", label: msg("Minutes practised"), unit: msg("min") },
   { key: "xp", label: msg("XP earned") },
-  { key: "speakingMinutes", label: msg("Speaking"), unit: "min" },
+  { key: "speakingMinutes", label: msg("Speaking"), unit: msg("min") },
   { key: "reviews", label: msg("Cards reviewed") },
   { key: "pronunciationAverage", label: msg("Pronunciation score") },
-  { key: "activeDays", label: msg("Days you practised"), unit: "of 7" },
+  { key: "activeDays", label: msg("Days you practised"), unit: msg("of 7") },
 ];
 
 const WeekCompare: React.FC<{ thisWeek: WeekStats; lastWeek: WeekStats }> = ({ thisWeek, lastWeek }) => (
@@ -148,7 +148,7 @@ const WeekCompare: React.FC<{ thisWeek: WeekStats; lastWeek: WeekStats }> = ({ t
           <p className="text-xs text-slate-500">{tr(t.label)}</p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
             {now ?? "–"}
-            {now !== null && t.unit && <span className="ml-1 text-sm font-semibold text-slate-400">{t.unit}</span>}
+            {now !== null && t.unit && <span className="ml-1 text-sm font-semibold text-slate-400">{tr(t.unit)}</span>}
           </p>
           <Delta now={now} before={t.key === "pronunciationAverage" ? before : (before ?? 0)} lowerIsBetter={t.lowerIsBetter} />
         </div>
@@ -194,8 +194,8 @@ const ActivityCalendar: React.FC<{ days: ProgressInsights["days"] }> = ({ days }
                 key={d.date}
                 type="button"
                 aria-label={tr("{value}: {Math} minutes, {xp} XP", { value: longDate(d.date), Math: Math.round(d.minutes), xp: d.xp })}
-                onMouseEnter={(e) => tip.show(e, [longDate(d.date), `${Math.round(d.minutes)} min · ${d.xp} XP`])}
-                onFocus={(e) => tip.show(e, [longDate(d.date), `${Math.round(d.minutes)} min · ${d.xp} XP`])}
+                onMouseEnter={(e) => tip.show(e, [longDate(d.date), tr("{minutes} min · {xp} XP", { minutes: Math.round(d.minutes), xp: d.xp })])}
+                onFocus={(e) => tip.show(e, [longDate(d.date), tr("{minutes} min · {xp} XP", { minutes: Math.round(d.minutes), xp: d.xp })])}
                 onMouseLeave={tip.hide}
                 onBlur={tip.hide}
                 className="w-[14px] h-[14px] rounded-[3px] bg-slate-100 dark:bg-white/[0.06] outline-offset-1"
@@ -250,7 +250,7 @@ const XpByDay: React.FC<{ days: ProgressInsights["days"] }> = ({ days }) => {
               onMouseEnter={(e) =>
                 tip.show(e, [
                   `${longDate(r.date)} · ${r.total} XP`,
-                  ...ACTIVITY_SERIES.map((s, i) => (r.parts[i] ? `${s.label}: ${r.parts[i]}` : "")).filter(Boolean),
+                  ...ACTIVITY_SERIES.map((s, i) => (r.parts[i] ? `${tr(s.label)}: ${r.parts[i]}` : "")).filter(Boolean),
                 ])
               }
               onFocus={(e) => tip.show(e, [`${longDate(r.date)} · ${r.total} XP`])}
@@ -336,9 +336,9 @@ const WeekBars: React.FC<{
               <button
                 key={i}
                 type="button"
-                aria-label={`${v.label}: ${v.value ?? "no data"} ${unit}`}
-                onMouseEnter={(e) => tip.show(e, [v.label, v.value === null ? "No practice" : `${v.value} ${unit}${v.detail ? ` · ${v.detail}` : ""}`])}
-                onFocus={(e) => tip.show(e, [v.label, v.value === null ? "No practice" : `${v.value} ${unit}`])}
+                aria-label={`${v.label}: ${v.value ?? tr("no data")} ${tr(unit)}`}
+                onMouseEnter={(e) => tip.show(e, [v.label, v.value === null ? tr("No practice") : `${v.value} ${tr(unit)}${v.detail ? ` · ${v.detail}` : ""}`])}
+                onFocus={(e) => tip.show(e, [v.label, v.value === null ? tr("No practice") : `${v.value} ${tr(unit)}`])}
                 onMouseLeave={tip.hide}
                 onBlur={tip.hide}
                 className="flex-1 h-full flex items-end rounded-t-[4px] hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"
@@ -354,7 +354,7 @@ const WeekBars: React.FC<{
           <div className="mt-1 flex justify-between text-[11px] text-slate-400">
             <span>{tr(values[0].label)}</span>
             <span className="font-semibold text-slate-600 dark:text-slate-300">
-              {tr(last.label)}: {last.value ?? "–"} {last.value !== null ? unit : ""}
+              {tr(last.label)}: {last.value ?? "–"} {last.value !== null ? tr(unit) : ""}
             </span>
           </div>
         </div>
@@ -405,9 +405,9 @@ const MistakesByWeek: React.FC<{ mistakes: ProgressInsights["mistakes"] }> = ({ 
                     aria-label={tr("{value}: {total} mistakes", { value: weekLabel(w.weeksAgo), total: w.total })}
                     onMouseEnter={(e) =>
                       tip.show(e, [
-                        `${weekLabel(w.weeksAgo)} · ${w.total} mistake${w.total === 1 ? "" : "s"}`,
-                        ...mistakes.patterns.map((p, i) => (parts[i] ? `${p.label.split(" (")[0]}: ${parts[i]}` : "")).filter(Boolean),
-                        ...(rest ? [`Other: ${rest}`] : []),
+                        w.total === 1 ? tr("{week} · 1 mistake", { week: weekLabel(w.weeksAgo) }) : tr("{week} · {total} mistakes", { week: weekLabel(w.weeksAgo), total: w.total }),
+                        ...mistakes.patterns.map((p, i) => (parts[i] ? `${tr(p.label.split(" (")[0])}: ${parts[i]}` : "")).filter(Boolean),
+                        ...(rest ? [`${tr("Other")}: ${rest}`] : []),
                       ])
                     }
                     onFocus={(e) => tip.show(e, [`${weekLabel(w.weeksAgo)} · ${w.total}`])}
@@ -450,14 +450,15 @@ export const ProgressPage: React.FC = () => {
   const { data, isLoading, isError, refetch } = useProgressInsights();
   const { data: legacy } = useProgress();
 
-  const weeklyMinutes = useMemo(
-    () => (data ? data.weeklyMinutes.map((value, i, all) => ({ label: weekLabel(all.length - 1 - i), value })) : []),
-    [data],
-  );
-  const pronunciationWeeks = useMemo(
-    () => (data ? data.pronunciation.byWeek.map((w) => ({ label: weekLabel(w.weeksAgo), value: w.average, detail: `${w.tries} tries` })) : []),
-    [data],
-  );
+  const weeklyMinutes = data ? data.weeklyMinutes.map((value, i, all) => ({ label: weekLabel(all.length - 1 - i), value })) : [];
+  const pronunciationWeeks = data
+    ? data.pronunciation.byWeek.map((w) => ({ label: weekLabel(w.weeksAgo), value: w.average, detail: tr("{n} tries", { n: w.tries }) }))
+    : [];
+  const summaryLines = data
+    ? (data.summaryLines?.map((line) =>
+        tr(line.text, Object.fromEntries(Object.entries(line.vars).map(([key, value]) => [key, typeof value === "string" ? tr(value) : value]))),
+      ) ?? data.summary)
+    : [];
 
   if (isLoading) {
     return (
@@ -484,12 +485,12 @@ export const ProgressPage: React.FC = () => {
     <div className={`max-w-5xl mx-auto px-4 sm:px-6 py-6 lg:py-10 space-y-5 ${SERIES_VARS}`}>
       <PageHeader icon={TrendingUp} tone="indigo" eyebrow={tr("Overview")} title={tr("Your progress")} subtitle={tr("How your practice is going, week by week.")} />
 
-      {data.summary.length > 0 && (
+      {summaryLines.length > 0 && (
         <section className="rounded-3xl bg-indigo-900 ring-1 ring-inset ring-white/10 text-white p-5 shadow-md shadow-indigo-500/15">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5" /> {" "}{tr("This week")}</p>
           <ul className="mt-2 space-y-1.5">
-            {data.summary.map((line) => (
+            {summaryLines.map((line) => (
               <li key={line} className="text-sm sm:text-base leading-snug">{line}</li>
             ))}
           </ul>
@@ -537,7 +538,7 @@ export const ProgressPage: React.FC = () => {
           title={tr("Minutes per week")}
           subtitle={tr("Estimated from what you did · last 12 weeks")}
           values={weeklyMinutes}
-          unit="min"
+          unit={msg("min")}
           empty="No practice yet. Your weekly minutes will show up here."
         />
       </div>

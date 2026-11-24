@@ -25,7 +25,6 @@ export interface ChatParticipant {
   user: {
     id: string;
     name: string;
-    email: string;
     avatarUrl?: string;
   };
   role: "owner" | "admin" | "member";

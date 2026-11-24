@@ -8,6 +8,8 @@ import { LIBRARY, LIBRARY_LEVELS, layoutFor, readingMinutes, TEXT_BY_ID, topicsO
 
 /** XP the first time you finish a text */
 export const LIBRARY_XP = 8;
+/** Share of the questions you need right for a text to count as finished */
+export const LIBRARY_PASS_RATIO = 0.5;
 
 /** The id a saved library word has on its flashcard: "<textId>:<word>" */
 export const wordCardId = (textId: string, word: string) => `${textId}:${word.toLowerCase()}`;
@@ -112,8 +114,8 @@ export class LibraryService {
 
   /**
    * Checks the answers (the index of the option chosen, as shown), shows the right ones with an explanation
-   * and the sentence that holds each answer, and saves the best score. Finishing a text the first time
-   * earns XP.
+   * and the sentence that holds each answer, and saves the best score. A text counts as finished, and earns
+   * XP the first time, once at least half the answers are right.
    */
   async answer(userId: string, id: string, answers: unknown) {
     const text = TEXT_BY_ID.get(id);
@@ -140,10 +142,12 @@ export class LibraryService {
     const score = results.filter((r) => r.correct).length;
     const total = results.length;
     const existing = await this.prisma.libraryProgress.findUnique({ where: { userId_textId: { userId, textId: id } } });
-    const firstCompletion = !existing?.completedAt;
+    const passMark = Math.ceil(total * LIBRARY_PASS_RATIO);
+    const passed = score >= passMark;
+    const firstCompletion = passed && !existing?.completedAt;
     await this.prisma.libraryProgress.upsert({
       where: { userId_textId: { userId, textId: id } },
-      create: { userId, textId: id, bestScore: score, total, attempts: 1, completedAt: new Date() },
+      create: { userId, textId: id, bestScore: score, total, attempts: 1, ...(passed ? { completedAt: new Date() } : {}) },
       update: {
         bestScore: Math.max(existing?.bestScore ?? 0, score),
         total,
@@ -155,7 +159,7 @@ export class LibraryService {
       await this.activity.recordActivity(userId, LIBRARY_XP, 'LESSON_COMPLETED');
       void this.badges?.evaluate(userId);
     }
-    return { score, total, results, firstCompletion, xp: firstCompletion ? LIBRARY_XP : 0 };
+    return { score, total, passed, passMark, results, firstCompletion, xp: firstCompletion ? LIBRARY_XP : 0 };
   }
 
   /** Saves one of a text's key words as a flashcard, so it joins spaced review (once per word) */

@@ -1,4 +1,5 @@
 import {
+  ArrayMinSize,
   IsString,
   IsOptional,
   IsArray,
@@ -175,15 +176,21 @@ export class RemoveReactionDto {
 
 export class CreateGroupDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(60)
   name: string;
 
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(49)
   @IsString({ each: true }) // cuid, not UUID
   participantIds: string[];
 }
 
 export class AddParticipantsDto {
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(49)
   @IsString({ each: true }) // cuid, not UUID
   userIds: string[];
 }

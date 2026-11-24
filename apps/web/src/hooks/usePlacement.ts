@@ -98,6 +98,9 @@ export const useAnswerPlacement = () => {
       queryClient.invalidateQueries({ queryKey: ['learning-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['quests'] });
       queryClient.invalidateQueries({ queryKey: ['streak'] });
+      for (const key of ['dictation-session', 'exercise-set', 'grammar', 'library', 'vocab-packs', 'word-of-day', 'shadowing', 'roleplay', 'writing', 'plan-today']) {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      }
     },
   });
 };

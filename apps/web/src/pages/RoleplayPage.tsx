@@ -62,6 +62,8 @@ export const RoleplayPage: React.FC = () => {
   const [said, setSaid] = useState<Array<{ text: string; score: number | null }>>([]);
   const [result, setResult] = useState<RoleplayResult | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  /** The server scores the attempts made since this moment */
+  const startedAt = useRef("");
 
   useEffect(() => () => stopSpeaking(), []);
   useEffect(() => {
@@ -148,7 +150,7 @@ export const RoleplayPage: React.FC = () => {
     setPhase("done");
     void speak(scenario.closing, { rate: 0.92 });
     try {
-      const r = await finish.mutateAsync(nextSaid.map((s) => s.score));
+      const r = await finish.mutateAsync(startedAt.current);
       setResult(r);
       if (r.xp > 0) toast.success(tr("Conversation done! +{xp} XP", { xp: r.xp }));
     } catch {
@@ -163,6 +165,7 @@ export const RoleplayPage: React.FC = () => {
     setAttempt(null);
     setSaid([]);
     setResult(null);
+    startedAt.current = new Date().toISOString();
     setPhase("talking");
   };
 
@@ -200,7 +203,7 @@ export const RoleplayPage: React.FC = () => {
             {scenario.partner} {" "}{tr("will speak first. At each of your turns, pick a reply and say it out loud.")}{!micOk && tr(" This browser can't listen, so read your replies aloud and tap “I said it”.")}
           </div>
           <div className="flex justify-end">
-            <button type="button" className={primaryBtn} onClick={() => setPhase("talking")}>
+            <button type="button" className={primaryBtn} onClick={() => { startedAt.current = new Date().toISOString(); setPhase("talking"); }}>
               {tr("Start the conversation")}{" "}<ArrowRight className="w-4 h-4" />
             </button>
           </div>

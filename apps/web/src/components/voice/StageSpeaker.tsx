@@ -13,6 +13,8 @@ import {
 } from "../../hooks/useVoice";
 import { useAuth } from "../../contexts/useAuth";
 import { toast } from "sonner";
+import { serverMessage } from "../../lib/serverMessage";
+import { CountryFlag } from "./shared/CountryFlag";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import {
   Hand,
@@ -130,59 +132,6 @@ function hueFromString(str: string) {
   return Math.abs(hash) % 360;
 }
 
-
-function getCountryFlag(countryCode?: string): string {
-  if (!countryCode) return "🌍";
-  const flags: Record<string, string> = {
-    US: "🇺🇸",
-    GB: "🇬🇧",
-    FR: "🇫🇷",
-    DE: "🇩🇪",
-    ES: "🇪🇸",
-    IT: "🇮🇹",
-    JP: "🇯🇵",
-    KR: "🇰🇷",
-    CN: "🇨🇳",
-    IN: "🇮🇳",
-    BR: "🇧🇷",
-    RU: "🇷🇺",
-    AU: "🇦🇺",
-    CA: "🇨🇦",
-    MX: "🇲🇽",
-    ZA: "🇿🇦",
-    NG: "🇳🇬",
-    EG: "🇪🇬",
-    SA: "🇸🇦",
-    AE: "🇦🇪",
-    SG: "🇸🇬",
-    MY: "🇲🇾",
-    PH: "🇵🇭",
-    VN: "🇻🇳",
-    TH: "🇹🇭",
-    ID: "🇮🇩",
-    PK: "🇵🇰",
-    BD: "🇧🇩",
-    TR: "🇹🇷",
-    NL: "🇳🇱",
-    BE: "🇧🇪",
-    CH: "🇨🇭",
-    SE: "🇸🇪",
-    NO: "🇳🇴",
-    DK: "🇩🇰",
-    FI: "🇫🇮",
-    PL: "🇵🇱",
-    GR: "🇬🇷",
-    PT: "🇵🇹",
-    IE: "🇮🇪",
-    NZ: "🇳🇿",
-    AR: "🇦🇷",
-    CL: "🇨🇱",
-    CO: "🇨🇴",
-    PE: "🇵🇪",
-    VE: "🇻🇪",
-  };
-  return flags[countryCode] || "🌍";
-}
 
 // ---- Sub-Components ----
 
@@ -526,7 +475,6 @@ const ListenerCard: React.FC<{
 }> = ({ listener, isModerator, isFull, isPending, onAddToStage, onKick }) => {
   const hue = hueFromString(listener.name);
   const hasRaisedHand = listener.raisedHand;
-  const countryFlag = getCountryFlag(listener.country);
 
   return (
     <motion.div
@@ -577,7 +525,7 @@ const ListenerCard: React.FC<{
           >
             {listener.name}
           </span>
-          <span className="text-xs">{countryFlag}</span>
+          <CountryFlag country={listener.country} size={14} />
           {hasRaisedHand && (
             <motion.div
               animate={{ scale: [1, 1.2, 1] }}
@@ -793,7 +741,7 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
       avatarUrl: p.user.avatarUrl,
       raisedHand: p.raisedHand || false,
       joinedAt: p.joinedAt,
-      country: p.user.country,
+      country: p.user.country ?? p.user.profile?.country ?? undefined,
       isVerified: p.user.isVerified,
       isPremium: p.user.isPremium,
     })) as Listener[];
@@ -825,8 +773,8 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
       await addToStage.mutateAsync({ roomId, userId });
       toast.success(tr("✨ Invited to the stage!"));
       refetch();
-    } catch {
-      toast.error(tr("Couldn't add them to the stage"));
+    } catch (error) {
+      toast.error(serverMessage(error) || tr("Couldn't add them to the stage"));
     } finally {
       setPendingUserId(null);
     }
@@ -838,21 +786,24 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
       await removeFromStage.mutateAsync({ roomId, userId });
       toast.success(tr("Stepped off the stage"));
       refetch();
-    } catch {
-      toast.error(tr("Couldn't remove them from the stage"));
+    } catch (error) {
+      toast.error(serverMessage(error) || tr("Couldn't remove them from the stage"));
     } finally {
       setPendingUserId(null);
     }
   };
 
-  const handleKickUser = async (_userId: string) => {
-    try {
-      toast.success(tr("User removed from room"));
-      refetch();
-    } catch {
-      toast.error(tr("Failed to remove user"));
+  const moderate = (event: string, userId: string, done: string) => {
+    if (!socket?.connected) {
+      toast.error(tr("Not connected to voice server"));
+      return;
     }
+    socket.emit(event, { roomId, userId });
+    toast.success(done);
+    refetch();
   };
+
+  const handleKickUser = (userId: string) => moderate("voice:kick", userId, tr("User removed from room"));
 
   const handleRaiseHand = () => {
     setIsRaisingHand(true);
@@ -868,15 +819,9 @@ export const StageSpeaker: React.FC<StageSpeakerProps> = ({
     toast.success(tr("Hand lowered"));
   };
 
-  const handleMuteSpeaker = async (_userId: string) => {
-    toast.success(tr("Speaker muted"));
-    refetch();
-  };
+  const handleMuteSpeaker = (userId: string) => moderate("voice:mute-user", userId, tr("Speaker muted"));
 
-  const handleUnmuteSpeaker = async (_userId: string) => {
-    toast.success(tr("Speaker unmuted"));
-    refetch();
-  };
+  const handleUnmuteSpeaker = (userId: string) => moderate("voice:unmute-user", userId, tr("Speaker unmuted"));
 
   return (
     <div

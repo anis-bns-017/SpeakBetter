@@ -327,7 +327,7 @@ export const ParticipantGrid: React.FC<ParticipantGridProps> = ({
       )}
 
       {/* Grid — centered vertically when sparse */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-7 max-w-5xl mx-auto content-start md:min-h-[50vh] md:place-content-center">
+      <div className="mx-auto grid w-full max-w-5xl content-start justify-center gap-2.5 [grid-template-columns:repeat(auto-fill,minmax(136px,1fr))] sm:gap-3.5 sm:[grid-template-columns:repeat(auto-fit,minmax(150px,172px))] md:min-h-[40vh] md:place-content-center">
         {filteredParticipants.length === 0 ? (
           <div className="col-span-full">
             <EmptyParticipantState

@@ -173,11 +173,18 @@ export function useRandomCall() {
 
       try {
         await room.connect(info.liveKit.url, info.liveKit.token);
+        // The call ended while connecting: don't turn the microphone on for nothing
+        if (roomRef.current !== room) {
+          void room.disconnect();
+          return;
+        }
         setMediaState("connected");
         try {
           const support = microphoneSupport();
           if (support !== "ok") throw new MicrophoneUnavailableError(support);
           await room.localParticipant.setMicrophoneEnabled(true);
+          // It ended while the browser was asking for the microphone: let go of it again
+          if (roomRef.current !== room) void room.disconnect();
         } catch (micProblem) {
           setMuted(true);
           setMicError(

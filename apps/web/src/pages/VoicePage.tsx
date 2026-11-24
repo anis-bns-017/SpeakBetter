@@ -11,6 +11,7 @@ import {
   useEndVoiceRoom,
   useJoinVoiceRoom,
   useLeaveVoiceRoom,
+  voiceApi,
   type VoiceRoom,
 } from "../hooks/useVoice";
 import { useNavigate, useParams } from "react-router-dom";
@@ -131,6 +132,29 @@ export const VoicePage = () => {
     setSyncedUrlRoom(urlRoomId ?? null);
     setActiveRoomId(urlRoomId ?? null);
   }
+
+  // Opening a room by its link: a private room you aren't in yet asks for its password. The server answers
+  // "not found" for those, so a private room's existence is never given away.
+  const [checkingLink, setCheckingLink] = useState<string | null>(urlRoomId ?? null);
+  useEffect(() => {
+    if (!checkingLink) return;
+    let live = true;
+    voiceApi
+      .getRoom(checkingLink)
+      .catch((error: { response?: { status?: number } }) => {
+        if (!live || error?.response?.status !== 404) return;
+        setActiveRoomId(null);
+        setJoinTarget({ id: checkingLink, name: tr("Private room") });
+        setJoinPassword("");
+        setJoinError("");
+      })
+      .finally(() => {
+        if (live) setCheckingLink(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [checkingLink]);
 
   // Auto-refresh rooms every 15 seconds
   useEffect(() => {
@@ -293,7 +317,18 @@ export const VoicePage = () => {
         return;
       }
 
-      toast.success(tr("🎉 Room created! Invite others to join."));
+      if (data.type === "PRIVATE") {
+        const link = `${window.location.origin}/voice/${newRoom.id}`;
+        toast.success(tr("Private room created. Share its link and password."), {
+          duration: 10_000,
+          action: {
+            label: tr("Copy link"),
+            onClick: () => void navigator.clipboard?.writeText(link),
+          },
+        });
+      } else {
+        toast.success(tr("🎉 Room created! Invite others to join."));
+      }
 
       setLeftRoomIds((prev) => {
         const newSet = new Set(prev);
@@ -331,13 +366,6 @@ export const VoicePage = () => {
 
     if (participantCount(room) >= room.maxParticipants) {
       toast.error(tr("This room is full"));
-      return;
-    }
-
-    if (room.type === "PRIVATE") {
-      setJoinTarget({ id: room.id, name: room.name });
-      setJoinPassword("");
-      setJoinError("");
       return;
     }
 
@@ -379,12 +407,12 @@ export const VoicePage = () => {
   const handleConfirmJoinWithPassword = async () => {
     if (!joinTarget) return;
     if (!joinPassword.trim()) {
-      setJoinError("Password is required");
+      setJoinError(tr("Password is required"));
       return;
     }
     try {
       setJoiningRoomId(joinTarget.id);
-      await joinRoom.mutateAsync(joinTarget.id);
+      await joinRoom.mutateAsync({ roomId: joinTarget.id, password: joinPassword });
 
       setLeftRoomIds((prev) => {
         const newSet = new Set(prev);
@@ -394,14 +422,12 @@ export const VoicePage = () => {
 
       await refetch();
       setActiveRoomId(joinTarget.id);
-      navigate(`/voice/${joinTarget.id}`, {
-        state: { password: joinPassword },
-      });
+      navigate(`/voice/${joinTarget.id}`);
       setJoinTarget(null);
       setJoinPassword("");
       setJoinError("");
     } catch (error) {
-      toast.error(apiMessage(error) || tr("Failed to join room"));
+      setJoinError(apiMessage(error) || tr("Failed to join room"));
     } finally {
       setJoiningRoomId(null);
     }
@@ -727,7 +753,7 @@ export const VoicePage = () => {
       </div>
 
       {/* Persistent VoiceRoomView */}
-      {activeRoomId && (
+      {activeRoomId && activeRoomId !== checkingLink && (
         <div
           className={
             showMiniRoom
@@ -804,7 +830,11 @@ export const VoicePage = () => {
             }}
             onToggleShow={() => setShowJoinPassword((p) => !p)}
             onConfirm={handleConfirmJoinWithPassword}
-            onClose={() => setJoinTarget(null)}
+            onClose={() => {
+              setJoinTarget(null);
+              // They came by link: don't leave them on an address that shows nothing
+              if (urlRoomId && !activeRoomId) navigate("/voice", { replace: true });
+            }}
           />
         )}
       </AnimatePresence>

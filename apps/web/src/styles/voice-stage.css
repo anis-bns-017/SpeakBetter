@@ -238,3 +238,320 @@
   .vr-particle { display: none; }
   .vr-enter { opacity: 1; }
 }
+
+/* =====================================================================================================
+   Studio upgrade: participant tiles, cursor light, spotlight waveform, the reaction emitter
+   ===================================================================================================== */
+
+/* ---------------- Participant tile: glass that tilts with the pointer and lights up while they talk ---------------- */
+
+.vr-tile {
+  --vr-rx: 0deg;
+  --vr-ry: 0deg;
+  --vr-gx: 50%;
+  --vr-gy: 0%;
+  --vr-level: 0;
+  position: relative;
+  background: linear-gradient(165deg, rgb(255 255 255 / 0.055), rgb(255 255 255 / 0.012));
+  border: 1px solid rgb(255 255 255 / 0.06);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
+  transform: perspective(900px) rotateX(var(--vr-rx)) rotateY(var(--vr-ry));
+  transition: transform 200ms ease-out, border-color 450ms ease, background 450ms ease, box-shadow 450ms ease;
+  will-change: transform;
+}
+/* The glare: a pool of light that follows the pointer across the glass */
+.vr-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(190px circle at var(--vr-gx) var(--vr-gy), rgb(255 255 255 / 0.13), transparent 62%);
+  transition: opacity 250ms ease;
+}
+.vr-tile:hover::after { opacity: 1; }
+.vr-tile:hover { border-color: rgb(255 255 255 / 0.16); }
+
+.vr-tile[data-speaking="true"] {
+  border-color: rgb(var(--vr-iris) / 0.55);
+  background: linear-gradient(160deg, rgb(var(--vr-lapis) / 0.26), rgb(var(--vr-orchid) / 0.09) 60%, rgb(var(--vr-saffron) / 0.05));
+  box-shadow:
+    0 22px 50px -26px rgb(var(--vr-lapis) / 0.95),
+    0 0 calc(16px + var(--vr-level) * 34px) -8px rgb(var(--vr-iris) / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+.vr-tile[data-muted="true"] { opacity: 0.78; }
+
+/* ---------------- Cursor light on the stage ---------------- */
+
+.vr-cursor-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(420px circle at var(--vr-mx, 50%) var(--vr-my, 30%), rgb(var(--vr-iris) / 0.14), transparent 65%);
+  transition: opacity 400ms ease;
+}
+.vr-stage:hover .vr-cursor-glow { opacity: 1; }
+
+/* The stage's travelling edge speeds up and brightens while anyone is speaking */
+.vr-stage[data-energy="true"]::before {
+  animation-duration: 6s;
+  filter: brightness(1.5) saturate(1.2);
+}
+.vr-stage[data-energy="true"] {
+  box-shadow: 0 40px 90px -40px rgb(0 0 0 / 0.9), 0 0 70px -30px rgb(var(--vr-lapis) / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.08) !important;
+}
+
+/* ---------------- Reaction emitter: the one spot every reaction launches from ---------------- */
+
+@keyframes vr-emitter-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 12px 2px rgb(var(--vr-iris) / 0.6); }
+  50% { transform: scale(1.18); box-shadow: 0 0 22px 6px rgb(var(--vr-iris) / 0.85); }
+}
+.vr-emitter {
+  background: radial-gradient(circle at 35% 30%, #fff, rgb(var(--vr-iris)) 45%, rgb(var(--vr-lapis)));
+  box-shadow: 0 0 12px 2px rgb(var(--vr-iris) / 0.6);
+  animation: vr-emitter-pulse 2.6s ease-in-out infinite;
+}
+.vr-emitter[data-hot="true"] {
+  background: radial-gradient(circle at 35% 30%, #fff, rgb(var(--vr-saffron)) 45%, rgb(var(--vr-live)));
+  animation-duration: 0.9s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vr-emitter { animation: none !important; }
+  .vr-tile { transition: none; transform: none !important; }
+}
+
+/* =====================================================================================================
+   Lagoon skin: the voice room's own colour world.
+   Deep ink-teal surfaces, an aqua light, a coral-pink spark and warm amber. It is scoped to .vr-skin (the
+   room root), so the lobby and the rest of the app keep their palette. The --sx-* tokens below re-colour every
+   existing indigo accent inside the room (header, chat, buttons) without touching those components.
+   ===================================================================================================== */
+
+.vr-skin {
+  --vr-lapis: 13 148 136;
+  --vr-iris: 94 234 212;
+  --vr-orchid: 244 114 182;
+  --vr-saffron: 251 191 36;
+  --vr-live: 251 80 100;
+  --vr-edge-a: rgb(94 234 212 / 0.8);
+  --vr-edge-b: rgb(244 114 182 / 0.6);
+
+  --sx-accent-4f46e5: #0d9488;
+  --sx-accent-6366f1: #14b8a6;
+  --sx-accent-818cf8: #5eead4;
+  --sx-accent-8b5cf6: #f472b6;
+  --sx-accent-a78bfa: #fdba74;
+  --sx-accent-99-102-241-150: rgba(20, 184, 166, 0.15);
+  --sx-accent-99-102-241-300: rgba(20, 184, 166, 0.3);
+  --sx-bg-6366f1: #14b8a6;
+  --sx-bg-8b5cf6: #f472b6;
+  --sx-bg-a78bfa: #fdba74;
+  --sx-bg-99-102-241-150: rgba(20, 184, 166, 0.15);
+  --sx-shadow-99-102-241-120: rgba(20, 184, 166, 0.12);
+  --sx-shadow-99-102-241-150: rgba(20, 184, 166, 0.15);
+  --sx-shadow-99-102-241-250: rgba(20, 184, 166, 0.25);
+  --sx-shadow-99-102-241-800: rgba(20, 184, 166, 0.8);
+  --sx-shadow-99-102-241-900: rgba(20, 184, 166, 0.9);
+}
+
+:root.dark .vr-skin,
+:root[data-theme="navy"] .vr-skin {
+  --sx-text-4f46e5: #2dd4bf;
+  --sx-text-818cf8: #5eead4;
+  --sx-text-a78bfa: #fdba74;
+  --sx-text-c7d2fe: #ccfbf1;
+  --sx-bg-07070d: #04100f;
+  --sx-bg-12121f: #08201f;
+  --sx-bg-1a1a2e: #0a2322;
+  --sx-bg-1c1c2e: #0b2524;
+  --sx-bg-card-0f0f1a: #071a19;
+  --sx-bg-card-111118: #081c1b;
+  --sx-bg-card-141425: #0a2120;
+  --sx-bg-card-1c1430: #0a2120;
+  --sx-bg-card-1c1c2e: #0c2625;
+  --sx-bg-card-20-20-34-980: rgba(10, 34, 33, 0.98);
+  --sx-bg-hover-252540: #123332;
+  --sx-bg-hover-2a2a4a: #153836;
+  --sx-bg-hover-2d1f4a: #123332;
+  --sx-bg-page-0a0a0f: #04100f;
+  --sx-bg-page-0a0a12: #04100f;
+  --sx-bg-page-0b0714: #05130f;
+  --sx-bg-raised-141422: #0a2120;
+  --sx-bg-raised-181825: #0b2625;
+  --sx-bg-raised-1e1e38: #0e2c2b;
+  --sx-bg-raised-222238: #103130;
+  --sx-bg-raised-251c3e: #0e2c2b;
+  --sx-bg-22-22-38-780: rgba(9, 32, 31, 0.78);
+  --sx-bg-12-12-22-820: rgba(4, 18, 18, 0.84);
+  --sx-bg-8-8-16-350: rgba(3, 14, 14, 0.4);
+  --sx-bg-8-8-16-820: rgba(3, 14, 14, 0.84);
+  --sx-bg-28-20-48-600: rgba(8, 36, 34, 0.6);
+  --sx-bg-28-20-48-720: rgba(8, 36, 34, 0.72);
+}
+
+/* ---------------- Floating reactions: three nested layers, all transform/opacity, all on the compositor ---------------- */
+
+.vr-float {
+  position: absolute;
+  left: var(--vr-ox);
+  top: var(--vr-oy);
+  width: 0;
+  height: 0;
+  contain: layout style;
+}
+.vr-float-ring {
+  position: absolute;
+  left: -22px;
+  top: -22px;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, rgb(var(--vr-iris, 94 234 212) / 0.75), rgb(var(--vr-iris, 94 234 212) / 0));
+  opacity: 0;
+  animation: vr-float-ring 700ms cubic-bezier(0.2, 0.7, 0.3, 1) var(--vr-d, 0s) both;
+}
+@keyframes vr-float-ring {
+  from { opacity: 0.95; transform: scale(0.4); }
+  to { opacity: 0; transform: scale(2.3); }
+}
+
+/* Rise: one smooth ease-out curve for the whole climb, so it never stutters between keyframes */
+.vr-float-rise {
+  animation: vr-float-rise var(--vr-dur, 3200ms) cubic-bezier(0.22, 0.6, 0.32, 1) var(--vr-d, 0s) both;
+  will-change: transform;
+}
+@keyframes vr-float-rise {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, calc(var(--vr-rise) * -1), 0); }
+}
+
+/* Sway: drifts to its lean side in a gentle S-curve */
+.vr-float-sway {
+  animation: vr-float-sway var(--vr-dur, 3200ms) ease-in-out var(--vr-d, 0s) both;
+  will-change: transform;
+}
+@keyframes vr-float-sway {
+  0% { transform: translate3d(0, 0, 0); }
+  30% { transform: translate3d(calc(var(--vr-lean) * 0.4 + var(--vr-sway)), 0, 0); }
+  65% { transform: translate3d(calc(var(--vr-lean) * 0.8 - var(--vr-sway)), 0, 0); }
+  100% { transform: translate3d(var(--vr-lean), 0, 0); }
+}
+
+/* Pop: springs in, holds, then melts away */
+.vr-float-pop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: -50% -50%;
+  animation: vr-float-pop var(--vr-dur, 3200ms) linear var(--vr-d, 0s) both;
+  will-change: transform, opacity;
+}
+@keyframes vr-float-pop {
+  0% { opacity: 0; transform: scale(0.3) rotate(0deg); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  9% { opacity: 1; transform: scale(calc(var(--vr-s) * 1.18)) rotate(calc(var(--vr-rot) * 0.4)); animation-timing-function: ease-out; }
+  20% { opacity: 1; transform: scale(var(--vr-s)) rotate(calc(var(--vr-rot) * 0.7)); animation-timing-function: linear; }
+  62% { opacity: 1; transform: scale(calc(var(--vr-s) * 0.94)) rotate(var(--vr-rot)); animation-timing-function: ease-in; }
+  100% { opacity: 0; transform: scale(calc(var(--vr-s) * 0.7)) rotate(calc(var(--vr-rot) * 1.15)); }
+}
+.vr-float-emoji {
+  display: block;
+  font-size: 2.2rem;
+  line-height: 1;
+  user-select: none;
+  filter: drop-shadow(0 8px 12px rgb(0 0 0 / 0.4));
+}
+.vr-float-tag {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  margin-top: 4px;
+  translate: -50% 0;
+  white-space: nowrap;
+  border-radius: 9999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgb(255 255 255 / 0.92);
+  background: rgb(4 18 18 / 0.78);
+  border: 1px solid rgb(var(--vr-iris, 94 234 212) / 0.35);
+  backdrop-filter: blur(6px);
+}
+
+/* Confetti */
+.vr-confetti {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.vr-confetti-piece {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 2px;
+  animation: vr-confetti 1700ms cubic-bezier(0.18, 0.7, 0.4, 1) both;
+  will-change: transform, opacity;
+}
+@keyframes vr-confetti {
+  0% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
+  55% { opacity: 1; transform: translate3d(var(--vr-dx), var(--vr-dy), 0) rotate(calc(var(--vr-spin) * 0.6)); }
+  100% { opacity: 0; transform: translate3d(var(--vr-dx), calc(var(--vr-dy) + 170px), 0) rotate(var(--vr-spin)); }
+}
+.vr-confetti-badge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: -50% 0;
+  white-space: nowrap;
+  border-radius: 9999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a0f05;
+  background: linear-gradient(135deg, #fbbf24, #fb7185);
+  box-shadow: 0 10px 30px -8px rgb(251 113 133 / 0.7);
+  animation: vr-confetti-badge 1900ms cubic-bezier(0.22, 0.7, 0.3, 1) both;
+}
+@keyframes vr-confetti-badge {
+  0% { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.6); }
+  20% { opacity: 1; transform: translate3d(0, -64px, 0) scale(1.1); }
+  70% { opacity: 1; transform: translate3d(0, -78px, 0) scale(1); }
+  100% { opacity: 0; transform: translate3d(0, -96px, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vr-float-rise,
+  .vr-float-sway,
+  .vr-float-ring,
+  .vr-confetti-piece { animation: none !important; }
+  .vr-float-ring, .vr-confetti-piece { display: none; }
+  .vr-float-pop { animation: vr-float-fade 1600ms linear var(--vr-d, 0s) both; }
+  .vr-confetti-badge { animation: vr-float-fade 1600ms linear both; }
+}
+@keyframes vr-float-fade {
+  0% { opacity: 0; }
+  15%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---------------- Clap button ring: one fresh ripple per clap ---------------- */
+
+.vr-clap-ring {
+  border: 2px solid rgb(252 211 77 / 0.9);
+  box-shadow: 0 0 18px 2px rgb(251 113 133 / 0.45);
+  animation: vr-clap-ring 520ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+@keyframes vr-clap-ring {
+  from { opacity: 0.9; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.7, 2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vr-clap-ring { animation: none; opacity: 0; }
+}

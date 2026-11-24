@@ -25,6 +25,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { SocialModule } from './social/social.module';
 import { GamificationModule } from './gamification/gamification.module';
 import { ChallengesModule } from './challenges/challenges.module';
+import { SpeakingExamModule } from './speaking-exam/speaking-exam.module';
+import { GamesModule } from './games/games.module';
 import { LibraryModule } from './library/library.module';
 import { GrammarModule } from './grammar/grammar.module';
 import { VocabPacksModule } from './vocab-packs/packs.module';
@@ -62,6 +64,8 @@ import { BillingModule } from './billing/billing.module';
     SocialModule,
     GamificationModule,
     ChallengesModule,
+    SpeakingExamModule,
+    GamesModule,
     LibraryModule,
     GrammarModule,
     VocabPacksModule,

@@ -1,4 +1,6 @@
 // apps/web/src/components/chat/MessageBubble.tsx
+import { AutoTranslation } from "./AutoTranslation";
+import { canAutoTranslate, isAutoTranslateOn } from "../../lib/autoTranslate";
 import React, {
   useState,
   useMemo,
@@ -1212,6 +1214,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             alt={tr("sticker")}
             className="w-36 h-36 object-contain drop-shadow-xl"
           />
+        ) : isSticker && message.content ? (
+          <div role="img" aria-label={tr("sticker")} className="select-none py-1 text-6xl leading-none">
+            {message.content}
+          </div>
         ) : isGif && mediaSrc ? (
           <motion.div
             whileHover={{ scale: 1.01 }}
@@ -1374,6 +1380,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               >
                 {translation.translatedContent}
               </motion.div>
+            )}
+
+            {!isOwn && message.type === "TEXT" && isAutoTranslateOn() && canAutoTranslate(message.content) && !(showTranslation && translation) && (
+              <AutoTranslation text={message.content} />
             )}
 
             {/* Only state markers live in the bubble; the send time shows on hover beside it */}

@@ -241,7 +241,7 @@ export const RandomCallPage = () => {
             onConfirm={doBlock}
             title={tr("Block {value}?", { value: rc.call?.partner.name ?? "this person" })}
             message={tr("The call ends now and you will never be matched with them again.")}
-            confirmText="Block and end call"
+            confirmText={tr("Block and end call")}
             confirmColor={COLORS.danger}
           />
         )}

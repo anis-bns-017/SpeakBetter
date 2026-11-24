@@ -22,8 +22,8 @@ export class RoleplayController {
   }
 
   @Post(':id/finish')
-  @ApiOperation({ summary: 'Save a finished conversation: { scores: [92, null, 78, ...] } (null = not said aloud)' })
-  finish(@Req() req: any, @Param('id') id: string, @Body() body: { scores?: unknown }) {
-    return this.roleplay.finish(req.user.id, id, body?.scores);
+  @ApiOperation({ summary: 'Save a finished conversation: { startedAt }. Scores come from your saved pronunciation attempts.' })
+  finish(@Req() req: any, @Param('id') id: string, @Body() body: { startedAt?: string }) {
+    return this.roleplay.finish(req.user.id, id, body?.startedAt);
   }
 }

@@ -25,6 +25,14 @@ describe('activityOf and minutesFor', () => {
     // Pronunciation is counted from its own attempts, not its capped XP
     expect(minutesFor('PRONUNCIATION_PRACTICE', 2)).toBe(0);
   });
+
+  it('counts time in stories, writing and the daily challenge', () => {
+    expect(minutesFor('LESSON_COMPLETED', 10)).toBeGreaterThan(0);
+    expect(minutesFor('WRITING_PRACTICE', 10)).toBeGreaterThan(0);
+    expect(minutesFor('CHALLENGE_COMPLETED', 10)).toBeGreaterThan(0);
+    expect(activityOf('CHALLENGE_COMPLETED')).toBe('speaking');
+    expect(activityOf('WRITING_PRACTICE')).toBe('exercises');
+  });
 });
 
 describe('InsightsService.getProgress', () => {
@@ -156,6 +164,54 @@ describe('PlanService', () => {
     const again = await service.getToday('u1');
     expect(again.bonusJustEarned).toBe(false);
     expect(activity.recordActivity).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts a story only once it is passed, and grammar without dictation', async () => {
+    const tasks = [
+      { id: 'read', kind: 'READ', title: 'Read', detail: '', to: '/library', target: 1, unit: 'texts', minutes: 3 },
+      { id: 'exercise', kind: 'EXERCISE', title: 'Grammar', detail: '', to: '/grammar', target: 1, unit: 'exercises', minutes: 3 },
+    ];
+    const { service, prisma } = setup({
+      plan: { id: 'p1', day: dayKey(new Date()), goalMinutes: 10, tasks, completedAt: null },
+      xp: [{ reason: 'EXERCISE_COMPLETED', amount: 8 }], // a dictation shares this reason
+    });
+    prisma.libraryProgress = { count: jest.fn().mockResolvedValue(0) };
+    prisma.grammarProgress = { count: jest.fn().mockResolvedValue(0) };
+    prisma.gameResult = { count: jest.fn().mockResolvedValue(0) };
+    const plan = await service.getToday('u1');
+    expect(prisma.libraryProgress.count.mock.calls[0][0].where.completedAt).toEqual({ not: null });
+    expect(plan.tasks.map((t) => t.done)).toEqual([false, false]);
+
+    prisma.gameResult.count.mockResolvedValue(1);
+    prisma.libraryProgress.count.mockResolvedValue(1);
+    const done = await service.getToday('u1');
+    expect(done.tasks.map((t) => t.done)).toEqual([true, true]);
+  });
+
+  it("finishes yesterday's plan on the next visit, with the bonus but without faking a practice day", async () => {
+    const yesterday = dayKey(ago(1));
+    const tasks = [{ id: 'pronunciation', kind: 'PRONUNCIATION', title: 'Drill', detail: '', to: '/pronunciation', target: 2, unit: 'tries', minutes: 1 }];
+    const { service, prisma, activity } = setup({ attempts: 2 });
+    activity.grantXp = jest.fn().mockResolvedValue(undefined);
+    const old = { id: 'old', day: yesterday, goalMinutes: 10, tasks, completedAt: null as Date | null };
+    const created: any[] = [];
+    prisma.dailyPlan.findUnique = jest.fn(async ({ where }: any) => (where.userId_day.day === yesterday ? old : (created[0] ?? null)));
+    prisma.dailyPlan.create = jest.fn(async ({ data }: any) => {
+      created.push({ id: 'today', completedAt: null, ...data });
+      return created[0];
+    });
+    prisma.dailyPlan.updateMany = jest.fn(async ({ where, data }: any) => {
+      if (where.id !== 'old' || old.completedAt) return { count: 0 };
+      old.completedAt = data.completedAt;
+      return { count: 1 };
+    });
+    await service.getToday('u1');
+    expect(dayKey(old.completedAt as Date)).toBe(yesterday);
+    expect(activity.grantXp).toHaveBeenCalledWith('u1', PLAN_BONUS_XP, 'DAILY_PLAN');
+    expect(activity.recordActivity).not.toHaveBeenCalled();
+    // The attempts were counted inside yesterday only
+    const during = prisma.pronunciationAttempt.count.mock.calls[0][0].where.createdAt;
+    expect(during.lt).toBeInstanceOf(Date);
   });
 
   it('only accepts the goal options and rebuilds an unfinished plan', async () => {

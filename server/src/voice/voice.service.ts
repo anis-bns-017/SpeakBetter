@@ -1,5 +1,6 @@
 // server/src/voice/voice.service.ts
 
+import { PARTICIPANT_PROFILE } from './participant-select';
 import {
   Injectable,
   NotFoundException,
@@ -17,7 +18,9 @@ import {
   RoomSortType,
   RoomFilterType,
 } from './dto/discovery.dto';
+import { categoryCounts, inCategory, matchesQuery, sameLanguage, sortRooms, type RecommendationContext } from './discovery';
 import { ParticipantRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
 import { LiveKitService } from './livekit.service';
 import { ActivityService, XP_REWARDS } from '../learning/activity.service';
@@ -38,6 +41,29 @@ const SENDABLE_MESSAGE_TYPES = new Set([
   'GIF',
   'STICKER',
 ]);
+
+/** Wrong room passwords allowed per person and room before a pause */
+export const ROOM_PASSWORD_TRIES = 5;
+const ROOM_PASSWORD_PAUSE_MS = 15 * 60 * 1000;
+/** Compared against when a room has no password, so the answer takes the same time either way */
+const NO_ROOM_HASH = bcrypt.hashSync('no-such-room', 10);
+
+/** Most running rooms one Discover request looks through */
+const DISCOVER_POOL = 300;
+const clampRoomLimit = (limit: number) => Math.min(Math.max(Math.floor(limit) || 10, 1), 50);
+const DEFAULT_CATEGORY_STYLE = { icon: '💬', color: '#6366F1' };
+const ROOM_CATEGORY_STYLE: Record<string, { icon: string; color: string }> = {
+  conversation: { icon: '💬', color: '#6366F1' },
+  'language learning': { icon: '📚', color: '#8B5CF6' },
+  music: { icon: '🎵', color: '#EC4899' },
+  gaming: { icon: '🎮', color: '#8B5CF6' },
+  social: { icon: '👥', color: '#06B6D4' },
+  casual: { icon: '☕', color: '#F59E0B' },
+  podcast: { icon: '🎙️', color: '#6366F1' },
+  study: { icon: '📖', color: '#10B981' },
+  interview: { icon: '🎤', color: '#EF4444' },
+  panel: { icon: '🎭', color: '#8B5CF6' },
+};
 
 @Injectable()
 export class VoiceService {
@@ -105,6 +131,60 @@ export class VoiceService {
         `Could not remove ${userId} from audio room ${liveKitRoomId}: ${error?.message}`,
       );
     }
+  }
+
+  // ============ ROOM PASSWORDS ============
+  //
+  // The host of a private room can share its link and a password. The right password makes you an invited
+  // participant, so every other access rule stays "has a row". A wrong one, an unknown room and a room without a
+  // password all get the same answer, so the link can't be used to find out whether a private room exists.
+
+  private readonly passwordFailures = new Map<string, { count: number; until: number }>();
+
+  async setRoomPassword(roomId: string, password: string) {
+    const passwordHash = await bcrypt.hash(password, 10);
+    await this.prisma.voiceRoomSecret.upsert({
+      where: { roomId },
+      create: { roomId, passwordHash },
+      update: { passwordHash },
+    });
+  }
+
+  async admitWithPassword(userId: string, roomId: string, password: string, now = Date.now()) {
+    const key = `${userId}:${roomId}`;
+    const failures = this.passwordFailures.get(key);
+    if (failures && failures.until > now && failures.count >= ROOM_PASSWORD_TRIES) {
+      throw new HttpException('Too many wrong passwords. Try again in a few minutes.', HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    const room = await this.prisma.voiceRoom.findUnique({
+      where: { id: roomId },
+      select: { id: true, type: true, creatorId: true, status: true, secret: { select: { passwordHash: true } } },
+    });
+    // Open rooms need no password, and people already invited don't need one either
+    if (room && (room.type !== 'PRIVATE' || room.creatorId === userId)) return;
+    if (room) {
+      const row = await this.prisma.voiceParticipant.findUnique({
+        where: { roomId_userId: { roomId, userId } },
+        select: { id: true },
+      });
+      if (row) return;
+    }
+
+    const matches = await bcrypt.compare(password, room?.secret?.passwordHash ?? NO_ROOM_HASH);
+    if (!matches || !room?.secret || room.status === 'ENDED') {
+      if (this.passwordFailures.size > 5000) this.passwordFailures.clear();
+      const running = failures && failures.until > now ? failures.count : 0;
+      this.passwordFailures.set(key, { count: running + 1, until: now + ROOM_PASSWORD_PAUSE_MS });
+      throw new ForbiddenException('Wrong password, or this room no longer exists.');
+    }
+
+    this.passwordFailures.delete(key);
+    await this.assertNotBanned(roomId, userId);
+    // Allowed in, but not "in the room" until they actually join
+    await this.prisma.voiceParticipant.create({
+      data: { roomId, userId, role: 'LISTENER', leftAt: new Date() },
+    });
   }
 
   // ============ KICK BANS ============
@@ -243,7 +323,7 @@ export class VoiceService {
           where: { leftAt: null },
           include: {
             user: {
-              select: { id: true, name: true, avatarUrl: true, speakingEffect: true },
+              select: { id: true, name: true, avatarUrl: true, speakingEffect: true, profile: PARTICIPANT_PROFILE },
             },
           },
         },
@@ -263,7 +343,7 @@ export class VoiceService {
           where: { leftAt: null },
           include: {
             user: {
-              select: { id: true, name: true, avatarUrl: true, speakingEffect: true },
+              select: { id: true, name: true, avatarUrl: true, speakingEffect: true, profile: PARTICIPANT_PROFILE },
             },
           },
         },
@@ -293,7 +373,12 @@ export class VoiceService {
       topics,
       categories,
       tags,
+      password,
     } = dto;
+
+    if (type === 'PRIVATE' && !password && !invitedUserIds?.length) {
+      throw new BadRequestException('A private room needs a password or people to invite');
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -327,6 +412,8 @@ export class VoiceService {
       },
     });
 
+    if (type === 'PRIVATE' && password) await this.setRoomPassword(room.id, password);
+
     if (room.scheduledFor) void this.reminders?.onRoomScheduled(room);
 
     await this.prisma.voiceParticipant.create({
@@ -350,6 +437,7 @@ export class VoiceService {
             roomId: room.id,
             userId: person.id,
             role: 'LISTENER' as const,
+            leftAt: new Date(),
           })),
           skipDuplicates: true,
         });
@@ -389,7 +477,10 @@ export class VoiceService {
       topics,
       categories,
       tags,
+      password,
     } = dto;
+
+    if (password && room.type === 'PRIVATE') await this.setRoomPassword(roomId, password);
 
     const updatedRoom = await this.prisma.voiceRoom.update({
       where: { id: roomId },
@@ -682,6 +773,7 @@ export class VoiceService {
             name: true,
             avatarUrl: true,
             speakingEffect: true,
+            profile: PARTICIPANT_PROFILE,
           },
         },
       },
@@ -737,6 +829,7 @@ export class VoiceService {
             name: true,
             avatarUrl: true,
             speakingEffect: true,
+            profile: PARTICIPANT_PROFILE,
           },
         },
       },
@@ -811,6 +904,7 @@ export class VoiceService {
             name: true,
             avatarUrl: true,
             speakingEffect: true,
+            profile: PARTICIPANT_PROFILE,
           },
         },
       },
@@ -940,95 +1034,13 @@ export class VoiceService {
 
   // ============ ROOM DISCOVERY ============
 
-  async discoverRooms(userId: string, dto: DiscoverRoomsDto) {
-    const {
-      query,
-      sort = RoomSortType.TRENDING,
-      filter,
-      language,
-      category,
-      page = 1,
-      limit = 20,
-    } = dto;
-
-    const skip = (page - 1) * limit;
-
-    const where: any = {
-      status: 'ACTIVE',
-      AND: [this.visibleRoomsWhere(userId)],
-    };
-
-    if (query) {
-      where.OR = [
-        { name: { contains: query, mode: 'insensitive' } },
-        { description: { contains: query, mode: 'insensitive' } },
-      ];
-    }
-
-    if (filter) {
-      switch (filter) {
-        case RoomFilterType.OPEN:
-          where.type = 'OPEN';
-          break;
-        case RoomFilterType.PRIVATE:
-          where.type = 'PRIVATE';
-          break;
-        case RoomFilterType.STAGE:
-          where.type = 'STAGE';
-          break;
-        case RoomFilterType.SCHEDULED:
-          where.type = 'SCHEDULED';
-          break;
-        case RoomFilterType.LANGUAGE:
-          if (language) {
-            where.language = language;
-          }
-          break;
-        case RoomFilterType.ALL:
-        default:
-          break;
-      }
-    }
-
-    if (category) {
-      where.categories = { has: category };
-    }
-
-    if (language && filter !== RoomFilterType.LANGUAGE) {
-      where.language = language;
-    }
-
-    let orderBy: any = { createdAt: 'desc' };
-
-    switch (sort) {
-      case RoomSortType.TRENDING:
-        orderBy = { trendScore: 'desc' };
-        break;
-      case RoomSortType.POPULAR:
-        orderBy = { participants: { _count: 'desc' } };
-        break;
-      case RoomSortType.NEWEST:
-        orderBy = { createdAt: 'desc' };
-        break;
-      case RoomSortType.NEARBY:
-      case RoomSortType.RECOMMENDED:
-        orderBy = { trendScore: 'desc' };
-        break;
-      default:
-        orderBy = { createdAt: 'desc' };
-    }
-
-    const [rooms, total] = await Promise.all([
+  /** Rooms running now that this person may see, with who is in them, minus anyone blocked either way */
+  private async liveRoomsFor(userId: string, extra: Record<string, unknown> = {}) {
+    const [rooms, blocks] = await Promise.all([
       this.prisma.voiceRoom.findMany({
-        where,
+        where: { status: 'ACTIVE', AND: [this.visibleRoomsWhere(userId)], ...extra },
         include: {
-          creator: {
-            select: {
-              id: true,
-              name: true,
-              avatarUrl: true,
-            },
-          },
+          creator: { select: { id: true, name: true, avatarUrl: true } },
           participants: {
             where: { leftAt: null },
             include: {
@@ -1038,117 +1050,107 @@ export class VoiceService {
                   name: true,
                   avatarUrl: true,
                   speakingEffect: true,
+                  profile: PARTICIPANT_PROFILE,
                 },
               },
             },
           },
         },
-        orderBy,
-        skip,
-        take: limit,
+        orderBy: { createdAt: 'desc' },
+        take: DISCOVER_POOL,
       }),
-      this.prisma.voiceRoom.count({ where }),
+      this.prisma.block.findMany({
+        where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+        select: { blockerId: true, blockedId: true },
+      }),
+    ]);
+    const hidden = new Set(blocks.map((b) => (b.blockerId === userId ? b.blockedId : b.blockerId)));
+    return rooms
+      .filter((room) => !hidden.has(room.creatorId))
+      .map((room) => ({
+        ...room,
+        participantCount: room.participants.length,
+        // A room nobody is in is open to join, but it isn't live
+        isLive: room.status === 'ACTIVE' && room.participants.length > 0,
+      }));
+  }
+
+  /** What a recommendation is based on: the languages you are learning, your interests and the people you know */
+  private async recommendationContext(userId: string): Promise<RecommendationContext> {
+    const [profile, friends, follows] = await Promise.all([
+      this.prisma.profile.findUnique({ where: { userId }, select: { learningLanguages: true, interests: true } }),
+      this.prisma.friend.findMany({
+        where: { OR: [{ fromUserId: userId }, { toUserId: userId }] },
+        select: { fromUserId: true, toUserId: true },
+      }),
+      this.prisma.follow.findMany({ where: { followerId: userId }, select: { followingId: true } }),
+    ]);
+    const knownPeople = new Set<string>(follows.map((f) => f.followingId));
+    for (const f of friends) knownPeople.add(f.fromUserId === userId ? f.toUserId : f.fromUserId);
+    return { learningLanguages: profile?.learningLanguages ?? [], interests: profile?.interests ?? [], knownPeople };
+  }
+
+  async discoverRooms(userId: string, dto: DiscoverRoomsDto) {
+    const { query, sort = RoomSortType.TRENDING, filter, language, category, minParticipants, maxParticipants, page = 1, limit = 20 } = dto;
+
+    const typeFilter =
+      filter === RoomFilterType.OPEN || filter === RoomFilterType.PRIVATE || filter === RoomFilterType.STAGE || filter === RoomFilterType.SCHEDULED
+        ? { type: filter }
+        : {};
+    const [rooms, me] = await Promise.all([
+      this.liveRoomsFor(userId, typeFilter),
+      sort === RoomSortType.RECOMMENDED ? this.recommendationContext(userId) : null,
     ]);
 
-    const transformedRooms = rooms.map((room) => ({
-      ...room,
-      participantCount: room.participants.length,
-      peakParticipantCount: room.participants.length,
-      messageCount: 0,
-      speakingHours: 0,
-      isLive: room.status === 'ACTIVE',
-    }));
+    const matching = rooms.filter(
+      (room) =>
+        (!query || matchesQuery(room, query)) &&
+        (!category || inCategory(room, category)) &&
+        (!language || sameLanguage(room.language, language)) &&
+        (minParticipants === undefined || room.participantCount >= minParticipants) &&
+        (maxParticipants === undefined || room.participantCount <= maxParticipants),
+    );
+    const sorted = sortRooms(matching, sort, me);
 
     return {
-      rooms: transformedRooms,
+      rooms: sorted.slice((page - 1) * limit, page * limit).map((room) => ({
+        ...room,
+        peakParticipantCount: room.participantCount,
+        messageCount: 0,
+        speakingHours: 0,
+      })),
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        total: sorted.length,
+        totalPages: Math.ceil(sorted.length / limit),
       },
     };
   }
 
   async getTrendingRooms(userId: string, limit: number = 10) {
-    return this.prisma.voiceRoom.findMany({
-      where: { status: 'ACTIVE', AND: [this.visibleRoomsWhere(userId)] },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            avatarUrl: true,
-          },
-        },
-        participants: {
-          where: { leftAt: null },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                avatarUrl: true,
-                speakingEffect: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { trendScore: 'desc' },
-      take: limit,
-    });
+    const rooms = await this.liveRoomsFor(userId);
+    return sortRooms(rooms.filter((room) => room.isLive), 'trending').slice(0, clampRoomLimit(limit));
   }
 
-  async getRoomCategories() {
-    return [
-      { name: 'Conversation', icon: '💬', color: '#6366F1', roomCount: 0 },
-      { name: 'Language Learning', icon: '📚', color: '#8B5CF6', roomCount: 0 },
-      { name: 'Music', icon: '🎵', color: '#EC4899', roomCount: 0 },
-      { name: 'Gaming', icon: '🎮', color: '#8B5CF6', roomCount: 0 },
-      { name: 'Social', icon: '👥', color: '#06B6D4', roomCount: 0 },
-      { name: 'Casual', icon: '☕', color: '#F59E0B', roomCount: 0 },
-      { name: 'Podcast', icon: '🎙️', color: '#6366F1', roomCount: 0 },
-      { name: 'Study', icon: '📖', color: '#10B981', roomCount: 0 },
-      { name: 'Interview', icon: '🎤', color: '#EF4444', roomCount: 0 },
-      { name: 'Panel', icon: '🎭', color: '#8B5CF6', roomCount: 0 },
-    ];
+  /** The filter chips on Discover, from what is actually running */
+  async getRoomCategories(userId: string) {
+    return categoryCounts(await this.liveRoomsFor(userId)).map((category) => ({
+      ...category,
+      ...(ROOM_CATEGORY_STYLE[category.name.toLowerCase()] ?? DEFAULT_CATEGORY_STYLE),
+    }));
   }
 
+  /** Public rooms with someone in them; private rooms are nobody else's business */
   async getLiveRoomsCount() {
     return this.prisma.voiceRoom.count({
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', type: { not: 'PRIVATE' }, participants: { some: { leftAt: null } } },
     });
   }
 
   async getRecommendedRooms(userId: string, limit: number = 10) {
-    return this.prisma.voiceRoom.findMany({
-      where: { status: 'ACTIVE', AND: [this.visibleRoomsWhere(userId)] },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            avatarUrl: true,
-          },
-        },
-        participants: {
-          where: { leftAt: null },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                avatarUrl: true,
-                speakingEffect: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
+    const [rooms, me] = await Promise.all([this.liveRoomsFor(userId), this.recommendationContext(userId)]);
+    return sortRooms(rooms.filter((room) => room.isLive), 'recommended', me).slice(0, clampRoomLimit(limit));
   }
 
   // ============ HOST PROMOTION ============
@@ -1856,6 +1858,7 @@ export class VoiceService {
             name: true,
             avatarUrl: true,
             speakingEffect: true,
+            profile: PARTICIPANT_PROFILE,
           },
         },
       },

@@ -15,5 +15,7 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     css: false,
+    // Form tests type key by key; on a busy computer (dev servers running) 5 seconds is not always enough
+    testTimeout: 20_000,
   },
 });

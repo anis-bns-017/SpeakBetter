@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { assertNotSuspended, isPermanentSuspension, isSuspended, PERMANENT_SUSPENSION, suspensionMessage } from '../common/suspension';
-import { adminEmailsFrom } from './admin-bootstrap.service';
+import { adminEmailsFrom, adminPromotionWhere } from './admin-bootstrap.service';
 import { AdminUsersService } from './admin-users.service';
 import { hasRole, permissionsFor, type Actor } from './admin.roles';
 
@@ -22,6 +22,14 @@ describe('roles', () => {
   it('reads ADMIN_EMAILS', () => {
     expect(adminEmailsFrom(' A@x.com, b@y.org ,nope,, a@x.com')).toEqual(['a@x.com', 'b@y.org']);
     expect(adminEmailsFrom(undefined)).toEqual([]);
+  });
+
+  it('promotes only the exact address, and in production only a confirmed one', () => {
+    const dev = adminPromotionWhere(['a@x.com'], { production: false, trustPasswords: false });
+    expect(dev).toEqual({ email: { in: ['a@x.com'] }, role: { not: 'ADMIN' } });
+    expect(JSON.stringify(dev)).not.toContain('insensitive');
+    expect(adminPromotionWhere(['a@x.com'], { production: true, trustPasswords: false })).toMatchObject({ emailVerifiedAt: { not: null } });
+    expect(adminPromotionWhere(['a@x.com'], { production: true, trustPasswords: true })).not.toHaveProperty('emailVerifiedAt');
   });
 });
 
@@ -56,6 +64,7 @@ function setup(users: Record<string, { id: string; name: string; role: string; s
     },
     moderationLog: { create: jest.fn() },
     subscription: { findUnique: jest.fn().mockResolvedValue(null), upsert: jest.fn() },
+    randomCallProfile: { findUnique: jest.fn().mockResolvedValue(null), update: jest.fn() },
   };
   const service = new AdminUsersService(prisma, audit as any, auth as any, notifications as any);
   return { service, prisma, audit, auth, notifications, users };
@@ -108,6 +117,30 @@ describe('AdminUsersService', () => {
     await service.remove(ADMIN, 'u1', 'U1@example.test', 'spam account');
     expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'u1' } });
     expect(users.u1).toBeUndefined();
+  });
+
+  it('checks a decision before anything changes', async () => {
+    const { service, users, auth } = setup({ u1: { id: 'u1', name: 'Sam', role: 'USER' }, a2: { id: 'a2', name: 'Boss', role: 'ADMIN' } });
+    await expect(service.assertCanModerate(MOD, 'a2', {})).rejects.toThrow(ForbiddenException);
+    await expect(service.assertCanModerate(MOD, 'u1', { permanent: true })).rejects.toThrow(ForbiddenException);
+    await expect(service.assertCanModerate(ADMIN, 'a2', { days: 3 })).rejects.toThrow(ForbiddenException);
+    await expect(service.assertCanModerate(MOD, 'u1', { days: 7 })).resolves.toBeUndefined();
+    expect(users.u1.suspendedUntil).toBeUndefined();
+    expect(auth.logoutAll).not.toHaveBeenCalled();
+  });
+
+  it('lifts a random-call restriction, with permanent blocks left to admins', async () => {
+    const { service, prisma, audit } = setup({ u1: { id: 'u1', name: 'Sam', role: 'USER' } });
+    await expect(service.liftCallRestriction(MOD, 'u1')).rejects.toThrow(BadRequestException);
+    prisma.randomCallProfile.findUnique.mockResolvedValueOnce({ restrictedUntil: null, permanentlyBanned: true, restrictionCount: 3 });
+    await expect(service.liftCallRestriction(MOD, 'u1')).rejects.toThrow(ForbiddenException);
+    prisma.randomCallProfile.findUnique.mockResolvedValueOnce({ restrictedUntil: new Date(Date.now() + 86_400_000), permanentlyBanned: false, restrictionCount: 1 });
+    await service.liftCallRestriction(MOD, 'u1', 'wrong report');
+    expect(prisma.randomCallProfile.update).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+      data: { restrictedUntil: null, permanentlyBanned: false, restrictionReason: null, restrictionCount: 0 },
+    });
+    expect(audit.record.mock.calls[0][1]).toMatchObject({ action: 'user.calls-lift', targetId: 'u1' });
   });
 
   it('gives Pro on top of any Pro time left', async () => {

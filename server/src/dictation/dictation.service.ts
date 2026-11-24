@@ -77,7 +77,7 @@ export class DictationService {
    */
   async finish(userId: string, answers: unknown, now = new Date()) {
     if (!answers || typeof answers !== 'object' || Array.isArray(answers)) throw new BadRequestException('Send your answers');
-    const entries = Object.entries(answers as Record<string, unknown>).slice(0, SESSION_SIZE * 2);
+    const entries = Object.entries(answers as Record<string, unknown>).slice(0, SESSION_SIZE);
     if (!entries.length) throw new BadRequestException('Send your answers');
 
     const results = entries.map(([id, typed]) => {
@@ -86,6 +86,8 @@ export class DictationService {
       const text = typeof typed === 'string' ? typed.slice(0, MAX_TYPED) : '';
       return { id, text: item.text, typed: text, ...markDictation(item.text, text) };
     });
+
+    if (results.length < SESSION_SIZE || results.some((r) => !r.typed.trim())) throw new BadRequestException('Answer every sentence first');
 
     const correctWords = results.reduce((s, r) => s + r.correct, 0);
     const totalWords = results.reduce((s, r) => s + r.total, 0);

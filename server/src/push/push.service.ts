@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import * as webpush from 'web-push';
 import { PrismaService } from '../prisma.service';
+import { rememberZone } from '../common/learner-day';
 
 export interface PushPayload {
   title: string;
@@ -97,9 +98,13 @@ export class PushService {
       await this.prisma.pushSubscription.deleteMany({ where: { id: { in: all.slice(MAX_DEVICES).map((s) => s.id) } } });
     }
 
-    // The daily reminder is sent at their local time, so remember their time zone when we do not know it yet
+    // The daily reminder is sent at their local time, so keep their time zone current (people travel)
     if (isValidTimeZone(options.timezone)) {
-      await this.prisma.profile.updateMany({ where: { userId, timezone: null }, data: { timezone: options.timezone } });
+      await this.prisma.profile.updateMany({
+        where: { userId, OR: [{ timezone: null }, { timezone: { not: options.timezone } }] },
+        data: { timezone: options.timezone },
+      });
+      rememberZone(userId, options.timezone);
     }
     return this.status(userId);
   }

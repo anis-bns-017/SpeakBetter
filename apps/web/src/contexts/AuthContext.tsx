@@ -1,3 +1,4 @@
+import { forgetReturnOnSignOut } from "../lib/returnTo";
 import React, {
   useCallback,
   useState,
@@ -95,6 +96,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const logout = async () => {
+    forgetReturnOnSignOut();
     // This device must stop getting this person's notifications once they are signed out
     await removePushOnSignOut();
     await clearOfflineData();

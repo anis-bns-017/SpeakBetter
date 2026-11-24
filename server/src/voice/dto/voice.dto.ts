@@ -1,6 +1,8 @@
 // server/src/voice/dto/voice.dto.ts
 
 import {
+  MaxLength,
+  MinLength,
   IsString,
   IsOptional,
   IsEnum,
@@ -70,6 +72,8 @@ export class CreateVoiceRoomDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(4)
+  @MaxLength(72)
   password?: string;
 }
 
@@ -113,6 +117,8 @@ export class UpdateVoiceRoomDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(4)
+  @MaxLength(72)
   password?: string;
 }
 
@@ -122,6 +128,14 @@ export class JoinVoiceRoomDto {
   @IsString()
   @IsNotEmpty()
   roomId: string;
+}
+
+/** Body of "join room": only someone opening a private room by its link sends a password */
+export class JoinWithPasswordDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(72)
+  password?: string;
 }
 
 export class LeaveVoiceRoomDto {

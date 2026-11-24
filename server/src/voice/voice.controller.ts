@@ -23,6 +23,7 @@ import { LiveKitService } from './livekit.service';
 import { VoiceBroadcaster } from './realtime/voice-broadcaster';
 import { TranslationService } from './services/translation.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { VerifiedEmailGuard } from '../auth/verified-email.guard';
 import { DiscoverRoomsDto } from './dto/discovery.dto';
 import {
   CreateVoiceRoomDto,
@@ -30,6 +31,7 @@ import {
   StageActionDto,
   RaiseHandDto,
   SendVoiceMessageDto,
+  JoinWithPasswordDto,
 } from './dto/voice.dto';
 
 @Controller('voice')
@@ -63,6 +65,7 @@ export class VoiceController {
   }
 
   @Post('rooms')
+  @UseGuards(VerifiedEmailGuard)
   async createRoom(@Request() req, @Body() dto: CreateVoiceRoomDto) {
     return this.voiceService.createRoom(req.user.id, dto);
   }
@@ -85,10 +88,19 @@ export class VoiceController {
   // ============ PARTICIPANTS ============
 
   @Post('rooms/:roomId/join')
-  async joinRoom(@Request() req, @Param('roomId') roomId: string) {
+  async joinRoom(
+    @Request() req,
+    @Param('roomId') roomId: string,
+    @Body() body: JoinWithPasswordDto = {},
+  ) {
     try {
       const userId = req.user.id;
       this.logger.log(`🎙️ User ${userId} joining voice room ${roomId}`);
+
+      // Someone who opened a private room's link: the right password gets them in
+      if (body?.password) {
+        await this.voiceService.admitWithPassword(userId, roomId, body.password);
+      }
 
       // Get the room first
       const room = await this.voiceService.getRoomById(roomId, userId);
@@ -174,12 +186,9 @@ export class VoiceController {
         },
       };
     } catch (error) {
-      // "Not allowed" and "not found" are answers, not outages: a private room,
-      // a ban or a missing room must not be papered over with a fake success
-      if (
-        error instanceof HttpException &&
-        [HttpStatus.FORBIDDEN, HttpStatus.NOT_FOUND].includes(error.getStatus())
-      ) {
+      // Anything the person can act on (private, banned, full, ended, too many tries) is an answer, not an
+      // outage, and must not be papered over with a fake success
+      if (error instanceof HttpException && error.getStatus() < 500) {
         this.logger.warn(`Join refused: ${error.message}`);
         throw error;
       }
@@ -404,8 +413,8 @@ export class VoiceController {
   }
 
   @Get('categories')
-  async getRoomCategories() {
-    return this.voiceService.getRoomCategories();
+  async getRoomCategories(@Request() req) {
+    return this.voiceService.getRoomCategories(req.user.id);
   }
 
   @Get('live-count')

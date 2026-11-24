@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { VoiceModule } from '../voice/voice.module';
+import { RandomCallModule } from '../random-call/random-call.module';
 import { PrismaService } from '../prisma.service';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminBootstrapService } from './admin-bootstrap.service';
@@ -14,7 +15,7 @@ import { AdminService } from './admin.service';
 
 /** The admin section (src/admin): moderation, users, content, billing, announcements, audit log, system health */
 @Module({
-  imports: [AuthModule, NotificationsModule, VoiceModule],
+  imports: [AuthModule, NotificationsModule, VoiceModule, RandomCallModule],
   controllers: [AdminController],
   providers: [
     PrismaService,

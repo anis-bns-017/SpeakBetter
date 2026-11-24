@@ -9,6 +9,7 @@ import {
   LEAGUES,
   nextTier,
   rankGroup,
+  tierAfterAbsence,
   weekEndOf,
   weekFromKey,
   weekKey,
@@ -63,16 +64,28 @@ export class LeaguesService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  private async tierOf(userId: string): Promise<number> {
+  /**
+   * The league someone plays in this week. A finished week is settled first if the background pass has not got
+   * to it yet, and every full week away costs one league, as the page promises.
+   */
+  private async tierOf(userId: string, week: string): Promise<number> {
+    const last = await this.prisma.leagueMember.findFirst({
+      where: { userId, weekStart: { lt: week } },
+      orderBy: { weekStart: 'desc' },
+      select: { weekStart: true, result: true },
+    });
+    if (last && last.result === null) await this.finalizeDue();
     const profile = await this.prisma.leagueProfile.upsert({ where: { userId }, create: { userId }, update: {} });
-    return clampTier(profile.tier);
+    return tierAfterAbsence(profile.tier, last?.weekStart ?? null, week);
   }
 
   /** Puts someone in an open group of their league for the week (or makes a new group) */
   async join(userId: string, week: string) {
     const existing = await this.prisma.leagueMember.findUnique({ where: { userId_weekStart: { userId, weekStart: week } } });
     if (existing) return existing;
-    const tier = await this.tierOf(userId);
+    const tier = await this.tierOf(userId, week);
+    // Time away is only counted once: from here on this is the league they are in
+    await this.prisma.leagueProfile.updateMany({ where: { userId, tier: { not: tier } }, data: { tier } });
     const open = await this.prisma.leagueGroup.findMany({
       where: { weekStart: week, tier, finalizedAt: null },
       orderBy: { createdAt: 'asc' },
@@ -126,16 +139,16 @@ export class LeaguesService implements OnModuleInit, OnModuleDestroy {
   /** Settles every group whose week is over: ranks, moves people, and tells each of them */
   async finalizeDue(now = new Date()) {
     const current = weekKey(now);
+    // Also picks up a group whose settling was cut short (a restart), carrying on with whoever is left
     const due = await this.prisma.leagueGroup.findMany({
-      where: { finalizedAt: null, weekStart: { lt: current } },
+      where: { weekStart: { lt: current }, OR: [{ finalizedAt: null }, { members: { some: { result: null } } }] },
       include: { members: true },
       take: 50,
     });
     let settled = 0;
     for (const group of due) {
-      // Claim the group first, so two server instances never settle it twice
-      const { count } = await this.prisma.leagueGroup.updateMany({ where: { id: group.id, finalizedAt: null }, data: { finalizedAt: now } });
-      if (!count) continue;
+      await this.prisma.leagueGroup.updateMany({ where: { id: group.id, finalizedAt: null }, data: { finalizedAt: now } });
+      if (!group.members.some((m) => m.result === null)) continue;
       const xp = await this.weeklyXp(group.members.map((m) => m.userId), group.weekStart);
       const ranked = rankGroup(
         group.members.map((m) => ({ userId: m.userId, xp: xp.get(m.userId) ?? 0, joinedAt: m.createdAt })),
@@ -143,10 +156,15 @@ export class LeaguesService implements OnModuleInit, OnModuleDestroy {
       );
       for (const r of ranked) {
         const member = group.members.find((m) => m.userId === r.userId);
-        if (!member) continue;
+        if (!member || member.result !== null) continue;
         const next = nextTier(group.tier, r.zone);
         const podium = r.rank <= 3 && r.xp > 0 && ranked.length >= 2;
-        await this.prisma.leagueMember.update({ where: { id: member.id }, data: { xp: r.xp, rank: r.rank, result: r.zone } });
+        // Claiming each person means two server instances, or a retry, never move anyone twice
+        const claimed = await this.prisma.leagueMember.updateMany({
+          where: { id: member.id, result: null },
+          data: { xp: r.xp, rank: r.rank, result: r.zone },
+        });
+        if (!claimed.count) continue;
         const profile = await this.prisma.leagueProfile.upsert({ where: { userId: r.userId }, create: { userId: r.userId }, update: {} });
         await this.prisma.leagueProfile.update({
           where: { userId: r.userId },
@@ -189,7 +207,7 @@ export class LeaguesService implements OnModuleInit, OnModuleDestroy {
     ]);
     if (earnedThisWeek > 0) await this.join(userId, week);
 
-    const tier = await this.tierOf(userId);
+    const tier = await this.tierOf(userId, week);
     const base = {
       weekStart: start,
       endsAt: weekEndOf(start),
@@ -288,7 +306,7 @@ export class LeaguesService implements OnModuleInit, OnModuleDestroy {
             type: 'REMINDER',
             title: `${group.names.get(passer.userId)} just passed you`,
             message: `You're now #${passed.rank} in the ${LEAGUES[group.tier].name} league. ${gap} XP wins your place back.`,
-            actionUrl: '/dashboard',
+            actionUrl: '/leagues',
             data: { kind: 'overtake', by: passer.userId, rank: passed.rank, gap },
             dedupeKey: `overtake:${group.week}:${passer.userId}:${passed.userId}`,
             preference: 'achievements',
@@ -334,7 +352,7 @@ export class LeaguesService implements OnModuleInit, OnModuleDestroy {
           type: 'REMINDER',
           title,
           message,
-          actionUrl: '/dashboard',
+          actionUrl: '/leagues',
           data: { kind: 'league-nudge', zone: r.zone },
           dedupeKey: `nudge:${group.week}:${r.userId}`,
           preference: 'achievements',
@@ -347,24 +365,37 @@ export class LeaguesService implements OnModuleInit, OnModuleDestroy {
   /** This week's XP among you, your friends and the people you follow */
   async friends(userId: string) {
     const now = new Date();
-    const [friendRows, followRows] = await Promise.all([
+    const [friendRows, followRows, blocks] = await Promise.all([
       this.prisma.friend.findMany({
         where: { status: 'ACCEPTED', OR: [{ fromUserId: userId }, { toUserId: userId }] },
         select: { fromUserId: true, toUserId: true },
         take: 500,
       }),
       this.prisma.follow.findMany({ where: { followerId: userId }, select: { followingId: true }, take: 500 }),
+      this.prisma.block.findMany({
+        where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+        select: { blockerId: true, blockedId: true },
+      }),
     ]);
+    // Someone you blocked, or who blocked you, is never on your board
+    const blocked = new Set(blocks.map((b) => (b.blockerId === userId ? b.blockedId : b.blockerId)));
     const ids = [
       ...new Set([
         userId,
         ...friendRows.map((f) => (f.fromUserId === userId ? f.toUserId : f.fromUserId)),
         ...followRows.map((f) => f.followingId),
       ]),
-    ];
+    ].filter((id) => !blocked.has(id));
     const [xp, users, profiles] = await Promise.all([
       this.weeklyXp(ids, weekKey(now)),
-      this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, avatarUrl: true } }),
+      // Settings: people who stopped sharing their activity don't appear on anyone else's board
+      this.prisma.user.findMany({
+        where: {
+          id: { in: ids },
+          OR: [{ id: userId }, { settings: { is: null } }, { settings: { is: { shareActivityWithFriends: true } } }],
+        },
+        select: { id: true, name: true, avatarUrl: true },
+      }),
       this.prisma.leagueProfile.findMany({ where: { userId: { in: ids } }, select: { userId: true, tier: true } }),
     ]);
     const tierOf = new Map(profiles.map((p) => [p.userId, clampTier(p.tier)]));

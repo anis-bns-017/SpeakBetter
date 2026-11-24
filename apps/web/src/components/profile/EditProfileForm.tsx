@@ -1,3 +1,6 @@
+import { countryOptions, resolveCountryCode } from "../../lib/countryFlag";
+import { serverMessage } from "../../lib/serverMessage";
+import { useProfile } from "../../hooks/useProfile";
 import React, { useState } from "react";
 import { toast } from "sonner";
 import { tr } from "../../i18n/core";
@@ -35,16 +38,6 @@ interface EditProfileFormProps {
   onSuccess: () => void;
 }
 
-// --- Mock hook (replace with your actual hook) ---
-const useProfile = () => ({
-  updateProfile: async (data: UpdateProfileData) => {
-    // Simulate API call
-    console.log("Updating profile:", data);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  },
-  isUpdating: false,
-});
-
 export const EditProfileForm: React.FC<EditProfileFormProps> = ({
   profile,
   onCancel,
@@ -69,8 +62,8 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
       await updateProfile(formData);
       toast.success(tr("Profile updated successfully! ✅"));
       onSuccess();
-    } catch {
-      toast.error(tr("Failed to update profile"));
+    } catch (error) {
+      toast.error(serverMessage(error) || tr("Failed to update profile"));
     }
   };
 
@@ -128,14 +121,21 @@ export const EditProfileForm: React.FC<EditProfileFormProps> = ({
         <div>
           <label className="block text-sm font-medium text-gray-700">
             {tr("Country")}</label>
-          <input
-            type="text"
-            value={formData.country}
+          {/* A list, not free text: the value is a country code, so the flag next to your name in voice rooms always shows */}
+          <select
+            value={resolveCountryCode(formData.country) ?? ""}
             onChange={(e) =>
               setFormData({ ...formData, country: e.target.value })
             }
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-          />
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
+          >
+            <option value="">{tr("Select your country")}</option>
+            {countryOptions().map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>

@@ -3,6 +3,8 @@
  * Pure functions, so the choice can be tested without a database.
  */
 
+import { addDays } from '../common/learner-day';
+
 export const GOAL_OPTIONS = [5, 10, 20, 30] as const;
 export const DEFAULT_GOAL_MINUTES = 10;
 
@@ -45,6 +47,10 @@ export const MINUTES_PER = {
   correction: 1.5,
   savedWord: 0.7,
   levelTest: 8,
+  lesson: 5,
+  writing: 6,
+  challenge: 2,
+  vocabTest: 2,
 } as const;
 
 export const normalizeGoal = (value: unknown): number =>
@@ -203,19 +209,27 @@ export function dayKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Midnight `days` calendar days before `date`. Counts days, not 24-hour blocks, so a clock change can't skip one. */
+export function daysBefore(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - days);
+  return d;
+}
+
 /**
  * Days in a row a plan was finished: counting back from today, or from yesterday when today's plan is
  * not finished yet (so the streak is not "lost" in the morning).
  */
-export function planStreak(completedDays: Iterable<string>, today: Date): number {
+export function planStreak(completedDays: Iterable<string>, today: Date | string): number {
   const done = new Set(completedDays);
-  const cursor = new Date(today);
-  cursor.setHours(12, 0, 0, 0);
-  if (!done.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+  // A day key is already on the learner's clock; a Date is read on the server's
+  let cursor = typeof today === 'string' ? today : dayKey(today);
+  if (!done.has(cursor)) cursor = addDays(cursor, -1);
   let streak = 0;
-  while (done.has(dayKey(cursor))) {
+  while (done.has(cursor)) {
     streak++;
-    cursor.setDate(cursor.getDate() - 1);
+    cursor = addDays(cursor, -1);
   }
   return streak;
 }

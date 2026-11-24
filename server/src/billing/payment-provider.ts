@@ -16,6 +16,8 @@ export abstract class PaymentProvider {
   abstract checkoutUrl(paymentId: string): string;
   /** Whether the provider is a stand-in that moves no money */
   abstract readonly isSandbox: boolean;
+  /** Whether it charges again by itself when the time runs out */
+  abstract readonly autoRenews: boolean;
 }
 
 /**
@@ -28,6 +30,7 @@ export class SandboxPaymentProvider extends PaymentProvider {
   readonly name = 'sandbox';
   readonly method = PaymentMethod.SANDBOX;
   readonly isSandbox = true;
+  readonly autoRenews = false;
 
   constructor(private config: ConfigService) {
     super();

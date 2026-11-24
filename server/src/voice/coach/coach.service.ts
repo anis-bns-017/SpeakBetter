@@ -568,6 +568,11 @@ export class CoachService {
     if (!report) return null;
     const me = await this.prisma.voiceParticipant.findUnique({ where: { roomId_userId: { roomId, userId } }, select: { joinedAt: true } });
     const since = me?.joinedAt ?? report.createdAt;
+    const blocks = await this.prisma.block.findMany({
+      where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+      select: { blockerId: true, blockedId: true },
+    });
+    const hidden = blocks.map((b) => (b.blockerId === userId ? b.blockedId : b.blockerId));
     const [corrections, saved, others] = await Promise.all([
       this.prisma.voiceCorrection.findMany({
         where: { roomId, targetUserId: userId, status: { not: 'dismissed' } },
@@ -582,7 +587,13 @@ export class CoachService {
         select: { word: true, meaning: true, sentence: true },
       }),
       this.prisma.voiceParticipant.findMany({
-        where: { roomId, userId: { not: userId } },
+        where: {
+          roomId,
+          userId: { notIn: [userId, ...hidden] },
+          // "You were with": only people who were there at the same time as you
+          joinedAt: { lte: report.updatedAt },
+          OR: [{ leftAt: null }, { leftAt: { gte: since } }],
+        },
         orderBy: { joinedAt: 'asc' },
         take: 8,
         include: { user: { select: { id: true, name: true, avatarUrl: true } } },

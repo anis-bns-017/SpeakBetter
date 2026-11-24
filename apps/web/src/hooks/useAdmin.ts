@@ -79,7 +79,7 @@ export interface AdminUser {
   avatarUrl: string | null;
   role: PlatformRole;
   createdAt: string;
-  googleId: string | null;
+  emailVerifiedAt: string | null;
   suspendedUntil: string | null;
   suspensionReason: string | null;
   signIn: "google" | "password";
@@ -161,6 +161,8 @@ export interface Billing {
     paymentsAll: number;
     revenue30: number;
     payments30: number;
+    /** Test checkouts: no money moved, so they are not in the revenue */
+    testPayments: number;
     failed30: number;
   };
   payments: Paged<{
@@ -270,6 +272,7 @@ export const adminApi = {
   suspend: (id: string, body: { days?: number; permanent?: boolean; reason: string }) => apiClient.post(`/admin/users/${id}/suspend`, body),
   unsuspend: (id: string, note?: string) => apiClient.post(`/admin/users/${id}/unsuspend`, note ? { note } : {}),
   signOut: (id: string) => apiClient.post(`/admin/users/${id}/sign-out`),
+  liftCalls: (id: string, note?: string) => apiClient.post(`/admin/users/${id}/calls/lift`, note ? { note } : {}),
   setRole: (id: string, role: PlatformRole) => apiClient.put(`/admin/users/${id}/role`, { role }),
   grantPro: (id: string, days: number, note?: string) => apiClient.post(`/admin/users/${id}/pro`, note ? { days, note } : { days }),
   deleteUser: (id: string, confirmEmail: string, reason: string) => apiClient.delete(`/admin/users/${id}`, { data: { confirmEmail, reason } }),

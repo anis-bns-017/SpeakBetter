@@ -20,6 +20,13 @@ import { part15 } from "./part15";
 import { part16 } from "./part16";
 import { part17 } from "./part17";
 import { part18 } from "./part18";
+import { part19 } from "./part19";
+import { part20 } from "./part20";
+import { part21 } from "./part21";
+import { part22 } from "./part22";
+import { part23 } from "./part23";
+import { part24 } from "./part24";
+import { part25 } from "./part25";
 
 export const screens: Record<string, string> = {
   ...part00,
@@ -41,4 +48,11 @@ export const screens: Record<string, string> = {
   ...part16,
   ...part17,
   ...part18,
+  ...part19,
+  ...part20,
+  ...part21,
+  ...part22,
+  ...part23,
+  ...part24,
+  ...part25,
 };

@@ -1,48 +1,47 @@
 // apps/web/src/components/voice/ClapButton.tsx
 /**
  * ClapButton — prop-driven applause button.
- * Fires 👏 into the stage reactions (Feature 1) + tracks a local
- * per-session clap streak. No REST, no fake sockets.
  *
- * Particle behavior: emojis float up like soap bubbles — they rise,
- * sway side-to-side, expand as they climb, and pop-fade at the top.
+ * Tap to clap, or press and hold to keep applauding (it repeats, a touch faster the longer you hold). Each clap
+ * only calls onClap: the 👏 burst that rises over the stage comes from the shared reaction pipeline
+ * (shared/useStageReactions + ReactionOverlay), so a clap shows once, from one place, for you and for everyone.
+ *
+ * Pointer taps clap on press (not release) so it feels instant; keyboard Enter/Space clap through the native
+ * click (detail === 0), so nothing ever fires twice.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { THEME } from "./VoiceRoomView.theme";
 import { tr } from "../../i18n/core";
 
 interface ClapButtonProps {
-  /** Called when the user taps clap. Wire to sendStageReaction('👏') */
+  /** Called on every clap. Wire to the shared reaction hook's clap() */
   onClap: () => void;
   /** Optional: called with the new streak when it changes */
   onStreakChange?: (streak: number) => void;
   className?: string;
   size?: "sm" | "md" | "lg";
-  /** Max claps per session before cooldown kicks in */
+  /** Max claps per session before the button rests */
   maxClaps?: number;
-  /** Cooldown between claps in ms */
+  /** Minimum gap between claps in ms */
   cooldownMs?: number;
   /** Show badge with remaining claps */
   showRemaining?: boolean;
 }
 
-interface BubbleParticle {
-  id: number;
-  drift: number; // final horizontal drift
-  rise: number; // final upward rise (negative)
-  emoji: string;
-  rotate: number;
-  scale: number;
-  duration: number;
-  delay: number;
-  /** Screen position the bubble starts from (the button's centre when clapped) */
-  originX: number;
-  originY: number;
-}
+const SIZE_CONFIG = {
+  sm: { button: "px-3.5 py-2 text-xs gap-1.5", icon: "text-base", count: "text-[11px]" },
+  md: { button: "px-4 py-2.5 text-sm gap-2", icon: "text-xl", count: "text-xs" },
+  lg: { button: "px-5 py-3.5 text-base gap-2.5", icon: "text-2xl", count: "text-sm" },
+} as const;
+
+/** Holding the button: wait this long, then repeat */
+const HOLD_DELAY_MS = 340;
+const HOLD_START_INTERVAL_MS = 170;
+const HOLD_MIN_INTERVAL_MS = 95;
+const STREAK_WINDOW_MS = 2000;
 
 export const ClapButton: React.FC<ClapButtonProps> = ({
   onClap,
@@ -50,254 +49,130 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
   className,
   size = "md",
   maxClaps = 1000,
-  cooldownMs = 180,
+  cooldownMs = 110,
   showRemaining = true,
 }) => {
   const [userClaps, setUserClaps] = useState(0);
-  const [isCoolingDown, setIsCoolingDown] = useState(false);
-  const [isClapping, setIsClapping] = useState(false);
-  const [localParticles, setLocalParticles] = useState<BubbleParticle[]>([]);
+  const [pulse, setPulse] = useState(0); // bumps on every clap to retrigger the ring
   const [showTooltip, setShowTooltip] = useState(false);
+  const [streak, setStreak] = useState(0);
 
-  const particleId = useRef(0);
-  const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clapTimesRef = useRef<number[]>([]);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const lastClapAtRef = useRef(0);
+  const clapsRef = useRef(0);
+  const holdTimerRef = useRef<number | null>(null);
+  const holdStartRef = useRef(0);
+  const onClapRef = useRef(onClap);
+  useEffect(() => {
+    onClapRef.current = onClap;
+  }, [onClap]);
 
-  const sizeConfig = {
-    sm: {
-      button: "px-3 py-2 text-xs gap-1.5",
-      icon: "text-base",
-      count: "text-[11px]",
-      particles: 5,
-      bubbleSize: "text-2xl",
-    },
-    md: {
-      button: "px-4 py-2.5 text-sm gap-2",
-      icon: "text-xl",
-      count: "text-xs",
-      particles: 8,
-      bubbleSize: "text-3xl",
-    },
-    lg: {
-      button: "px-5 py-3.5 text-base gap-2.5",
-      icon: "text-2xl",
-      count: "text-sm",
-      particles: 11,
-      bubbleSize: "text-4xl",
-    },
-  } as const;
+  const config = SIZE_CONFIG[size];
 
-  const config = sizeConfig[size];
-
-  // ----------------------------------------------------------
-  // Streak calculation — counts claps within the last 2s
-  // ----------------------------------------------------------
   const computeStreak = useCallback(() => {
     const now = Date.now();
-    clapTimesRef.current = clapTimesRef.current.filter((t) => now - t < 2000);
+    clapTimesRef.current = clapTimesRef.current.filter((t) => now - t < STREAK_WINDOW_MS);
     return clapTimesRef.current.length;
   }, []);
-
-  const [streak, setStreak] = useState(0);
 
   useEffect(() => {
     onStreakChange?.(streak);
   }, [streak, onStreakChange]);
 
+  // The streak falls back to zero once you stop clapping
+  useEffect(() => {
+    if (streak === 0) return;
+    const id = window.setTimeout(() => setStreak(computeStreak()), STREAK_WINDOW_MS + 100);
+    return () => window.clearTimeout(id);
+  }, [streak, computeStreak, pulse]);
+
   const isOnFire = streak >= 5;
 
-  // ----------------------------------------------------------
-  // Bubble particles — rise + sway + grow + fade. No explosion.
-  // ----------------------------------------------------------
-  const spawnParticles = useCallback((count: number) => {
-    // Bias toward 👏 since that's the clap gesture, but keep some variety
-    const emojis = ["👏", "👏", "👏", "🎉", "✨", "💫", "⭐", "🌟"];
-    const batch: BubbleParticle[] = [];
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const originX = rect.left + rect.width / 2;
-    const originY = rect.top + rect.height / 2;
-
-    for (let i = 0; i < count; i++) {
-      batch.push({
-        id: particleId.current++,
-        // Gentle horizontal drift — bubbles wander, they don't shoot
-        drift: (Math.random() - 0.5) * 140,
-        // Always rise upward. Bubbles go up, not down.
-        rise: -(220 + Math.random() * 260),
-        emoji: emojis[Math.floor(Math.random() * emojis.length)],
-        // Slow gentle rotation as it floats
-        rotate: (Math.random() - 0.5) * 50,
-        // Bubbles expand as they rise (less pressure)
-        scale: 1.4 + Math.random() * 0.9,
-        // Stagger duration for organic feel
-        duration: 1.9 + Math.random() * 0.7,
-        // Tiny stagger so they don't all leave at the exact same frame
-        delay: Math.random() * 0.08,
-        originX,
-        originY,
-      });
+  const doClap = useCallback((): boolean => {
+    const now = Date.now();
+    if (now - lastClapAtRef.current < cooldownMs) return true; // too soon: skip quietly, keep holding
+    if (clapsRef.current >= maxClaps) {
+      toast.info(tr("You're on fire! Take a breath and let others share the love 🔥"), { id: "clap-max", duration: 2500 });
+      return false;
     }
+    lastClapAtRef.current = now;
+    clapsRef.current += 1;
+    clapTimesRef.current.push(now);
+    setStreak(computeStreak());
+    setUserClaps(clapsRef.current);
+    setPulse((p) => p + 1);
 
-    setLocalParticles((prev) => [...prev, ...batch]);
-
-    // Cleanup — match the longest possible duration
-    const maxLifeMs = Math.max(...batch.map((b) => b.duration)) * 1000 + 200;
-    window.setTimeout(() => {
-      setLocalParticles((prev) =>
-        prev.filter((p) => !batch.some((b) => b.id === p.id)),
-      );
-    }, maxLifeMs);
-  }, []);
-
-  // ----------------------------------------------------------
-  // Main handler
-  // ----------------------------------------------------------
-  const handleClap = useCallback(() => {
-    if (isCoolingDown) return;
-
-    if (userClaps >= maxClaps) {
-      toast.info(
-        tr("You're on fire! Take a breath and let others share the love 🔥"),
-        {
-          duration: 2500,
-        },
-      );
-      return;
-    }
-
-    // Record the clap time
-    clapTimesRef.current.push(Date.now());
-    const nextStreak = computeStreak();
-    setStreak(nextStreak);
-
-    // Local counter
-    setUserClaps((prev) => prev + 1);
-    setIsClapping(true);
-
-    // Bubble burst — floats up like soap bubbles
-    spawnParticles(config.particles);
-
-    // Haptic on mobile
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
       try {
-        navigator.vibrate?.(nextStreak >= 5 ? [10, 30, 10] : 10);
+        navigator.vibrate?.(clapTimesRef.current.length >= 5 ? [8, 24, 8] : 8);
       } catch {
         /* ignore */
       }
     }
+    onClapRef.current();
+    return true;
+  }, [cooldownMs, maxClaps, computeStreak]);
 
-    // Fire onClap — parent sends to stage reactions
-    onClap();
-
-    // Reset animation
-    window.setTimeout(() => setIsClapping(false), 220);
-
-    // Cooldown
-    setIsCoolingDown(true);
-    if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-    cooldownTimer.current = setTimeout(() => {
-      setIsCoolingDown(false);
-    }, cooldownMs);
-  }, [
-    isCoolingDown,
-    userClaps,
-    maxClaps,
-    computeStreak,
-    spawnParticles,
-    config.particles,
-    onClap,
-    cooldownMs,
-  ]);
-
-  // ----------------------------------------------------------
-  // Keyboard: Space/Enter when focused
-  // ----------------------------------------------------------
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (document.activeElement !== buttonRef.current) return;
-      if (e.key === " " || e.key === "Enter") {
-        e.preventDefault();
-        handleClap();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [handleClap]);
-
-  // Cleanup timer
-  useEffect(() => {
-    return () => {
-      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-    };
+  const stopHold = useCallback(() => {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
   }, []);
+
+  // The repeat loop lives in a ref so it can schedule itself without referring to its own declaration
+  const scheduleHoldRef = useRef<(delay: number) => void>(() => {});
+  useEffect(() => {
+    scheduleHoldRef.current = (delay: number) => {
+      holdTimerRef.current = window.setTimeout(() => {
+        if (!doClap()) {
+          stopHold();
+          return;
+        }
+        // The longer you hold, the faster it applauds
+        const held = Date.now() - holdStartRef.current;
+        scheduleHoldRef.current(Math.max(HOLD_MIN_INTERVAL_MS, HOLD_START_INTERVAL_MS - held / 40));
+      }, delay);
+    };
+  }, [doClap, stopHold]);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      stopHold();
+      if (!doClap()) return;
+      holdStartRef.current = Date.now();
+      scheduleHoldRef.current(HOLD_DELAY_MS);
+    },
+    [doClap, stopHold],
+  );
+
+  // Keyboard (Enter/Space) arrives as a click with detail 0; real pointer clicks were already handled on press
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (e.detail === 0) doClap();
+    },
+    [doClap],
+  );
+
+  // Let go anywhere, even off the button, and the hold ends
+  useEffect(() => {
+    window.addEventListener("pointerup", stopHold);
+    window.addEventListener("pointercancel", stopHold);
+    window.addEventListener("blur", stopHold);
+    return () => {
+      window.removeEventListener("pointerup", stopHold);
+      window.removeEventListener("pointercancel", stopHold);
+      window.removeEventListener("blur", stopHold);
+      stopHold();
+    };
+  }, [stopHold]);
 
   const remaining = maxClaps - userClaps;
   const isMaxed = remaining <= 0;
 
-  // ----------------------------------------------------------
-  // Render
-  // ----------------------------------------------------------
   return (
     <div className={"relative inline-block " + (className ?? "")}>
-      {/* Bubble particles — float upward, sway, grow, fade. Rendered in a page-level layer so
-          the scrolling, rounded containers around the button can't clip them. */}
-      {typeof document !== "undefined" &&
-        createPortal(
-          <div
-            aria-hidden
-            className="pointer-events-none fixed inset-0 z-[80] overflow-hidden"
-          >
-      <AnimatePresence>
-        {localParticles.map((p) => {
-          // Sway keyframes: bubble wanders side to side as it rises.
-          // 0% -> 30% -> 65% -> 100% of the drift creates an organic arc.
-          const swayMid1 = p.drift * 0.4;
-          const swayMid2 = p.drift * 0.75;
-          return (
-            <motion.div
-              key={p.id}
-              className="pointer-events-none absolute select-none"
-              style={{ left: p.originX, top: p.originY }}
-              initial={{
-                opacity: 0,
-                x: 0,
-                y: 0,
-                scale: 0.3,
-                rotate: 0,
-              }}
-              animate={{
-                opacity: [0, 1, 1, 0.65, 0],
-                x: [0, swayMid1, swayMid2, p.drift],
-                y: [0, p.rise * 0.3, p.rise * 0.65, p.rise * 0.92, p.rise],
-                scale: [0.3, 0.85, p.scale * 0.85, p.scale, p.scale * 1.25],
-                rotate: [0, p.rotate * 0.5, p.rotate, p.rotate * 1.2],
-              }}
-              exit={{ opacity: 0, transition: { duration: 0.2 } }}
-              transition={{
-                duration: p.duration,
-                delay: p.delay,
-                ease: "easeOut",
-                times: [0, 0.2, 0.5, 0.85, 1],
-              }}
-            >
-              <span
-                className={
-                  config.bubbleSize +
-                  " block -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_4px_12px_rgba(249,115,22,0.35)]"
-                }
-              >
-                {p.emoji}
-              </span>
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
-          </div>,
-          document.body,
-        )}
-
       {/* On-fire badge with pulsing ring */}
       <AnimatePresence>
         {isOnFire && (
@@ -305,21 +180,16 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="absolute -top-3 -right-3 z-10 pointer-events-none"
+            transition={{ type: "spring", stiffness: 500, damping: 24 }}
+            className="pointer-events-none absolute -right-3 -top-3 z-10"
           >
             <motion.div
               className="absolute inset-0 rounded-full"
-              style={{
-                background: `color-mix(in srgb, ${THEME.colors.accent.warning} 25.1%, transparent)`,
-              }}
-              animate={{ scale: [1, 1.5, 1], opacity: [0.6, 0, 0.6] }}
-              transition={{
-                duration: 1.6,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
+              style={{ background: "rgb(251 113 133 / 0.3)" }}
+              animate={{ scale: [1, 1.55, 1], opacity: [0.6, 0, 0.6] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
             />
-            <span className="relative text-lg animate-pulse">🔥</span>
+            <span className="relative text-lg">🔥</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -328,102 +198,84 @@ export const ClapButton: React.FC<ClapButtonProps> = ({
       <AnimatePresence>
         {showTooltip && (
           <motion.div
-            initial={{ opacity: 0, y: -6 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg text-[11px] whitespace-nowrap pointer-events-none z-30"
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.15 }}
+            className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px]"
             style={{
               background: THEME.colors.background.card,
               border: `1px solid ${THEME.colors.border.primary}`,
               color: THEME.colors.text.primary,
             }}
           >
-            {isMaxed ? tr("You've clapped the max!") : tr("Clap · {remaining} left", { remaining })}
+            {isMaxed ? tr("You've clapped the max!") : tr("Tap to clap · hold to keep clapping")}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Glow ring behind button while clapping */}
-      <AnimatePresence>
-        {isClapping && (
-          <motion.div
-            key="glow-ring"
-            className="absolute inset-0 rounded-full pointer-events-none"
-            initial={{ opacity: 0.7, scale: 1 }}
-            animate={{ opacity: 0, scale: 1.6 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            style={{
-              boxShadow: `0 0 30px 8px color-mix(in srgb, ${THEME.colors.accent.warning} 33.3%, transparent)`,
-              background: `color-mix(in srgb, ${THEME.colors.accent.warning} 13.3%, transparent)`,
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {/* Ring: a fresh one on every clap, so a fast clapper sees a continuous ripple */}
+      {pulse > 0 && (
+        <span
+          key={pulse}
+          aria-hidden
+          className="vr-clap-ring pointer-events-none absolute inset-0 rounded-full"
+        />
+      )}
 
-      {/* Button */}
       <motion.button
-        ref={buttonRef}
         type="button"
-        onClick={handleClap}
+        onPointerDown={handlePointerDown}
+        onClick={handleClick}
+        onContextMenu={(e) => e.preventDefault()}
         disabled={isMaxed}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         onFocus={() => setShowTooltip(true)}
         onBlur={() => setShowTooltip(false)}
-        animate={
-          isClapping ? { scale: [1, 1.18, 0.95, 1.08, 1] } : { scale: 1 }
-        }
-        transition={
-          isClapping ? { duration: 0.42, ease: "easeInOut" } : { duration: 0.2 }
-        }
-        whileHover={!isMaxed ? { scale: 1.04 } : undefined}
-        whileTap={!isMaxed ? { scale: 0.94 } : undefined}
+        whileHover={!isMaxed ? { y: -1 } : undefined}
+        whileTap={!isMaxed ? { scale: 0.92, y: 1 } : undefined}
+        transition={{ type: "spring", stiffness: 600, damping: 22 }}
         className={
-          "relative flex items-center justify-center overflow-hidden rounded-full font-semibold " +
-          "shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed " +
+          "vr-clap relative flex touch-manipulation select-none items-center justify-center overflow-hidden rounded-full font-bold " +
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80 disabled:cursor-not-allowed disabled:opacity-50 " +
           (isMaxed ? "" : "vr-sheen ") +
           config.button
         }
+        data-streak={Math.min(streak, 8)}
         style={{
-          background: isMaxed
-            ? "var(--sx-bg-255-255-255-60)"
-            : `linear-gradient(135deg, ${THEME.colors.accent.warning}, var(--sx-bg-f97316))`,
-          color: isMaxed ? THEME.colors.text.muted : "var(--sx-text-ffffff)",
+          background: isMaxed ? "var(--sx-bg-255-255-255-60)" : "linear-gradient(135deg, #fcd34d 0%, #fb923c 55%, #fb7185 100%)",
+          color: isMaxed ? THEME.colors.text.muted : "#2a0f06",
           boxShadow: isMaxed
             ? "none"
-            : `0 10px 28px -6px color-mix(in srgb, ${THEME.colors.accent.warning} 45%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.3)`,
+            : "0 10px 26px -8px rgb(251 113 133 / 0.65), 0 2px 0 rgb(180 60 40 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.55)",
         }}
-        title={isMaxed ? tr("Clap limit reached") : tr("Clap for the speaker")}
+        aria-label={isMaxed ? tr("Clap limit reached") : tr("Clap for the speaker")}
       >
-        <span className={config.icon}>👏</span>
+        <motion.span
+          key={pulse}
+          className={"inline-block origin-bottom " + config.icon}
+          initial={pulse > 0 ? { rotate: -22, scale: 1.25 } : false}
+          animate={{ rotate: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 700, damping: 14 }}
+        >
+          👏
+        </motion.span>
         <span>{tr("Clap")}</span>
 
         {showRemaining && userClaps > 0 && (
           <span
-            className={
-              "rounded-full px-2 py-0.5 font-mono tabular-nums " + config.count
-            }
-            style={{
-              background: isMaxed
-                ? "var(--sx-bg-255-255-255-60)"
-                : "var(--sx-bg-255-255-255-220)",
-              color: isMaxed ? THEME.colors.text.muted : "var(--sx-text-ffffff)",
-            }}
+            className={"rounded-full px-2 py-0.5 font-mono tabular-nums " + config.count}
+            style={{ background: "rgb(42 15 6 / 0.14)", color: isMaxed ? THEME.colors.text.muted : "#2a0f06" }}
           >
             {userClaps}
           </span>
         )}
 
-        {/* Remaining badge on the corner */}
         {showRemaining && !isMaxed && userClaps >= 10 && (
           <span
-            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center text-[9px] font-bold tabular-nums px-1"
-            style={{
-              borderColor: THEME.colors.background.primary,
-              background: THEME.colors.accent.warning,
-              color: "#0a0a12",
-            }}
+            className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 px-1 text-[9px] font-bold tabular-nums"
+            style={{ borderColor: THEME.colors.background.primary, background: "#2a0f06", color: "#fcd34d" }}
           >
             {remaining}
           </span>

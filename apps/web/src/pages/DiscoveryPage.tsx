@@ -38,6 +38,7 @@ import React, {
   useRef,
   useEffect,
   useCallback,
+  useDeferredValue,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -583,15 +584,23 @@ const RoomCard: React.FC<{
         {/* Top row — status badges */}
         <div className="flex justify-between items-start mb-3 gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
-              style={{
-                background: "rgba(110, 231, 183, 0.15)",
-                color: THEME.status.live,
-              }}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {tr("Live")}</span>
+            {participantCount > 0 ? (
+              <span
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                style={{
+                  background: "rgba(110, 231, 183, 0.15)",
+                  color: THEME.status.live,
+                }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {tr("Live")}</span>
+            ) : (
+              <span
+                className="px-2 py-0.5 rounded-full text-[11px] font-medium"
+                style={{ background: "var(--sx-bg-255-255-255-40)", color: THEME.text.muted }}
+              >
+                {tr("Nobody here yet")}</span>
+            )}
             {isNew && (
               <span
                 className="text-[11px] font-medium px-1.5 py-0.5 rounded-full"
@@ -1089,14 +1098,31 @@ export const DiscoveryPage: React.FC = () => {
   const { data: liveCount } = useLiveRoomsCount();
   const { data: trendingRooms } = useTrendingRooms(6);
   const { data: recommendedRooms } = useRecommendedRooms(8);
-  const { data: searchResults, isLoading } = useDiscoverRooms({
-    query: searchQuery,
+  // Every control on the page feeds this one list. Changing any of them goes back to the first page.
+  const typedQuery = useDeferredValue(searchQuery.trim());
+  const filterKey = JSON.stringify([typedQuery, sortType, selectedCategory, languageFilter, minParticipants, maxParticipants]);
+  const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
+  const page = pageState.key === filterKey ? pageState.page : 1;
+  const goToPage = (next: number) => setPageState({ key: filterKey, page: next });
+  const {
+    data: searchResults,
+    isLoading,
+    isError: searchFailed,
+    refetch: retrySearch,
+  } = useDiscoverRooms({
+    query: typedQuery || undefined,
     sort: sortType,
     category: selectedCategory || undefined,
+    language: languageFilter || undefined,
+    minParticipants: minParticipants > 0 ? minParticipants : undefined,
+    // The slider's top end means "any size"
+    maxParticipants: maxParticipants < 50 ? maxParticipants : undefined,
+    page,
+    limit: 18,
   });
 
-  const displayRooms =
-    searchQuery || selectedCategory ? searchResults?.rooms : trendingRooms;
+  const displayRooms = searchResults?.rooms;
+  const narrowed = !!searchQuery || !!selectedCategory || !!languageFilter || minParticipants > 0 || maxParticipants < 50;
   const featuredRoom = trendingRooms?.[0];
   const carouselRooms = recommendedRooms?.slice(0, 8) || [];
 
@@ -1256,7 +1282,7 @@ export const DiscoveryPage: React.FC = () => {
         {/* ====================================================
             FEATURED ROOM (only on initial view, no search/filter)
         ===================================================== */}
-        {featuredRoom && !searchQuery && !selectedCategory && (
+        {featuredRoom && !narrowed && (
           <div className="mb-8">
             <FeaturedRoom room={featuredRoom} />
           </div>
@@ -1265,7 +1291,7 @@ export const DiscoveryPage: React.FC = () => {
         {/* ====================================================
             RECOMMENDED CAROUSEL (only on initial view)
         ===================================================== */}
-        {!searchQuery && !selectedCategory && carouselRooms.length > 0 && (
+        {!narrowed && carouselRooms.length > 0 && (
           <RecommendedCarousel rooms={carouselRooms} />
         )}
 
@@ -1684,6 +1710,23 @@ export const DiscoveryPage: React.FC = () => {
                 </div>
               ))}
             </div>
+          ) : searchFailed && !displayRooms ? (
+            <div className="text-center py-20">
+              <p className="text-sm mb-4" style={{ color: THEME.text.muted }}>
+                {tr("We couldn't load the rooms.")}
+              </p>
+              <button
+                type="button"
+                onClick={() => void retrySearch()}
+                className="px-6 py-2.5 rounded-full font-semibold text-sm"
+                style={{
+                  background: `linear-gradient(135deg, ${THEME.aurora.primary}, ${THEME.aurora.secondary})`,
+                  color: "var(--sx-text-ffffff)",
+                }}
+              >
+                {tr("Try again")}
+              </button>
+            </div>
           ) : displayRooms && displayRooms.length > 0 ? (
             <motion.div
               layout
@@ -1732,11 +1775,11 @@ export const DiscoveryPage: React.FC = () => {
                 className="text-sm mb-4"
                 style={{ color: THEME.text.muted }}
               >
-                {searchQuery
+                {narrowed
                   ? tr("Try adjusting your search or filters")
                   : tr("Be the first to create a room!")}
               </p>
-              {!searchQuery && (
+              {!narrowed && (
                 <motion.button
                   whileHover={reduced ? undefined : { scale: 1.04 }}
                   whileTap={reduced ? undefined : { scale: 0.96 }}
@@ -1774,6 +1817,8 @@ export const DiscoveryPage: React.FC = () => {
           searchResults.pagination.totalPages > 1 && (
             <div className="flex justify-center items-center gap-2 mt-8">
               <button
+                type="button"
+                onClick={() => goToPage(Math.max(1, page - 1))}
                 disabled={searchResults.pagination.page === 1}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60"
                 style={{
@@ -1788,26 +1833,32 @@ export const DiscoveryPage: React.FC = () => {
                 {
                   length: Math.min(5, searchResults.pagination.totalPages),
                 },
-                (_, i) => i + 1,
-              ).map((page) => (
+                // Five page numbers around the current page
+                (_, i) => Math.max(1, Math.min(page - 2, searchResults.pagination.totalPages - 4)) + i,
+              ).map((number) => (
                 <button
-                  key={page}
+                  key={number}
+                  type="button"
+                  onClick={() => goToPage(number)}
+                  aria-current={searchResults.pagination.page === number ? "page" : undefined}
                   className="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60"
                   style={{
                     background:
-                      searchResults.pagination.page === page
+                      searchResults.pagination.page === number
                         ? THEME.aurora.primary
                         : "var(--sx-bg-255-255-255-40)",
                     color:
-                      searchResults.pagination.page === page
+                      searchResults.pagination.page === number
                         ? "#fff"
                         : THEME.text.muted,
                   }}
                 >
-                  {page}
+                  {number}
                 </button>
               ))}
               <button
+                type="button"
+                onClick={() => goToPage(Math.min(searchResults.pagination.totalPages, page + 1))}
                 disabled={
                   searchResults.pagination.page ===
                   searchResults.pagination.totalPages

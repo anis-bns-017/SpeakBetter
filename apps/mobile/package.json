@@ -21,10 +21,11 @@
   },
   "scripts": {
     "start": "expo start",
+    "phone": "node scripts/phone-dev.mjs",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test": "node --test test/speechPolyfill.test.mjs"
+    "test": "node --test test/speechPolyfill.test.mjs test/links.test.mjs"
   },
   "private": true
 }

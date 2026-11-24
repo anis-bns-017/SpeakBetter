@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { BEAT_XP, CHALLENGE_HOURS, FriendChallengesService, outcome } from './friend-challenges.service';
+import { BEAT_XP, BEAT_XP_PER_DAY, CHALLENGES_PER_DAY, CHALLENGE_HOURS, FriendChallengesService, outcome } from './friend-challenges.service';
 
 describe('outcome', () => {
   it('compares shares, so different totals compare fairly', () => {
@@ -22,6 +22,13 @@ function setup(options: { friends?: boolean; grammar?: { bestScore: number; tota
     dictationResult: { findFirst: jest.fn().mockResolvedValue(options.dictation === null ? null : { score: options.dictation ?? 82 }) },
     user: { findUnique: jest.fn(async ({ where }: any) => users[where.id] ?? null) },
     friendChallenge: {
+      count: jest.fn(async ({ where }: any) =>
+        rows.filter((r) =>
+          where.fromUserId
+            ? r.fromUserId === where.fromUserId && r.createdAt >= where.createdAt.gte
+            : r.toUserId === where.toUserId && r.status === where.status && r.respondedAt >= where.respondedAt.gte,
+        ).length,
+      ),
       findFirst: jest.fn(async ({ where }: any) =>
         rows.find((r) => r.fromUserId === where.fromUserId && r.toUserId === where.toUserId && r.kind === where.kind && r.refId === where.refId && r.status === 'OPEN' && r.expiresAt > where.expiresAt.gt) ?? null,
       ),
@@ -131,6 +138,22 @@ describe('FriendChallengesService', () => {
     const amy = await service.list('amy', now);
     expect(amy.outgoing).toHaveLength(2);
     expect(amy.outgoing[0].person.name).toBe('Bob');
+  });
+
+  it('pays XP for only a few wins a day, so friends cannot farm rematches', async () => {
+    const { service, activity } = setup();
+    for (let i = 0; i < BEAT_XP_PER_DAY + 2; i++) {
+      await service.create('amy', { friendId: 'bob', kind: 'grammar', refId: 'a1-to-be' }, now);
+      const [won] = await service.resolve('bob', 'grammar', 'a1-to-be', 6, 6, now);
+      expect(won.status).toBe('BEATEN');
+    }
+    expect(activity.recordActivity).toHaveBeenCalledTimes(BEAT_XP_PER_DAY);
+  });
+
+  it('limits how many challenges one person can send in a day', async () => {
+    const { service, rows } = setup();
+    for (let i = 0; i < CHALLENGES_PER_DAY; i++) rows.push({ id: `old${i}`, fromUserId: 'amy', toUserId: 'bob', kind: 'pack', refId: `p${i}`, status: 'HELD', createdAt: now, expiresAt: now });
+    await expect(service.create('amy', { friendId: 'bob', kind: 'grammar', refId: 'a1-to-be' }, now)).rejects.toThrow(/challenges a day/);
   });
 
   it('never throws when settling', async () => {

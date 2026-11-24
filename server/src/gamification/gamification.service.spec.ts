@@ -1,6 +1,6 @@
 import { BadgesService, longestRun } from './badges.service';
 import { LeaguesService } from './leagues.service';
-import { weekKey } from './leagues.engine';
+import { tierAfterAbsence, weekKey, weeksBetween } from './leagues.engine';
 
 describe('longestRun', () => {
   it('finds the longest run of consecutive days', () => {
@@ -99,7 +99,7 @@ function leaguesSetup() {
             (g) =>
               (where.weekStart === undefined || (where.weekStart?.lt ? g.weekStart < where.weekStart.lt : g.weekStart === where.weekStart)) &&
               (where.tier === undefined || g.tier === where.tier) &&
-              !g.finalizedAt,
+              (where.OR ? !g.finalizedAt || members.some((m) => m.groupId === g.id && m.result === null) : !g.finalizedAt),
           )
           .map((g) => ({
             ...g,
@@ -133,7 +133,13 @@ function leaguesSetup() {
       ),
       findFirst: jest.fn().mockResolvedValue(null),
       update: jest.fn(async ({ where, data }) => Object.assign(members.find((m) => m.id === where.id), data)),
-      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      updateMany: jest.fn(async ({ where, data }) => {
+        if (!where.id) return { count: 1 };
+        const m = members.find((x) => x.id === where.id && x.result === null);
+        if (!m) return { count: 0 };
+        Object.assign(m, data);
+        return { count: 1 };
+      }),
     },
     xpTransaction: {
       count: jest.fn(async ({ where }) => xpRows.filter((r) => r.userId === where.userId && r.createdAt >= where.createdAt.gte).length),
@@ -151,8 +157,15 @@ function leaguesSetup() {
   prisma.notification = { count: jest.fn().mockResolvedValue(0) };
   prisma.friend = { findMany: jest.fn().mockResolvedValue([]) };
   prisma.follow = { findMany: jest.fn().mockResolvedValue([]) };
+  prisma.block = { findMany: jest.fn().mockResolvedValue([]) };
   prisma.user = { findMany: jest.fn(async ({ where }) => where.id.in.map((id: string) => ({ id, name: `Name ${id}`, avatarUrl: null }))) };
   prisma.leagueProfile.findMany = jest.fn(async () => [...profiles.values()]);
+  prisma.leagueProfile.updateMany = jest.fn(async ({ where, data }) => {
+    const p = profiles.get(where.userId);
+    if (!p || p.tier === where.tier.not) return { count: 0 };
+    Object.assign(p, data);
+    return { count: 1 };
+  });
   prisma.userBadge = { findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn().mockResolvedValue({ count: 0 }) };
   const notifications: any = { notify: jest.fn().mockResolvedValue(1) };
   const badges: any = { evaluate: jest.fn().mockResolvedValue([]) };
@@ -204,6 +217,57 @@ describe('LeaguesService', () => {
     );
     expect(badges.evaluate).toHaveBeenCalledWith('a');
     expect(await service.finalizeDue()).toBe(0);
+  });
+
+  it('carries on settling a group that was cut short, without moving anyone twice', async () => {
+    const { service, xpRows, profiles, members, groups } = leaguesSetup();
+    const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    xpRows.push({ userId: 'a', amount: 200, createdAt: lastWeek }, { userId: 'b', amount: 50, createdAt: lastWeek });
+    await service.join('a', weekKey(lastWeek));
+    await service.join('b', weekKey(lastWeek));
+    // The server stopped after settling only the first person
+    groups[0].finalizedAt = new Date();
+    Object.assign(members[0], { rank: 1, result: 'promote', xp: 200 });
+    profiles.set('a', { ...profiles.get('a'), tier: 1, bestTier: 1 });
+
+    expect(await service.finalizeDue()).toBe(1);
+    expect(members[1]).toMatchObject({ rank: 2, result: 'stay' });
+    expect(profiles.get('a')).toMatchObject({ tier: 1 });
+    expect(await service.finalizeDue()).toBe(0);
+  });
+
+  it('settles last week first when someone earns XP before the background pass', async () => {
+    const { service, xpRows, profiles, members, prisma } = leaguesSetup();
+    const now = new Date();
+    const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    xpRows.push({ userId: 'a', amount: 200, createdAt: lastWeek });
+    await service.join('a', weekKey(lastWeek));
+    prisma.leagueMember.findFirst.mockImplementation(async () => {
+      const row = members.find((m) => m.userId === 'a' && m.weekStart === weekKey(lastWeek));
+      return row ? { weekStart: row.weekStart, result: row.result } : null;
+    });
+    const joined = await service.join('a', weekKey(now));
+    expect(profiles.get('a')).toMatchObject({ tier: 1 });
+    expect(joined).toMatchObject({ tier: 1 });
+  });
+
+  it('keeps people you blocked, or who blocked you, off your board', async () => {
+    const { service, prisma } = leaguesSetup();
+    prisma.friend.findMany.mockResolvedValue([{ fromUserId: 'me', toUserId: 'pal' }, { fromUserId: 'me', toUserId: 'foe' }, { fromUserId: 'ex', toUserId: 'me' }]);
+    prisma.block.findMany.mockResolvedValue([{ blockerId: 'me', blockedId: 'foe' }, { blockerId: 'ex', blockedId: 'me' }]);
+    const board = await service.friends('me');
+    expect(board.people.map((p) => p.userId).sort()).toEqual(['me', 'pal']);
+  });
+});
+
+describe('time away from the leagues', () => {
+  it('costs one league for each full week missed', () => {
+    expect(weeksBetween('2026-11-02', '2026-11-09')).toBe(1);
+    expect(tierAfterAbsence(4, '2026-11-02', '2026-11-09')).toBe(4);
+    expect(tierAfterAbsence(4, '2026-10-26', '2026-11-09')).toBe(3);
+    expect(tierAfterAbsence(4, '2026-10-12', '2026-11-09')).toBe(1);
+    expect(tierAfterAbsence(1, '2026-01-05', '2026-11-09')).toBe(0);
+    expect(tierAfterAbsence(3, null, '2026-11-09')).toBe(3);
   });
 });
 

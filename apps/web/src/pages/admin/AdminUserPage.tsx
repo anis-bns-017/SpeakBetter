@@ -26,7 +26,7 @@ import { adminApi, adminError, useAdminAction, useAdminUser, type AdminMe, type 
 import { ActionDialog, Avatar, LoadingBlock, ReasonField, RoleBadge, SuspendChoice } from "../../components/admin/AdminKit";
 import { dateTime, formatMoney, formatNumber, panel, timeAgo, untilText } from "../../lib/adminFormat";
 
-type Dialog = null | "warn" | "suspend" | "unsuspend" | "signout" | "role" | "pro" | "delete";
+type Dialog = null | "warn" | "suspend" | "unsuspend" | "signout" | "role" | "pro" | "delete" | "calls";
 
 
 export const AdminUserPage: React.FC = () => {
@@ -68,6 +68,8 @@ export const AdminUserPage: React.FC = () => {
         return adminApi.unsuspend(id, text);
       case "signout":
         return adminApi.signOut(id);
+      case "calls":
+        return adminApi.liftCalls(id, text);
       case "role":
         return adminApi.setRole(id, role);
       case "pro":
@@ -126,6 +128,7 @@ export const AdminUserPage: React.FC = () => {
               <RoleBadge role={user.role} />
               {user.plan === "PRO" && <Badge tone="indigo" icon={Crown}>Pro</Badge>}
               {user.suspended ? <Badge tone="danger" icon={Ban}>Suspended {untilText(user.suspendedUntil)}</Badge> : <Badge tone="success">Active</Badge>}
+              {user.emailVerifiedAt ? <Badge tone="success">Email confirmed</Badge> : <Badge tone="warning">Email not confirmed</Badge>}
             </div>
             <p className="mt-1 break-all text-sm text-slate-600 dark:text-slate-400">{user.email}</p>
             <p className="mt-1 text-xs text-slate-500">
@@ -223,6 +226,11 @@ export const AdminUserPage: React.FC = () => {
             <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-400/10 dark:text-amber-200">
               Random calls {user.randomCall.permanentlyBanned ? "blocked permanently" : `paused until ${dateTime(user.randomCall.restrictedUntil)}`}
               {user.randomCall.restrictionReason ? `: ${user.randomCall.restrictionReason}` : ""}
+              {canAct && (!user.randomCall.permanentlyBanned || isAdmin) && (
+                <button type="button" onClick={() => open("calls")} className="ml-2 font-semibold underline">
+                  Lift
+                </button>
+              )}
             </p>
           )}
         </section>
@@ -247,6 +255,8 @@ export const AdminUserPage: React.FC = () => {
           )}
         </section>
 
+        {/* Devices, IP addresses and payments are for admins */}
+        {isAdmin && (
         <section className={`${panel} p-5`}>
           <h2 className="text-[15px] font-bold text-slate-900 dark:text-white">Signed in on</h2>
           {user.sessions.length === 0 ? (
@@ -264,7 +274,9 @@ export const AdminUserPage: React.FC = () => {
             </ul>
           )}
         </section>
+        )}
 
+        {isAdmin && (
         <section className={`${panel} p-5`}>
           <h2 className="text-[15px] font-bold text-slate-900 dark:text-white">Plan and payments</h2>
           <p className="mt-3 text-sm text-slate-700 dark:text-slate-300">
@@ -285,9 +297,23 @@ export const AdminUserPage: React.FC = () => {
             </ul>
           )}
         </section>
+        )}
       </div>
 
       {/* ---------------- dialogs ---------------- */}
+      <ActionDialog
+        open={dialog === "calls"}
+        title={`Let ${user.name} use random calls again`}
+        description="The pause ends now and doesn't count towards a longer one next time."
+        confirmLabel="Lift the pause"
+        busy={action.isPending}
+        error={error}
+        onClose={close}
+        onConfirm={() => run("calls", "Random calls are back on")}
+      >
+        <ReasonField label="Note for the log (optional)" value={text} onChange={setText} rows={2} />
+      </ActionDialog>
+
       <ActionDialog
         open={dialog === "warn"}
         title={`Warn ${user.name}`}

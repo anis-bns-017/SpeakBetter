@@ -8,7 +8,8 @@ const DAY = 24 * 60 * 60 * 1000;
 class FakeProvider extends PaymentProvider {
   readonly name = 'sandbox';
   readonly method = 'SANDBOX' as any;
-  readonly isSandbox = true;
+  isSandbox = true;
+  readonly autoRenews = false;
   available = true;
   isAvailable() {
     return this.available;
@@ -18,7 +19,7 @@ class FakeProvider extends PaymentProvider {
   }
 }
 
-function setup() {
+function setup(env: Record<string, string> | null = null) {
   const payments: any[] = [];
   let subscription: any = null;
   let seq = 0;
@@ -55,7 +56,8 @@ function setup() {
   };
   const provider = new FakeProvider();
   const notifications: any = { notify: jest.fn(async () => 1) };
-  const service = new BillingService(prisma, provider, notifications);
+  const config: any = env ? { get: (key: string) => env[key] } : undefined;
+  const service = new BillingService(prisma, provider, notifications, config);
   return { service, prisma, provider, notifications, payments, getSub: () => subscription, setSub: (s: any) => (subscription = s) };
 }
 
@@ -63,6 +65,24 @@ const pay = async (ctx: ReturnType<typeof setup>, interval: 'MONTHLY' | 'YEARLY'
   const { paymentId } = await ctx.service.startCheckout('u1', 'PRO', interval);
   return ctx.service.settleSandbox('u1', paymentId, outcome);
 };
+
+describe('selling Pro honestly', () => {
+  it('says when the AI partner is off and that nothing renews by itself', () => {
+    const off = setup({}).service.catalog();
+    expect(off).toMatchObject({ aiAvailable: false, autoRenews: false, paymentsAvailable: true });
+    expect(setup({ ANTHROPIC_API_KEY: 'k' }).service.catalog()).toMatchObject({ aiAvailable: true, paymentsAvailable: true });
+  });
+
+  it('never takes real money for Pro while the AI partner is off', async () => {
+    const ctx = setup({});
+    ctx.provider.isSandbox = false;
+    expect(ctx.service.catalog().paymentsAvailable).toBe(false);
+    await expect(ctx.service.startCheckout('u1', 'PRO', 'MONTHLY')).rejects.toThrow(ServiceUnavailableException);
+    const on = setup({ ANTHROPIC_API_KEY: 'k' });
+    on.provider.isSandbox = false;
+    await expect(on.service.startCheckout('u1', 'PRO', 'MONTHLY')).resolves.toMatchObject({ paymentId: expect.any(String) });
+  });
+});
 
 describe('BillingService', () => {
   describe('checkout', () => {

@@ -57,8 +57,8 @@ export class AdminController {
   }
 
   @Get('users/:id')
-  getUser(@Param('id') id: string) {
-    return this.users.get(id);
+  getUser(@Req() req: any, @Param('id') id: string) {
+    return this.users.get(actorOf(req.user), id);
   }
 
   @Post('users/:id/warn')
@@ -76,23 +76,38 @@ export class AdminController {
   }
 
   @Post('users/:id/unsuspend')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'admin-action', limit: 60, windowMs: 60_000 })
   unsuspend(@Req() req: any, @Param('id') id: string, @Body() body: OptionalNoteDto) {
     return this.users.unsuspend(actorOf(req.user), id, body.note);
   }
 
+  @Post('users/:id/calls/lift')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'admin-action', limit: 60, windowMs: 60_000 })
+  liftCalls(@Req() req: any, @Param('id') id: string, @Body() body: OptionalNoteDto) {
+    return this.users.liftCallRestriction(actorOf(req.user), id, body.note);
+  }
+
   @Post('users/:id/sign-out')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'admin-action', limit: 60, windowMs: 60_000 })
   signOut(@Req() req: any, @Param('id') id: string) {
     return this.users.signOut(actorOf(req.user), id);
   }
 
   @Put('users/:id/role')
   @RequireRole('ADMIN')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'admin-action', limit: 60, windowMs: 60_000 })
   setRole(@Req() req: any, @Param('id') id: string, @Body() body: RoleDto) {
     return this.users.setRole(actorOf(req.user), id, body.role);
   }
 
   @Post('users/:id/pro')
   @RequireRole('ADMIN')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'admin-action', limit: 60, windowMs: 60_000 })
   grantPro(@Req() req: any, @Param('id') id: string, @Body() body: GrantProDto) {
     return this.users.grantPro(actorOf(req.user), id, body);
   }
@@ -127,6 +142,8 @@ export class AdminController {
   }
 
   @Post('rooms/:id/close')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'admin-action', limit: 60, windowMs: 60_000 })
   closeRoom(@Req() req: any, @Param('id') id: string, @Body() body: ReasonDto) {
     return this.content.closeRoom(actorOf(req.user), id, body.reason);
   }
@@ -137,6 +154,8 @@ export class AdminController {
   }
 
   @Put('communities/:id/hidden')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'admin-action', limit: 60, windowMs: 60_000 })
   hideCommunity(@Req() req: any, @Param('id') id: string, @Body() body: HideCommunityDto) {
     return this.content.setCommunityHidden(actorOf(req.user), id, body.hidden, body.reason);
   }

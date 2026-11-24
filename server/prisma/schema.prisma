@@ -514,6 +514,8 @@ model Stage {
 model User {
   id           String  @id @default(cuid())
   email        String  @unique
+  /// When they proved they own this address (a link by email, Google, or a password reset); null = not yet
+  emailVerifiedAt DateTime?
   passwordHash String?
   name         String
   avatarUrl    String?
@@ -528,6 +530,7 @@ model User {
   suspensionReason String?
   adminActions     AdminAuditLog[] @relation("AdminActor")
   passwordResets   PasswordResetToken[]
+  emailVerifications EmailVerificationToken[]
 
   @@index([role])
 
@@ -651,6 +654,7 @@ model User {
   vocabPackProgress        VocabPackProgress[]
   pushSubscriptions        PushSubscription[]
   dictationResults         DictationResult[]
+  gameResults              GameResult[]
   roleplayProgress         RoleplayProgress[]
   shadowingProgress        ShadowingProgress[]
   challengesSent           FriendChallenge[]        @relation("ChallengesSent")
@@ -1901,6 +1905,7 @@ model VoiceRoom {
   transcriptions VoiceTranscription[]
   claps          VoiceClap[]
   queue          VoiceSpeakerQueue[]
+  secret         VoiceRoomSecret?
   invites        VoiceRoomInvite[]
   analytics      VoiceRoomAnalytics[]
   speakerStats   VoiceSpeakerStats[]
@@ -2155,6 +2160,20 @@ model PasswordResetToken {
   @@index([userId, createdAt])
 }
 
+/// A one-time link for confirming an email address
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  /// Set when the link was used, or replaced by a newer one
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
 /// Every action taken in the admin section: who did what to what, and why. Never edited.
 model AdminAuditLog {
   id         String   @id @default(cuid())
@@ -2359,6 +2378,15 @@ model VoiceSpeakerQueue {
   @@index([roomId])
   @@index([userId])
   @@index([position])
+}
+
+/// The password of a private room. A table of its own so the hash can never ride along when a room is read.
+model VoiceRoomSecret {
+  roomId       String    @id
+  room         VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model VoiceRoomInvite {
@@ -2923,6 +2951,23 @@ model DictationResult {
   createdAt        DateTime @default(now())
 
   @@index([userId, day])
+}
+
+/// One finished round of a word game (Word Guess, Unscramble), for "first win today" XP and the streak
+model GameResult {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 'wordle' | 'scramble'
+  game      String
+  /// YYYY-MM-DD on the learner's own clock
+  day       String
+  won       Boolean
+  /// Guesses used (Word Guess) or words right (Unscramble)
+  score     Int
+  createdAt DateTime @default(now())
+
+  @@index([userId, game, day])
 }
 
 /// How someone did in one role-play scenario

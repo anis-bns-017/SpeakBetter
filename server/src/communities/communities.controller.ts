@@ -14,12 +14,17 @@ import {
 } from '@nestjs/common';
 import { CommunitiesService } from './communities.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RateLimit, RateLimitGuard } from '../common/rate-limit.guard';
+import { VerifiedEmailGuard } from '../auth/verified-email.guard';
 import {
   CreateCommunityDto,
   UpdateCommunityDto,
   CreateChannelDto,
   UpdateChannelDto,
   CreateThreadDto,
+  CreateReplyDto,
+  UpdateThreadDto,
+  ReportPostDto,
   AddMemberDto,
   UpdateMemberRoleDto,
   CreateRoleDto,
@@ -49,6 +54,8 @@ export class CommunitiesController {
   }
 
   @Post()
+  @UseGuards(VerifiedEmailGuard, RateLimitGuard)
+  @RateLimit({ name: 'community-create', limit: 10, windowMs: 60 * 60_000 })
   async createCommunity(@Request() req, @Body() dto: CreateCommunityDto) {
     return this.communitiesService.createCommunity(req.user.id, dto);
   }
@@ -116,6 +123,8 @@ export class CommunitiesController {
   // ============ THREADS ============
 
   @Post('channels/:channelId/threads')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'community-post', limit: 15, windowMs: 60_000 })
   async createThread(
     @Request() req,
     @Param('channelId') channelId: string,
@@ -132,6 +141,58 @@ export class CommunitiesController {
   @Get('threads/:threadId')
   async getThread(@Request() req, @Param('threadId') threadId: string) {
     return this.communitiesService.getThreadById(threadId, req.user.id);
+  }
+
+  @Post('threads/:threadId/messages')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'community-reply', limit: 30, windowMs: 60_000 })
+  async replyToThread(
+    @Request() req,
+    @Param('threadId') threadId: string,
+    @Body() dto: CreateReplyDto,
+  ) {
+    return this.communitiesService.replyToThread(req.user.id, threadId, dto);
+  }
+
+  @Post('threads/:threadId/report')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'community-report', limit: 20, windowMs: 60 * 60_000 })
+  async reportThread(
+    @Request() req,
+    @Param('threadId') threadId: string,
+    @Body() dto: ReportPostDto,
+  ) {
+    return this.communitiesService.reportPost(req.user.id, 'thread', threadId, dto);
+  }
+
+  @Post('threads/messages/:messageId/report')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'community-report', limit: 20, windowMs: 60 * 60_000 })
+  async reportReply(
+    @Request() req,
+    @Param('messageId') messageId: string,
+    @Body() dto: ReportPostDto,
+  ) {
+    return this.communitiesService.reportPost(req.user.id, 'reply', messageId, dto);
+  }
+
+  @Put('threads/:threadId')
+  async updateThread(
+    @Request() req,
+    @Param('threadId') threadId: string,
+    @Body() dto: UpdateThreadDto,
+  ) {
+    return this.communitiesService.updateThread(req.user.id, threadId, dto);
+  }
+
+  @Delete('threads/:threadId')
+  async deleteThread(@Request() req, @Param('threadId') threadId: string) {
+    return this.communitiesService.deleteThread(req.user.id, threadId);
+  }
+
+  @Delete('threads/messages/:messageId')
+  async deleteReply(@Request() req, @Param('messageId') messageId: string) {
+    return this.communitiesService.deleteReply(req.user.id, messageId);
   }
 
   // ============ MEMBERS ============
@@ -251,6 +312,27 @@ export class CommunitiesController {
 
   // ============ INVITES ============
 
+  @Get(':communityId/invites')
+  async getInvites(
+    @Request() req,
+    @Param('communityId') communityId: string,
+  ) {
+    return this.communitiesService.getInvites(req.user.id, communityId);
+  }
+
+  @Delete(':communityId/invites/:inviteId')
+  async revokeInvite(
+    @Request() req,
+    @Param('communityId') communityId: string,
+    @Param('inviteId') inviteId: string,
+  ) {
+    return this.communitiesService.revokeInvite(
+      req.user.id,
+      communityId,
+      inviteId,
+    );
+  }
+
   @Post(':communityId/invites')
   async createInvite(
     @Request() req,
@@ -261,6 +343,8 @@ export class CommunitiesController {
   }
 
   @Post('join/:code')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'community-invite', limit: 20, windowMs: 60_000 })
   async joinByInvite(@Request() req, @Param('code') code: string) {
     return this.communitiesService.joinByInvite(req.user.id, code);
   }

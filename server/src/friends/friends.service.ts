@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
@@ -36,6 +37,7 @@ export class FriendsService {
     // Check if user exists
     const targetUser = await this.prisma.user.findUnique({
       where: { id: toUserId },
+      select: { id: true, settings: { select: { allowFriendRequests: true } } },
     });
     if (!targetUser) {
       throw new NotFoundException('User not found');
@@ -82,6 +84,11 @@ export class FriendsService {
       throw new BadRequestException(
         'You cannot send a friend request to this user',
       );
+    }
+
+    // Settings: "Allow friend requests"
+    if (targetUser.settings?.allowFriendRequests === false) {
+      throw new ForbiddenException('This person is not accepting friend requests');
     }
 
     const request = await this.prisma.friendRequest.create({
@@ -194,7 +201,6 @@ export class FriendsService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatarUrl: true,
             profile: {
               select: {
@@ -209,7 +215,6 @@ export class FriendsService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatarUrl: true,
             profile: {
               select: {
@@ -245,7 +250,6 @@ export class FriendsService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatarUrl: true,
           },
         },
@@ -267,7 +271,6 @@ export class FriendsService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatarUrl: true,
           },
         },
@@ -327,6 +330,26 @@ export class FriendsService {
       },
     });
 
+    // Neither of them keeps following the other (no live alerts, no shared leaderboard)
+    await this.prisma.follow.deleteMany({
+      where: {
+        OR: [
+          { followerId: userId, followingId: targetUserId },
+          { followerId: targetUserId, followingId: userId },
+        ],
+      },
+    });
+    for (const id of [userId, targetUserId]) {
+      const [followers, following] = await Promise.all([
+        this.prisma.follow.count({ where: { followingId: id } }),
+        this.prisma.follow.count({ where: { followerId: id } }),
+      ]);
+      await this.prisma.profile.updateMany({
+        where: { userId: id },
+        data: { followersCount: followers, followingCount: following },
+      });
+    }
+
     // Create block
     return this.prisma.block.create({
       data: {
@@ -371,7 +394,6 @@ export class FriendsService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatarUrl: true,
           },
         },
@@ -389,26 +411,31 @@ export class FriendsService {
   // ============ SEARCH ============
 
   async searchUsers(userId: string, query: string, limit = 20) {
-    if (!query || query.length < 2) {
+    const text = (query ?? '').trim().slice(0, 100);
+    if (text.length < 2) {
       return [];
     }
 
+    // Names match on any part. An email only matches when typed in full, so nobody can fish for addresses,
+    // and it is never sent back. People who blocked you don't appear.
     const users = await this.prisma.user.findMany({
       where: {
         AND: [
           {
             OR: [
-              { name: { contains: query, mode: 'insensitive' } },
-              { email: { contains: query, mode: 'insensitive' } },
+              { name: { contains: text, mode: 'insensitive' } },
+              ...(text.includes('@')
+                ? [{ email: { equals: text, mode: 'insensitive' as const } }]
+                : []),
             ],
           },
           { id: { not: userId } },
+          { blockedUsers: { none: { blockedId: userId } } },
         ],
       },
       select: {
         id: true,
         name: true,
-        email: true,
         avatarUrl: true,
         profile: {
           select: {

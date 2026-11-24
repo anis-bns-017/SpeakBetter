@@ -101,8 +101,10 @@ describe('DictationService', () => {
 
   it('saves a finished dictation, pays XP for the first one today, and sends mistakes to review', async () => {
     const { service, rows, activity, review, badges } = setup();
-    const [a, b] = poolFor('A2');
-    const result = await service.finish('u1', { [a.id]: a.text, [b.id]: 'something else entirely' }, at);
+    const six = poolFor('A2').slice(0, SESSION_SIZE);
+    const [, b] = six;
+    const allRight = Object.fromEntries(six.map((i) => [i.id, i.text]));
+    const result = await service.finish('u1', { ...allRight, [b.id]: 'something else entirely' }, at);
     expect(result.results[0].score).toBe(100);
     expect(result.results[1].score).toBeLessThan(100);
     expect(result.perfect).toBe(false);
@@ -111,10 +113,10 @@ describe('DictationService', () => {
     expect(review.addCorrectionCard).toHaveBeenCalledWith('u1', expect.objectContaining({ source: 'dictation', sourceId: b.id, original: 'something else entirely', corrected: b.text }));
     expect(activity.recordActivity).toHaveBeenCalledWith('u1', DICTATION_XP, 'EXERCISE_COMPLETED');
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ userId: 'u1', day: '2026-11-05', sentences: 2, perfectSentences: 1 });
+    expect(rows[0]).toMatchObject({ userId: 'u1', day: '2026-11-05', sentences: SESSION_SIZE, perfectSentences: SESSION_SIZE - 1 });
     expect(badges.evaluate).toHaveBeenCalled();
 
-    const second = await service.finish('u1', { [a.id]: a.text }, at);
+    const second = await service.finish('u1', allRight, at);
     expect(second).toMatchObject({ xp: 0, perfect: true, score: 100, cardsAdded: 0 });
     expect(activity.recordActivity).toHaveBeenCalledTimes(1);
   });
@@ -125,6 +127,10 @@ describe('DictationService', () => {
     await expect(service.finish('u1', {}, at)).rejects.toThrow(BadRequestException);
     await expect(service.finish('u1', ['x'], at)).rejects.toThrow(BadRequestException);
     await expect(service.finish('u1', { 'nope:1': 'x' }, at)).rejects.toThrow(BadRequestException);
+    // Part of a session, or blank answers, earn nothing
+    const six = poolFor('A2').slice(0, SESSION_SIZE);
+    await expect(service.finish('u1', { [six[0].id]: six[0].text }, at)).rejects.toThrow(/every sentence/);
+    await expect(service.finish('u1', Object.fromEntries(six.map((i) => [i.id, '  '])), at)).rejects.toThrow(/every sentence/);
   });
 
   it('gives six sentences to shadow, a different set each round, and treats a bad round as the first', async () => {
@@ -138,11 +144,12 @@ describe('DictationService', () => {
     expect((await service.shadowing('u1', '99999', at)).round).toBe(999);
   });
 
-  it('does not make a card for a sentence left empty', async () => {
-    const { service, review } = setup();
-    const [a] = poolFor('A2');
-    const r = await service.finish('u1', { [a.id]: '' }, at);
-    expect(r.score).toBe(0);
+  it('saves nothing and makes no card when a sentence is left empty', async () => {
+    const { service, review, rows } = setup();
+    const six = poolFor('A2').slice(0, SESSION_SIZE);
+    const answers = { ...Object.fromEntries(six.map((i) => [i.id, 'a wrong answer'])), [six[0].id]: '' };
+    await expect(service.finish('u1', answers, at)).rejects.toThrow(BadRequestException);
+    expect(rows).toHaveLength(0);
     expect(review.addCorrectionCard).not.toHaveBeenCalled();
   });
 });

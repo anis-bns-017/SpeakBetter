@@ -9,11 +9,13 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { ActivityService } from '../learning/activity.service';
 import { PrismaService } from '../prisma.service';
+import { learnerZone, startOfDayIn } from '../common/learner-day';
 import { LiveKitService } from '../voice/livekit.service';
 import { buildDeck } from './conversation-cards';
 import { MatchQueue } from './match-queue';
 import { QueueEntry, sharedInterests } from './matching';
 import { RandomCallBroadcaster } from './random-call.broadcaster';
+import { EMAIL_NOT_VERIFIED, EMAIL_NOT_VERIFIED_MESSAGE, verificationEnforced } from '../auth/verified-email.guard';
 import {
   CALL_SECONDS,
   EXTEND_SECONDS,
@@ -46,6 +48,7 @@ type Denial =
   | 'UNDERAGE'
   | 'NEEDS_CONSENT'
   | 'ACCOUNT_TOO_NEW'
+  | typeof EMAIL_NOT_VERIFIED
   | 'IN_CALL';
 
 const deny = (code: Denial, message: string) =>
@@ -101,7 +104,7 @@ export class RandomCallService {
       this.ensureProfile(userId),
       this.prisma.user.findUnique({
         where: { id: userId },
-        select: { createdAt: true },
+        select: { createdAt: true, emailVerifiedAt: true },
       }),
       this.isUnderage(userId),
     ]);
@@ -114,7 +117,7 @@ export class RandomCallService {
     if (profile.restrictedUntil && profile.restrictedUntil.getTime() > Date.now()) {
       return {
         code: 'RESTRICTED',
-        message: `Random calls are paused for you until ${profile.restrictedUntil.toISOString()}.`,
+        message: 'Random calls are paused for your account after reports from other people.',
       };
     }
     const minAgeMinutes = Number(
@@ -129,6 +132,10 @@ export class RandomCallService {
         code: 'ACCOUNT_TOO_NEW',
         message: 'New accounts can use random calls a little later.',
       };
+    }
+    // Calls are voice with strangers: a real address is the least we ask for
+    if (verificationEnforced(this.config) && !user?.emailVerifiedAt) {
+      return { code: EMAIL_NOT_VERIFIED, message: EMAIL_NOT_VERIFIED_MESSAGE };
     }
     if (!profile.ageConfirmedAt) {
       return { code: 'NEEDS_CONSENT', message: 'Please confirm you are 18 or older.' };
@@ -242,6 +249,20 @@ export class RandomCallService {
         OR: [{ userAId: userId }, { userBId: userId }],
       },
     });
+  }
+
+  /** Whether either blocked the other (checked again at the last moment: a block can come while they wait) */
+  async isBlockedPair(a: string, b: string): Promise<boolean> {
+    const block = await this.prisma.block.findFirst({
+      where: {
+        OR: [
+          { blockerId: a, blockedId: b },
+          { blockerId: b, blockedId: a },
+        ],
+      },
+      select: { id: true },
+    });
+    return !!block;
   }
 
   /** Creates the call and LiveKit room for two matched people and tells both */
@@ -404,15 +425,17 @@ export class RandomCallService {
    */
   async awardCallXp(userId: string, seconds: number, reason: CallEndReason): Promise<number> {
     if (reason === 'REPORTED' || seconds < XP_MIN_CALL_SECONDS) return 0;
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const today = await this.prisma.randomCall.count({
+    const startOfDay = startOfDayIn(new Date(), await learnerZone(this.prisma, userId));
+    const endedToday = await this.prisma.randomCall.findMany({
       where: {
         endedAt: { gte: startOfDay },
         endReason: { not: 'REPORTED' },
         OR: [{ userAId: userId }, { userBId: userId }],
       },
+      select: { startedAt: true, endedAt: true },
     });
+    // Only real conversations use up the day's allowance: skipping past a few people must not cost XP later
+    const today = endedToday.filter((c) => c.endedAt && c.endedAt.getTime() - c.startedAt.getTime() >= XP_MIN_CALL_SECONDS * 1000).length;
     // this call is already counted in `today`
     if (today > XP_MAX_CALLS_PER_DAY) return 0;
     const xp = Math.min(XP_MAX_PER_CALL, Math.floor(seconds / 15) * XP_PER_15_SECONDS);
@@ -563,12 +586,15 @@ export class RandomCallService {
           { fromUserId: b, toUserId: a },
         ],
       },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!existing) {
       await this.prisma.friend.create({
         data: { fromUserId: a, toUserId: b, status: 'ACCEPTED' },
       });
+    } else if (existing.status !== 'ACCEPTED') {
+      // A request that was still waiting: they have both just said yes
+      await this.prisma.friend.update({ where: { id: existing.id }, data: { status: 'ACCEPTED' } });
     }
     return true;
   }

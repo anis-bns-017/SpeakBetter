@@ -45,6 +45,14 @@ export function weekFromKey(key: string): Date {
   return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
+/** Whole weeks from one week key to a later one */
+export const weeksBetween = (from: string, to: string) =>
+  Math.round((weekFromKey(to).getTime() - weekFromKey(from).getTime()) / (7 * DAY_MS));
+
+/** Your league after time away: one down for every full week with no XP since the last week you played */
+export const tierAfterAbsence = (tier: number, lastWeek: string | null, week: string) =>
+  lastWeek ? clampTier(tier - Math.max(0, weeksBetween(lastWeek, week) - 1)) : clampTier(tier);
+
 /**
  * How many move up and down in a group of `size`. A full group of 30 sends 7 up and 5 down; small groups
  * scale that down, and nobody is demoted from a group of fewer than 5 (losing to two people is no fun).

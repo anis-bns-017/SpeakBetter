@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useGrammar } from "../hooks/useLearning";
 import {
   BookOpen,
@@ -8,18 +9,17 @@ import {
   ChevronUp,
   GraduationCap,
   CheckCircle2,
-  Globe2,
+  ArrowRight,
   Lightbulb,
 } from "lucide-react";
 import { tr } from "../i18n/core";
 
 export const GrammarPage = () => {
-  const [language, setLanguage] = useState("");
   const [level, setLevel] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
-  const { data, isLoading } = useGrammar({ language, level });
+  const { data, isLoading, isError, refetch } = useGrammar({ level });
 
   const toggleExpand = (id: string) => {
     setExpandedCardId((prev) => (prev === id ? null : id));
@@ -41,11 +41,13 @@ export const GrammarPage = () => {
 
   const getLevelBadgeColor = (levelStr: string) => {
     switch (levelStr?.toLowerCase()) {
-      case "beginner":
+      case "a1":
+      case "a2":
         return "bg-emerald-50 text-emerald-700 border-emerald-200/80";
-      case "intermediate":
+      case "b1":
+      case "b2":
         return "bg-amber-50 text-amber-700 border-amber-200/80";
-      case "advanced":
+      case "c1":
         return "bg-purple-50 text-purple-700 border-purple-200/80";
       default:
         return "bg-slate-50 text-slate-600 border-slate-200";
@@ -70,7 +72,7 @@ export const GrammarPage = () => {
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="bg-surface p-4 rounded-2xl border border-line shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-surface p-4 rounded-2xl border border-line shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Search Input */}
           <div className="relative sm:col-span-1">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -83,21 +85,6 @@ export const GrammarPage = () => {
             />
           </div>
 
-          {/* Language Selector */}
-          <div className="relative">
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
-            >
-              <option value="">{tr("All Languages")}</option>
-              <option value="en">{tr("English")}</option>
-              <option value="es">{tr("Spanish")}</option>
-              <option value="fr">{tr("French")}</option>
-              <option value="de">{tr("German")}</option>
-            </select>
-          </div>
-
           {/* Level Selector */}
           <div className="relative">
             <select
@@ -106,9 +93,9 @@ export const GrammarPage = () => {
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
             >
               <option value="">{tr("All Proficiency Levels")}</option>
-              <option value="beginner">{tr("Beginner")}</option>
-              <option value="intermediate">{tr("Intermediate")}</option>
-              <option value="advanced">{tr("Advanced")}</option>
+              {["A1", "A2", "B1", "B2", "C1"].map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -116,6 +103,17 @@ export const GrammarPage = () => {
         {/* Content Section */}
         {isLoading ? (
           <GrammarSkeleton />
+        ) : isError ? (
+          <div className="bg-surface p-12 rounded-2xl border border-line text-center space-y-3 shadow-sm">
+            <p className="text-sm text-slate-600 dark:text-slate-300">{tr("Couldn't load the grammar rules.")}</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs"
+            >
+              {tr("Try again")}
+            </button>
+          </div>
         ) : filteredData && filteredData.length > 0 ? (
           <div className="space-y-4">
             {filteredData.map((rule) => {
@@ -143,9 +141,8 @@ export const GrammarPage = () => {
                         >
                           {rule.level || tr("General")}
                         </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                          <Globe2 className="w-3 h-3 text-slate-400" />
-                          {rule.language?.toUpperCase() || "EN"}
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          {tr(rule.lessonTitle)}
                         </span>
                       </div>
 
@@ -190,6 +187,13 @@ export const GrammarPage = () => {
                           {tr("No examples available for this rule.")}</p>
                       )}
                     </div>
+
+                    <Link
+                      to={`/grammar/${rule.lessonId}`}
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-300"
+                    >
+                      {tr("Practise this rule")} <ArrowRight className="w-3.5 h-3.5" aria-hidden />
+                    </Link>
                   </div>
                 </div>
               );
@@ -209,7 +213,6 @@ export const GrammarPage = () => {
             </div>
             <button
               onClick={() => {
-                setLanguage("");
                 setLevel("");
                 setSearchQuery("");
               }}

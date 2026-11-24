@@ -17,6 +17,10 @@ simulator `localhost`. To point it somewhere else, set `EXPO_PUBLIC_WEB_URL` (se
 
 ### Microphone on the phone (https)
 
+**Shortcut:** with the site (`pnpm --filter web dev`) and the API running, one command does all of the steps below:
+`pnpm --filter mobile phone`. It starts the tunnel, saves its address in `.env.local`, then starts Expo with the cache
+cleared. Ctrl+C stops both. Run it again whenever you want to test on a phone (the address is new every time).
+
 Phones only allow the microphone on secure (https) pages, so over `http://<this computer>:15173` voice rooms,
 voice messages and pronunciation can listen but not record. For those, give the dev site an https address:
 

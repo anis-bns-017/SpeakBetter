@@ -25,8 +25,8 @@ export const WORD_SOURCES: readonly WordSource[] = [
 ];
 export const WORD_STAGES: readonly WordStage[] = ['new', 'learning', 'learned'];
 
-export const MAX_WORD = 60;
-export const MAX_WORD_PARTS = 6;
+export const MAX_WORD = 80;
+export const MAX_WORD_PARTS = 10;
 export const MAX_MEANING = 300;
 export const MAX_EXAMPLE = 300;
 /** The most words one list returns (from each table) */

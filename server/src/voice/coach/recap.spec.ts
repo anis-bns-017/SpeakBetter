@@ -58,6 +58,7 @@ describe('CoachService.getRecap', () => {
   function setup(found = true) {
     const prisma: any = {
       voiceSessionReport: { findUnique: jest.fn().mockResolvedValue(found ? report : null) },
+      block: { findMany: jest.fn().mockResolvedValue([{ blockerId: 'u1', blockedId: 'blocked' }]) },
       voiceParticipant: {
         findUnique: jest.fn().mockResolvedValue({ joinedAt: new Date('2026-11-05T08:58:00Z') }),
         findMany: jest.fn().mockResolvedValue([{ user: { id: 'sam', name: 'Sam', avatarUrl: null } }]),
@@ -89,7 +90,11 @@ describe('CoachService.getRecap', () => {
     // only corrections for you that you did not dismiss, and words saved in this room since you joined
     expect(prisma.voiceCorrection.findMany.mock.calls[0][0].where).toEqual({ roomId: 'r1', targetUserId: 'u1', status: { not: 'dismissed' } });
     expect(prisma.voiceSavedWord.findMany.mock.calls[0][0].where).toEqual({ userId: 'u1', roomName: 'Morning chat', createdAt: { gte: new Date('2026-11-05T08:58:00Z') } });
-    expect(prisma.voiceParticipant.findMany.mock.calls[0][0].where).toEqual({ roomId: 'r1', userId: { not: 'u1' } });
+    const people = prisma.voiceParticipant.findMany.mock.calls[0][0].where;
+    // Nobody blocked, and only people who were there at the same time
+    expect(people.userId).toEqual({ notIn: ['u1', 'blocked'] });
+    expect(people.joinedAt).toEqual({ lte: report.updatedAt });
+    expect(people.OR).toEqual([{ leftAt: null }, { leftAt: { gte: expect.any(Date) } }]);
   });
 
   it('returns nothing before a report exists', async () => {

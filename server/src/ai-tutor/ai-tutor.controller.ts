@@ -18,6 +18,8 @@ export class AiTutorController {
   }
 
   @Post('sessions')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'ai-tutor-start', limit: 10, windowMs: 60_000 })
   @ApiOperation({ summary: 'Start a conversation; returns the partner\'s opening line' })
   start(@Req() req: any, @Body() body: StartTutorSessionDto) {
     return this.tutor.startSession(req.user.id, body.scenario, body.level);

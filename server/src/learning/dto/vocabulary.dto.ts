@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class GetVocabularyDto {
   @IsOptional()
@@ -20,35 +20,4 @@ export class GetVocabularyDto {
   @IsOptional()
   @IsString()
   offset?: string;
-}
-
-export class CreateVocabularyDto {
-  @IsString()
-  word: string;
-
-  @IsString()
-  translation: string;
-
-  @IsString()
-  language: string;
-
-  @IsOptional()
-  @IsString()
-  exampleSentence?: string;
-
-  @IsOptional()
-  @IsString()
-  audioUrl?: string;
-
-  @IsOptional()
-  @IsString()
-  difficulty?: string;
-}
-
-export class ReviewVocabularyDto {
-  @IsString()
-  vocabularyId: string;
-
-  @IsString()
-  difficulty: 'easy' | 'medium' | 'hard';
 }

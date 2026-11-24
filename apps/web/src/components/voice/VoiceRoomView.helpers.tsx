@@ -2,6 +2,7 @@
 
 import React from "react";
 import { format, isToday, isYesterday } from "date-fns";
+import { flagEmoji, resolveCountryCode } from "../../lib/countryFlag";
 
 // ---- Helper Functions ----
 
@@ -52,21 +53,9 @@ export function dayKey(date: string): string {
   }
 }
 
-export function getCountryFlag(countryCode?: string): string {
-  if (!countryCode) return "🌍";
-  const flags: Record<string, string> = {
-    US: "🇺🇸", GB: "🇬🇧", FR: "🇫🇷", DE: "🇩🇪", ES: "🇪🇸",
-    IT: "🇮🇹", JP: "🇯🇵", KR: "🇰🇷", CN: "🇨🇳", IN: "🇮🇳",
-    BR: "🇧🇷", RU: "🇷🇺", AU: "🇦🇺", CA: "🇨🇦", MX: "🇲🇽",
-    ZA: "🇿🇦", NG: "🇳🇬", EG: "🇪🇬", SA: "🇸🇦", AE: "🇦🇪",
-    SG: "🇸🇬", MY: "🇲🇾", PH: "🇵🇭", VN: "🇻🇳", TH: "🇹🇭",
-    ID: "🇮🇩", PK: "🇵🇰", BD: "🇧🇩", TR: "🇹🇷", NL: "🇳🇱",
-    BE: "🇧🇪", CH: "🇨🇭", SE: "🇸🇪", NO: "🇳🇴", DK: "🇩🇰",
-    FI: "🇫🇮", PL: "🇵🇱", GR: "🇬🇷", PT: "🇵🇹", IE: "🇮🇪",
-    NZ: "🇳🇿", AR: "🇦🇷", CL: "🇨🇱", CO: "🇨🇴", PE: "🇵🇪",
-    VE: "🇻🇪",
-  };
-  return flags[countryCode] || "🌍";
+export function getCountryFlag(country?: string): string {
+  const code = resolveCountryCode(country);
+  return code ? flagEmoji(code) : "🌍";
 }
 
 const URL_PATTERN = /(https?:\/\/[^\s]+)/g;

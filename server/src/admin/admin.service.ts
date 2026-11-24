@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { PrismaService } from '../prisma.service';
 import { REDIS_CLIENT } from '../common/redis.module';
+import { activeProWhere } from '../billing/plans';
 import { AdminReportsService } from './admin-reports.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -45,6 +46,8 @@ const OPTIONAL_SETTINGS: Array<{ key: string; what: string }> = [
   { key: 'LANGUAGETOOL_URL', what: 'Own grammar checker (else the free public one)' },
   { key: 'VAPID_PUBLIC_KEY', what: 'Push notifications' },
   { key: 'LIVEKIT_API_KEY', what: 'Voice rooms (LiveKit)' },
+  { key: 'RESEND_API_KEY', what: 'Emails through Resend (password reset, confirming addresses)' },
+  { key: 'BREVO_API_KEY', what: 'Emails through Brevo (the alternative to Resend)' },
   { key: 'GOOGLE_CLIENT_ID', what: 'Sign in with Google' },
   { key: 'CLOUDINARY_CLOUD_NAME', what: 'Uploads (images, voice messages)' },
   { key: 'REALTIME_REDIS_URL', what: 'Running more than one server' },
@@ -73,7 +76,7 @@ export class AdminService {
     const ago = (days: number) => new Date(now.getTime() - days * DAY_MS);
     const today = new Date(now);
     today.setHours(0, 0, 0, 0);
-    const activePro = { plan: 'PRO' as const, status: { in: ['ACTIVE' as const, 'TRIALING' as const] }, OR: [{ endDate: null }, { endDate: { gt: now } }] };
+    const activePro = activeProWhere(now);
 
     const [
       users,
@@ -109,7 +112,8 @@ export class AdminService {
       this.prisma.voiceRoom.count({ where: { status: { in: ['WAITING', 'ACTIVE'] } } }),
       this.prisma.voiceParticipant.count({ where: { leftAt: null, room: { status: { in: ['WAITING', 'ACTIVE'] } } } }),
       this.prisma.subscription.count({ where: activePro }),
-      this.prisma.payment.aggregate({ where: { status: 'SUCCEEDED', createdAt: { gte: ago(30) } }, _sum: { amount: true } }),
+      // Test checkouts move no money, so they are never revenue
+      this.prisma.payment.aggregate({ where: { status: 'SUCCEEDED', method: { not: 'SANDBOX' }, createdAt: { gte: ago(30) } }, _sum: { amount: true } }),
       this.reports.counts(),
       this.prisma.$queryRaw<Array<{ day: Date; n: bigint }>>`
         SELECT date_trunc('day', "createdAt") AS day, count(*) AS n

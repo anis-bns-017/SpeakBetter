@@ -4,6 +4,8 @@ import { apiClient } from "../../lib/api/client";
 import { useAuth } from "../../contexts/useAuth";
 import { useTheme } from "../../contexts/ThemeContext";
 import { fromServerTheme } from "../../lib/theme";
+import { setSoundEnabled } from "../../lib/sfx";
+import { setAutoTranslate } from "../../lib/autoTranslate";
 import type { Settings } from "../../hooks/useSettings";
 
 /**
@@ -28,6 +30,13 @@ export const ThemeSync = () => {
     const saved = fromServerTheme(data.theme);
     if (saved && saved !== "system") setTheme(saved);
   }, [data, chosenHere, setTheme]);
+
+  // Sound effects and auto-translate follow the account's settings as soon as they load or change
+  useEffect(() => {
+    if (!data) return;
+    setSoundEnabled(data.soundEffects !== false);
+    setAutoTranslate(data.autoTranslateMessages === true);
+  }, [data]);
 
   return null;
 };

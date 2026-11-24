@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import { learnerZone, startOfDayIn } from '../common/learner-day';
 import { ActivityService } from '../learning/activity.service';
 import { ReviewService } from '../learning/review.service';
 import { BadgesService } from '../gamification/badges.service';
@@ -141,7 +142,8 @@ export class WritingService {
   async save(userId: string, pieceId: string, input: { text?: unknown; variant?: unknown }) {
     const piece = await this.own(userId, pieceId);
     if (piece.submittedAt) throw new BadRequestException('This piece is finished. Start it again to write a new version.');
-    const text = cleanText(input.text);
+    // A save that carries no text (only a spelling choice, say) must never wipe the draft
+    const text = input.text === undefined ? piece.text : cleanText(input.text);
     const updated = await this.prisma.writingPiece.update({
       where: { id: piece.id },
       data: { text, wordCount: countWords(text), variant: variantOf(input.variant ?? piece.variant) },
@@ -211,7 +213,7 @@ export class WritingService {
     if (!count) throw new BadRequestException('This piece is already finished');
 
     const finishedToday = await this.prisma.writingPiece.count({
-      where: { userId, submittedAt: { gte: startOfDay(now) }, id: { not: piece.id } },
+      where: { userId, submittedAt: { gte: startOfDayIn(now, await learnerZone(this.prisma, userId)) }, id: { not: piece.id } },
     });
     const xp = finishedToday < XP_PIECES_PER_DAY ? WRITING_XP : 0;
     if (xp) await this.activity.recordActivity(userId, xp, 'WRITING_PRACTICE');

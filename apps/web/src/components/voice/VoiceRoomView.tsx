@@ -14,21 +14,20 @@
  * phones), and a control dock (your status · audio controls · shortcuts) with
  * a thumb-sized phone dock on small screens.
  *
- * Improvements in this revision:
- *   - FIX (two-places bubbling): handleSendStageReaction now takes a
- *     `local` flag. The StageReactionBar uses local:true (you see your
- *     own ❤️🔥🎉 rise on stage). The ClapButton uses local:false (its
- *     own local bubble particles are the clicker's feedback; other users
- *     see your 👏 via socket broadcast). Previously both fired and you'd
- *     see bubbles from the button AND a 👏 from a random spot on stage.
- *   - Per-emoji flood guard (was per-user-total, which blocked ❤️ after
- *     you'd clapped 👏 a few times).
- *   - Audio level is smoothed with a 0.7/0.3 moving average before being
- *     shown in the dock aura — no more flicker on every mic jitter.
- *   - pushStageReaction dedupes by ID so a socket echo racing with the
- *     optimistic push can't double-render the same reaction.
- *   - RoomHotkey handlers are read through refs so the global keydown
- *     listener never goes stale and never needs re-binding.
+ * Reactions (see shared/useStageReactions.ts):
+ *   - One origin: every floating emoji, from the quick bar, the clap button or another person, rises from the
+ *     glowing emitter on the reaction dock. Nothing else spawns bubbles.
+ *   - One copy: the server echoes your own reaction back to you; the hook drops that echo because your tap
+ *     already showed it. (The echo, a random-spot local copy and the clap button's own particles were the
+ *     "bubbles from two places" bug.)
+ *
+ * Studio extras: a "now speaking" spotlight with live waveform, an audio-reactive wave along the stage floor, a
+ * stage edge that brightens while anyone talks, cursor light, tilting participant tiles, and a magnifying
+ * reaction dock with a heat bar and confetti streaks.
+ *
+ * Other notes:
+ *   - Audio level is smoothed with a 0.7/0.3 moving average before being shown in the dock aura.
+ *   - RoomHotkey handlers are read through refs so the global keydown listener never goes stale.
  */
 
 import React, {
@@ -40,7 +39,6 @@ import React, {
   useDeferredValue,
   type RefObject,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   AlertCircle,
   WifiOff,
@@ -98,9 +96,9 @@ import {
 import { useAuth } from "../../contexts/useAuth";
 
 import { AudioControls } from "./AudioControls";
-import { ClapButton } from "./ClapButton";
 import { VoiceRoomHeader } from "./shared/VoiceRoomHeader";
 import { LeaveConfirmationModal } from "./shared/LeaveConfirmationModal";
+import { ProfilePeek } from "./shared/ProfilePeek";
 import { RoomDetailsPanel } from "./shared/RoomDetailsPanel";
 import { ShortcutPanel } from "./shared/ShortcutPanel";
 import { CommandCenter } from "./shared/CommandCenter";
@@ -133,9 +131,11 @@ import { useSpeakingTimes } from "../../hooks/useSpeakingTimes";
 import { ParticipantGrid } from "./participants/ParticipantGrid";
 import { useVoiceTranscription } from "../../hooks/useVoiceTranscription";
 import { ChatPanel } from "./chat/ChatPanel";
-import { ReactionOverlay, type StageReaction } from "./shared/ReactionOverlay";
+import { ReactionOverlay } from "./shared/ReactionOverlay";
+import { useStageReactions } from "./shared/useStageReactions";
+import { serverMessage } from "../../lib/serverMessage";
+import { ReactionDock } from "./shared/ReactionDock";
 import { SpeakerQueue } from "./SpeakerQueue";
-import { StageReactionBar } from "./shared/StageReactionBar";
 
 import { THEME } from "./VoiceRoomView.theme";
 import {
@@ -1506,9 +1506,6 @@ const INITIAL_PANELS: Record<PanelKey, boolean> = {
 };
 
 const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
-const MAX_STAGE_REACTIONS = 40;
-const MAX_REACTIONS_PER_USER_PER_EMOJI_PER_WINDOW = 8;
-const REACTION_FLOOD_WINDOW_MS = 4000;
 const SEND_TIMEOUT_MS = 10_000;
 const READY_FALLBACK_MS = 12_000;
 
@@ -1548,6 +1545,8 @@ interface RawChatMessage {
 
 /** Participant data from the socket, the REST room or LiveKit: any field may be missing */
 interface LooseMemberUser {
+  /** Country and languages live on the member's profile (the server sends them as user.profile) */
+  profile?: { country?: string | null; nativeLanguage?: string | null; learningLanguages?: string[] | null } | null;
   id?: string;
   name?: string;
   avatarUrl?: string;
@@ -1689,69 +1688,6 @@ const toggleReactionIn = (
   return { ...m, reactions, reactionTally: undefined };
 };
 
-const ClapDock: React.FC<{
-  size: "sm" | "md";
-  onClap: () => void;
-  audioLevel?: number;
-}> = ({ size, onClap, audioLevel = 0 }) => {
-  const [streak, setStreak] = useState(0);
-
-  return (
-    <div
-      className="pointer-events-auto relative rounded-full p-1"
-      style={{
-        background: "var(--sx-bg-255-255-255-40)",
-        border: "1px solid var(--sx-border-255-255-255-80)",
-      }}
-    >
-      {audioLevel > 0.05 && (
-        <motion.span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-full"
-          style={{
-            boxShadow: `0 0 ${8 + audioLevel * 24}px ${audioLevel * 4}px rgba(142,163,232,${0.15 + audioLevel * 0.25})`,
-          }}
-          animate={{ opacity: [0.4, 0.8, 0.4] }}
-          transition={{ duration: 0.6, repeat: Infinity }}
-        />
-      )}
-      <div className="relative flex items-center gap-1.5">
-        <ClapButton
-          onClap={onClap}
-          onStreakChange={setStreak}
-          size={size}
-          maxClaps={100}
-          cooldownMs={180}
-          showRemaining={false}
-        />
-        <AnimatePresence>
-          {streak >= 3 && (
-            <motion.span
-              key="streak"
-              initial={{ opacity: 0, scale: 0.6, x: -4 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.6, x: -4 }}
-              className="px-2 py-0.5 rounded-full text-[11px] font-bold tabular-nums"
-              style={{
-                background:
-                  streak >= 5
-                    ? `linear-gradient(135deg, ${THEME.colors.accent.warning}, var(--sx-bg-f97316))`
-                    : "rgba(142,163,232,0.2)",
-                color: "var(--sx-text-ffffff)",
-              }}
-            >
-              {streak >= 5 ? `🔥 ${streak}` : `×${streak}`}
-            </motion.span>
-          )}
-        </AnimatePresence>
-        <span className="hidden sm:inline-flex pr-1.5" title={tr("Press A to clap")}>
-          <DockKey>A</DockKey>
-        </span>
-      </div>
-    </div>
-  );
-};
-
 export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   roomId,
   onLeave,
@@ -1764,6 +1700,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
 
   const [token, setToken] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  // Whose card is open after tapping someone in the room
+  const [peekUserId, setPeekUserId] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinAttempt, setJoinAttempt] = useState(0);
   const [liveKitRoomId, setLiveKitRoomId] = useState("");
@@ -1811,7 +1749,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [newMessageCount, setNewMessageCount] = useState(0);
-  const [stageReactions, setStageReactions] = useState<StageReaction[]>([]);
 
   const attachInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -1822,9 +1759,6 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   const uploadingRef = useRef(false);
   const pendingAttachmentRef = useRef<PendingAttachment | null>(null);
   const messagesRef = useRef<LocalVoiceMessage[]>([]);
-  const reactionWindowRef = useRef<
-    Map<string, { count: number; firstAt: number }>
-  >(new Map());
   const smoothedAudioRef = useRef(0);
   const live = useRef({ showChat, isNearBottom, soundEnabled, panels });
 
@@ -1965,9 +1899,9 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         userId: p.userId,
         name: p.name || p.user?.name || "Anonymous",
         avatarUrl: p.avatarUrl || p.user?.avatarUrl,
-        country: p.country || p.user?.country,
-        nativeLanguage: p.nativeLanguage || p.user?.nativeLanguage,
-        learningLanguage: p.learningLanguage || p.user?.learningLanguage,
+        country: p.country || p.user?.country || p.user?.profile?.country || undefined,
+        nativeLanguage: p.nativeLanguage || p.user?.nativeLanguage || p.user?.profile?.nativeLanguage || undefined,
+        learningLanguage: p.learningLanguage || p.user?.learningLanguage || p.user?.profile?.learningLanguages?.[0] || undefined,
         level: p.level || p.user?.level,
         bio: p.bio || p.user?.bio,
         interests: p.interests || p.user?.interests,
@@ -1993,9 +1927,9 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         userId: p.userId,
         name: p.user?.name || "Anonymous",
         avatarUrl: p.user?.avatarUrl,
-        country: p.user?.country,
-        nativeLanguage: p.user?.nativeLanguage,
-        learningLanguage: p.user?.learningLanguage,
+        country: p.user?.country || p.user?.profile?.country || undefined,
+        nativeLanguage: p.user?.nativeLanguage || p.user?.profile?.nativeLanguage || undefined,
+        learningLanguage: p.user?.learningLanguage || p.user?.profile?.learningLanguages?.[0] || undefined,
         level: p.user?.level,
         isOnline: false,
         isSpeaking: Boolean(p.isSpeaking) && !p.isMuted,
@@ -2217,8 +2151,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       socket?.emit("voice:leave", { roomId, userId: myId });
       toast.success(tr("Left room"));
       onLeave();
-    } catch {
-      toast.error(tr("Failed to leave room"));
+    } catch (error) {
+      toast.error(serverMessage(error) || tr("Failed to leave room"));
     }
   }, [leaveRoomMutation, roomId, socket, myId, onLeave]);
 
@@ -2730,114 +2664,29 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     [],
   );
 
-  const pushStageReaction = useCallback(
-    (
-      r: Omit<StageReaction, "xPercent" | "createdAt"> & { createdAt?: number },
-    ) => {
-      setStageReactions((prev) => {
-        if (prev.some((p) => p.id === r.id)) return prev;
-        return [
-          ...prev,
-          {
-            ...r,
-            xPercent: 12 + Math.random() * 76,
-            createdAt: r.createdAt ?? Date.now(),
-          } as StageReaction,
-        ].slice(-MAX_STAGE_REACTIONS);
-      });
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (!socket) return;
-    const onReaction = (data: {
-      id?: string;
-      userId: string;
-      userName?: string;
-      emoji: string;
-      createdAt?: number;
-    }) => {
-      pushStageReaction({
-        id:
-          data.id ||
-          `${data.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        emoji: data.emoji,
-        userId: data.userId,
-        userName: data.userName,
-        createdAt: data.createdAt,
-      });
-    };
-    socket.on("voice:stage-reaction", onReaction);
-    return () => {
-      socket.off("voice:stage-reaction", onReaction);
-    };
-  }, [socket, pushStageReaction]);
-
-  const hasReactions = stageReactions.length > 0;
-  useEffect(() => {
-    if (!hasReactions) return;
-    const id = window.setInterval(() => {
-      const now = Date.now();
-      setStageReactions((prev) => {
-        const next = prev.filter((r) => now - r.createdAt < 3600);
-        return next.length === prev.length ? prev : next;
-      });
-    }, 600);
-    return () => window.clearInterval(id);
-  }, [hasReactions]);
-
-  const handleSendStageReaction = useCallback(
-    (
-      emoji: string,
-      options: { local?: boolean; broadcast?: boolean } = {},
-    ) => {
-      const { local = true, broadcast = true } = options;
-      const uid = user?.id || "me";
-      const now = Date.now();
-      const win = reactionWindowRef.current;
-      const floodKey = `${uid}:${emoji}`;
-      const entry = win.get(floodKey) || { count: 0, firstAt: now };
-
-      if (now - entry.firstAt > REACTION_FLOOD_WINDOW_MS) {
-        entry.count = 0;
-        entry.firstAt = now;
-      }
-      if (entry.count >= MAX_REACTIONS_PER_USER_PER_EMOJI_PER_WINDOW) {
-        toast.warning(tr("Slow down — too many reactions in a row"), {
-          duration: 1500,
-        });
-        return;
-      }
-      entry.count += 1;
-      win.set(floodKey, entry);
-
-      if (local) {
-        pushStageReaction({
-          id: `local-${now}-${Math.random().toString(36).slice(2)}`,
-          emoji,
-          userId: uid,
-          userName: user?.name,
-        });
-      }
-      if (broadcast) {
-        sendStageReaction(emoji);
-      }
-    },
-    [sendStageReaction, user, pushStageReaction],
-  );
+  // Every reaction, yours and everyone else's, runs through one pipeline and rises from the reaction dock's
+  // emitter, so it shows once and from one place (see shared/useStageReactions.ts)
+  const {
+    reactions: stageReactions,
+    milestones: stageMilestones,
+    heat: reactionHeat,
+    anchorRef: reactionAnchorRef,
+    react: handleSendStageReaction,
+    clap: handleClap,
+  } = useStageReactions({
+    socket,
+    userId: user?.id,
+    userName: user?.name,
+    sendStageReaction,
+  });
 
   const handleQuickReaction = useCallback(
     (slot: number) => {
       const emoji = QUICK_REACTION_SLOTS[slot - 1];
-      if (emoji) handleSendStageReaction(emoji, { local: true });
+      if (emoji) handleSendStageReaction(emoji);
     },
     [handleSendStageReaction],
   );
-
-  const handleClap = useCallback(() => {
-    handleSendStageReaction("👏", { local: false, broadcast: true });
-  }, [handleSendStageReaction]);
 
   useEffect(() => {
     if (!roomId || !user?.id || token || joinInFlight.current) return;
@@ -3212,6 +3061,11 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
           ? `${speakingNames[0]} and ${speakingNames[1]} are speaking`
           : `${speakingNames[0]} and ${speakingNames.length - 1} others are speaking`;
 
+  // How loud the room is right now (the loudest speaker): drives the soft wave along the bottom of the stage
+  const ambientLevel = allParticipants
+    .filter((p) => p.isSpeaking)
+    .reduce((m, p) => Math.max(m, clamp01(p.audioLevel || 0.35)), 0);
+
   const stageStats: StageStat[] = [
     {
       id: "people",
@@ -3450,6 +3304,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       }
       stats={stageStats}
       toolGroups={toolGroups}
+      ambientLevel={ambientLevel}
       stageTop={
         <CoachDock
           canManage={isModerator}
@@ -3503,7 +3358,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             setNewMessage(`@${participant.name} `);
             window.setTimeout(() => textareaRef.current?.focus(), 100);
           }}
-          onViewProfile={() => toast.info(tr("👤 Viewing profile"))}
+          onViewProfile={setPeekUserId}
           showChat={showChat}
           className="w-full"
           onInvite={() => setPanel("invite", true)}
@@ -3544,19 +3399,11 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
       }
       stageFooter={
         <>
-          {/* The bar floats by default; in the footer it sits in line with the clap */}
-          <StageReactionBar
-            className="static! shrink-0"
-            onSend={(emoji) => handleSendStageReaction(emoji)}
-          />
-          <span
-            aria-hidden
-            className="h-6 w-px shrink-0"
-            style={{ background: "var(--sx-bg-255-255-255-80)" }}
-          />
-          <ClapDock
+          <ReactionDock
+            onReact={handleSendStageReaction}
             onClap={handleClap}
-            size="sm"
+            anchorRef={reactionAnchorRef}
+            heat={reactionHeat}
             audioLevel={clamp01(audioLevel)}
           />
         </>
@@ -3922,6 +3769,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         onDismiss={coach.dismissSpotlight}
       />
 
+      {peekUserId && <ProfilePeek userId={peekUserId} onClose={() => setPeekUserId(null)} />}
+
       <LeaveConfirmationModal
         isOpen={showLeaveConfirm}
         onClose={() => setShowLeaveConfirm(false)}
@@ -4060,24 +3909,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         disabled={showAttachmentPreview}
       />
 
-      {/* Stage reactions — rendered into document.body via portal so no
-          parent's overflow-hidden / transform / backdrop-filter can clip them. */}
-      {typeof document !== "undefined" &&
-        createPortal(
-          <div
-            className="pointer-events-none"
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 9999,
-              overflow: "visible",
-            }}
-            aria-hidden
-          >
-            <ReactionOverlay reactions={stageReactions} />
-          </div>,
-          document.body,
-        )}
+      {/* Floating reactions: drawn into document.body, all launched from the dock's emitter */}
+      <ReactionOverlay reactions={stageReactions} milestones={stageMilestones} />
 
       <input
         ref={attachInputRef}

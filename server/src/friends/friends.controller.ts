@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { FriendsService } from './friends.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { VerifiedEmailGuard } from '../auth/verified-email.guard';
 import {
   SendFriendRequestDto,
   RespondFriendRequestDto,
@@ -30,6 +31,7 @@ export class FriendsController {
   // ============ FRIEND REQUESTS ============
 
   @Post('requests')
+  @UseGuards(VerifiedEmailGuard)
   async sendFriendRequest(@Request() req, @Body() dto: SendFriendRequestDto) {
     return this.friendsService.sendFriendRequest(req.user.id, dto);
   }

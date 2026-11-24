@@ -41,7 +41,9 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { useChats } from "../hooks/useChat";
+import { chatApi, useChats } from "../hooks/useChat";
+import { useQueryClient } from "@tanstack/react-query";
+import { isChatMuted, setChatMuted } from "../lib/chatMute";
 import { ChatPrivacyDialog } from "../components/chat/ChatDialogs";
 import { ChatList } from "../components/chat/ChatList";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
@@ -182,7 +184,8 @@ export const ChatPage: React.FC = () => {
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => !isChatMuted());
+  const queryClient = useQueryClient();
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("recent");
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -319,7 +322,7 @@ export const ChatPage: React.FC = () => {
     (chatId: string) => {
       setSelectedChatId(chatId);
       setSelectedCommunityId(null);
-      navigate(`?chatId=${chatId}`, { replace: true });
+      navigate(`/chat?chatId=${chatId}`, { replace: true });
     },
     [navigate],
   );
@@ -327,7 +330,7 @@ export const ChatPage: React.FC = () => {
   const handleBack = useCallback(() => {
     setSelectedChatId(null);
     setSelectedCommunityId(null);
-    navigate(".", { replace: true });
+    navigate("/chat", { replace: true });
   }, [navigate]);
 
   const handleCreateNewChat = useCallback(() => {
@@ -335,20 +338,22 @@ export const ChatPage: React.FC = () => {
   }, [navigate]);
 
   const handleToggleNotifications = useCallback(() => {
-    setNotificationsEnabled((prev) => {
-      const next = !prev;
-      toast.success(
-        next ? tr("Notifications enabled") : tr("Notifications muted"),
-        { duration: 1500 },
-      );
-      return next;
-    });
-  }, []);
+    const next = !notificationsEnabled;
+    setNotificationsEnabled(next);
+    setChatMuted(!next);
+    toast.success(next ? tr("Notifications enabled") : tr("Notifications muted"), { id: "chat-mute", duration: 1500 });
+  }, [notificationsEnabled]);
 
-  const handleMarkAllRead = useCallback(() => {
-    toast.success(tr("Marked all conversations as read"), { duration: 1500 });
-    // Wire to actual mutation when available
-  }, []);
+  const handleMarkAllRead = useCallback(async () => {
+    const unread = (chats || []).filter((c) => (c.unreadCount || 0) > 0);
+    const results = await Promise.allSettled(unread.map((c) => chatApi.markChatRead(c.id)));
+    await queryClient.invalidateQueries({ queryKey: ["chats"] });
+    if (results.some((r) => r.status === "rejected")) {
+      toast.error(tr("Some conversations couldn't be marked as read."), { id: "chat-read-all" });
+    } else {
+      toast.success(tr("Marked all conversations as read"), { id: "chat-read-all", duration: 1500 });
+    }
+  }, [chats, queryClient]);
 
   // ----------------------------------------------------------
   // Quick actions — now with static color map
@@ -368,19 +373,19 @@ export const ChatPage: React.FC = () => {
     {
       icon: Users,
       label: msg("New Group"),
-      action: () => toast.info(tr("Group creation coming soon")),
+      action: () => navigate("/chat/new?group=1"),
       color: "violet",
     },
     {
       icon: Hash,
       label: msg("Join Channel"),
-      action: () => toast.info(tr("Channel joining coming soon")),
+      action: () => navigate("/communities"),
       color: "pink",
     },
     {
       icon: Star,
       label: msg("Saved"),
-      action: () => toast.info(tr("Saved messages coming soon")),
+      action: () => navigate("/chat/saved"),
       color: "amber",
     },
   ];
@@ -542,7 +547,7 @@ export const ChatPage: React.FC = () => {
                   whileHover={reduced ? undefined : { scale: 1.05 }}
                   whileTap={reduced ? undefined : { scale: 0.9 }}
                   type="button"
-                  onClick={handleMarkAllRead}
+                  onClick={() => void handleMarkAllRead()}
                   className="p-2.5 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
                   title={tr("Mark all as read")}
                 >
@@ -944,17 +949,6 @@ export const ChatPage: React.FC = () => {
                   <ArrowLeft className="w-4 h-4" />
                   <span className="text-xs font-bold">{tr("Back")}</span>
                 </button>
-                <div className="flex items-center gap-2">
-                  <motion.button
-                    whileHover={reduced ? undefined : { scale: 1.05 }}
-                    whileTap={reduced ? undefined : { scale: 0.9 }}
-                    type="button"
-                    onClick={() => toast.info(tr("Chat info"))}
-                    className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all dark:hover:text-indigo-400 dark:hover:bg-indigo-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
-                  >
-                    <User className="w-4 h-4" />
-                  </motion.button>
-                </div>
               </div>
               <div className="flex-1 overflow-hidden">
                 <ChatWindow
@@ -1033,7 +1027,7 @@ export const ChatPage: React.FC = () => {
                   whileHover={reduced ? undefined : { scale: 1.05 }}
                   whileTap={reduced ? undefined : { scale: 0.95 }}
                   type="button"
-                  onClick={() => toast.info(tr("Explore communities coming soon"))}
+                  onClick={() => navigate("/communities")}
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-2xl hover:border-slate-300 hover:shadow-md transition-all dark:bg-white/5 dark:border-white/10 dark:text-slate-200 dark:hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                 >
                   <Users className="w-4 h-4" />

@@ -105,6 +105,9 @@ export const useEndTutorSession = (sessionId: string) => {
       // The recap earned XP and used up the day's turns
       queryClient.invalidateQueries({ queryKey: ['ai-tutor-status'] });
       queryClient.invalidateQueries({ queryKey: ['learning-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['plan-today'] });
+      queryClient.invalidateQueries({ queryKey: ['insights-progress'] });
+      queryClient.invalidateQueries({ queryKey: ['league-current'] });
       queryClient.invalidateQueries({ queryKey: ['quests'] });
       queryClient.invalidateQueries({ queryKey: ['streak'] });
     },

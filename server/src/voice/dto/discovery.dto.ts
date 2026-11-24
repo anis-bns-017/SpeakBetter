@@ -8,6 +8,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum RoomSortType {
   TRENDING = 'trending',
@@ -47,12 +48,30 @@ export class DiscoverRoomsDto {
   @IsString()
   category?: string;
 
+  /** Only rooms with at least this many people in them now */
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1000)
+  minParticipants?: number;
+
+  /** Only rooms with at most this many people in them now */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1000)
+  maxParticipants?: number;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(50)

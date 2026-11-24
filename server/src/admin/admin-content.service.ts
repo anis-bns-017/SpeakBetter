@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { LiveKitService } from '../voice/livekit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { activeProWhere } from '../billing/plans';
 import { AdminAuditService } from './admin-audit.service';
 import type { Actor } from './admin.roles';
 
@@ -185,6 +186,32 @@ export class AdminContentService {
       });
       return { ok: true };
     }
+    if (kind === 'thread') {
+      const post = await this.prisma.thread.findUnique({ where: { id }, include: { author: { select: { id: true, name: true } } } });
+      if (!post) throw new NotFoundException('Post not found');
+      await this.prisma.thread.delete({ where: { id } });
+      await this.audit.record(actor, {
+        action: 'message.delete',
+        targetType: 'thread',
+        targetId: id,
+        summary: `Removed a community post by ${post.author.name}: ${why}`,
+        details: { title: post.title, content: post.content, senderId: post.author.id, channelId: post.channelId },
+      });
+      return { ok: true };
+    }
+    if (kind === 'thread-reply') {
+      const reply = await this.prisma.threadMessage.findUnique({ where: { id }, include: { author: { select: { id: true, name: true } } } });
+      if (!reply) throw new NotFoundException('Reply not found');
+      await this.prisma.threadMessage.delete({ where: { id } });
+      await this.audit.record(actor, {
+        action: 'message.delete',
+        targetType: 'thread-reply',
+        targetId: id,
+        summary: `Removed a community reply by ${reply.author.name}: ${why}`,
+        details: { content: reply.content, senderId: reply.author.id, threadId: reply.threadId },
+      });
+      return { ok: true };
+    }
     if (kind !== 'message') throw new BadRequestException('Unknown message kind');
     const message = await this.prisma.message.findUnique({ where: { id }, include: { sender: { select: { id: true, name: true } } } });
     if (!message) throw new NotFoundException('Message not found');
@@ -205,7 +232,7 @@ export class AdminContentService {
   private audienceWhere(audience: Audience): Prisma.UserWhereInput {
     const now = new Date();
     const notSuspended: Prisma.UserWhereInput = { OR: [{ suspendedUntil: null }, { suspendedUntil: { lte: now } }] };
-    const pro: Prisma.SubscriptionWhereInput = { plan: 'PRO', status: { in: ['ACTIVE', 'TRIALING'] }, OR: [{ endDate: null }, { endDate: { gt: now } }] };
+    const pro = activeProWhere(now);
     switch (audience) {
       case 'active7':
         return { AND: [notSuspended, { profile: { lastActive: { gte: new Date(now.getTime() - 7 * DAY_MS) } } }] };
@@ -235,7 +262,7 @@ export class AdminContentService {
     const message = typeof input.message === 'string' ? input.message.trim().slice(0, 400) : '';
     if (title.length < 3 || message.length < 3) throw new BadRequestException('Write a title and a message');
     const link = typeof input.link === 'string' && input.link.trim() ? input.link.trim() : undefined;
-    if (link && !/^\/[\w\-/?=&#.%]*$/.test(link)) throw new BadRequestException('The link must be a page inside the app, like /library');
+    if (link && !/^\/(?!\/)[\w\-/?=&#.%]*$/.test(link)) throw new BadRequestException('The link must be a page inside the app, like /library');
     const audience = (['all', 'active7', 'active30', 'pro', 'free', 'staff'].includes(String(input.audience)) ? input.audience : 'all') as Audience;
 
     const recipients = await this.prisma.user.findMany({ where: this.audienceWhere(audience), select: { id: true }, take: MAX_AUDIENCE });
@@ -267,12 +294,15 @@ export class AdminContentService {
     const page = Math.max(1, Math.floor(Number(query.page) || 1));
     const now = new Date();
     const since30 = new Date(now.getTime() - 30 * DAY_MS);
-    const activePro: Prisma.SubscriptionWhereInput = { plan: 'PRO', status: { in: ['ACTIVE', 'TRIALING'] }, OR: [{ endDate: null }, { endDate: { gt: now } }] };
-    const [pro, byProvider, revenueAll, revenue30, failed30, payments, paymentsTotal, subscriptions] = await Promise.all([
+    const activePro = activeProWhere(now);
+    // Test checkouts move no money, so they are never revenue
+    const realPayment: Prisma.PaymentWhereInput = { status: 'SUCCEEDED', method: { not: 'SANDBOX' } };
+    const [pro, byProvider, revenueAll, revenue30, testPayments, failed30, payments, paymentsTotal, subscriptions] = await Promise.all([
       this.prisma.subscription.count({ where: activePro }),
       this.prisma.subscription.groupBy({ by: ['provider'], where: activePro, _count: { _all: true } }),
-      this.prisma.payment.aggregate({ where: { status: 'SUCCEEDED' }, _sum: { amount: true }, _count: { _all: true } }),
-      this.prisma.payment.aggregate({ where: { status: 'SUCCEEDED', createdAt: { gte: since30 } }, _sum: { amount: true }, _count: { _all: true } }),
+      this.prisma.payment.aggregate({ where: realPayment, _sum: { amount: true }, _count: { _all: true } }),
+      this.prisma.payment.aggregate({ where: { ...realPayment, createdAt: { gte: since30 } }, _sum: { amount: true }, _count: { _all: true } }),
+      this.prisma.payment.count({ where: { status: 'SUCCEEDED', method: 'SANDBOX' } }),
       this.prisma.payment.count({ where: { status: 'FAILED', createdAt: { gte: since30 } } }),
       this.prisma.payment.findMany({
         orderBy: { createdAt: 'desc' },
@@ -296,6 +326,7 @@ export class AdminContentService {
         paymentsAll: revenueAll._count._all,
         revenue30: revenue30._sum.amount ?? 0,
         payments30: revenue30._count._all,
+        testPayments,
         failed30,
       },
       payments: { page, pages: Math.max(1, Math.ceil(paymentsTotal / PAGE)), total: paymentsTotal, items: payments },

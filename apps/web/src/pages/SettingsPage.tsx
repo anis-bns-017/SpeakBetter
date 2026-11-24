@@ -3,6 +3,8 @@ import { SettingsForm } from '../components/settings/SettingsForm';
 import { Sliders, AlertCircle, RefreshCw } from 'lucide-react';
 import { PageHeader } from '../components/ui';
 import { DeleteAccountCard } from '../components/settings/DeleteAccountCard';
+import { ComfortCard } from '../components/settings/ComfortCard';
+import { ExportDataCard } from '../components/settings/ExportDataCard';
 import { SessionsCard } from '../components/settings/SessionsCard';
 import { LanguageCard } from '../components/settings/LanguageCard';
 import { SpeakingEffectCard } from '../components/settings/SpeakingEffectCard';
@@ -56,6 +58,8 @@ export const SettingsPage = () => {
 
         <LanguageCard />
 
+        <ComfortCard />
+
         <SpeakingEffectCard />
 
         {/* Main Settings Form Container */}
@@ -64,6 +68,8 @@ export const SettingsPage = () => {
         </div>
 
         <SessionsCard />
+
+        <ExportDataCard />
 
         <DeleteAccountCard />
       </div>

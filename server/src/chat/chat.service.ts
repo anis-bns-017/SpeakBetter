@@ -5,7 +5,9 @@ import {
   ForbiddenException,
   Optional,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
+import { emailNotVerified, verificationEnforced } from '../auth/verified-email.guard';
 import { CreateChatDto, SendMessageDto, GetMessagesDto } from './dto/chat.dto';
 import { MessageType, Prisma } from '@prisma/client';
 import { ActivityService, XP_REWARDS, CHAT_XP_DAILY_CAP } from '../learning/activity.service';
@@ -31,6 +33,9 @@ function fileMetadata(meta?: Record<string, unknown>): Prisma.InputJsonValue | u
   return Object.keys(out).length ? out : undefined;
 }
 
+/** A group holds its creator plus up to this many people */
+export const GROUP_MAX_OTHERS = 49;
+
 @Injectable()
 export class ChatService {
   constructor(
@@ -40,6 +45,7 @@ export class ChatService {
     // Turns corrections into flashcards; optional so chat keeps working (and tests stay simple) without it
     @Optional() private review?: ReviewService,
     @Optional() private notifications?: NotificationsService,
+    @Optional() private config?: ConfigService,
   ) {}
 
   // ============ CHATS ============
@@ -58,7 +64,6 @@ export class ChatService {
               select: {
                 id: true,
                 name: true,
-                email: true,
                 avatarUrl: true,
                 // "Active now / last seen" in the chat header and list
                 profile: { select: { lastActive: true, nativeLanguage: true, learningLanguages: true } },
@@ -151,7 +156,6 @@ export class ChatService {
               select: {
                 id: true,
                 name: true,
-                email: true,
                 avatarUrl: true,
                 profile: { select: { lastActive: true, nativeLanguage: true, learningLanguages: true } },
               },
@@ -193,7 +197,6 @@ export class ChatService {
               select: {
                 id: true,
                 name: true,
-                email: true,
                 avatarUrl: true,
               },
             },
@@ -203,6 +206,8 @@ export class ChatService {
     });
 
     if (existing) return existing;
+
+    await this.assertCanStartChat(userId, otherUserId);
 
     return this.prisma.chat.create({
       data: {
@@ -218,7 +223,6 @@ export class ChatService {
               select: {
                 id: true,
                 name: true,
-                email: true,
                 avatarUrl: true,
               },
             },
@@ -229,17 +233,23 @@ export class ChatService {
   }
 
   async createGroupChat(userId: string, data: CreateChatDto) {
-    const otherIds = data.participantIds.filter((id) => id !== userId);
+    const otherIds = [...new Set(data.participantIds)].filter((id) => id !== userId);
+    if (otherIds.length === 0) {
+      throw new BadRequestException('Add at least one person to the group');
+    }
+    if (otherIds.length > GROUP_MAX_OTHERS) {
+      throw new BadRequestException(`A group can have up to ${GROUP_MAX_OTHERS + 1} people`);
+    }
 
-    // Check if any participants are blocked
+    // Everyone must exist, not be blocked either way, and accept messages from you
     for (const otherId of otherIds) {
-      await this.assertNotBlocked(userId, otherId);
+      await this.assertCanStartChat(userId, otherId);
     }
 
     return this.prisma.chat.create({
       data: {
         type: 'GROUP',
-        name: data.name || 'Group Chat',
+        name: data.name?.trim().slice(0, 60) || 'Group Chat',
         ownerId: userId,
         participants: {
           create: [
@@ -255,7 +265,6 @@ export class ChatService {
               select: {
                 id: true,
                 name: true,
-                email: true,
                 avatarUrl: true,
               },
             },
@@ -283,15 +292,18 @@ export class ChatService {
     if (!isAdmin)
       throw new ForbiddenException('Only admins can add participants');
 
-    // Check if any new participants are blocked
-    for (const newUserId of userIds) {
-      await this.assertNotBlocked(userId, newUserId);
-    }
-
     const existingIds = chat.participants.map((p) => p.userId);
-    const newIds = userIds.filter((id) => !existingIds.includes(id));
+    const newIds = [...new Set(userIds)].filter((id) => !existingIds.includes(id));
 
     if (newIds.length === 0) return chat;
+    if (existingIds.length + newIds.length > GROUP_MAX_OTHERS + 1) {
+      throw new BadRequestException(`A group can have up to ${GROUP_MAX_OTHERS + 1} people`);
+    }
+
+    // Everyone new must exist, not be blocked either way, and accept messages from you
+    for (const newUserId of newIds) {
+      await this.assertCanStartChat(userId, newUserId);
+    }
 
     return this.prisma.chat.update({
       where: { id: chatId },
@@ -307,7 +319,6 @@ export class ChatService {
               select: {
                 id: true,
                 name: true,
-                email: true,
                 avatarUrl: true,
               },
             },
@@ -644,10 +655,14 @@ export class ChatService {
           userId,
         },
       },
+      include: { community: { select: { hiddenAt: true } } },
     });
 
     if (!member) {
       throw new ForbiddenException('You are not a member of this community');
+    }
+    if (member.community?.hiddenAt) {
+      throw new NotFoundException('This community has been hidden by moderators');
     }
 
     // Check if user is muted in community
@@ -704,7 +719,6 @@ export class ChatService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatarUrl: true,
           },
         },
@@ -758,10 +772,14 @@ export class ChatService {
           userId,
         },
       },
+      include: { community: { select: { hiddenAt: true } } },
     });
 
     if (!member) {
       throw new ForbiddenException('You are not a member of this community');
+    }
+    if (member.community?.hiddenAt) {
+      throw new NotFoundException('This community has been hidden by moderators');
     }
 
     const where: any = { communityId, isDeleted: false };
@@ -784,7 +802,6 @@ export class ChatService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatarUrl: true,
           },
         },
@@ -877,7 +894,6 @@ export class ChatService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatarUrl: true,
           },
         },
@@ -974,7 +990,6 @@ export class ChatService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatarUrl: true,
           },
         },
@@ -1039,7 +1054,6 @@ export class ChatService {
               select: {
                 id: true,
                 name: true,
-                email: true,
                 avatarUrl: true,
               },
             },
@@ -1177,7 +1191,6 @@ export class ChatService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatarUrl: true,
           },
         },
@@ -1473,6 +1486,39 @@ export class ChatService {
     if (block) {
       throw new ForbiddenException('Cannot interact with this user');
     }
+  }
+
+  /**
+   * Starting a conversation with someone: they must exist, there must be no block either way, and they must
+   * allow direct messages (Settings). Friends can always reach each other.
+   */
+  private async assertCanStartChat(userId: string, otherUserId: string) {
+    await this.assertNotBlocked(userId, otherUserId);
+    const other = await this.prisma.user.findUnique({
+      where: { id: otherUserId },
+      select: { id: true, settings: { select: { allowDirectMessages: true } } },
+    });
+    if (!other) throw new NotFoundException('User not found');
+    const onlyFriends = other.settings?.allowDirectMessages === false;
+    // Messaging someone you don't know needs a confirmed email; friends can always talk
+    const me = verificationEnforced(this.config)
+      ? await this.prisma.user.findUnique({ where: { id: userId }, select: { emailVerifiedAt: true } })
+      : null;
+    const unconfirmed = verificationEnforced(this.config) && !me?.emailVerifiedAt;
+    if (!onlyFriends && !unconfirmed) return;
+    const friends = await this.prisma.friend.findFirst({
+      where: {
+        status: 'ACCEPTED',
+        OR: [
+          { fromUserId: userId, toUserId: otherUserId },
+          { fromUserId: otherUserId, toUserId: userId },
+        ],
+      },
+      select: { id: true },
+    });
+    if (friends) return;
+    if (onlyFriends) throw new ForbiddenException('This person only accepts messages from friends');
+    throw emailNotVerified();
   }
 
   private async validateMessageAccess(

@@ -8,7 +8,6 @@ import { tr } from "../i18n/core";
 export interface Friend {
   id: string;
   name: string;
-  email: string;
   avatarUrl?: string;
   friendSince: string;
   profile?: {
@@ -27,7 +26,6 @@ export interface FriendRequest {
   fromUser: {
     id: string;
     name: string;
-    email: string;
     avatarUrl?: string;
   };
 }
@@ -35,7 +33,6 @@ export interface FriendRequest {
 export interface BlockedUser {
   id: string;
   name: string;
-  email: string;
   avatarUrl?: string;
   blockedAt: string;
   reason?: string;
@@ -44,7 +41,6 @@ export interface BlockedUser {
 export interface UserSearchResult {
   id: string;
   name: string;
-  email: string;
   avatarUrl?: string;
   isFriend: boolean;
   isRequested: boolean;
@@ -266,6 +262,8 @@ export interface FriendSuggestion {
   } | null;
   /** Why this person was suggested, e.g. "Native English speaker — you're learning it" */
   reason?: string;
+  /** The same reason as a template and values, for showing it in Bangla */
+  reasonParts?: { text: string; vars: Record<string, string> };
   sharedInterests?: string[];
   matchScore?: number;
   isRequested?: boolean;

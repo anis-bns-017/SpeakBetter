@@ -246,8 +246,16 @@ export class SpeakerQueueService {
     }
   }
 
+  /**
+   * Tells the room the queue changed. Callers do not wait for it (the change is already saved), so a failure
+   * here must be handled in here: an unhandled rejection would take the whole server down.
+   */
   private async broadcastQueue(roomId: string) {
-    const queue = await this.getQueue(roomId);
-    this.voiceBroadcaster.broadcastQueueUpdate(roomId, queue);
+    try {
+      const queue = await this.getQueue(roomId);
+      this.voiceBroadcaster.broadcastQueueUpdate(roomId, queue);
+    } catch (error) {
+      this.logger.warn(`Could not broadcast the queue of room ${roomId}: ${(error as Error)?.message}`);
+    }
   }
 }

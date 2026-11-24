@@ -3,6 +3,7 @@ import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { OnboardingDto } from './dto/onboarding.dto';
 import { SpeakingEffectDto } from './dto/speaking-effect.dto';
+import { TimezoneDto } from './dto/timezone.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('profile')
@@ -25,6 +26,12 @@ export class ProfileController {
   @Put('me/speaking-effect')
   async setSpeakingEffect(@Request() req, @Body() body: SpeakingEffectDto) {
     return this.profileService.setSpeakingEffect(req.user.id, body.effect);
+  }
+
+  /** The app sends the device's time zone, so streaks and daily goals follow the learner's own day */
+  @Put('me/timezone')
+  async setTimezone(@Request() req, @Body() body: TimezoneDto) {
+    return this.profileService.setTimezone(req.user.id, body.timezone);
   }
 
   @Put('me')

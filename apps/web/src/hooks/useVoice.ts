@@ -206,7 +206,16 @@ export interface RoomSocketParticipant {
 export interface VoiceParticipant {
   id: string;
   userId: string;
-  user: { id: string; name: string; avatarUrl?: string; country?: string; isVerified?: boolean; isPremium?: boolean };
+  user: {
+    id: string;
+    name: string;
+    avatarUrl?: string;
+    country?: string;
+    /** Country and languages come from the member's profile */
+    profile?: { country?: string | null; nativeLanguage?: string | null; learningLanguages?: string[] | null } | null;
+    isVerified?: boolean;
+    isPremium?: boolean;
+  };
   role: "SPEAKER" | "LISTENER" | "STAGE_SPEAKER" | "MODERATOR";
   isMuted: boolean;
   isDeafened: boolean;
@@ -291,7 +300,7 @@ export const voiceApi = {
     apiClient.put(`/voice/rooms/${roomId}`, data),
   endRoom: (roomId: string) => apiClient.post(`/voice/rooms/${roomId}/end`),
 
-  joinRoom: (roomId: string) =>
+  joinRoom: (roomId: string, password?: string) =>
     apiClient.post<{
       success?: boolean;
       token?: string;
@@ -304,7 +313,7 @@ export const voiceApi = {
         liveKitRoomId?: string;
         room?: { liveKitRoomId?: string };
       };
-    }>(`/voice/rooms/${roomId}/join`),
+    }>(`/voice/rooms/${roomId}/join`, password ? { password } : {}),
 
   refreshToken: (roomId: string) =>
     apiClient.post<{
@@ -468,6 +477,9 @@ export const useRoomStatus = (roomId: string) => {
 
 // ---------- Mutation Hooks ----------
 
+// Note: the create / leave / end / stage mutations below deliberately show no toast of their own. Their callers
+// (VoicePage, VoiceRoomView, StageSpeaker) already do, with the context-specific wording, and a toast in both
+// places showed every message twice.
 export const useCreateVoiceRoom = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -486,12 +498,8 @@ export const useCreateVoiceRoom = () => {
       const response = await voiceApi.createRoom(data);
       return response.data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["voice-rooms"] });
-      toast.success(tr("🎉 Room \"{name}\" created!", { name: data.name }));
-    },
-    onError: (error: ApiError) => {
-      toast.error(error.response?.data?.message || tr("Failed to create room"));
     },
   });
 };
@@ -500,8 +508,9 @@ export const useJoinVoiceRoom = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (roomId: string) => {
-      const response = await voiceApi.joinRoom(roomId);
+    mutationFn: async (input: string | { roomId: string; password: string }) => {
+      const roomId = typeof input === "string" ? input : input.roomId;
+      const response = await voiceApi.joinRoom(roomId, typeof input === "string" ? undefined : input.password);
       type JoinPayload = { token?: string; wsUrl?: string; liveKitRoomId?: string; room?: { liveKitRoomId?: string }; data?: JoinPayload };
       const raw = response.data as JoinPayload | undefined;
 
@@ -534,7 +543,8 @@ export const useJoinVoiceRoom = () => {
       };
     },
 
-    onSuccess: (_data, roomId) => {
+    onSuccess: (_data, input) => {
+      const roomId = typeof input === "string" ? input : input.roomId;
       queryClient.invalidateQueries({ queryKey: ["voice-room", roomId] });
       queryClient.invalidateQueries({
         queryKey: ["voice-participants", roomId],
@@ -542,8 +552,10 @@ export const useJoinVoiceRoom = () => {
       queryClient.invalidateQueries({ queryKey: ["voice-rooms"] });
     },
 
-    onError: (error: ApiError) => {
+    onError: (error: ApiError, input) => {
       console.error("❌ Join voice room error:", error);
+      // The password box shows its own error
+      if (typeof input !== "string") return;
       toast.error(
         error.response?.data?.message || error.message || tr("Failed to join room"),
       );
@@ -580,10 +592,6 @@ export const useLeaveVoiceRoom = () => {
       queryClient.invalidateQueries({ queryKey: ["voice-rooms", "active"] });
       queryClient.invalidateQueries({ queryKey: ["voice-rooms", "all"] });
       queryClient.refetchQueries({ queryKey: ["voice-rooms"] });
-      toast.success(tr("👋 Left room"));
-    },
-    onError: (error: ApiError) => {
-      toast.error(error.response?.data?.message || tr("Failed to leave room"));
     },
   });
 };
@@ -598,10 +606,6 @@ export const useEndVoiceRoom = () => {
       queryClient.invalidateQueries({ queryKey: ["voice-rooms"] });
       queryClient.invalidateQueries({ queryKey: ["voice-room", roomId] });
       queryClient.refetchQueries({ queryKey: ["voice-rooms"] });
-      toast.success(tr("📢 Room ended"));
-    },
-    onError: (error: ApiError) => {
-      toast.error(error.response?.data?.message || tr("Failed to end room"));
     },
   });
 };
@@ -652,10 +656,6 @@ export const useAddToStage = () => {
       queryClient.invalidateQueries({
         queryKey: ["voice-participants", roomId],
       });
-      toast.success(tr("🎤 Added to stage"));
-    },
-    onError: (error: ApiError) => {
-      toast.error(error.response?.data?.message || tr("Failed to add to stage"));
     },
   });
 };
@@ -678,12 +678,6 @@ export const useRemoveFromStage = () => {
       queryClient.invalidateQueries({
         queryKey: ["voice-participants", roomId],
       });
-      toast.success(tr("Removed from stage"));
-    },
-    onError: (error: ApiError) => {
-      toast.error(
-        error.response?.data?.message || tr("Failed to remove from stage"),
-      );
     },
   });
 };
@@ -1368,10 +1362,12 @@ export const useVoiceSocket = (roomId: string, userId: string) => {
     setSocket(s);
 
     return () => {
-      if (s && s.connected) {
-        s.emit("voice:leave", { roomId });
-        s.disconnect();
-      }
+      if (s.connected) s.emit("voice:leave", { roomId });
+      // Always close the socket, even one that is still connecting (React StrictMode and quick room changes unmount
+      // before the connection opens). Left open, it would connect later and deliver every room event a second time,
+      // which showed as popups appearing twice.
+      s.disconnect();
+      s.removeAllListeners();
       s.offAny();
     };
   }, [roomId, userId, queryClient, socketUrl]);

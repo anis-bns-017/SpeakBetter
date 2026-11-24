@@ -111,6 +111,8 @@ describe('PasswordResetService', () => {
     await expect(service.reset(token, 'weak')).rejects.toThrow(BadRequestException);
     expect(await service.reset(token, 'blue-river-42')).toEqual({ ok: true });
     expect(await bcrypt.compare('blue-river-42', users[0].passwordHash)).toBe(true);
+    // The link reached their inbox, so the address is proved
+    expect((users[0] as { emailVerifiedAt?: Date }).emailVerifiedAt).toBeInstanceOf(Date);
     expect(auth.logoutAll).toHaveBeenCalledWith('u1', 'password_reset');
     expect(mail.send.mock.calls.at(-1)[0].subject).toBe('Your SpeakBetter password was changed');
     // The same link can't be used again

@@ -39,6 +39,10 @@ export const useNotifications = () =>
     refetchInterval: 60_000,
   });
 
+/** The page of notifications older than `before`, for "Show older" in the bell */
+export const fetchOlderNotifications = async (before: string) =>
+  (await apiClient.get<NotificationPage>('/notifications', { params: { before, limit: 30 } })).data;
+
 /** Marks some (or all) notifications read; the list and the badge update straight away */
 export const useMarkNotificationsRead = () => {
   const queryClient = useQueryClient();

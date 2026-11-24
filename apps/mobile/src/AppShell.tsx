@@ -12,6 +12,7 @@ import { WebView } from "react-native-webview";
 import type { AppWebView } from "./speechBridge";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { APP_USER_AGENT, WEB_ORIGIN, WEB_URL } from "./config";
+import { linkAction } from "./links";
 import { useSpeechBridge } from "./speechBridge";
 
 /** Page colours of the site (apps/web index.css), so there's no white flash behind it */
@@ -19,10 +20,6 @@ const COLORS = {
   light: { page: "#f8fafc", text: "#0f172a", muted: "#475569", accent: "#4f46e5" },
   dark: { page: "#0b1120", text: "#f1f5f9", muted: "#94a3b8", accent: "#818cf8" },
 };
-
-/** Pages that are part of the app itself; anything else (other sites, mail, phone numbers) leaves the app */
-const staysInApp = (url: string) =>
-  url.startsWith("about:") || url.startsWith("blob:") || url.startsWith("data:") || (!!WEB_ORIGIN && url.toLowerCase().startsWith(WEB_ORIGIN));
 
 export function AppShell() {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
@@ -45,8 +42,9 @@ export function AppShell() {
   }, [canGoBack]);
 
   const onShouldStartLoad = useCallback((request: ShouldStartLoadRequest) => {
-    if (staysInApp(request.url)) return true;
-    void Linking.openURL(request.url).catch(() => undefined);
+    const action = linkAction(request.url, WEB_ORIGIN, request.isTopFrame);
+    if (action === "stay") return true;
+    if (action === "open") void Linking.openURL(request.url).catch(() => undefined);
     return false;
   }, []);
 
@@ -98,7 +96,7 @@ export function AppShell() {
         onError={() => setFailed(true)}
         onHttpError={(event) => {
           // Only the page itself failing counts; a broken image inside it doesn't
-          if (event.nativeEvent.statusCode >= 500 && event.nativeEvent.url === WEB_URL) setFailed(true);
+          if (event.nativeEvent.statusCode >= 500 && event.nativeEvent.url.replace(/\/+$/, "") === WEB_URL) setFailed(true);
         }}
         onContentProcessDidTerminate={() => webView.current?.reload()}
         onRenderProcessGone={() => webView.current?.reload()}

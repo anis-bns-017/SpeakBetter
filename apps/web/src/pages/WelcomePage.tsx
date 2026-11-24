@@ -6,6 +6,7 @@
  * Progress survives a trip to the level test (sessionStorage), so the test can sit in the middle of the guide.
  */
 
+import { peekReturn } from "../lib/returnTo";
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -172,7 +173,9 @@ export const WelcomePage: React.FC = () => {
         /* fine */
       }
       await refreshUser();
-      if (skipRest) navigate("/dashboard", { replace: true });
+      // Someone who arrived through an invite goes straight back to it
+      const destination = peekReturn();
+      if (skipRest || destination) navigate(destination ?? "/dashboard", { replace: true });
       else setDone(true);
     } catch {
       toast.error(t("That didn't save. Check your connection and try again."));

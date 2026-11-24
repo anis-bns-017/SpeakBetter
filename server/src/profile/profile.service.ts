@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { isTimeZone, rememberZone } from '../common/learner-day';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { readOnboarding, SELF_LEVELS, type OnboardingInput } from './onboarding';
 import { storedSpeakingEffect, type SpeakingEffectId } from './speaking-effects';
@@ -48,6 +49,14 @@ export class ProfileService {
   }
 
   /** Saves the speaking effect (classic is stored as null, the default) */
+  /** The device's time zone, so this learner's days start at their own midnight */
+  async setTimezone(userId: string, timezone: string) {
+    if (!isTimeZone(timezone)) throw new BadRequestException('That is not a time zone');
+    await this.prisma.profile.updateMany({ where: { userId }, data: { timezone } });
+    rememberZone(userId, timezone);
+    return { timezone };
+  }
+
   async setSpeakingEffect(userId: string, effect: SpeakingEffectId) {
     const user = await this.prisma.user.update({
       where: { id: userId },

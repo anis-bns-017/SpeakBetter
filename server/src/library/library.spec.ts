@@ -223,6 +223,23 @@ describe('LibraryService', () => {
     expect(activity.recordActivity).toHaveBeenCalledTimes(1);
   });
 
+  it('counts a text as finished only with at least half the answers right', async () => {
+    const { service, activity, rows } = setup();
+    const id = 'a2-cooking';
+    const text = LIBRARY.find((t) => t.id === id)!;
+    const right = rightAnswers('u1', id);
+    const allWrong = Object.fromEntries(text.questions.map((q) => [q.id, (right[q.id] + 1) % q.options.length]));
+
+    const failed = await service.answer('u1', id, allWrong);
+    expect(failed).toMatchObject({ score: 0, passed: false, firstCompletion: false, xp: 0 });
+    expect(activity.recordActivity).not.toHaveBeenCalled();
+    expect(rows.get(id)?.completedAt).toBeFalsy();
+
+    const passed = await service.answer('u1', id, right);
+    expect(passed).toMatchObject({ passed: true, firstCompletion: true, xp: LIBRARY_XP });
+    expect(activity.recordActivity).toHaveBeenCalledTimes(1);
+  });
+
   it('marks a True / False / Not given answer by its fixed position', async () => {
     const { service } = setup();
     const text = LIBRARY.find((t) => t.id === 'a1-morning')!;

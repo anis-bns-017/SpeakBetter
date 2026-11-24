@@ -3,10 +3,13 @@ import { Link } from 'react-router-dom';
 import { useSuggestions, useSendFriendRequest } from '../hooks/useFriends';
 import { UserPlus, Users, Languages, Check, Sparkles } from 'lucide-react';
 import { FollowButton } from '../components/social/FollowButton';
+import { languageLabel, suggestionReason } from "../lib/languageName";
+import { useT } from "../i18n";
 import { tr } from "../i18n/core";
 
 export const SuggestionsPage = () => {
-  const { data, isLoading } = useSuggestions();
+  const { data, isLoading, isError, refetch } = useSuggestions();
+  const { lang } = useT();
   const sendRequestMutation = useSendFriendRequest();
   const [sentRequests, setSentRequests] = useState<Record<string, boolean>>({});
 
@@ -24,15 +27,28 @@ export const SuggestionsPage = () => {
     return <SuggestionsSkeleton />;
   }
 
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-page flex items-center justify-center p-4">
+        <div className="bg-surface p-8 rounded-3xl border border-line shadow-sm text-center space-y-4 max-w-md w-full">
+          <p className="text-sm text-slate-600 dark:text-slate-300">{tr("We couldn't load your suggestions.")}</p>
+          <button type="button" onClick={() => void refetch()} className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">
+            {tr("Try again")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!data || data.length === 0) {
     return (
       <div className="min-h-screen bg-page flex items-center justify-center p-4">
         <div className="bg-surface p-8 rounded-3xl border border-line shadow-sm text-center space-y-4 max-w-md w-full">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 flex items-center justify-center mx-auto">
             <Users className="w-7 h-7" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-lg font-bold text-slate-800">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
               {tr("No Suggestions Right Now")}</h3>
             <p className="text-xs text-slate-500">
               {tr("We couldn't find any new matches. Connect with more people or check back later!")}</p>
@@ -48,7 +64,7 @@ export const SuggestionsPage = () => {
         {/* Header Banner */}
         <div className="bg-surface p-6 rounded-3xl border border-line shadow-sm flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 flex items-center justify-center shrink-0">
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
@@ -58,7 +74,7 @@ export const SuggestionsPage = () => {
                 {tr("Discover language partners and potential study companions tailored for you.")}</p>
             </div>
           </div>
-          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600">
+          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
             <Users className="w-3.5 h-3.5" />
             {data.length} {" "}{tr("Suggestions")}</span>
         </div>
@@ -81,39 +97,39 @@ export const SuggestionsPage = () => {
                       <img
                         src={user.avatarUrl}
                         alt={user.name}
-                        className="w-14 h-14 rounded-2xl object-cover border border-slate-100"
+                        className="w-14 h-14 rounded-2xl object-cover border border-line"
                       />
                     ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-50 to-slate-100 text-indigo-600 font-bold text-xl flex items-center justify-center border border-slate-100">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-50 to-slate-100 dark:from-indigo-500/20 dark:to-white/[0.06] text-indigo-600 dark:text-indigo-200 font-bold text-xl flex items-center justify-center border border-line">
                         {user.name.charAt(0).toUpperCase()}
                       </div>
                     )}
                   </div>
 
                   <div className="space-y-1">
-                    <h3 className="font-bold text-slate-800 text-base">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">
                       <Link to={`/u/${user.id}`} className="hover:underline">{user.name}</Link>
                     </h3>
 
                     {user.reason && (
-                      <p className="flex items-center gap-1 text-xs font-medium text-violet-600">
+                      <p className="flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-300">
                         <Sparkles className="w-3 h-3 shrink-0" />
-                        {user.reason}
+                        {suggestionReason(user)}
                       </p>
                     )}
 
                     {user.profile && (
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         {user.profile.nativeLanguage && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-medium">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">
                             <Languages className="w-3 h-3" />
-                            {tr("Native:")}{" "}{user.profile.nativeLanguage}
+                            {tr("Native:")}{" "}{languageLabel(user.profile.nativeLanguage, lang)}
                           </span>
                         )}
 
                         {user.profile.learningLanguages && user.profile.learningLanguages.length > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-medium">
-                            {tr("Learning:")}{" "}{user.profile.learningLanguages.join(', ')}
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-medium">
+                            {tr("Learning:")}{" "}{user.profile.learningLanguages.map((l) => languageLabel(l, lang)).join(', ')}
                           </span>
                         )}
                       </div>
@@ -122,12 +138,12 @@ export const SuggestionsPage = () => {
                 </div>
 
                 {/* Action Button */}
-                <div className="shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-50 flex items-center justify-end gap-2">
+                <div className="shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-line flex items-center justify-end gap-2">
                   <FollowButton userId={user.id} name={user.name} />
                   {isSent ? (
                     <button
                       disabled
-                      className="w-full sm:w-auto px-5 py-2.5 bg-emerald-50 text-emerald-600 font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-default"
+                      className="w-full sm:w-auto px-5 py-2.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-default"
                     >
                       <Check className="w-4 h-4" />
                       <span>{tr("Request Sent")}</span>
@@ -136,7 +152,7 @@ export const SuggestionsPage = () => {
                     <button
                       onClick={() => handleSendRequest(user.id)}
                       disabled={isPending}
-                      className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95"
+                      className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95"
                     >
                       <UserPlus className="w-4 h-4" />
                       <span>{isPending ? tr("Sending...") : tr("Add Friend")}</span>

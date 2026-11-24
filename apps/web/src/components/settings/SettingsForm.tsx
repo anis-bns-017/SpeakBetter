@@ -409,7 +409,6 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
   };
 
   const enabledPreferences = [
-    formData.emailNotifications,
     formData.pushNotifications,
     formData.soundEffects,
     formData.dailyReminderEnabled,
@@ -489,14 +488,6 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
           title={tr("Notifications")}
           description={tr("Choose when SpeakBetter should notify you and remind you to practice.")}
         >
-          <SettingRow
-            icon={Bell}
-            title={tr("Email notifications")}
-            description={tr("Receive important account, learning, and activity updates by email.")}
-            checked={formData.emailNotifications}
-            onChange={(value) => updateField("emailNotifications", value)}
-          />
-
           <SettingRow
             icon={Smartphone}
             title={tr("Push notifications")}
@@ -628,7 +619,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
           <SettingRow
             icon={Languages}
             title={tr("Auto-translate messages")}
-            description={tr("Automatically use translation support for messages when available.")}
+            description={tr("Shows a translation under messages you receive. The text is sent to a free translation service.")}
             checked={formData.autoTranslateMessages}
             onChange={(value) => updateField("autoTranslateMessages", value)}
           />

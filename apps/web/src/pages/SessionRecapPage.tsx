@@ -28,7 +28,16 @@ const Stat: React.FC<{ icon: React.ReactNode; label: string; value: React.ReactN
   </div>
 );
 
-const fluencyWord = (score: number) => (score >= 80 ? "Very smooth" : score >= 60 ? "Good flow" : score >= 40 ? "Getting there" : "Keep practising");
+const fluencyWord = (score: number) => (score >= 80 ? tr("Very smooth") : score >= 60 ? tr("Good flow") : score >= 40 ? tr("Getting there") : tr("Keep practising"));
+
+/** The tip's title can carry a word or a kind of mistake */
+const tipTitle = (title: string) => {
+  const mistake = title.match(/^Watch your (.+)$/);
+  if (mistake) return tr("Watch your {value}", { value: tr(mistake[1]) });
+  const filler = title.match(/^Fewer "(.+)"s$/);
+  if (filler) return tr("Fewer “{word}”s", { word: filler[1] });
+  return tr(title);
+};
 
 export const SessionRecapPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -62,7 +71,7 @@ export const SessionRecapPage: React.FC = () => {
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-500">{tr("Session recap")}</p>
           <h1 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold text-slate-900 dark:text-white truncate">{recap.roomName}</h1>
-          <p className="text-sm text-slate-500">{new Date(recap.at).toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })}</p>
+          <p className="text-sm text-slate-500">{new Date(recap.at).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
         </div>
         <Link to="/sessions" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
           <History className="w-4 h-4" /> {" "}{tr("All sessions")}</Link>
@@ -70,20 +79,20 @@ export const SessionRecapPage: React.FC = () => {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Stat icon={<Clock className="w-3.5 h-3.5 text-slate-400" />} label={tr("In the room")} value={formatDuration(recap.durationSec)} />
-        <Stat icon={<Mic className="w-3.5 h-3.5 text-indigo-500" />} label={tr("You spoke")} value={formatDuration(recap.speakingSec)} sub={recap.words ? `${recap.words} words` : "Just listening"} />
+        <Stat icon={<Mic className="w-3.5 h-3.5 text-indigo-500" />} label={tr("You spoke")} value={formatDuration(recap.speakingSec)} sub={recap.words ? tr("{n} words", { n: recap.words }) : tr("Just listening")} />
         <Stat
           icon={<Gauge className="w-3.5 h-3.5 text-emerald-500" />}
           label={tr("Fluency")}
           value={recap.fluencyScore ?? "-"}
-          sub={recap.fluencyScore !== null ? fluencyWord(recap.fluencyScore) : "Speak a bit more to get a score"}
+          sub={recap.fluencyScore !== null ? fluencyWord(recap.fluencyScore) : tr("Speak a bit more to get a score")}
         />
-        <Stat icon={<Wand2 className="w-3.5 h-3.5 text-violet-500" />} label={tr("Corrections")} value={recap.corrections.length} sub={`You gave ${recap.correctionsGiven}`} />
+        <Stat icon={<Wand2 className="w-3.5 h-3.5 text-violet-500" />} label={tr("Corrections")} value={recap.corrections.length} sub={tr("You gave {n}", { n: recap.correctionsGiven })} />
       </div>
 
       <section className="rounded-3xl p-5 bg-indigo-900 ring-1 ring-inset ring-white/10 text-white">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/70 inline-flex items-center gap-1.5">
           <Lightbulb className="w-3.5 h-3.5" /> {" "}{tr("For next time")}</p>
-        <h2 className="mt-1 text-lg font-bold">{tr(recap.tip.title)}</h2>
+        <h2 className="mt-1 text-lg font-bold">{tipTitle(recap.tip.title)}</h2>
         <p className="mt-1 text-sm text-white/85">{tr(recap.tip.text)}</p>
       </section>
 

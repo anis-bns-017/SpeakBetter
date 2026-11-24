@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useBlockedUsers, useUnblockUser } from "../hooks/useFriends";
-import { toast } from "sonner";
 import {
   ShieldAlert,
   UserCheck,
@@ -18,13 +17,12 @@ export const BlockedPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
 
-  const handleUnblock = async (userId: string, userName: string) => {
+  const handleUnblock = async (userId: string) => {
     try {
       setUnblockingId(userId);
       await unblockMutation.mutateAsync(userId);
-      toast.success(tr("{userName} has been unblocked", { userName }));
     } catch {
-      toast.error(tr("Failed to unblock {userName}", { userName }));
+      // The mutation shows its own toast; a second one here made every message appear twice
     } finally {
       setUnblockingId(null);
     }
@@ -153,7 +151,7 @@ export const BlockedPage = () => {
                   {/* Unblock Action Button */}
                   <button
                     onClick={() =>
-                      handleUnblock(block.id, block.name)
+                      handleUnblock(block.id)
                     }
                     disabled={isUnblocking || unblockMutation.isPending}
                     className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-slate-700 font-medium rounded-xl text-xs border border-slate-200/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 self-end sm:self-auto"

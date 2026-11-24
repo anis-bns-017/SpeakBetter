@@ -84,6 +84,8 @@ export interface ProgressInsights {
   streak: { current: number; longest: number; plan: number };
   totalXp: number;
   summary: string[];
+  /** The same sentences as templates and values, so they can be shown in Bangla */
+  summaryLines?: Array<{ text: string; vars: Record<string, string | number> }>;
 }
 
 export const useProgressInsights = () =>

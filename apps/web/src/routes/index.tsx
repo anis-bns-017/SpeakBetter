@@ -3,15 +3,18 @@ import type React from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
 import { NotificationBell, NotificationsLive } from "../components/notifications/NotificationBell";
+import { TimezoneSync } from "../components/account/TimezoneSync";
 import { CelebrationLayer } from "../components/gamification/CelebrationLayer";
 import { useAuth } from "../contexts/useAuth";
 import { useSidebar } from "../contexts/SidebarContext";
 import { SIDEBAR_WIDTH, MOBILE_TAB_BAR_HEIGHT } from "../lib/navLayout";
 import { syncPush } from "../lib/push";
 import { OfflineBanner } from "../components/OfflineBanner";
+import { VerifyEmailBanner } from "../components/account/VerifyEmailBanner";
 import { ErrorBoundary, PageLoading } from "../components/common/ErrorBoundary";
 import { lazyPage } from "../lib/lazyPage";
-import { needsWelcome } from "./welcomeGate";
+import { ALLOWED_BEFORE_WELCOME, needsWelcome } from "./welcomeGate";
+import { clearReturn, peekReturn, rememberReturn } from "../lib/returnTo";
 import { tr } from "../i18n/core";
 
 // Pages: each is downloaded the first time it is opened (lib/lazyPage.ts), so the app starts fast
@@ -44,6 +47,10 @@ const AiPartnerPage = lazyPage(() => import("../pages/AiPartnerPage"), "AiPartne
 const PronunciationPage = lazyPage(() => import("../pages/PronunciationPage"), "PronunciationPage");
 const LeaguesPage = lazyPage(() => import("../pages/LeaguesPage"), "LeaguesPage");
 const ChallengePage = lazyPage(() => import("../pages/ChallengePage"), "ChallengePage");
+const SpeakingExamPage = lazyPage(() => import("../pages/SpeakingExamPage"), "SpeakingExamPage");
+const GamesPage = lazyPage(() => import("../pages/GamesPage"), "GamesPage");
+const SavedMessagesPage = lazyPage(() => import("../pages/SavedMessagesPage"), "SavedMessagesPage");
+const PhrasebookPage = lazyPage(() => import("../pages/PhrasebookPage"), "PhrasebookPage");
 const LibraryPage = lazyPage(() => import("../pages/LibraryPage"), "LibraryPage");
 const LibraryReaderPage = lazyPage(() => import("../pages/LibraryReaderPage"), "LibraryReaderPage");
 const WritingPage = lazyPage(() => import("../pages/WritingPage"), "WritingPage");
@@ -78,6 +85,7 @@ const PrivacyPage = lazyPage(() => import("../pages/LegalPages"), "PrivacyPage")
 const WelcomePage = lazyPage(() => import("../pages/WelcomePage"), "WelcomePage");
 const ForgotPasswordPage = lazyPage(() => import("../pages/ForgotPasswordPage"), "ForgotPasswordPage");
 const ResetPasswordPage = lazyPage(() => import("../pages/ResetPasswordPage"), "ResetPasswordPage");
+const VerifyEmailPage = lazyPage(() => import("../pages/VerifyEmailPage"), "VerifyEmailPage");
 const NewConversationPage = lazyPage(() => import("../pages/NewConversationPage"), "NewConversationPage");
 const AuthCallbackPage = lazyPage(() => import("../pages/AuthCallbackPage"), "AuthCallbackPage");
 
@@ -93,7 +101,7 @@ const HomeRoute = () => {
       </div>
     );
   }
-  return user ? <Navigate to="/dashboard" replace /> : <LandingPage />;
+  return user ? <Navigate to={peekReturn() ?? "/dashboard"} replace /> : <LandingPage />;
 };
 
 // ============================================================
@@ -111,14 +119,20 @@ const ProtectedRoute = () => {
     );
   }
 
+  // An invite or notification link must still work after signing in or doing the first-day guide
   if (!user) {
+    rememberReturn(location.pathname + location.search);
     return <Navigate to="/login" replace />;
   }
 
   // New accounts start with the first-day guide
   if (needsWelcome(user, location.pathname)) {
+    rememberReturn(location.pathname + location.search);
     return <Navigate to="/welcome" replace />;
   }
+
+  // They got where they were going
+  if (!ALLOWED_BEFORE_WELCOME.includes(location.pathname)) clearReturn();
 
   return <Outlet />;
 };
@@ -138,7 +152,7 @@ const PublicRoute = () => {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={peekReturn() ?? "/dashboard"} replace />;
   }
 
   return <Outlet />;
@@ -193,6 +207,8 @@ const AppLayout = () => {
       <Sidebar />
       {/* Live notifications on every page; on phones the bell floats in the corner (the sidebar has its own) */}
       <NotificationsLive />
+      {/* Days follow the learner's own clock */}
+      <TimezoneSync />
       {/* New badges and last week's league result, shown once each (never over a live room) */}
       <CelebrationLayer paused={inVoiceRoom} />
       {!inVoiceRoom && (
@@ -202,6 +218,7 @@ const AppLayout = () => {
       )}
       <div className="min-h-screen transition-[padding] duration-300 lg:pl-[var(--sidebar-w)] pb-[var(--tabbar-h)] lg:pb-0">
         <main id="main" tabIndex={-1} className="min-h-screen focus:outline-none">
+          {!inVoiceRoom && <VerifyEmailBanner />}
           {/* A crash or a failed download stays inside the page; the sidebar keeps working, and going elsewhere resets it */}
           <ErrorBoundary variant="page" resetKey={location.pathname}>
             <Suspense fallback={<PageLoading />}>
@@ -236,6 +253,8 @@ const AppRoutes = () => {
       {/* ===== PASSWORD RESET: open to everyone, signed in or not (the email link must always work) ===== */}
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      {/* The confirmation link works signed in or not, on any device */}
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
 
       {/* ===== OAUTH CALLBACK — MUST be outside both PublicRoute and ProtectedRoute ===== */}
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
@@ -287,6 +306,9 @@ const AppRoutes = () => {
           <Route path="/pronunciation" element={<PronunciationPage />} />
           <Route path="/leagues" element={<LeaguesPage />} />
           <Route path="/challenge" element={<ChallengePage />} />
+          <Route path="/speaking-test" element={<SpeakingExamPage />} />
+          <Route path="/games" element={<GamesPage />} />
+          <Route path="/phrasebook" element={<PhrasebookPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/library/:textId" element={<LibraryReaderPage />} />
           <Route path="/writing" element={<WritingPage />} />
@@ -302,6 +324,8 @@ const AppRoutes = () => {
           {/* ===== ✅ CHAT ROUTES ===== */}
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/chat/new" element={<NewConversationPage />} />
+          <Route path="/chat/saved" element={<SavedMessagesPage />} />
+          <Route path="/chat/:chatId" element={<ChatPage />} />
 
           {/* ===== ✅ VOICE ROUTES ===== */}
           <Route path="/voice" element={<VoicePage />} />

@@ -1,6 +1,6 @@
 // apps/web/src/components/voice/participants/ParticipantCard.tsx
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Crown,
@@ -15,10 +15,12 @@ import {
   ArrowDownFromLine,
 } from 'lucide-react';
 import { THEME } from '../VoiceRoomView.theme';
-import { initials, hueFromString, getCountryFlag } from '../VoiceRoomView.helpers';
+import { initials, hueFromString } from '../VoiceRoomView.helpers';
+import { CountryFlag } from '../shared/CountryFlag';
 import { tr } from "../../../i18n/core";
 import { SpeakingEffect } from "../effects/SpeakingEffect";
 import { readSpeakingEffect } from "../effects/speakingEffects";
+import { useIsPhone } from "./useIsPhone";
 
 export interface RoomParticipant {
   id: string;
@@ -92,14 +94,21 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
   const [isFollowing, setIsFollowing] = useState(false);
 
   const hue = hueFromString(participant.name);
-  const sizeMap = {
-    sm: { avatar: 56, text: 'text-xs', gap: 'gap-1', nameSize: 'text-xs' },
-    md: { avatar: 76, text: 'text-sm', gap: 'gap-1.5', nameSize: 'text-sm' },
-    lg: { avatar: 104, text: 'text-base', gap: 'gap-2', nameSize: 'text-base' },
-  };
+  // Avatars stay modest: the people, not the portraits, are the point of a room. Phones get a notch smaller.
+  const phone = useIsPhone();
+  const sizeMap = phone
+    ? {
+        sm: { avatar: 40, text: 'text-xs', gap: 'gap-0.5', nameSize: 'text-xs' },
+        md: { avatar: 52, text: 'text-xs', gap: 'gap-0.5', nameSize: 'text-[13px]' },
+        lg: { avatar: 60, text: 'text-sm', gap: 'gap-1', nameSize: 'text-sm' },
+      }
+    : {
+        sm: { avatar: 44, text: 'text-xs', gap: 'gap-0.5', nameSize: 'text-xs' },
+        md: { avatar: 60, text: 'text-sm', gap: 'gap-1', nameSize: 'text-[13px]' },
+        lg: { avatar: 72, text: 'text-sm', gap: 'gap-1', nameSize: 'text-sm' },
+      };
   const s = sizeMap[size];
 
-  const countryFlag = getCountryFlag(participant.country);
   const isOnline = participant.isOnline !== false;
   const isMuted = participant.isMuted;
   const isSpeaking = Boolean(participant.isSpeaking) && !isMuted;
@@ -109,6 +118,27 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
     ? Math.min(1, Math.max(0.25, Number(participant.audioLevel) || 0.35))
     : 0;
   const effect = readSpeakingEffect(participant.speakingEffect);
+
+  // Tilt toward the pointer with a moving glare. Written straight to CSS variables so hovering never re-renders.
+  const tileRef = useRef<HTMLDivElement>(null);
+  const handleTilt = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch') return;
+    const el = tileRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    el.style.setProperty('--vr-rx', `${((0.5 - py) * 5).toFixed(2)}deg`);
+    el.style.setProperty('--vr-ry', `${((px - 0.5) * 6).toFixed(2)}deg`);
+    el.style.setProperty('--vr-gx', `${(px * 100).toFixed(1)}%`);
+    el.style.setProperty('--vr-gy', `${(py * 100).toFixed(1)}%`);
+  };
+  const resetTilt = () => {
+    const el = tileRef.current;
+    if (!el) return;
+    el.style.setProperty('--vr-rx', '0deg');
+    el.style.setProperty('--vr-ry', '0deg');
+  };
 
   return (
     <motion.div
@@ -120,9 +150,21 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
+      {/* The tile: glass that tilts with the pointer and lights up in the speaker's colours while they talk */}
+      <div
+        ref={tileRef}
+        className="vr-tile flex w-full flex-col items-center rounded-[22px] px-2 pb-2.5 sm:px-3 sm:pb-3"
+        data-speaking={isSpeaking}
+        data-muted={Boolean(isMuted)}
+        style={{ ['--vr-level' as string]: voiceLevel } as React.CSSProperties}
+        onPointerMove={handleTilt}
+        onPointerLeave={resetTilt}
+      >
       {/* Room around the avatar for frames: crowns and ears above, ribbons below (the same for everyone, so rows line up) */}
       <div className="cursor-pointer" onClick={onViewProfile} style={{ paddingTop: Math.round(s.avatar * 0.24) }}>
-        <div className="relative" style={{ marginBottom: Math.round(s.avatar * 0.1) }}>
+        {/* Exactly the avatar's size and centred: frames and halos centre on THIS box. (It used to stretch to the
+            width of the name and language chips below, which pushed every frame to the right of the face.) */}
+        <div className="relative mx-auto" style={{ width: s.avatar, height: s.avatar, marginBottom: Math.round(s.avatar * 0.1) }}>
           {/* A chosen frame (Settings → Speaking effect) is always on; its speaking extras play while they talk */}
           {effect !== 'classic' && (
             <SpeakingEffect effect={effect} layer="back" size={s.avatar} level={voiceLevel} talking={isSpeaking} />
@@ -241,8 +283,8 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
           )}
 
           {/* Country flag */}
-          <div className="absolute -bottom-0.5 -left-0.5 text-xs leading-none">
-            {countryFlag}
+          <div className="absolute -bottom-0.5 -left-0.5 leading-none">
+            <CountryFlag country={participant.country} size={phone ? 14 : 16} />
           </div>
 
           {/* Favorite star */}
@@ -261,62 +303,70 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
           )}
         </div>
 
-        {/* Name and details */}
+        {/* Name, languages and status: three quiet lines, so a tile stays compact */}
         {/* relative: the name stays above a frame's lowest parts */}
-        <div className={`relative mt-1.5 text-center ${s.gap}`}>
+        <div className={`relative mt-1 flex w-full flex-col items-center text-center ${s.gap}`}>
           <span
-            className={`${s.nameSize} font-semibold tracking-tight truncate max-w-[120px] block`}
+            className={`${s.nameSize} block max-w-full truncate font-semibold tracking-tight`}
             style={{ color: THEME.colors.text.primary }}
           >
             {participant.name}
           </span>
 
-          <div className="flex flex-col items-center gap-0.5 mt-0.5">
-            {participant.nativeLanguage && (
-              <span
-                className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                style={{
-                  background: 'rgba(170,162,228, 0.12)',
-                  color: THEME.colors.accent.tertiary,
-                }}
-              >
-                {participant.nativeLanguage}
-              </span>
-            )}
-            {participant.learningLanguage && (
-              <span
-                className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                style={{
-                  background: 'rgba(52, 211, 153, 0.12)',
-                  color: THEME.colors.accent.success,
-                }}
-              >
-                {tr("Learning")}{" "}{participant.learningLanguage}
-              </span>
-            )}
-          </div>
+          {(participant.nativeLanguage || participant.learningLanguage) && (
+            <span
+              className="block max-w-full truncate text-[10.5px] font-medium"
+              style={{ color: THEME.colors.text.muted }}
+              title={
+                participant.nativeLanguage && participant.learningLanguage
+                  ? `${participant.nativeLanguage} → ${tr("Learning")} ${participant.learningLanguage}`
+                  : participant.nativeLanguage || `${tr("Learning")} ${participant.learningLanguage}`
+              }
+            >
+              {participant.nativeLanguage && participant.learningLanguage
+                ? `${participant.nativeLanguage} → ${participant.learningLanguage}`
+                : participant.nativeLanguage || `${tr("Learning")} ${participant.learningLanguage}`}
+            </span>
+          )}
 
           <span
-            className="text-[11px] font-medium"
+            className="mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
             style={{
+              background: isMuted
+                ? 'rgb(248 113 113 / 0.12)'
+                : isSpeaking
+                  ? 'rgb(var(--vr-iris) / 0.16)'
+                  : 'rgb(255 255 255 / 0.05)',
               color: isMuted
                 ? THEME.colors.accent.error
-                : isOnline
-                  ? isSpeaking
-                    ? THEME.colors.accent.primary
-                    : THEME.colors.text.muted
+                : isSpeaking
+                  ? THEME.colors.accent.primaryLight
                   : THEME.colors.text.muted,
             }}
           >
+            <span
+              aria-hidden
+              className="h-1.5 w-1.5 rounded-full"
+              style={{
+                background: isMuted
+                  ? THEME.colors.accent.error
+                  : !isOnline
+                    ? THEME.colors.text.muted
+                    : isSpeaking
+                      ? THEME.colors.accent.primaryLight
+                      : 'var(--sx-bg-22c55e)',
+                boxShadow: isSpeaking && !isMuted ? '0 0 8px 1px rgb(var(--vr-iris) / 0.8)' : 'none',
+              }}
+            />
             {participant.isReconnecting
               ? tr("Reconnecting…")
               : isMuted
-              ? tr("Muted")
-              : isOnline
-                ? isSpeaking
-                  ? tr("Speaking")
-                  : tr("Listening")
-                : tr("Away")}
+                ? tr("Muted")
+                : isOnline
+                  ? isSpeaking
+                    ? tr("Speaking")
+                    : tr("Listening")
+                  : tr("Away")}
           </span>
 
           {(participant.spotlighted || participant.missionDone || participant.isQuiet) && (
@@ -346,6 +396,7 @@ export const ParticipantCard: React.FC<ParticipantCardProps> = ({
             </div>
           )}
         </div>
+      </div>
       </div>
 
       {/* Action buttons */}

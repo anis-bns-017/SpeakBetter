@@ -115,10 +115,13 @@ describe('PushService', () => {
     expect([...rows.values()].filter((r) => r.userId === 'u1').length).toBeLessThanOrEqual(MAX_DEVICES);
   });
 
-  it('remembers the time zone only when it is valid and none is saved', async () => {
+  it('keeps the time zone current, and ignores one that is not valid', async () => {
     const { service, prisma } = setup();
     await service.subscribe('u1', sub(1), { timezone: 'Asia/Dhaka' });
-    expect(prisma.profile.updateMany).toHaveBeenCalledWith({ where: { userId: 'u1', timezone: null }, data: { timezone: 'Asia/Dhaka' } });
+    expect(prisma.profile.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', OR: [{ timezone: null }, { timezone: { not: 'Asia/Dhaka' } }] },
+      data: { timezone: 'Asia/Dhaka' },
+    });
     prisma.profile.updateMany.mockClear();
     await service.subscribe('u1', sub(1), { timezone: 'Not/AZone' });
     expect(prisma.profile.updateMany).not.toHaveBeenCalled();

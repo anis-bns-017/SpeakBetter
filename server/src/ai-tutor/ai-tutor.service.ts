@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { XpReason } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import { learnerZone, startOfDayIn } from '../common/learner-day';
 import { ActivityService } from '../learning/activity.service';
 import { ReviewService } from '../learning/review.service';
 import { BillingService } from '../billing/billing.service';
@@ -35,11 +36,6 @@ export const XP_DAILY_CAP = 60;
 /** A conversation left unfinished this long is no longer offered for resuming */
 const RESUME_WINDOW_MS = 6 * 60 * 60 * 1000;
 
-const startOfDay = (d: Date) => {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-};
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, '').replace(/\s+/g, ' ').trim();
 
 export interface TutorMessageView {
@@ -55,6 +51,9 @@ export interface TutorMessageView {
 
 @Injectable()
 export class AiTutorService {
+  /** People waiting for a reply. A double tap must not become two paid model calls. */
+  private readonly answering = new Set<string>();
+
   constructor(
     private prisma: PrismaService,
     private activity: ActivityService,
@@ -122,7 +121,18 @@ export class AiTutorService {
 
   async turn(userId: string, sessionId: string, rawText: string) {
     this.requireConfigured();
+    if (this.answering.has(userId)) {
+      throw new HttpException('Your partner is still answering. One moment.', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    this.answering.add(userId);
+    try {
+      return await this.runTurn(userId, sessionId, rawText);
+    } finally {
+      this.answering.delete(userId);
+    }
+  }
 
+  private async runTurn(userId: string, sessionId: string, rawText: string) {
     const text = String(rawText ?? '').replace(/\s+/g, ' ').trim();
     if (!text) throw new BadRequestException('Say or type something first');
     if (text.length > MAX_REPLY_CHARS) throw new BadRequestException('That message is too long');
@@ -240,7 +250,9 @@ export class AiTutorService {
       where: { userId, reason: XpReason.AI_PRACTICE, createdAt: { gte: chat.createdAt } },
       _sum: { amount: true },
     });
-    const summary = buildSummary(chat.messages as any, earned._sum.amount ?? 0);
+    // XP since this conversation began can include another one held at the same time
+    const turns = chat.messages.filter((m) => m.role === 'USER').length;
+    const summary = buildSummary(chat.messages as any, Math.min(earned._sum.amount ?? 0, turns * XP_PER_TURN));
 
     await this.prisma.aiChat.update({
       where: { id: chat.id },
@@ -263,9 +275,10 @@ export class AiTutorService {
     return Math.max(0, limits.aiTurnsPerDay - used);
   }
 
-  private turnsToday(userId: string) {
+  private async turnsToday(userId: string) {
+    const since = startOfDayIn(new Date(), await learnerZone(this.prisma, userId));
     return this.prisma.aiMessage.count({
-      where: { role: 'USER', createdAt: { gte: startOfDay(new Date()) }, chat: { userId } },
+      where: { role: 'USER', createdAt: { gte: since }, chat: { userId } },
     });
   }
 

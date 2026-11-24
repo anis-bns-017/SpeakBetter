@@ -4,13 +4,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
  
-import { CreateVocabularyDto, ReviewVocabularyDto } from './dto/vocabulary.dto';
 import { CreateFlashcardDto, ReviewFlashcardDto } from './dto/flashcard.dto';
-import { SubmitExerciseDto } from './dto/exercise.dto';
 import { NEW_CARD, isRating, type Rating } from './srs';
 import { ReviewService } from './review.service';
 import { PrismaService } from '../prisma.service';
+import { addDays, dayIn, learnerZone, startOfDayKey } from '../common/learner-day';
 import { ActivityService, DAILY_XP_GOAL } from './activity.service';
+import { GRAMMAR } from '../grammar/grammar.content';
 
 @Injectable()
 export class LearningService {
@@ -28,7 +28,9 @@ export class LearningService {
     limit?: number;
     offset?: number;
   }) {
-    const { language, difficulty, search, limit = 50, offset = 0 } = params;
+    const { language, difficulty, search } = params;
+    const limit = Math.min(Math.max(Number(params.limit) || 50, 1), 100);
+    const offset = Math.max(Number(params.offset) || 0, 0);
 
     const where: any = {};
     if (language) where.language = language;
@@ -51,84 +53,6 @@ export class LearningService {
     ]);
 
     return { items, total, limit, offset };
-  }
-
-  async createVocabulary(data: CreateVocabularyDto) {
-    const existing = await this.prisma.vocabulary.findUnique({
-      where: {
-        word_language: {
-          word: data.word,
-          language: data.language,
-        },
-      },
-    });
-
-    if (existing) {
-      throw new BadRequestException(
-        'Vocabulary word already exists for this language',
-      );
-    }
-
-    return this.prisma.vocabulary.create({
-      data: {
-        word: data.word,
-        translation: data.translation,
-        language: data.language,
-        exampleSentence: data.exampleSentence,
-        audioUrl: data.audioUrl,
-        difficulty: (data.difficulty || 'BEGINNER') as any,
-      },
-    });
-  }
-
-  async reviewVocabulary(userId: string, data: ReviewVocabularyDto) {
-    const vocabulary = await this.prisma.vocabulary.findUnique({
-      where: { id: data.vocabularyId },
-    });
-
-    if (!vocabulary) {
-      throw new NotFoundException('Vocabulary not found');
-    }
-
-    const difficultyMap = { easy: 4, medium: 2, hard: 0 };
-    const easeFactor = difficultyMap[data.difficulty] || 2;
-
-    const existingReview = await this.prisma.flashcardReview.findFirst({
-      where: {
-        vocabularyId: data.vocabularyId,
-        userId,
-      },
-    });
-
-    if (existingReview) {
-      const newInterval = this.calculateInterval(
-        existingReview.interval,
-        easeFactor,
-        existingReview.easeFactor,
-      );
-
-      return this.prisma.flashcardReview.update({
-        where: { id: existingReview.id },
-        data: {
-          easeFactor: easeFactor,
-          interval: newInterval,
-          lastReviewedAt: new Date(),
-          dueAt: new Date(Date.now() + newInterval * 24 * 60 * 60 * 1000),
-          reviewCount: existingReview.reviewCount + 1,
-        },
-      });
-    }
-
-    return this.prisma.flashcardReview.create({
-      data: {
-        flashcardId: data.vocabularyId,
-        userId,
-        easeFactor: 2.5,
-        interval: 1,
-        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        reviewCount: 1,
-      },
-    });
   }
 
   // ============ FLASHCARDS ============
@@ -203,68 +127,21 @@ export class LearningService {
   }
 
   // ============ GRAMMAR ============
-  async getGrammar(params: {
-    language?: string;
-    level?: string;
-    limit?: number;
-  }) {
-    const { language, level, limit = 20 } = params;
-
-    const where: any = {};
-    if (language) where.language = language;
-    if (level) where.level = level;
-
-    return this.prisma.grammarRule.findMany({
-      where,
-      take: limit,
-      orderBy: { title: 'asc' },
-    });
-  }
-
-  // ============ EXERCISES ============
-  async getExercises(params: {
-    language?: string;
-    type?: string;
-    difficulty?: string;
-    limit?: number;
-  }) {
-    const { language, type, difficulty, limit = 20 } = params;
-
-    const where: any = {};
-    if (language) where.language = language;
-    if (type) where.type = type;
-    if (difficulty) where.difficulty = difficulty;
-
-    return this.prisma.exercise.findMany({
-      where,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async submitExercise(userId: string, data: SubmitExerciseDto) {
-    const exercise = await this.prisma.exercise.findUnique({
-      where: { id: data.exerciseId },
-    });
-
-    if (!exercise) {
-      throw new NotFoundException('Exercise not found');
-    }
-
-    // Simple scoring - placeholder
-    const result = {
-      exerciseId: exercise.id,
-      userId,
-      score: Math.floor(Math.random() * 40) + 60,
-      passed: true,
-      feedback: 'Good job! Keep practicing.',
-      metadata: data.metadata || {},
-    };
-
-    await this.updateProgress(userId, exercise.language, exercise.type);
-    await this.awardXP(userId, 10);
-
-    return result;
+  /** Every rule from the grammar course, with the lesson that teaches it */
+  getGrammar(params: { level?: string }) {
+    const level = String(params.level ?? '').toUpperCase();
+    return GRAMMAR.filter((lesson) => !level || lesson.level === level).flatMap((lesson) =>
+      lesson.rules.map((rule, index) => ({
+        id: `${lesson.id}:${index}`,
+        title: rule.title,
+        description: rule.body,
+        examples: rule.examples,
+        language: 'en',
+        level: lesson.level,
+        lessonId: lesson.id,
+        lessonTitle: lesson.title,
+      })),
+    );
   }
 
   // ============ DASHBOARD ============
@@ -283,11 +160,13 @@ export class LearningService {
   async getDashboard(userId: string) {
     const DAY = 24 * 60 * 60 * 1000;
     const now = new Date();
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    const historyStart = new Date(todayStart.getTime() - 83 * DAY); // 12 weeks incl. today
-    const weekStart = new Date(todayStart.getTime() - 6 * DAY);
-    const lastWeekStart = new Date(todayStart.getTime() - 13 * DAY);
+    // Days on the learner's own clock
+    const zone = await learnerZone(this.prisma, userId);
+    const todayKey = dayIn(now, zone);
+    const startOf = (daysBack: number) => startOfDayKey(addDays(todayKey, -daysBack), zone);
+    const historyStart = startOf(83); // 12 weeks incl. today
+    const weekStart = startOf(6);
+    const lastWeekStart = startOf(13);
 
     const [
       streakRow,
@@ -307,6 +186,8 @@ export class LearningService {
       correctionsPending,
       correctionsGiven,
       recentCorrections,
+      dueSavedWords,
+      speakingXp,
     ] = await Promise.all([
       this.prisma.streak.findUnique({ where: { userId } }),
       this.prisma.xpTransaction.aggregate({ where: { userId }, _sum: { amount: true } }),
@@ -348,24 +229,23 @@ export class LearningService {
           author: { select: { name: true } },
         },
       }),
+      // Saved words are part of the review queue, so "cards to review" must count them too
+      this.prisma.voiceSavedWord.count({ where: { userId, dueAt: { lte: now } } }),
+      // Rooms and random calls: room stats alone miss the calls
+      this.prisma.xpTransaction.aggregate({ where: { userId, reason: 'VOICE_SPEAKING' }, _sum: { amount: true } }),
     ]);
 
     // XP per day for the activity heatmap and this-week/last-week comparison
-    const dayKey = (d: Date) => {
-      const local = new Date(d);
-      local.setHours(0, 0, 0, 0);
-      return local.getTime();
-    };
-    const byDay = new Map<number, number>();
+    const byDay = new Map<string, number>();
     let speakingXpThisWeek = 0;
     for (const tx of recentXp) {
-      const key = dayKey(tx.createdAt);
+      const key = dayIn(tx.createdAt, zone);
       byDay.set(key, (byDay.get(key) ?? 0) + tx.amount);
       if (tx.reason === 'VOICE_SPEAKING' && tx.createdAt >= weekStart) speakingXpThisWeek += tx.amount;
     }
     const activity = Array.from({ length: 84 }, (_, i) => {
-      const day = new Date(historyStart.getTime() + i * DAY);
-      return { date: day.toISOString().slice(0, 10), xp: byDay.get(dayKey(day)) ?? 0 };
+      const date = addDays(todayKey, -(83 - i));
+      return { date, xp: byDay.get(date) ?? 0 };
     });
     const sumXp = (from: Date, to: Date) =>
       recentXp
@@ -414,8 +294,8 @@ export class LearningService {
       .sort((a, b) => new Date(b.resolvedAt ?? 0).getTime() - new Date(a.resolvedAt ?? 0).getTime())
       .slice(0, 3);
 
-    const streak = ActivityService.effectiveStreak(streakRow);
-    const xpToday = byDay.get(todayStart.getTime()) ?? 0;
+    const streak = ActivityService.effectiveStreak(streakRow, now, zone);
+    const xpToday = byDay.get(todayKey) ?? 0;
 
     return {
       streak: {
@@ -439,11 +319,11 @@ export class LearningService {
         goals: profile?.goals ?? [],
       },
       words: { total: wordsTotal, thisWeek: wordsThisWeek },
-      flashcards: { total: flashcardsTotal, due: dueReviews + newFlashcards },
+      flashcards: { total: flashcardsTotal, due: dueReviews + newFlashcards + dueSavedWords },
       voice: {
         roomsJoined,
         roomsThisWeek,
-        speakingMinutes: Math.round((speaking._sum.speakingTime ?? 0) / 60),
+        speakingMinutes: Math.round(Math.max((speaking._sum.speakingTime ?? 0) / 60, ((speakingXp?._sum?.amount ?? 0) * 15) / 60)),
         turns: speaking._sum.timesSpoken ?? 0,
         // 1 XP per 15s spoken → minutes this week
         speakingMinutesThisWeek: Math.round((speakingXpThisWeek * 15) / 60),
@@ -473,7 +353,7 @@ export class LearningService {
       _sum: { amount: true },
     });
 
-    const effective = ActivityService.effectiveStreak(streak);
+    const effective = ActivityService.effectiveStreak(streak, new Date(), await learnerZone(this.prisma, userId));
     return {
       progress,
       // A streak only survives if they practised today or yesterday (or a freeze covers the gap)
@@ -482,55 +362,5 @@ export class LearningService {
       freezes: effective.freezes,
       totalXP: totalXP._sum.amount || 0,
     };
-  }
-
-  async updateProgress(userId: string, language: string, skill: string) {
-    const existing = await this.prisma.progress.findFirst({
-      where: {
-        userId,
-      },
-    });
-
-    if (existing) {
-      return this.prisma.progress.update({
-        where: { id: existing.id },
-        data: {
-          completionRate: existing.completionRate + 1,
-        },
-      });
-    }
-
-    return this.prisma.progress.create({
-      data: {
-        userId,
-        type: "VOCABULARY",
-        completionRate: 1,
-      },
-    });
-  }
-
-  async awardXP(userId: string, amount: number) {
-    return this.activity.recordActivity(userId, amount, 'EXERCISE_COMPLETED');
-  }
-
-  // ============ HELPERS ============
-  private calculateInterval(
-    currentInterval: number,
-    easeFactor: number,
-    currentEase: number,
-  ): number {
-    const newEase = Math.max(
-      1.3,
-      currentEase + (0.1 - (5 - easeFactor) * (0.08 + (5 - easeFactor) * 0.02)),
-    );
-    let newInterval = currentInterval * newEase;
-
-    if (easeFactor >= 3) {
-      newInterval = Math.max(1, newInterval);
-    } else {
-      newInterval = 1;
-    }
-
-    return Math.round(newInterval);
   }
 }

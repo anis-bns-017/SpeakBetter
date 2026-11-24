@@ -12,6 +12,8 @@ export interface User {
   /** MODERATOR and ADMIN can open the admin section */
   role?: "USER" | "MODERATOR" | "ADMIN";
   createdAt?: string;
+  /** When they confirmed their email; null = not yet (missing = an older server that doesn't know about it) */
+  emailVerifiedAt?: string | null;
   profile?: {
     nativeLanguage: string;
     learningLanguages: string[];

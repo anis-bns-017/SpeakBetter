@@ -22,17 +22,27 @@ import {
   type PaymentRow,
 } from "../hooks/useBilling";
 import { tutorErrorMessage } from "../hooks/useAiTutor";
-import { tr } from "../i18n/core";
+import { msg, tr } from "../i18n/core";
 
 const card =
   "rounded-3xl border border-line bg-surface shadow-sm";
 
 const FREE_FEATURES = [
-  "Voice rooms, random calls, chat and communities",
-  "Flashcards with spaced repetition, vocabulary, grammar and exercises",
-  "Pronunciation practice, level test and daily plan",
-  "Tap-to-translate everywhere",
+  msg("Voice rooms, random calls, chat and communities"),
+  msg("Flashcards with spaced repetition, vocabulary, grammar and exercises"),
+  msg("Pronunciation practice, level test and daily plan"),
+  msg("Tap-to-translate everywhere"),
 ];
+
+const STATUS_LABEL: Record<PaymentRow["status"], string> = {
+  SUCCEEDED: msg("Paid"),
+  PENDING: msg("Waiting"),
+  PROCESSING: msg("Processing"),
+  FAILED: msg("Failed"),
+  CANCELLED: msg("Cancelled"),
+  REFUNDED: msg("Refunded"),
+  PARTIALLY_REFUNDED: msg("Partly refunded"),
+};
 
 const formatDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
@@ -54,7 +64,7 @@ const Feature: React.FC<{ children: React.ReactNode; strong?: boolean }> = ({ ch
   </li>
 );
 
-const SubscriptionCard: React.FC<{ sub: MySubscription }> = ({ sub }) => {
+const SubscriptionCard: React.FC<{ sub: MySubscription; autoRenews: boolean }> = ({ sub, autoRenews }) => {
   const cancel = useCancelSubscription();
   const resume = useResumeSubscription();
   const busy = cancel.isPending || resume.isPending;
@@ -75,15 +85,17 @@ const SubscriptionCard: React.FC<{ sub: MySubscription }> = ({ sub }) => {
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-slate-900 dark:text-white">
-          {tr("You're on Pro")}{" "}{sub.interval === "YEARLY" ? tr("(yearly)") : tr("(monthly)")}
+          {tr("You're on Pro")}{" "}{sub.interval === "YEARLY" ? tr("(yearly)") : sub.interval === "MONTHLY" ? tr("(monthly)") : ""}
         </p>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          {sub.cancelAtPeriodEnd
+          {!autoRenews
+            ? tr("Pro works until {value} ({daysLeft} {value2} left). It doesn't renew by itself, so you won't be charged again.", { value: formatDate(sub.endDate), daysLeft: sub.daysLeft, value2: sub.daysLeft === 1 ? "day" : "days" })
+            : sub.cancelAtPeriodEnd
             ? tr("Won't renew. Pro works until {value} ({daysLeft} {value2} left).", { value: formatDate(sub.endDate), daysLeft: sub.daysLeft, value2: sub.daysLeft === 1 ? "day" : "days" })
             : tr("Paid up until {value} ({daysLeft} {value2} left).", { value: formatDate(sub.endDate), daysLeft: sub.daysLeft, value2: sub.daysLeft === 1 ? "day" : "days" })}
         </p>
       </div>
-      {sub.cancelAtPeriodEnd ? (
+      {!autoRenews ? null : sub.cancelAtPeriodEnd ? (
         <button
           type="button"
           onClick={() => run("resume")}
@@ -160,7 +172,14 @@ export const PremiumPage: React.FC = () => {
         </div>
       )}
 
-      {isPro && <SubscriptionCard sub={sub} />}
+      {!plans.aiAvailable && (
+        <div className="flex items-start gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
+          <Bot className="w-4 h-4 mt-0.5 shrink-0 text-indigo-600 dark:text-indigo-300" aria-hidden />
+          <p>{tr("The AI speaking partner isn't switched on yet, so Pro adds nothing for now. Every other feature is free.")}</p>
+        </div>
+      )}
+
+      {isPro && <SubscriptionCard sub={sub} autoRenews={plans.autoRenews} />}
       {sub.status === "EXPIRED" && (
         <div className={`${card} px-5 py-4 text-sm text-slate-600 dark:text-slate-300`}>
           {tr("Your Pro ended on {value}. Pick a plan below to come back.", { value: formatDate(sub.endDate) })}</div>
@@ -198,7 +217,7 @@ export const PremiumPage: React.FC = () => {
               <Bot className="inline w-4 h-4 mr-1 -mt-0.5" />
               {free.limits.aiTurnsPerDay} {" "}{tr("AI partner turns a day")}</Feature>
             {FREE_FEATURES.map((f) => (
-              <Feature key={f}>{f}</Feature>
+              <Feature key={f}>{tr(f)}</Feature>
             ))}
           </ul>
           <div className="mt-6 h-11 rounded-2xl bg-slate-100 dark:bg-white/[0.05] text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center justify-center">
@@ -214,7 +233,7 @@ export const PremiumPage: React.FC = () => {
             <span className="text-base font-medium text-slate-500 dark:text-slate-400"> / {interval === "YEARLY" ? tr("year") : tr("month")}</span>
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {interval === "YEARLY" ? tr("About {value} a month", { value: formatMoney(monthlyEquivalent, plans.currency) }) : tr("Billed every 30 days")}
+            {interval === "YEARLY" ? tr("About {value} a month", { value: formatMoney(monthlyEquivalent, plans.currency) }) : plans.autoRenews ? tr("Billed every 30 days") : tr("For 30 days. It doesn't renew by itself.")}
           </p>
           <ul className="mt-5 space-y-2.5 flex-1">
             <Feature strong>
@@ -250,7 +269,7 @@ export const PremiumPage: React.FC = () => {
                 </div>
                 <span className="font-medium text-slate-700 dark:text-slate-200">{formatMoney(p.amount, p.currency)}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLE[p.status]}`}>
-                  {p.status === "SUCCEEDED" ? tr("Paid") : p.status.charAt(0) + p.status.slice(1).toLowerCase().replace("_", " ")}
+                  {tr(STATUS_LABEL[p.status])}
                 </span>
               </li>
             ))}

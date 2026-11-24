@@ -357,9 +357,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               content: trimmed,
             });
           }
-          toast.success(tr("Message updated ✨"));
+          toast.success(tr("Message updated ✨"), { id: "chat-edit-ok" });
         } catch {
-          toast.error(tr("Failed to update message"));
+          toast.error(tr("Failed to update message"), { id: "chat-edit-failed" });
         } finally {
           setEditingMessage(null);
           setReplyTo(null);
@@ -403,7 +403,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           await sendMessageRest.mutateAsync({ chatId: chatId!, ...payload });
         }
       } catch {
-        toast.error(tr("Failed to send message"));
+        toast.error(tr("Failed to send message"), { id: "chat-send-failed" });
       }
 
       setReplyTo(null);
@@ -488,6 +488,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         console.error("Voice upload error:", err);
         toast.error(
           err instanceof Error ? err.message : tr("Failed to send voice message"),
+          { id: "chat-send-failed" },
         );
       }
     },

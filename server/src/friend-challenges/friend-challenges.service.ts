@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { learnerZone, startOfDayIn } from '../common/learner-day';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ActivityService } from '../learning/activity.service';
 import { LESSON_BY_ID } from '../grammar/grammar.content';
@@ -12,6 +13,10 @@ export type ChallengeStatus = 'OPEN' | 'BEATEN' | 'HELD' | 'TIED' | 'EXPIRED';
 export const CHALLENGE_HOURS = 72;
 /** XP for beating a friend's score */
 export const BEAT_XP = 5;
+/** Wins a day that pay XP, so two friends can't trade rematches for endless XP */
+export const BEAT_XP_PER_DAY = 3;
+/** New challenges one person can send in a day */
+export const CHALLENGES_PER_DAY = 15;
 
 /** What each kind of challenge is about, and where to go to take it */
 export const KINDS: Record<ChallengeKind, { title: (refId: string) => string | null; url: (refId: string) => string }> = {
@@ -80,6 +85,11 @@ export class FriendChallengesService {
       where: { fromUserId: userId, toUserId: friendId, kind, refId, status: 'OPEN', expiresAt: { gt: now } },
     });
     if (open) return { id: open.id, created: false };
+
+    const sentToday = await this.prisma.friendChallenge.count({
+      where: { fromUserId: userId, createdAt: { gte: new Date(now.getTime() - 24 * 3_600_000) } },
+    });
+    if (sentToday >= CHALLENGES_PER_DAY) throw new BadRequestException(`You can send up to ${CHALLENGES_PER_DAY} challenges a day`);
 
     const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, avatarUrl: true } });
     const row = await this.prisma.friendChallenge.create({
@@ -186,7 +196,16 @@ export class FriendChallengesService {
           preference: 'challenges',
         });
       }
-      if (beatAny) await this.activity.recordActivity(userId, BEAT_XP, 'BONUS');
+      if (beatAny) {
+        const dayStart = startOfDayIn(now, await learnerZone(this.prisma, userId));
+        const winsToday = await this.prisma.friendChallenge.count({
+          where: { toUserId: userId, status: 'BEATEN', respondedAt: { gte: dayStart } },
+        });
+        // This finish's wins are already counted, so it pays while the day's total is within the limit
+        if (winsToday - results.filter((r) => r.status === 'BEATEN').length < BEAT_XP_PER_DAY) {
+          await this.activity.recordActivity(userId, BEAT_XP, 'BONUS');
+        }
+      }
       return results;
     } catch (error) {
       this.logger.warn(`Could not settle challenges for ${userId}: ${(error as Error)?.message}`);

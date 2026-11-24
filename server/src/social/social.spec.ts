@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { FollowService } from './follow.service';
-import { RoomRemindersService } from './room-reminders.service';
+import { RoomRemindersService, when } from './room-reminders.service';
 
 function setup() {
   const follows: Array<{ followerId: string; followingId: string }> = [];
@@ -10,7 +10,8 @@ function setup() {
   const prisma: any = {
     user: { findUnique: jest.fn(async ({ where }) => ({ id: where.id, name: `Name ${where.id}`, avatarUrl: null })) },
     block: { findFirst: jest.fn().mockResolvedValue(null) },
-    profile: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    profile: {
+      findMany: jest.fn(async () => []), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     follow: {
       create: jest.fn(async ({ data }) => {
         if (follows.some((f) => f.followerId === data.followerId && f.followingId === data.followingId)) {
@@ -132,5 +133,14 @@ describe('RoomRemindersService', () => {
     expect(notifications.notify).not.toHaveBeenCalled();
     await reminders.onRoomScheduled({ id: 'r1', name: 'Morning chat', type: 'SCHEDULED', creatorId: 'host', scheduledFor: new Date(Date.now() + 3600_000) });
     expect(notifications.notify).toHaveBeenCalledWith(['f1'], expect.objectContaining({ type: 'ROOM_SCHEDULED', dedupeKey: 'scheduled:r1' }));
+  });
+
+  it("writes the start time on each follower's own clock", () => {
+    const start = new Date('2026-11-25T14:00:00Z');
+    expect(when(start, 'Asia/Dhaka')).toContain('20:00');
+    expect(when(start, 'Africa/Nairobi')).toContain('17:00');
+    // Without a known zone it says so, instead of showing the server's time as if it were theirs
+    expect(when(start, null)).toMatch(/14:00.*UTC/);
+    expect(when(start, 'Not/AZone')).toMatch(/14:00.*UTC/);
   });
 });

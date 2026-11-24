@@ -191,6 +191,13 @@ describe('My words: checking a word you add', () => {
     ).toMatchObject({ ok: true, example: 'Meet me at the café.' });
   });
 
+  it('keeps a useful phrase of up to ten words, like the ones in the phrasebook', () => {
+    expect(validateNewWord({ word: 'Could you recommend a good place to eat nearby?', meaning: 'x' })).toMatchObject({
+      ok: true,
+      word: 'Could you recommend a good place to eat nearby',
+    });
+  });
+
   it('refuses empty, letterless, too long or sentence-sized entries, and a missing meaning', () => {
     expect(validateNewWord({ word: '', meaning: 'x' })).toMatchObject({
       ok: false,
@@ -199,11 +206,11 @@ describe('My words: checking a word you add', () => {
       ok: false,
     });
     expect(
-      validateNewWord({ word: 'a'.repeat(61), meaning: 'x' }),
+      validateNewWord({ word: 'a'.repeat(81), meaning: 'x' }),
     ).toMatchObject({ ok: false });
     expect(
       validateNewWord({
-        word: 'this is far too many words for one entry',
+        word: 'this is far too many words for one single entry here',
         meaning: 'x',
       }),
     ).toMatchObject({ ok: false });

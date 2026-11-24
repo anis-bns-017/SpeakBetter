@@ -12,15 +12,25 @@ import type Redis from 'ioredis';
 import { REDIS_CLIENT } from './common/redis.module';
 import { RedisIoAdapter } from './common/redis-io.adapter';
 import { isPrivateNetworkDevOrigin } from './common/socket-origin';
+import { securityHeaders } from './common/security-headers';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+
+  // A forgotten promise failing in the middle of a live room must not take every room down with it: log it loudly
+  // (with the stack, so it still gets fixed) and keep serving.
+  process.on('unhandledRejection', (reason) => {
+    logger.error(
+      `Unhandled promise rejection: ${reason instanceof Error ? (reason.stack ?? reason.message) : String(reason)}`,
+    );
+  });
 
   try {
     const app = await NestFactory.create(AppModule);
 
     const config = app.get(ConfigService);
 
+    app.use(securityHeaders);
     app.use(cookieParser());
 
     // With REALTIME_REDIS_URL, socket.io fans events out through Redis so several server
@@ -167,4 +177,9 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+// bootstrap() reports start-up problems itself and rethrows; make sure the process then exits instead of
+// carrying on half-started
+bootstrap().catch((error: unknown) => {
+  new Logger('Bootstrap').error(`Server failed to start: ${(error as Error)?.message ?? String(error)}`);
+  process.exit(1);
+});

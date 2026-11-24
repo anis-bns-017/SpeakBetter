@@ -285,7 +285,7 @@ const AnswerCard: React.FC<{ entry: ChallengeEntry; reactions: string[] }> = ({ 
 
 export const ChallengePage: React.FC = () => {
   const [level, setLevel] = useState<ChallengeLevel | undefined>(undefined);
-  const { data, isLoading, isError } = useChallengeToday(level);
+  const { data, isLoading, isError, refetch } = useChallengeToday(level);
   const submit = useSubmitChallenge();
   const remove = useDeleteChallenge();
   const [take, setTake] = useState<Recording | null>(null);
@@ -321,11 +321,13 @@ export const ChallengePage: React.FC = () => {
         durationSec: Math.max(5, Math.round(take.seconds)),
         visibility,
       });
-      toast.success(result.firstToday ? tr("Answer shared! +{xp} XP", { xp: result.xp }) : tr("Your new answer replaced the old one"));
+      toast.success(result.xp > 0 ? tr("Answer shared! +{xp} XP", { xp: result.xp }) : result.firstToday ? tr("Answer shared!") : tr("Your new answer replaced the old one"));
       setTake(null);
       setRecordAgain(false);
     } catch (e) {
       toast.error(errorMessage(e, "Couldn't share your answer"));
+      // Past midnight the question has changed: show the new one, and the recording is still there to share
+      void refetch();
     } finally {
       setSending(false);
     }
@@ -442,7 +444,13 @@ export const ChallengePage: React.FC = () => {
                 <RotateCcw className="w-3.5 h-3.5" /> {" "}{tr("Record again")}</button>
               <button
                 type="button"
-                onClick={() => remove.mutate(undefined, { onSuccess: () => toast.success(tr("Answer deleted")) })}
+                onClick={() => {
+                  if (!window.confirm(tr("Delete your answer? This can't be undone."))) return;
+                  remove.mutate(undefined, {
+                    onSuccess: () => toast.success(tr("Answer deleted")),
+                    onError: (e) => toast.error(errorMessage(e, "Couldn't delete your answer")),
+                  });
+                }}
                 aria-label={tr("Delete my answer")}
                 className="w-8 h-8 rounded-xl border border-slate-200 dark:border-white/10 text-slate-400 hover:text-rose-500 flex items-center justify-center"
               >

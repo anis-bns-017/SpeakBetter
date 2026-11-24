@@ -31,9 +31,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../contexts/useAuth";
 import { ensureFreshSession } from "../../lib/api/client";
+import { currentSubscription } from "../../lib/push";
 import { getStoredToken } from "../../hooks/useChat";
 import {
   NOTIFICATIONS_KEY,
+  fetchOlderNotifications,
   useMarkNotificationsRead,
   useNotifications,
   type AppNotification,
@@ -96,9 +98,9 @@ export const NotificationsLive: React.FC = () => {
           items: [n, ...page.items.filter((x) => x.id !== n.id)].slice(0, 50),
           unread: page.unread + 1,
         });
-      } else {
-        queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY });
       }
+      // A notification can replace an older one, so the server has the true list and count
+      queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY });
       if (n.type.startsWith("ROOM_")) queryClient.invalidateQueries({ queryKey: ["voice-upcoming"] });
       if (n.type === "FRIEND_REQUEST") queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
       if (n.type === "ACHIEVEMENT") {
@@ -114,20 +116,26 @@ export const NotificationsLive: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ["league-friends"] });
       }
 
-      toast(n.title, {
+      toast(tr(n.title), {
         description: n.message,
         action: n.actionUrl ? { label: msg("Open"), onClick: () => navigateRef.current(n.actionUrl as string) } : undefined,
       });
       if (document.hidden && canNotifyDesktop() && Notification.permission === "granted") {
-        try {
-          const desktop = new Notification(n.title, { body: n.message, tag: n.id });
-          desktop.onclick = () => {
-            window.focus();
-            if (n.actionUrl) navigateRef.current(n.actionUrl);
-          };
-        } catch {
-          /* some browsers only allow this from a service worker */
-        }
+        // With push on, the service worker already shows this one: a second alert would be a duplicate
+        void currentSubscription()
+          .catch(() => null)
+          .then((subscription) => {
+            if (subscription) return;
+            try {
+              const desktop = new Notification(tr(n.title), { body: n.message, tag: n.id });
+              desktop.onclick = () => {
+                window.focus();
+                if (n.actionUrl) navigateRef.current(n.actionUrl);
+              };
+            } catch {
+              /* some browsers only allow this from a service worker */
+            }
+          });
       }
     });
     socket.on("notification:read", ({ unread }: { unread: number }) => {
@@ -165,6 +173,28 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const unread = data?.unread ?? 0;
+  // Older pages, added on request below the live list
+  const [older, setOlder] = useState<AppNotification[]>([]);
+  const [olderFinished, setOlderFinished] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const newest = data?.items ?? [];
+  const items = [...newest, ...older.filter((n) => !newest.some((x) => x.id === n.id))];
+  const hasOlder = older.length ? !olderFinished : !!data?.hasMore;
+
+  const showOlder = async () => {
+    const last = items[items.length - 1];
+    if (!last || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const page = await fetchOlderNotifications(last.createdAt);
+      setOlder((list) => [...list, ...page.items]);
+      setOlderFinished(!page.hasMore);
+    } catch {
+      toast.error(tr("Couldn't load older notifications"));
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -182,7 +212,10 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
   }, [open]);
 
   const openItem = (n: AppNotification) => {
-    if (!n.isRead) markRead.mutate({ ids: [n.id] });
+    if (!n.isRead) {
+      markRead.mutate({ ids: [n.id] });
+      setOlder((list) => list.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
+    }
     setOpen(false);
     if (n.actionUrl) navigate(n.actionUrl);
   };
@@ -235,7 +268,10 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
                 {unread > 0 && (
                   <button
                     type="button"
-                    onClick={() => markRead.mutate({ all: true })}
+                    onClick={() => {
+                      markRead.mutate({ all: true });
+                      setOlder((list) => list.map((x) => ({ ...x, isRead: true })));
+                    }}
                     className="h-7 px-2 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 inline-flex items-center gap-1"
                   >
                     <CheckCheck className="w-3.5 h-3.5" /> {" "}{tr("Mark all read")}</button>
@@ -275,7 +311,7 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
                 </div>
               ) : (
                 <ul>
-                  {data.items.map((n) => {
+                  {items.map((n) => {
                     const { icon: Icon, tone } = typeOf(n.type);
                     return (
                       <li key={n.id}>
@@ -299,6 +335,18 @@ export const NotificationBell: React.FC<{ variant: "sidebar" | "floating" }> = (
                       </li>
                     );
                   })}
+                  {hasOlder && (
+                    <li className="px-4 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => void showOlder()}
+                        disabled={loadingOlder}
+                        className="h-8 px-3 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 disabled:opacity-50"
+                      >
+                        {loadingOlder ? tr("Loading…") : tr("Show older")}
+                      </button>
+                    </li>
+                  )}
                 </ul>
               )}
             </div>

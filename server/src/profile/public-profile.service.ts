@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { learnerZone } from '../common/learner-day';
 import { ActivityService } from '../learning/activity.service';
 import { BADGES, type BadgeTier } from '../gamification/badges.catalog';
 import { LEAGUES } from '../gamification/leagues.engine';
@@ -154,7 +155,8 @@ export class PublicProfileService {
       lastActive: showOnline ? (p?.lastActive ?? null) : null,
       stats: {
         xp: xp._sum.amount ?? 0,
-        streak: ActivityService.effectiveStreak(streak).current,
+        // Judged on their own clock, not the viewer's or the server's
+        streak: ActivityService.effectiveStreak(streak, new Date(), await learnerZone(this.prisma, targetId)).current,
         longestStreak: Math.max(streak?.longestStreak ?? 0, streak?.currentStreak ?? 0),
         lessonsPassed,
         textsRead,

@@ -229,8 +229,10 @@ export function useListenOnce() {
         if (event.error !== 'aborted') setError(ERRORS[event.error] ?? 'Speech recognition stopped. Try again.');
       };
       recognition.onend = () => {
-        setListening(false);
-        if (recognitionRef.current === recognition) recognitionRef.current = null;
+        if (recognitionRef.current === recognition) {
+          recognitionRef.current = null;
+          setListening(false);
+        }
         // A phrase can arrive as several results: join the first guesses, and offer each result's other
         // guesses with the rest kept as heard
         if (!finals.length && !partial.trim()) return resolve(null);
@@ -291,6 +293,9 @@ export function useRecorder() {
   const [level, setLevel] = useState(0);
   const urlRef = useRef<string | null>(null);
   const live = useRef<LiveRecording | null>(null);
+  // Set while the browser's microphone prompt is open, so a second tap can't open a second stream
+  const starting = useRef(false);
+  const mounted = useRef(true);
 
   const release = useCallback(() => {
     const current = live.current;
@@ -302,19 +307,26 @@ export function useRecorder() {
     setLevel(0);
   }, []);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       if (live.current?.recorder.state === 'recording') live.current.recorder.stop();
       release();
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-    },
-    [release],
-  );
+    };
+  }, [release]);
 
   const start = useCallback(async (): Promise<boolean> => {
-    if (!canRecord() || live.current) return false;
+    if (!canRecord() || live.current || starting.current) return false;
+    starting.current = true;
     try {
       const stream = await getMicrophone({ echoCancellation: true, noiseSuppression: true });
+      // They left the page while the permission prompt was open: don't leave the microphone on
+      if (!mounted.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return false;
+      }
       const recorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => {
@@ -350,6 +362,8 @@ export function useRecorder() {
     } catch {
       release();
       return false;
+    } finally {
+      starting.current = false;
     }
   }, [release]);
 

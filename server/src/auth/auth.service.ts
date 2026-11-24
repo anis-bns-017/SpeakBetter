@@ -73,6 +73,9 @@ type RotationOutcome =
  *    the same client, and not yet superseded is tolerated; and even then it is
  *    never issued new tokens. Anything else revokes the whole family.
  */
+/** Addresses are stored in lower case, so Me@x.com and me@x.com can never be two accounts */
+export const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -98,9 +101,10 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto, meta?: SessionMeta) {
+    const email = normalizeEmail(dto.email);
     const existingUser = await this.prisma.user.findUnique({
       where: {
-        email: dto.email,
+        email,
       },
     });
 
@@ -112,7 +116,7 @@ export class AuthService {
 
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email,
+        email,
         passwordHash,
         name: dto.name,
 
@@ -141,7 +145,7 @@ export class AuthService {
   async login(dto: LoginDto, meta?: SessionMeta) {
     const user = await this.prisma.user.findUnique({
       where: {
-        email: dto.email,
+        email: normalizeEmail(dto.email),
       },
 
       include: {
@@ -197,7 +201,8 @@ export class AuthService {
     },
     meta?: SessionMeta,
   ) {
-    const { email, name, googleId, avatarUrl } = googleUser;
+    const { name, googleId, avatarUrl } = googleUser;
+    const email = normalizeEmail(googleUser.email);
 
     let user = await this.prisma.user.findUnique({
       where: { email },
@@ -210,6 +215,7 @@ export class AuthService {
           email,
           name,
           googleId,
+          emailVerifiedAt: new Date(),
           avatarUrl, // ✅ matches schema
           profile: {
             create: {
@@ -221,10 +227,19 @@ export class AuthService {
         include: { profile: true },
       });
     } else if (!user.googleId) {
-      // Existing email user signing in with Google for the first time
+      // Existing email user signing in with Google for the first time. Signing up never proved they owned the
+      // address, but Google just did: whoever set the old password, and any session from it, is shut out. The
+      // real owner can set a new password from the emailed reset link.
+      if (user.passwordHash) await this.logoutAll(user.id, 'google_linked');
       user = await this.prisma.user.update({
         where: { id: user.id },
-        data: { googleId, avatarUrl: avatarUrl ?? user.avatarUrl },
+        data: { googleId, passwordHash: null, emailVerifiedAt: user.emailVerifiedAt ?? new Date(), avatarUrl: avatarUrl ?? user.avatarUrl },
+        include: { profile: true },
+      });
+    } else if (!user.emailVerifiedAt) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerifiedAt: new Date() },
         include: { profile: true },
       });
     }

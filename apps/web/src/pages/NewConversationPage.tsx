@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth';
 import { useSearchUsers, type UserSearchResult } from '../hooks/useFriends';
-import { useCreatePrivateChat } from '../hooks/useChat';
+import { useCreateGroupChat, useCreatePrivateChat } from '../hooks/useChat';
 import { toast } from 'sonner';
 import { Search, UserPlus, User, X, ArrowLeft } from 'lucide-react';
 import { tr } from "../i18n/core";
@@ -13,9 +13,14 @@ export const NewConversationPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<UserSearchResult[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [params] = useSearchParams();
 
   const { data: searchResults, isLoading } = useSearchUsers(searchQuery);
   const createChat = useCreatePrivateChat();
+  const createGroup = useCreateGroupChat();
+  // Two or more people always make a group; "New Group" in the chat list starts here too
+  const isGroup = params.get('group') === '1' || selectedUsers.length > 1;
 
   const handleUserSelect = (selectedUser: UserSearchResult) => {
     // Don't select yourself
@@ -38,17 +43,19 @@ export const NewConversationPage = () => {
 
     setIsCreating(true);
     try {
-      // For now, only support 1-on-1 chats (multiple will be group)
-      if (selectedUsers.length === 1) {
-        const chat = await createChat.mutateAsync(selectedUsers[0].id);
-        navigate(`/chat/${chat.id}`);
+      if (isGroup) {
+        const fallback = selectedUsers.map((u) => u.name.split(' ')[0]).slice(0, 3).join(', ');
+        const chat = await createGroup.mutateAsync({
+          name: (groupName.trim() || fallback).slice(0, 60),
+          participantIds: selectedUsers.map((u) => u.id),
+        });
+        navigate(`/chat?chatId=${chat.id}`);
       } else {
-        // Create group chat (you can add this later)
-        toast.info(tr("Group chat creation coming soon!"));
-        setIsCreating(false);
+        const chat = await createChat.mutateAsync(selectedUsers[0].id);
+        navigate(`/chat?chatId=${chat.id}`);
       }
     } catch {
-      toast.error(tr("Failed to create chat"));
+      // The create hooks already showed the reason
       setIsCreating(false);
     }
   };
@@ -66,7 +73,7 @@ export const NewConversationPage = () => {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold">{tr("New Conversation")}</h1>
+        <h1 className="text-2xl font-bold">{isGroup ? tr("New Group") : tr("New Conversation")}</h1>
       </div>
 
       {/* Search */}
@@ -75,7 +82,7 @@ export const NewConversationPage = () => {
           <Search className="w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder={tr("Search by name or email...")}
+            placeholder={tr("Search by name or full email...")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 bg-transparent outline-none"
@@ -91,6 +98,22 @@ export const NewConversationPage = () => {
           )}
         </div>
       </div>
+
+      {/* Group name */}
+      {isGroup && (
+        <div className="mb-4">
+          <label htmlFor="group-name" className="mb-1 block text-sm font-medium">{tr("Group name")}</label>
+          <input
+            id="group-name"
+            type="text"
+            value={groupName}
+            maxLength={60}
+            onChange={(e) => setGroupName(e.target.value)}
+            placeholder={tr("For example: IELTS study club")}
+            className="w-full rounded-lg border border-line bg-surface px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-400/60"
+          />
+        </div>
+      )}
 
       {/* Selected Users */}
       {selectedUsers.length > 0 && (
@@ -114,7 +137,7 @@ export const NewConversationPage = () => {
             disabled={isCreating || selectedUsers.length === 0}
             className="px-4 py-1.5 bg-blue-500 text-white rounded-full text-sm hover:bg-blue-600 disabled:opacity-50"
           >
-            {isCreating ? tr("Creating...") : tr("Start Chat ({selectedUsers})", { selectedUsers: selectedUsers.length })}
+            {isCreating ? tr("Creating...") : isGroup ? tr("Create group ({count})", { count: selectedUsers.length }) : tr("Start Chat ({selectedUsers})", { selectedUsers: selectedUsers.length })}
           </button>
         </div>
       )}
@@ -152,7 +175,9 @@ export const NewConversationPage = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium">{result.name}</div>
-                    <div className="text-sm text-gray-500 truncate">{result.email}</div>
+                    {result.profile?.nativeLanguage && (
+                      <div className="text-sm text-gray-500 truncate">{result.profile.nativeLanguage}</div>
+                    )}
                   </div>
                   {isSelected ? (
                     <button className="p-1.5 bg-blue-500 text-white rounded-full">

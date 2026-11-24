@@ -41,4 +41,17 @@ export const authApi = {
 
   resetPassword: (token: string, password: string) =>
     apiClient.post<{ ok: true }>('/auth/reset-password', { token, password }),
+
+  verificationStatus: () =>
+    apiClient.get<{ verified: boolean; email: string | null; canSend: boolean; devLog: boolean; required: boolean }>('/auth/verify-email/status'),
+
+  sendVerification: () =>
+    apiClient.post<{ sent: boolean; verified: boolean; devLog: boolean }>('/auth/verify-email/send'),
+
+  /** What a link is for. Confirms nothing. */
+  checkVerification: (token: string) =>
+    apiClient.get<{ valid: boolean; alreadyConfirmed: boolean; email: string | null }>('/auth/verify-email/check', { params: { token } }),
+
+  confirmEmail: (token: string) =>
+    apiClient.post<{ ok: true; alreadyConfirmed: boolean }>('/auth/verify-email', { token }),
 };

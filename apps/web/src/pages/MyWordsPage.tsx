@@ -189,7 +189,7 @@ const AddWordPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <label className="block">
             <span className="sr-only">{tr("Word or phrase")}</span>
-            <input value={word} onChange={(e) => setWord(e.target.value)} maxLength={60} placeholder={tr("Word or short phrase, e.g. “give up”")} className={input} autoFocus />
+            <input value={word} onChange={(e) => setWord(e.target.value)} maxLength={80} placeholder={tr("Word or short phrase, e.g. “give up”")} className={input} autoFocus />
           </label>
           <button
             type="button"

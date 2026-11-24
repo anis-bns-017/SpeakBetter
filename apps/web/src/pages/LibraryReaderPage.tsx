@@ -368,7 +368,11 @@ export const LibraryReaderPage: React.FC = () => {
               {result.score}/{result.total}
             </p>
             <p className="text-sm text-slate-600 dark:text-slate-300 flex-1 min-w-[10rem]">
-              {result.score === result.total ? tr("Perfect! You understood everything.") : tr("Nice work. Check the highlighted answers above.")}
+              {result.score === result.total
+                ? tr("Perfect! You understood everything.")
+                : result.passed
+                  ? tr("Nice work. Check the highlighted answers above.")
+                  : tr("Get at least {passMark} right to finish this text. Read it again and try once more.", { passMark: result.passMark })}
             </p>
             <button
               type="button"

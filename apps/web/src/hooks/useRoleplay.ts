@@ -65,7 +65,7 @@ export const useScenario = (id: string | undefined) =>
 export const useFinishScenario = (id: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (scores: Array<number | null>) => (await apiClient.post<RoleplayResult>(`/roleplay/${id}/finish`, { scores })).data,
+    mutationFn: async (startedAt: string) => (await apiClient.post<RoleplayResult>(`/roleplay/${id}/finish`, { startedAt })).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roleplay'] });
       queryClient.invalidateQueries({ queryKey: ['plan-today'] });

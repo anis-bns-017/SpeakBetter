@@ -20,10 +20,15 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     profile: Profile,
     done: VerifyCallback,
   ): Promise<any> {
-    const email = profile.emails?.[0]?.value;
+    const entry = profile.emails?.[0];
+    const email = entry?.value;
 
     if (!email) {
       throw new UnauthorizedException('Google account email not found');
+    }
+    // Signing in links by address, so it must be one Google has checked
+    if (String((entry as { verified?: unknown }).verified) === 'false') {
+      throw new UnauthorizedException('Confirm this email with Google first');
     }
 
     const user = {

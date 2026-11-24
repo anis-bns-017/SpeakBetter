@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { addDays, dayIn, daysBetween, learnerZone, startOfDayKey } from '../common/learner-day';
 import { ActivityService } from '../learning/activity.service';
 import { isPattern, MISTAKE_PATTERNS, type MistakePattern } from '../learning/mistakes';
 import { isSoundKey, SOUNDS } from '../pronunciation/pronunciation.data';
-import { dayKey, MINUTES_PER, planStreak } from './plan.engine';
+import { MINUTES_PER, planStreak } from './plan.engine';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CALENDAR_DAYS = 84;
@@ -18,6 +19,7 @@ export function activityOf(reason: string): ActivityKind {
   switch (reason) {
     case 'VOICE_SPEAKING':
     case 'AI_PRACTICE':
+    case 'CHALLENGE_COMPLETED':
       return 'speaking';
     case 'FLASHCARD_REVIEW':
     case 'VOCABULARY_MASTERED':
@@ -33,6 +35,8 @@ export function activityOf(reason: string): ActivityKind {
     case 'QUIZ_COMPLETED':
     case 'LESSON_COMPLETED':
     case 'ASSIGNMENT_COMPLETED':
+    case 'WRITING_PRACTICE':
+    case 'VOCAB_TEST':
       return 'exercises';
     default:
       return 'other';
@@ -59,6 +63,17 @@ export function minutesFor(reason: string, amount: number): number {
       return MINUTES_PER.exercise;
     case 'CORRECTION_GIVEN':
       return MINUTES_PER.correction;
+    case 'VOCABULARY_MASTERED':
+      return MINUTES_PER.exercise;
+    // A finished story, shadowing lesson or role-play
+    case 'LESSON_COMPLETED':
+      return MINUTES_PER.lesson;
+    case 'WRITING_PRACTICE':
+      return MINUTES_PER.writing;
+    case 'CHALLENGE_COMPLETED':
+      return MINUTES_PER.challenge;
+    case 'VOCAB_TEST':
+      return MINUTES_PER.vocabTest;
     default:
       return 0;
   }
@@ -76,6 +91,14 @@ export interface WeekStats {
   mistakes: number;
 }
 
+/** A sentence for the summary: the English template and its values, so the app can show it in Bangla too */
+export interface SummaryLine {
+  text: string;
+  vars: Record<string, string | number>;
+}
+
+const fillLine = ({ text, vars }: SummaryLine) => text.replace(/\{(\w+)\}/g, (_, key: string) => String(vars[key] ?? ''));
+
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const average = (list: number[]) => (list.length ? Math.round(list.reduce((a, b) => a + b, 0) / list.length) : null);
 
@@ -85,9 +108,11 @@ export class InsightsService {
 
   async getProgress(userId: string) {
     const now = new Date();
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    const calendarStart = new Date(todayStart.getTime() - (CALENDAR_DAYS - 1) * DAY_MS);
+    // Days on the learner's own clock
+    const zone = await learnerZone(this.prisma, userId);
+    const todayKey = dayIn(now, zone);
+    const calendarStartKey = addDays(todayKey, -(CALENDAR_DAYS - 1));
+    const calendarStart = startOfDayKey(calendarStartKey, zone);
 
     const [xpRows, attempts, mistakeCards, learned, totalCards, plans, placements, streakRow, totalXp] = await Promise.all([
       this.prisma.xpTransaction.findMany({
@@ -99,7 +124,7 @@ export class InsightsService {
         select: { score: true, sound: true, createdAt: true },
       }),
       this.prisma.flashcard.findMany({
-        where: { userId, kind: 'correction', createdAt: { gte: new Date(todayStart.getTime() - TREND_WEEKS * 7 * DAY_MS) } },
+        where: { userId, kind: 'correction', createdAt: { gte: startOfDayKey(addDays(todayKey, -(TREND_WEEKS * 7 - 1)), zone) } },
         select: { pattern: true, createdAt: true },
       }),
       this.prisma.flashcardReview.count({ where: { userId, interval: { gte: LEARNED_AFTER_DAYS } } }),
@@ -120,16 +145,15 @@ export class InsightsService {
 
     // ---------- day by day ----------
     const days = Array.from({ length: CALENDAR_DAYS }, (_, i) => {
-      const date = new Date(calendarStart.getTime() + i * DAY_MS);
       return {
-        date: dayKey(date),
+        date: addDays(calendarStartKey, i),
         xp: 0,
         minutes: 0,
         byActivity: Object.fromEntries(ACTIVITY_KINDS.map((k) => [k, 0])) as Record<ActivityKind, number>,
       };
     });
     const index = new Map(days.map((d, i) => [d.date, i]));
-    const at = (date: Date) => days[index.get(dayKey(date)) ?? -1];
+    const at = (date: Date) => days[index.get(dayIn(date, zone)) ?? -1];
 
     for (const row of xpRows) {
       const day = at(row.createdAt);
@@ -145,10 +169,10 @@ export class InsightsService {
     for (const d of days) d.minutes = round1(d.minutes);
 
     // ---------- weeks (the last 7 days, the 7 before, and so on) ----------
-    const weekOf = (date: Date) => Math.floor((todayStart.getTime() + DAY_MS - 1 - date.getTime()) / (7 * DAY_MS));
+    const weekOf = (date: Date | string) => Math.floor(daysBetween(typeof date === 'string' ? date : dayIn(date, zone), todayKey) / 7);
     const completedDays = new Set(plans.filter((p) => p.completedAt).map((p) => p.day));
     const weekStats = (w: number): WeekStats => {
-      const inWeek = days.filter((d) => weekOf(new Date(`${d.date}T12:00:00`)) === w);
+      const inWeek = days.filter((d) => weekOf(d.date) === w);
       const tries = attempts.filter((a) => weekOf(a.createdAt) === w);
       const speakingXp = xpRows.filter((r) => weekOf(r.createdAt) === w && r.reason === 'VOICE_SPEAKING').reduce((s, r) => s + r.amount, 0);
       const aiTurns = xpRows.filter((r) => weekOf(r.createdAt) === w && r.reason === 'AI_PRACTICE').length;
@@ -199,8 +223,8 @@ export class InsightsService {
       .sort((a, b) => a.average - b.average)
       .slice(0, 3);
 
-    const streak = ActivityService.effectiveStreak(streakRow);
-    const summary = this.summarise({ thisWeek, lastWeek, weeklyMinutes, mistakesByWeek, topPatterns, weakSounds, plans: completedDays, now });
+    const streak = ActivityService.effectiveStreak(streakRow, now, zone);
+    const summary = this.summarise({ thisWeek, lastWeek, weeklyMinutes, mistakesByWeek, topPatterns, weakSounds, plans: completedDays, today: todayKey });
 
     return {
       days,
@@ -214,9 +238,10 @@ export class InsightsService {
       cards: { learned, total: totalCards },
       pronunciation: { byWeek: pronunciationByWeek, weakSounds },
       levels: placements.filter((p) => p.level && p.completedAt).map((p) => ({ level: p.level as string, date: p.completedAt as Date })),
-      streak: { current: streak.current, longest: streakRow?.longestStreak ?? 0, plan: planStreak(completedDays, now) },
+      streak: { current: streak.current, longest: streakRow?.longestStreak ?? 0, plan: planStreak(completedDays, todayKey) },
       totalXp: totalXp._sum.amount ?? 0,
-      summary,
+      summary: summary.map(fillLine),
+      summaryLines: summary,
     };
   }
 
@@ -229,23 +254,24 @@ export class InsightsService {
     topPatterns: MistakePattern[];
     weakSounds: Array<{ label: string; average: number }>;
     plans: Set<string>;
-    now: Date;
-  }): string[] {
+    today: string;
+  }): SummaryLine[] {
     const { thisWeek, lastWeek, weeklyMinutes } = input;
-    const lines: string[] = [];
+    const lines: SummaryLine[] = [];
+    const say = (text: string, vars: SummaryLine['vars'] = {}) => lines.push({ text, vars });
 
     if (thisWeek.minutes === 0 && thisWeek.xp === 0) {
-      lines.push("No practice yet this week. Today's plan takes just a few minutes — a great way to start.");
+      say("No practice yet this week. Today's plan takes just a few minutes — a great way to start.");
     } else {
       const earlierBest = Math.max(0, ...weeklyMinutes.slice(1));
       if (thisWeek.minutes > earlierBest && earlierBest > 0) {
-        lines.push(`Your best week yet: about ${thisWeek.minutes} minutes of practice.`);
+        say('Your best week yet: about {minutes} minutes of practice.', { minutes: thisWeek.minutes });
       } else if (thisWeek.minutes > lastWeek.minutes) {
-        lines.push(`About ${thisWeek.minutes} minutes of practice this week, up from ${lastWeek.minutes}.`);
+        say('About {minutes} minutes of practice this week, up from {before}.', { minutes: thisWeek.minutes, before: lastWeek.minutes });
       } else if (lastWeek.minutes > 0 && thisWeek.minutes < lastWeek.minutes) {
-        lines.push(`A quieter week: about ${thisWeek.minutes} minutes, down from ${lastWeek.minutes}. A short plan each day gets you back on track.`);
+        say('A quieter week: about {minutes} minutes, down from {before}. A short plan each day gets you back on track.', { minutes: thisWeek.minutes, before: lastWeek.minutes });
       } else {
-        lines.push(`About ${thisWeek.minutes} minutes of practice this week.`);
+        say('About {minutes} minutes of practice this week.', { minutes: thisWeek.minutes });
       }
     }
 
@@ -257,23 +283,23 @@ export class InsightsService {
       // "Articles (a, an, the)" reads better in a sentence as "articles"
       const label = MISTAKE_PATTERNS[p].label.split(' (')[0].toLowerCase();
       if (before >= 2 && now <= before / 2) {
-        lines.push(`Mistakes with ${label} dropped from ${before} to ${now}. Nice work.`);
+        say('Mistakes with {label} dropped from {before} to {now}. Nice work.', { label, before, now });
         break;
       }
       if (now >= 3 && now > before) {
-        lines.push(`Mistakes with ${label} keep coming up (${now} this week). Practise them in Review.`);
+        say('Mistakes with {label} keep coming up ({now} this week). Practise them in Review.', { label, now });
         break;
       }
     }
 
     if (thisWeek.pronunciationAverage !== null && lastWeek.pronunciationAverage !== null && thisWeek.pronunciationAverage - lastWeek.pronunciationAverage >= 5) {
-      lines.push(`Your pronunciation score rose from ${lastWeek.pronunciationAverage} to ${thisWeek.pronunciationAverage}.`);
+      say('Your pronunciation score rose from {before} to {now}.', { before: lastWeek.pronunciationAverage, now: thisWeek.pronunciationAverage });
     } else if (input.weakSounds[0] && input.weakSounds[0].average < 85) {
-      lines.push(`Work on ${input.weakSounds[0].label.split(' (')[0]} next: it is your weakest sound.`);
+      say('Work on {sound} next: it is your weakest sound.', { sound: input.weakSounds[0].label.split(' (')[0] });
     }
 
-    const planDays = planStreak(input.plans, input.now);
-    if (planDays >= 2) lines.push(`You finished your daily plan ${planDays} days in a row.`);
+    const planDays = planStreak(input.plans, input.today);
+    if (planDays >= 2) say('You finished your daily plan {days} days in a row.', { days: planDays });
 
     return lines.slice(0, 4);
   }

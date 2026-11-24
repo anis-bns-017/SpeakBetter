@@ -15,6 +15,7 @@ import { GOAL_OPTIONS, LEVEL_OPTIONS } from "./callOptions";
 import { MicCheck } from "./MicCheck";
 import { useProfile } from "../../hooks/useProfile";
 import { cefrToCallLevel } from "../../lib/cefr";
+import { useSendVerification } from "../../hooks/useEmailVerification";
 import { tr } from "../../i18n/core";
 
 const PREFS_KEY = "speakbetter:random-call:prefs";
@@ -88,6 +89,7 @@ export const CallSetup: React.FC<{
     callApi.history().then(setHistory).catch(() => undefined);
   }, []);
 
+  const sendLink = useSendVerification();
   const needsConsent = !!status?.needsConsent;
   const blocked = !!status && !status.eligible && !needsConsent;
 
@@ -147,7 +149,20 @@ export const CallSetup: React.FC<{
                 {tr("Random calls are not available for you")}</p>
               <p className="mt-0.5 text-sm" style={{ color: COLORS.textMuted }}>
                 {status?.denial?.message}
+                {status?.denial?.code === "RESTRICTED" && status.restrictedUntil && (
+                  <> {tr("You can use them again on {date}.", { date: new Date(status.restrictedUntil).toLocaleDateString(undefined, { day: "numeric", month: "long" }) })}</>
+                )}
               </p>
+              {status?.denial?.code === "EMAIL_NOT_VERIFIED" && (
+                <button
+                  type="button"
+                  onClick={() => sendLink.mutate()}
+                  disabled={sendLink.isPending}
+                  className="mt-3 inline-flex h-10 items-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  {tr("Send the link")}
+                </button>
+              )}
             </div>
           </div>
         ) : (

@@ -54,7 +54,7 @@ const ResolveDialog: React.FC<{ item: ReportItem | null; isAdmin: boolean; onClo
     }),
   );
   if (!item) return null;
-  const hasMessage = (item.targetType === "message" || item.targetType === "room-message") && !item.contentDeleted && !!item.content;
+  const hasMessage = ["message", "room-message", "thread", "thread-reply"].includes(item.targetType) && !item.contentDeleted && !!item.content;
 
   return (
     <ActionDialog
@@ -103,8 +103,13 @@ const ResolveDialog: React.FC<{ item: ReportItem | null; isAdmin: boolean; onClo
           {hasMessage && (
             <label className="flex items-start gap-2.5 text-sm text-slate-700 dark:text-slate-300">
               <input type="checkbox" checked={deleteContent} onChange={(e) => setDeleteContent(e.target.checked)} className="mt-0.5 h-4 w-4 accent-indigo-600" />
-              Remove the reported message
+              Remove the reported {item.targetType === "thread" ? "post" : item.targetType === "thread-reply" ? "reply" : "message"}
             </label>
+          )}
+          {item.source === "random-call" && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-400/10 dark:text-amber-200">
+              This also pauses their random calls: 3 days the first time, 14 days the second, then for good. You can lift it from their account.
+            </p>
           )}
           {item.subject && (
             <>
@@ -213,7 +218,7 @@ export const AdminReportsPage: React.FC = () => {
         <span className="mx-1 w-px self-stretch bg-line" aria-hidden />
         {(["all", "app", "random-call"] as const).map((s) => (
           <Chip key={s} selected={source === s} onClick={() => (setSource(s), setPage(1))}>
-            {s === "all" ? "Everywhere" : s === "app" ? "Chat & rooms" : "Random calls"}
+            {s === "all" ? "Everywhere" : s === "app" ? "Chat, rooms & posts" : "Random calls"}
           </Chip>
         ))}
       </div>

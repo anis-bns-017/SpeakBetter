@@ -123,7 +123,6 @@ const Actions: React.FC<{ userId: string; name: string; relationship: ProfileRel
           type="button"
           disabled={sendRequest.isPending}
           onClick={() => sendRequest.mutate(userId, { onSuccess: () => {
-                toast.success(tr("Friend request sent to {name}", { name }));
                 // The profile shows "Request sent" once it is refetched
                 void queryClient.invalidateQueries({ queryKey: ["user-profile", userId] });
               },

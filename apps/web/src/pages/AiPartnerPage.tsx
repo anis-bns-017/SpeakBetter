@@ -113,7 +113,14 @@ const Setup: React.FC<{
 
       {!status.configured && (
         <div className="mt-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-sm text-amber-800 dark:text-amber-200">
-          {tr("The AI partner isn't switched on yet. Add")}{" "}<code className="font-mono">ANTHROPIC_API_KEY</code> {" "}{tr("to")}{" "}<code className="font-mono">server/.env</code> {" "}{tr("and restart the server.")}</div>
+          <p className="font-semibold">{tr("The AI partner isn't available right now.")}</p>
+          <p className="mt-1">
+            {tr("You can still practise speaking:")}{" "}
+            <Link to="/roleplay" className="font-semibold underline">{tr("Role-play")}</Link>{" · "}
+            <Link to="/voice" className="font-semibold underline">{tr("Voice Rooms")}</Link>{" · "}
+            <Link to="/challenge" className="font-semibold underline">{tr("Daily challenge")}</Link>
+          </p>
+        </div>
       )}
 
       {status.activeSessionId && (
@@ -193,15 +200,15 @@ const Setup: React.FC<{
         {starting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
         {tr("Start talking")}</button>
       <p className="text-center text-xs text-slate-400 mt-3">
-        {outOfTurns ? tr("You've used all of today's practice turns. Come back tomorrow!") : tr("{dailyTurnsLeft} practice turns left today", { dailyTurnsLeft: status.dailyTurnsLeft })}
-        {onFreePlan && (
+        {!status.configured ? null : outOfTurns ? tr("You've used all of today's practice turns. Come back tomorrow!") : tr("{dailyTurnsLeft} practice turns left today", { dailyTurnsLeft: status.dailyTurnsLeft })}
+        {onFreePlan && status.configured && (
           <>
             {" · "}
             <Link to="/premium" className="font-medium text-indigo-500 hover:text-indigo-600">
               {tr("Get more with Pro")}</Link>
           </>
         )}
-        {!speechCaptionsSupported() && tr(" · Voice input needs Chrome or Edge. You can type instead.")}
+        {status.configured && !speechCaptionsSupported() && tr(" · Voice input needs Chrome or Edge. You can type instead.")}
       </p>
     </div>
   );

@@ -197,6 +197,9 @@ const IssueCard: React.FC<{
 // Editor
 // ============================================================
 
+/** What has been saved: the words and the spelling choice together */
+const draftKey = (text: string, variant: SpellingVariant) => `${variant}\n${text}`;
+
 const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
   const navigate = useNavigate();
   const save = useSaveWriting(piece.id);
@@ -214,26 +217,58 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
   // True once a fix is applied after a check: the score no longer matches the text
   const [scoreStale, setScoreStale] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const [saved, setSaved] = useState<"idle" | "saving" | "saved">("idle");
+  const [saved, setSaved] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [result, setResult] = useState<FinishResult | null>(null);
   const [showTask, setShowTask] = useState(true);
   const textarea = useRef<HTMLTextAreaElement>(null);
-  const lastSaved = useRef(piece.text);
+  const lastSaved = useRef(draftKey(piece.text, piece.variant));
 
   const words = useMemo(() => countWords(text), [text]);
   const readOnly = piece.finished || !!result;
   const prompt = piece.prompt;
 
-  // Save a moment after typing stops
+  // Save a moment after typing stops. A failed save tries again by itself until it gets through.
+  const saveDraft = save.mutate;
   useEffect(() => {
-    if (readOnly || text === lastSaved.current) return;
+    const key = draftKey(text, variant);
+    if (readOnly || key === lastSaved.current) return;
     const id = setTimeout(() => {
-      lastSaved.current = text;
+      const before = lastSaved.current;
+      lastSaved.current = key;
       setSaved("saving");
-      save.mutate({ text, variant }, { onSuccess: () => setSaved("saved"), onError: () => setSaved("idle") });
-    }, 1200);
+      saveDraft(
+        { text, variant },
+        {
+          onSuccess: () => setSaved("saved"),
+          onError: (e) => {
+            // The server refusing it (a finished piece, too long) will not change by trying again
+            const status = (e as { response?: { status?: number } })?.response?.status ?? 0;
+            const retry = status === 0 || status === 429 || status >= 500;
+            if (retry && lastSaved.current === key) lastSaved.current = before;
+            setSaved("failed");
+          },
+        },
+      );
+    }, saved === "failed" ? 8000 : 1200);
     return () => clearTimeout(id);
-  }, [text, variant, readOnly, save]);
+  }, [text, variant, readOnly, saveDraft, saved]);
+
+  // Leaving the page keeps the last words, and closing the tab warns while they are unsaved
+  const latest = useRef({ text, variant, readOnly });
+  useEffect(() => {
+    latest.current = { text, variant, readOnly };
+  }, [text, variant, readOnly]);
+  useEffect(() => {
+    const unsaved = () => !latest.current.readOnly && draftKey(latest.current.text, latest.current.variant) !== lastSaved.current;
+    const warn = (e: BeforeUnloadEvent) => {
+      if (unsaved()) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      if (unsaved()) saveDraft({ text: latest.current.text, variant: latest.current.variant });
+    };
+  }, [saveDraft]);
 
   const runCheck = () => {
     if (!words) return toast.info(tr("Write something first."));
@@ -241,7 +276,8 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
       { text, variant },
       {
         onSuccess: (r) => {
-          lastSaved.current = text;
+          lastSaved.current = draftKey(text, variant);
+          setSaved("saved");
           setIssues(r.issues);
           setScore(r.score);
           setScoreStale(false);
@@ -327,12 +363,18 @@ const Editor: React.FC<{ piece: WritingPiece }> = ({ piece }) => {
         )}
         {!readOnly && (
           <span className="ml-auto flex items-center gap-3">
-            <span className="text-xs text-slate-400">{saved === "saving" ? tr("Saving…") : saved === "saved" ? tr("Saved") : ""}</span>
+            <span className="text-xs text-slate-400">{saved === "saving" ? tr("Saving…") : saved === "saved" ? tr("Saved") : saved === "failed" ? tr("Not saved yet. Trying again…") : ""}</span>
             <button
               type="button"
               onClick={() =>
                 confirmDelete
-                  ? remove.mutate(piece.id, { onSuccess: () => navigate("/writing"), onError: () => toast.error(tr("Couldn't delete the draft.")) })
+                  ? remove.mutate(piece.id, {
+                      onSuccess: () => {
+                        // Nothing left to save
+                        latest.current = { ...latest.current, readOnly: true };
+                        navigate("/writing");
+                      }, onError: () => toast.error(tr("Couldn't delete the draft.")),
+                    })
                   : setConfirmDelete(true)
               }
               onBlur={() => setConfirmDelete(false)}

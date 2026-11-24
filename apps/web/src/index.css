@@ -380,3 +380,23 @@ html[lang="bn"] .font-display {
   font-family: "Hind Siliguri", "Noto Sans Bengali", "Fraunces", serif;
   letter-spacing: 0;
 }
+
+/* A short side-to-side shake for a rejected guess */
+@keyframes sb-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*="sb-shake"] { animation: none !important; }
+}
+
+/* Settings > Reading comfort > Calmer animations */
+html[data-reduce-motion="true"] *,
+html[data-reduce-motion="true"] *::before,
+html[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

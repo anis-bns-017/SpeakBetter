@@ -42,6 +42,9 @@ import { asApiError } from "../../lib/api/errors";
 import { tr, msg } from "../../i18n/core";
 import { getMicrophone, microphoneErrorMessage } from "../../lib/microphone";
 
+/** Big emoji stickers, the everyday reactions of people practising together */
+const STICKERS = ["👍", "👏", "🎉", "🔥", "❤️", "😂", "😊", "😮", "🤔", "😢", "🙌", "💯", "🙏", "👋", "🌟", "📚", "✍️", "🎤", "🧠", "🏆", "☕", "😴", "🤝", "✅"];
+
 interface MessageInputProps {
   onSend: (
     content: string,
@@ -161,6 +164,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   } | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [showStickers, setShowStickers] = useState(false);
   const [isTypingState, setIsTypingState] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -212,6 +216,11 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     }
     return "";
   };
+
+  // The microphone prompt can stay open for a while: a second tap must not open a second stream,
+  // and leaving the chat meanwhile must not leave the microphone on
+  const micStartingRef = useRef(false);
+  const unmountedRef = useRef(false);
 
   const stopTracks = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -329,12 +338,19 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   );
 
   const startRecording = useCallback(async () => {
+    if (micStartingRef.current) return;
+    micStartingRef.current = true;
     try {
       const stream = await getMicrophone({
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
       });
+      micStartingRef.current = false;
+      if (unmountedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       streamRef.current = stream;
 
       const mime = getSupportedMimeType();
@@ -415,6 +431,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
         });
       }, 1000);
     } catch (err) {
+      micStartingRef.current = false;
       console.error("Microphone error:", err);
       toast.error(microphoneErrorMessage(err));
       stopVisualizer();
@@ -1001,7 +1018,9 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   };
 
   useEffect(() => {
+    unmountedRef.current = false;
     return () => {
+      unmountedRef.current = true;
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       clearRecordingTimer();
       stopVisualizer();
@@ -1369,6 +1388,42 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           )}
       </AnimatePresence>
 
+      {/* Sticker tray */}
+      <AnimatePresence>
+        {showStickers && !isEditMode && (
+          <motion.div
+            role="group"
+            aria-label={tr("Stickers")}
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="absolute bottom-[4.5rem] left-2 z-50 grid w-[280px] grid-cols-6 gap-1 rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-2xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/95"
+          >
+            {STICKERS.map((sticker) => (
+              <button
+                key={sticker}
+                type="button"
+                aria-label={tr("Send sticker {sticker}", { sticker })}
+                onClick={() => {
+                  onSend(sticker, "STICKER");
+                  setShowStickers(false);
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-2xl hover:bg-slate-100 dark:hover:bg-white/10"
+              >
+                {sticker}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowStickers(false)}
+              className="col-span-6 mt-1 h-8 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+            >
+              {tr("Close")}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Attachment Menu */}
       <AnimatePresence>
         {showAttachmentMenu && !isEditMode && (
@@ -1410,7 +1465,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               {
                 icon: Sticker,
                 label: msg("Sticker"),
-                action: null,
+                action: "sticker",
                 color: "text-emerald-500",
                 bg: "bg-emerald-50 dark:bg-emerald-500/10",
               },
@@ -1426,7 +1481,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                 key={item.label}
                 type="button"
                 onClick={() => {
-                  if (item.action === "location") {
+                  if (item.action === "sticker") {
+                    setShowStickers(true);
+                    setShowAttachmentMenu(false);
+                  } else if (item.action === "location") {
                     navigator.geolocation.getCurrentPosition(
                       (pos) => {
                         onSend(
@@ -1439,9 +1497,6 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                     );
                   } else if (item.action && typeof item.action !== "string" && item.action.current) {
                     item.action.current.click();
-                  } else {
-                    toast.info(tr("{label} coming soon!", { label: item.label }));
-                    setShowAttachmentMenu(false);
                   }
                 }}
                 className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-slate-100/80 dark:hover:bg-white/5 transition-all w-[calc(33.333%-0.375rem)] ${item.bg}`}

@@ -1,3 +1,5 @@
+import { CountryFlag } from "../voice/shared/CountryFlag";
+import { countryName, resolveCountryCode } from "../../lib/countryFlag";
 import React from 'react';
 import { levelChipClass } from '../../lib/cefr';
 import { tr } from "../../i18n/core";
@@ -198,7 +200,10 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
           {profile.country && (
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-xs text-gray-500">{tr("Country")}</p>
-              <p className="font-medium">{profile.country}</p>
+              <p className="flex items-center gap-1.5 font-medium">
+                <CountryFlag country={profile.country} size={16} ringColor="transparent" />
+                {resolveCountryCode(profile.country) ? countryName(resolveCountryCode(profile.country)!) : profile.country}
+              </p>
             </div>
           )}
           {profile.city && (

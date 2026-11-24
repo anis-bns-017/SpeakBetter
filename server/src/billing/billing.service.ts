@@ -4,8 +4,10 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { BillingInterval, NotificationType, Payment, PaymentStatus, SubscriptionPlan } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma.service';
@@ -40,14 +42,27 @@ export class BillingService {
     private prisma: PrismaService,
     private provider: PaymentProvider,
     private notifications: NotificationsService,
+    @Optional() private config?: ConfigService,
   ) {}
+
+  /** Pro is more turns with the AI partner, so it means nothing while the partner is switched off */
+  private get aiAvailable() {
+    return this.config ? !!this.config.get<string>('ANTHROPIC_API_KEY') : true;
+  }
+
+  /** Real money is only taken for something that works; the test checkout stays open for building */
+  private get canSell() {
+    return this.provider.isAvailable() && (this.provider.isSandbox || this.aiAvailable);
+  }
 
   /** What can be bought, what each plan includes, and whether paying works at all right now */
   catalog() {
     return {
       currency: CURRENCY,
       sandbox: this.provider.isSandbox,
-      paymentsAvailable: this.provider.isAvailable(),
+      paymentsAvailable: this.canSell,
+      aiAvailable: this.aiAvailable,
+      autoRenews: this.provider.autoRenews,
       yearlySavingsPercent: yearlySavingsPercent(),
       plans: [
         { id: 'FREE', name: 'Free', limits: PLAN_LIMITS.FREE, prices: null },
@@ -90,7 +105,7 @@ export class BillingService {
   }
 
   async startCheckout(userId: string, planId: unknown, interval: unknown) {
-    if (!this.provider.isAvailable()) {
+    if (!this.canSell) {
       throw new ServiceUnavailableException('Payments are not available yet');
     }
     if (planId !== 'PRO') throw new BadRequestException('Choose the Pro plan');

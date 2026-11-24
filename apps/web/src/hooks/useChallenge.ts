@@ -85,7 +85,10 @@ export const useDeleteChallenge = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => (await apiClient.delete('/challenges/entries/mine')).data,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['challenge-today'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['challenge-today'] });
+      queryClient.invalidateQueries({ queryKey: ['plan-today'] });
+    },
   });
 };
 

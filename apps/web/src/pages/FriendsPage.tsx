@@ -10,7 +10,6 @@ import {
   useSendFriendRequest,
   useUnblockUser,
 } from "../hooks/useFriends";
-import { toast } from "sonner";
 import { FollowButton } from "../components/social/FollowButton";
 import {
   Users,
@@ -53,9 +52,8 @@ export const FriendsPage = () => {
     try {
       setLoadingActionId(requestId);
       await respondMutation.mutateAsync({ requestId, action });
-      toast.success(action === "accepted" ? tr("Friend request accepted") : tr("Request declined"));
     } catch {
-      toast.error(tr("Failed to respond to request"));
+      // The mutation shows its own toast; a second one here made every message appear twice
     } finally {
       setLoadingActionId(null);
     }
@@ -65,9 +63,8 @@ export const FriendsPage = () => {
     try {
       setLoadingActionId(requestId);
       await cancelMutation.mutateAsync(requestId);
-      toast.success(tr("Friend request cancelled"));
     } catch {
-      toast.error(tr("Failed to cancel request"));
+      // The mutation shows its own toast; a second one here made every message appear twice
     } finally {
       setLoadingActionId(null);
     }
@@ -77,21 +74,19 @@ export const FriendsPage = () => {
     try {
       setLoadingActionId(userId);
       await sendRequestMutation.mutateAsync(userId);
-      toast.success(tr("Friend request sent"));
     } catch {
-      toast.error(tr("Failed to send friend request"));
+      // The mutation shows its own toast; a second one here made every message appear twice
     } finally {
       setLoadingActionId(null);
     }
   };
 
-  const handleUnblock = async (userId: string, userName: string) => {
+  const handleUnblock = async (userId: string) => {
     try {
       setLoadingActionId(userId);
       await unblockMutation.mutateAsync(userId);
-      toast.success(tr("{userName} unblocked", { userName }));
     } catch {
-      toast.error(tr("Failed to unblock user"));
+      // The mutation shows its own toast; a second one here made every message appear twice
     } finally {
       setLoadingActionId(null);
     }
@@ -253,7 +248,6 @@ export const FriendsPage = () => {
                           <h3 className="font-bold text-slate-800 text-sm">
                             {req.fromUser.name}
                           </h3>
-                          <p className="text-xs text-slate-500">{req.fromUser.email}</p>
                         </div>
                       </div>
 
@@ -348,7 +342,6 @@ export const FriendsPage = () => {
 
                         <div>
                           <h3 className="font-bold text-slate-800 text-sm"><Link to={`/u/${result.id}`} className="hover:underline">{result.name}</Link></h3>
-                          <p className="text-xs text-slate-500">{result.email}</p>
                           {result.profile && (
                             <p className="text-[11px] text-slate-400 mt-0.5">
                               {result.profile.nativeLanguage || tr("Native")} {" "}{tr("• Learning:{value}", { value: " " })}{result.profile.learningLanguages?.join(", ") || tr("General")}
@@ -428,7 +421,6 @@ export const FriendsPage = () => {
                           <h3 className="font-bold text-slate-800 text-sm">
                             {userItem.name}
                           </h3>
-                          <p className="text-xs text-slate-500">{userItem.email}</p>
                           {userItem.reason && (
                             <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
                               <Info className="w-3 h-3 text-slate-300" />
@@ -439,7 +431,7 @@ export const FriendsPage = () => {
                       </div>
 
                       <button
-                        onClick={() => handleUnblock(userItem.id, userItem.name)}
+                        onClick={() => handleUnblock(userItem.id)}
                         disabled={isLoadingAction}
                         className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-slate-700 font-semibold rounded-xl text-xs transition-all border border-slate-200/80 disabled:opacity-50 shrink-0"
                       >

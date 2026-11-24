@@ -42,6 +42,21 @@ function distractors(pack: VocabPack, target: PackWord, seed: string): string[] 
   return [...same, ...different].slice(0, 3).map((x) => x.word);
 }
 
+/** One question about one word: a gap question when asked for and the word appears in its example */
+export function questionFor(pack: VocabPack, word: PackWord, wantGap: boolean, seed: string): QuizQuestion {
+  // Phrasal verbs and idioms change shape in a sentence, so the blank is the phrase as written there
+  const gap = gapSentence(word.example, word.form ?? word.word);
+  const kind: QuizKind = wantGap && gap ? 'gap' : 'meaning';
+  const id = `${word.id}:${kind}`;
+  return {
+    id,
+    kind,
+    wordId: word.id,
+    prompt: kind === 'gap' ? (gap as string) : word.meaning,
+    options: [word.word, ...distractors(pack, word, `${seed}:${id}:d`)],
+  };
+}
+
 /**
  * The quiz for one learner and one attempt: a different mix of words each time (the seed holds the attempt
  * number), alternating "which word means this?" with "which word fills the gap?".
@@ -51,20 +66,7 @@ export function buildQuiz(pack: VocabPack, seed: string, size = QUIZ_SIZE): Quiz
   const picked = optionOrder(`${seed}:words`, pack.words.length)
     .slice(0, count)
     .map((i) => pack.words[i]);
-  return picked.map((word, position) => {
-    // Phrasal verbs and idioms change shape in a sentence, so the blank is the phrase as written there
-    const gap = gapSentence(word.example, word.form ?? word.word);
-    // Gap questions need the word in its example; fall back to the meaning question when it is not
-    const kind: QuizKind = position % 2 === 1 && gap ? 'gap' : 'meaning';
-    const id = `${word.id}:${kind}`;
-    return {
-      id,
-      kind,
-      wordId: word.id,
-      prompt: kind === 'gap' ? (gap as string) : word.meaning,
-      options: [word.word, ...distractors(pack, word, `${seed}:${id}:d`)],
-    };
-  });
+  return picked.map((word, position) => questionFor(pack, word, position % 2 === 1, seed));
 }
 
 /** The seed for one learner's quiz attempt */

@@ -1,5 +1,6 @@
 // server/src/voice/voice.gateway.ts
 
+import { PARTICIPANT_PROFILE } from './participant-select';
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -44,6 +45,13 @@ export class VoiceGateway
   private unsubscribeRevoked?: () => void;
   /** How long a dropped connection may come back before it counts as leaving */
   private static readonly RECONNECT_GRACE_MS = 15_000;
+  /** How often the room lists are checked against who is really connected */
+  private static readonly GHOST_SWEEP_MS = 60_000;
+  /** Someone who only just joined may not have opened their connection yet */
+  private static readonly GHOST_JOIN_GRACE_MS = 60_000;
+  private ghostTimer?: ReturnType<typeof setInterval>;
+  /** Who was missing on the last check. It takes two checks in a row, so a slow reconnect is never thrown out. */
+  private missingLastSweep = new Set<string>();
 
   constructor(
     private authService: AuthService,
@@ -59,6 +67,48 @@ export class VoiceGateway
     this.unsubscribeRevoked = this.authService.onSessionRevoked((event) => {
       void this.closeRevokedSockets(event);
     });
+    this.ghostTimer = setInterval(() => void this.sweepGhosts(), VoiceGateway.GHOST_SWEEP_MS);
+    this.ghostTimer.unref?.();
+  }
+
+  /**
+   * A server restart or crash drops every connection without anyone "leaving", which would keep them listed
+   * as in the room for ever. Marks people as gone once they have been missing on two checks in a row.
+   * Returns how many were removed.
+   */
+  async sweepGhosts(now = Date.now()): Promise<number> {
+    if (!this.server) return 0;
+    try {
+      const rows = await this.prisma.voiceParticipant.findMany({
+        where: { leftAt: null, room: { status: 'ACTIVE' } },
+        select: { roomId: true, userId: true, joinedAt: true },
+        take: 2000,
+      });
+      // fetchSockets() also asks the other server instances; if one can't answer, nothing is removed
+      const connected = new Set<string>();
+      for (const socket of await this.server.fetchSockets()) {
+        for (const room of socket.rooms) {
+          if (room.startsWith('voice:')) connected.add(`${room.slice('voice:'.length)}:${socket.data?.userId}`);
+        }
+      }
+      const missing = new Set(
+        rows
+          .filter((row) => now - row.joinedAt.getTime() >= VoiceGateway.GHOST_JOIN_GRACE_MS)
+          .map((row) => `${row.roomId}:${row.userId}`)
+          .filter((key) => !connected.has(key) && !this.state.pendingLeaves.has(key)),
+      );
+      const gone = [...missing].filter((key) => this.missingLastSweep.has(key));
+      this.missingLastSweep = missing;
+      for (const key of gone) {
+        const [roomId, userId] = key.split(':');
+        await this.removeFromRoom(roomId, userId);
+        this.missingLastSweep.delete(key);
+      }
+      return gone.length;
+    } catch (error) {
+      this.logger.warn(`Could not check who is still in the rooms: ${(error as Error)?.message}`);
+      return 0;
+    }
   }
 
   /**
@@ -151,7 +201,9 @@ export class VoiceGateway
         key,
         setTimeout(() => {
           this.state.pendingLeaves.delete(key);
-          void this.removeFromRoom(roomId, userId);
+          this.removeFromRoom(roomId, userId).catch((error: Error) =>
+            this.logger.warn(`Could not remove ${userId} from ${roomId}: ${error?.message}`),
+          );
         }, VoiceGateway.RECONNECT_GRACE_MS),
       );
     }
@@ -161,7 +213,16 @@ export class VoiceGateway
 
   /** Called when the grace period ends without the user coming back */
   private async removeFromRoom(roomId: string, userId: string) {
+    // They may have come back through another server instance while the timer ran
+    const sockets = await this.server.in(`voice:${roomId}`).fetchSockets();
+    if (sockets.some((s) => s.data?.userId === userId)) return;
+
     this.coachSession.flushSpeaking(roomId, userId);
+    // The room lists read this: without it, closing a tab left you "in the room" for good
+    await this.prisma.voiceParticipant.updateMany({
+      where: { roomId, userId, leftAt: null },
+      data: { leftAt: new Date() },
+    });
     const { wasPresent, remaining } = await this.state.removeParticipant(
       roomId,
       userId,
@@ -224,6 +285,7 @@ export class VoiceGateway
                   name: true,
                   avatarUrl: true,
                   speakingEffect: true,
+                  profile: PARTICIPANT_PROFILE,
                 },
               },
             },
@@ -339,6 +401,7 @@ export class VoiceGateway
               name: true,
               avatarUrl: true,
               speakingEffect: true,
+              profile: PARTICIPANT_PROFILE,
             },
           },
         },
@@ -516,6 +579,7 @@ export class VoiceGateway
   }
 
   onModuleDestroy() {
+    if (this.ghostTimer) clearInterval(this.ghostTimer);
     this.unsubscribeRevoked?.();
   }
 }

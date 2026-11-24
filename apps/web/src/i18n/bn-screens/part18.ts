@@ -58,4 +58,15 @@ export const part18: Record<string, string> = {
   "Northern-lights colours wave around your ring.": "মেরুজ্যোতির রঙ আপনার বলয়ের চারপাশে ঢেউ খেলে।",
   "Galaxy Orbit": "গ্যালাক্সি কক্ষপথ",
   "Little planets and stars orbit around you.": "ছোট ছোট গ্রহ আর তারা আপনার চারপাশে ঘোরে।",
+
+  // Voice room: reactions, spotlight
+  Someone: "কেউ একজন",
+  "Quick reactions": "দ্রুত প্রতিক্রিয়া",
+  "{count} reactions!": "{count}টি প্রতিক্রিয়া!",
+  "{a} and {b}": "{a} আর {b}",
+  "{a}, {b} and {n} more": "{a}, {b} এবং আরও {n} জন",
+  "Now speaking": "এখন কথা বলছেন",
+  "Select your country": "আপনার দেশ বেছে নিন",
+  "Tap to clap · hold to keep clapping": "হাততালি দিতে ট্যাপ করুন · ধরে রাখলে চলতে থাকবে",
+  "It's quiet right now — say hello and start the conversation": "এখন সবাই চুপচাপ — হ্যালো বলে কথোপকথন শুরু করুন",
 };

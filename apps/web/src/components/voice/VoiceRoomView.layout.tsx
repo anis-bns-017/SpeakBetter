@@ -21,6 +21,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Keyboard, type LucideIcon } from "lucide-react";
 
 import { THEME } from "./VoiceRoomView.theme";
+import { AudioRibbon } from "./shared/AudioRibbon";
 import { tr } from "../../i18n/core";
 
 // ------------------------------------------------------------
@@ -35,7 +36,7 @@ const ROOM_SURFACE = {
 } as const;
 
 const TONES = {
-  primary: { fg: THEME.colors.accent.primaryLight, bg: "rgba(79,102,200,0.16)", ring: "rgba(142,163,232,0.45)" },
+  primary: { fg: THEME.colors.accent.primaryLight, bg: "rgba(20,184,166,0.16)", ring: "rgba(94,234,212,0.45)" },
   success: { fg: THEME.colors.accent.success, bg: "rgba(52,211,153,0.14)", ring: "rgba(52,211,153,0.45)" },
   warning: { fg: THEME.colors.accent.warning, bg: "rgba(251,191,36,0.14)", ring: "rgba(251,191,36,0.45)" },
 } as const;
@@ -132,7 +133,7 @@ const ToolButton: React.FC<{ tool: RoomTool }> = ({ tool }) => {
       onClick={tool.onClick}
       aria-label={tr(tool.label)}
       aria-pressed={tool.active ?? false}
-      className="group/tool relative grid h-9 w-9 shrink-0 place-items-center rounded-full transition-[transform,background-color,color] duration-200 hover:-translate-y-px active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+      className="group/tool relative grid h-9 w-9 shrink-0 place-items-center rounded-full transition-[transform,background-color,color] duration-200 hover:-translate-y-px active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70"
       style={{
         background: tool.active ? tone.bg : "transparent",
         color: tool.active ? tone.fg : THEME.colors.text.secondary,
@@ -257,6 +258,15 @@ export const DockKey: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // The shell
 // ------------------------------------------------------------
 
+/** Points the soft light on the stage at the cursor. Sets two CSS variables directly, so moving the mouse never re-renders. */
+function trackCursorLight(e: React.PointerEvent<HTMLElement>) {
+  if (e.pointerType === "touch") return;
+  const el = e.currentTarget;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty("--vr-mx", `${e.clientX - r.left}px`);
+  el.style.setProperty("--vr-my", `${e.clientY - r.top}px`);
+}
+
 export interface RoomLayoutProps {
   header: React.ReactNode;
   banner?: React.ReactNode;
@@ -266,6 +276,8 @@ export interface RoomLayoutProps {
   toolGroups: RoomToolGroup[];
   /** Pinned under the stage header (coach dock, missions…) */
   stageTop?: React.ReactNode;
+  /** 0–1 loudness of the room: drives the wave along the bottom of the stage */
+  ambientLevel?: number;
   /** The participants; scrolls inside the card */
   stage: React.ReactNode;
   /** Absolutely positioned layers over the stage (captions, reactions, queue) */
@@ -292,6 +304,7 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
   stats,
   toolGroups,
   stageTop,
+  ambientLevel = 0,
   stage,
   stageOverlay,
   stageFooter,
@@ -304,7 +317,7 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
   shortcutHint,
   children,
 }) => (
-  <div className="relative flex h-dvh flex-col overflow-hidden" style={{ background: "var(--sx-bg-07070d)", color: THEME.colors.text.primary }}>
+  <div className="vr-skin relative flex h-dvh flex-col overflow-hidden" style={{ background: "var(--sx-bg-07070d)", color: THEME.colors.text.primary }}>
     <RoomBackdrop energy={stats.some((st) => st.id === "speaking" && st.live)} />
 
     <div className="vr-enter relative z-30">{header}</div>
@@ -312,7 +325,15 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
 
     <main className="relative z-10 flex min-h-0 flex-1 gap-3 px-2 pt-2 sm:px-3 sm:pt-3">
       {/* Stage */}
-      <RoomCard as="section" aria-label={tr("Stage")} className="vr-enter flex min-w-0 flex-1 flex-col" style={{ ["--vr-enter-delay" as string]: "120ms" } as React.CSSProperties}>
+      <RoomCard
+        as="section"
+        aria-label={tr("Stage")}
+        className="vr-enter vr-stage flex min-w-0 flex-1 flex-col"
+        data-energy={stats.some((st) => st.id === "speaking" && st.live)}
+        onPointerMove={trackCursorLight}
+        style={{ ["--vr-enter-delay" as string]: "120ms" } as React.CSSProperties}
+      >
+        <div aria-hidden className="vr-cursor-glow" />
         <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 pt-3 sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {stageTitle}
@@ -336,12 +357,13 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
         )}
 
         <div className="relative flex min-h-0 flex-1 flex-col">
-          {stage}
+          <AudioRibbon level={ambientLevel} />
+          <div className="relative z-[1] flex min-h-0 flex-1 flex-col">{stage}</div>
           {stageOverlay}
         </div>
 
         {stageFooter && (
-          <div className="relative z-20 flex shrink-0 items-center justify-start gap-3 overflow-x-auto border-t px-3 py-2.5 md:justify-center" style={{ borderColor: "var(--sx-border-255-255-255-60)", background: "var(--sx-bg-8-8-16-350)", scrollbarWidth: "none" }}>
+          <div className="relative z-20 flex shrink-0 items-center justify-start gap-3 overflow-x-auto border-t px-3 pb-3 pt-4 md:justify-center md:overflow-visible" style={{ borderColor: "var(--sx-border-255-255-255-60)", background: "linear-gradient(180deg, var(--sx-bg-8-8-16-350), rgb(8 8 16 / 0.55))", scrollbarWidth: "none" }}>
             {stageFooter}
           </div>
         )}
@@ -376,7 +398,7 @@ export const RoomLayout: React.FC<RoomLayoutProps> = ({
           <button
             type="button"
             onClick={onShowShortcuts}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70"
             style={{ color: THEME.colors.text.secondary, border: "1px solid var(--sx-border-255-255-255-70)" }}
             aria-label={tr("Keyboard shortcuts")}
             title={tr("Keyboard shortcuts (?)")}
@@ -445,7 +467,7 @@ export const RoomPhoneDock: React.FC<{ actions: PhoneDockAction[] }> = ({ action
 // ------------------------------------------------------------
 
 export const RoomStatusScreen: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="relative flex h-dvh items-center justify-center overflow-hidden px-6" style={{ background: "var(--sx-bg-07070d)" }}>
+  <div className="vr-skin relative flex h-dvh items-center justify-center overflow-hidden px-6" style={{ background: "var(--sx-bg-07070d)" }}>
     <RoomBackdrop intensity="bright" />
     <div className="relative">{children}</div>
   </div>
@@ -482,7 +504,7 @@ export const RoomStatusCard: React.FC<{
 export const RoomButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" }> = ({ variant = "primary", className = "", style, children, ...rest }) => (
   <button
     type="button"
-    className={`inline-flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 ${variant === "primary" ? "text-white hover:brightness-110 active:scale-[0.98]" : "hover:bg-white/[0.06]"} ${className}`}
+    className={`inline-flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70 ${variant === "primary" ? "text-white hover:brightness-110 active:scale-[0.98]" : "hover:bg-white/[0.06]"} ${className}`}
     style={{
       ...(variant === "primary"
         ? { background: "linear-gradient(135deg, var(--sx-bg-6366f1), var(--sx-bg-8b5cf6))", boxShadow: "0 12px 30px -12px var(--sx-shadow-99-102-241-900), inset 0 1px 0 rgb(255 255 255 / 0.22)" }
@@ -503,7 +525,7 @@ export const RoomJoiningIndicator: React.FC<{ label: string; icon: LucideIcon; o
         <motion.span
           key={i}
           className="absolute inset-0 rounded-full"
-          style={{ border: "1px solid rgba(142,163,232,0.45)" }}
+          style={{ border: "1px solid rgba(94,234,212,0.45)" }}
           initial={{ scale: 0.55, opacity: 0.8 }}
           animate={{ scale: 1.25, opacity: 0 }}
           transition={{ duration: 2.4, repeat: Infinity, delay: i * 0.8, ease: "easeOut" }}

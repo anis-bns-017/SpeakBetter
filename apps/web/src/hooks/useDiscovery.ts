@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiClient } from "../lib/api/client";
 
 export interface RoomCategory {
@@ -56,6 +56,8 @@ export const useDiscoverRooms = (params: {
   filter?: string;
   language?: string;
   category?: string;
+  minParticipants?: number;
+  maxParticipants?: number;
   page?: number;
   limit?: number;
 }) => {
@@ -70,12 +72,14 @@ export const useDiscoverRooms = (params: {
       );
       return response.data;
     },
+    // Typing or changing a filter keeps the current rooms on screen until the new ones arrive
+    placeholderData: keepPreviousData,
   });
 };
 
 export const useTrendingRooms = (limit: number = 10) => {
   return useQuery({
-    queryKey: ["trending-rooms"],
+    queryKey: ["trending-rooms", limit],
     queryFn: async () => {
       const response = await apiClient.get<DiscoveryRoom[]>("/voice/trending", {
         params: { limit },
@@ -108,7 +112,7 @@ export const useLiveRoomsCount = () => {
 
 export const useRecommendedRooms = (limit: number = 10) => {
   return useQuery({
-    queryKey: ["recommended-rooms"],
+    queryKey: ["recommended-rooms", limit],
     queryFn: async () => {
       const response = await apiClient.get<DiscoveryRoom[]>(
         "/voice/recommended",

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import { dayIn, learnerZone } from '../common/learner-day';
 import { ActivityService } from '../learning/activity.service';
 import { BadgesService } from '../gamification/badges.service';
 import { weekEndOf, weekKey, weekStartOf } from '../gamification/leagues.engine';
@@ -20,9 +21,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** "Your streak was saved" is only shown for this long after the freeze was used */
 const SAVED_FRESH_DAYS = 14;
 
-/** YYYY-MM-DD in the server's time zone */
-const dayKey = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 @Injectable()
 export class QuestsService {
@@ -131,6 +129,7 @@ export class QuestsService {
   /** How far each kind of quest got since the week started, from what the learner did anywhere in the app */
   private async measure(userId: string, kinds: QuestKind[], since: Date): Promise<number[]> {
     const has = (k: QuestKind) => kinds.includes(k);
+    const zone = has('DAYS') ? await learnerZone(this.prisma, userId) : undefined;
     const [xp, cardReviews, wordReviews, attempts, challenges, texts, plans, pieces] = await Promise.all([
       this.prisma.xpTransaction.findMany({
         // Quest XP itself does not count towards the XP quest
@@ -141,7 +140,7 @@ export class QuestsService {
       has('REVIEW') ? this.prisma.voiceSavedWord.count({ where: { userId, reviewCount: { gt: 0 }, updatedAt: { gte: since } } }) : 0,
       has('PRONUNCIATION') ? this.prisma.pronunciationAttempt.count({ where: { userId, createdAt: { gte: since } } }) : 0,
       has('CHALLENGE') ? this.prisma.challengeEntry.count({ where: { userId, createdAt: { gte: since } } }) : 0,
-      has('READ') ? this.prisma.libraryProgress.count({ where: { userId, updatedAt: { gte: since } } }) : 0,
+      has('READ') ? this.prisma.libraryProgress.count({ where: { userId, completedAt: { not: null }, updatedAt: { gte: since } } }) : 0,
       has('PLAN') ? this.prisma.dailyPlan.count({ where: { userId, completedAt: { gte: since } } }) : 0,
       has('WRITE') ? this.prisma.writingPiece.count({ where: { userId, submittedAt: { gte: since } } }) : 0,
     ]);
@@ -154,7 +153,7 @@ export class QuestsService {
         case 'XP':
           return sum();
         case 'DAYS':
-          return new Set(xp.map((t) => dayKey(t.createdAt))).size;
+          return new Set(xp.map((t) => dayIn(t.createdAt, zone))).size;
         case 'PLAN':
           return plans;
         // 1 XP per 15 seconds spoken in rooms and calls; each AI partner turn is about half a minute
@@ -193,7 +192,7 @@ export class QuestsService {
         select: { day: true, streak: true },
       }),
     ]);
-    const effective = ActivityService.effectiveStreak(row);
+    const effective = ActivityService.effectiveStreak(row, new Date(), await learnerZone(this.prisma, userId));
     const balance = Math.max(0, (xp._sum.amount ?? 0) - (row?.xpSpent ?? 0));
     const freezes = row?.freezes ?? 0;
     return {

@@ -27,6 +27,9 @@ import { RateLimit, RateLimitGuard } from '../common/rate-limit.guard';
 import { PasswordResetService } from './password-reset.service';
 import { DeleteAccountDto, ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
 import { AccountDeletionService } from './account-deletion.service';
+import { AccountExportService } from './account-export.service';
+import { EmailVerificationService } from './email-verification.service';
+import { ConfirmEmailDto } from './dto/verify-email.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -34,6 +37,8 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly passwordReset: PasswordResetService,
     private readonly accountDeletion: AccountDeletionService,
+    private readonly accountExport: AccountExportService,
+    private readonly emailVerification: EmailVerificationService,
   ) {}
 
   // ===============================
@@ -76,6 +81,14 @@ export class AuthController {
   // ===============================
   // DELETE MY ACCOUNT
   // ===============================
+
+  /** A copy of everything your account holds, as JSON (no passwords or sign-in tokens) */
+  @UseGuards(JwtAuthGuard, RateLimitGuard)
+  @RateLimit({ name: 'export-account', limit: 5, windowMs: 60 * 60_000 })
+  @Get('me/export')
+  exportMyData(@Request() req: ExpressRequest) {
+    return this.accountExport.build((req.user as { id: string }).id);
+  }
 
   /** What deleting your account would remove, and how you'll confirm it */
   @UseGuards(JwtAuthGuard)
@@ -132,6 +145,45 @@ export class AuthController {
     return this.passwordReset.reset(dto.token, dto.password);
   }
 
+  // ===============================
+  // CONFIRM MY EMAIL
+  // ===============================
+
+  /** Whether your email is confirmed, and whether a link can be sent */
+  @UseGuards(JwtAuthGuard)
+  @Get('verify-email/status')
+  verificationStatus(@Request() req: ExpressRequest) {
+    return this.emailVerification.status((req.user as { id: string }).id);
+  }
+
+  /** Emails you a new link */
+  @UseGuards(JwtAuthGuard, RateLimitGuard)
+  @RateLimit({ name: 'verify-email-send', limit: 10, windowMs: 60 * 60_000 })
+  @Post('verify-email/send')
+  @HttpCode(HttpStatus.OK)
+  sendVerification(@Request() req: ExpressRequest) {
+    return this.emailVerification.send((req.user as { id: string }).id);
+  }
+
+  /** What a link is for. Confirms nothing, because mail scanners open links on their own. */
+  @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'verify-email-check', limit: 60, windowMs: 60_000 })
+  @Get('verify-email/check')
+  checkVerification(@Query('token') token: string) {
+    return this.emailVerification.check(token);
+  }
+
+  /** The click on the confirm page. The link itself is the proof, so it works on any device. */
+  @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'verify-email', limit: 20, windowMs: 60 * 60_000 })
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  confirmEmail(@Body() dto: ConfirmEmailDto) {
+    return this.emailVerification.confirm(dto.token);
+  }
+
   @Public()
   @UseGuards(RateLimitGuard)
   @RateLimit({ name: 'register', limit: 10, windowMs: 60 * 60_000 })
@@ -144,6 +196,8 @@ export class AuthController {
     const result = await this.authService.register(dto, this.sessionMeta(req));
 
     this.setAuthCookies(res, result);
+    // Not awaited: signing up never waits on an email
+    void this.emailVerification.sendAfterSignup(result.user.id);
 
     return {
       user: result.user,

@@ -39,6 +39,7 @@ import {
 import { diffWords } from "../lib/textDiff";
 import { MemoryView } from "../components/review/MemoryView";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech";
+import { playSfx } from "../lib/sfx";
 import { tr, msg } from "../i18n/core";
 
 const card =
@@ -164,6 +165,8 @@ const Session: React.FC<{
       busyRef.current = true;
       try {
         await sendAnswer({ type: item.type, id: item.id, rating });
+        // The last card of the session gets the little fanfare
+        playSfx(rating === "again" ? "bad" : queue.length === 1 ? "win" : "good");
         setCounts((c) => ({ ...c, [rating]: c[rating] + 1 }));
         // A card you forgot comes round again before this session ends
         setQueue((q) => (rating === "again" ? [...q.slice(1), item] : q.slice(1)));
@@ -189,6 +192,8 @@ const Session: React.FC<{
       if (e.metaKey || e.ctrlKey || e.altKey || !current) return;
       const target = e.target as HTMLElement | null;
       if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+      // Buttons, links and the card itself handle Space/Enter on their own; handling it here too would flip twice
+      if ((e.key === " " || e.key === "Enter") && target?.closest("button, a, [role='button']")) return;
       if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         setFlipped((f) => !f);

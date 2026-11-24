@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import { addDays, dayIn, daysBetween, learnerZone, startOfDayIn } from '../common/learner-day';
 import { ActivityService, XP_REWARDS } from './activity.service';
 import { MISTAKE_PATTERNS, isPattern, patternFor, type MistakePattern } from './mistakes';
 import { NEW_CARD, type Rating } from './srs';
@@ -101,7 +102,7 @@ export class ReviewService {
 
       if (!options.ignoreDailyLimit) {
         const today = await this.prisma.flashcard.count({
-          where: { userId, kind: 'correction', createdAt: { gte: startOfDay(new Date()) } },
+          where: { userId, kind: 'correction', createdAt: { gte: startOfDayIn(new Date(), await learnerZone(this.prisma, userId)) } },
         });
         if (today >= AUTO_CARDS_PER_DAY) return { created: false };
       }
@@ -377,14 +378,10 @@ export class ReviewService {
     const items = [...cards.map((c) => ({ state: cardState(c), dueAt: c.dueAt })), ...words.map((w) => ({ state: wordState(w), dueAt: w.dueAt }))];
     const counts = { total: items.length, new: 0, learning: 0, review: 0 };
     const recalls: number[] = [];
-    const today = startOfDay(now).getTime();
-    // Local calendar dates (toISOString would give yesterday's date east of UTC)
-    const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const forecast = Array.from({ length: FORECAST_DAYS }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() + i);
-      return { day: localDay(d), due: 0 };
-    });
+    // The learner's own calendar days
+    const zone = await learnerZone(this.prisma, userId);
+    const todayKey = dayIn(now, zone);
+    const forecast = Array.from({ length: FORECAST_DAYS }, (_, i) => ({ day: addDays(todayKey, i), due: 0 }));
     let dueNow = 0;
     for (const { state, dueAt } of items) {
       if (state.reviewCount === 0) counts.new++;
@@ -394,7 +391,7 @@ export class ReviewService {
       if (r !== null) recalls.push(r);
       if (dueAt.getTime() <= now.getTime()) dueNow++;
       // Anything overdue counts on day one
-      const index = Math.max(0, Math.floor((startOfDay(dueAt).getTime() - today) / DAY_MS));
+      const index = Math.max(0, daysBetween(todayKey, dayIn(dueAt, zone)));
       if (index < FORECAST_DAYS) forecast[index].due++;
     }
     const remembered = logs.filter((l) => l.rating !== 'again').length;

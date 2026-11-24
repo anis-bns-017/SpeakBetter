@@ -12,6 +12,10 @@ export interface BillingCatalog {
   /** True while payments are a test: nothing is charged */
   sandbox: boolean;
   paymentsAvailable: boolean;
+  /** The AI partner, which is what Pro adds, is switched on */
+  aiAvailable: boolean;
+  /** Whether a plan charges again by itself */
+  autoRenews: boolean;
   yearlySavingsPercent: number;
   plans: Array<{
     id: 'FREE' | 'PRO';

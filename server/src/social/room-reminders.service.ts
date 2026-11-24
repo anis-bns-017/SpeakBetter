@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { isValidTimeZone } from '../push/push.service';
 import { FollowService } from './follow.service';
 
 /** How long before the start "starting soon" goes out */
@@ -18,8 +19,19 @@ interface RoomLike {
   scheduledFor?: Date | null;
 }
 
-const when = (date: Date) =>
-  date.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+/** The start time on the reader's clock. Without a known zone it says UTC, so the time is never silently wrong. */
+export const when = (date: Date, timeZone?: string | null) => {
+  const zone = isValidTimeZone(timeZone) ? timeZone : 'UTC';
+  return date.toLocaleString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: zone,
+    ...(zone === 'UTC' ? { timeZoneName: 'short' as const } : {}),
+  });
+};
 
 /**
  * Scheduled rooms: "Remind me", the upcoming list, the "starting soon" reminder, and telling followers and
@@ -141,15 +153,26 @@ export class RoomRemindersService implements OnModuleInit, OnModuleDestroy {
         this.prisma.user.findUnique({ where: { id: room.creatorId }, select: { id: true, name: true, avatarUrl: true } }),
         this.follows.followerIds(room.creatorId),
       ]);
-      await this.notifications.notify(followers, {
-        type: 'ROOM_SCHEDULED',
-        title: `${host?.name ?? 'Someone you follow'} scheduled a room`,
-        message: `“${room.name}” · ${when(room.scheduledFor)}`,
-        actionUrl: '/voice',
-        data: { actor: host, roomId: room.id, scheduledFor: room.scheduledFor },
-        dedupeKey: `scheduled:${room.id}`,
-        preference: 'followedLive',
-      });
+      const profiles = followers.length
+        ? await this.prisma.profile.findMany({ where: { userId: { in: followers } }, select: { userId: true, timezone: true } })
+        : [];
+      const zoneOf = new Map(profiles.map((p) => [p.userId, p.timezone]));
+      const byZone = new Map<string, string[]>();
+      for (const id of followers) {
+        const zone = zoneOf.get(id) ?? '';
+        byZone.set(zone, [...(byZone.get(zone) ?? []), id]);
+      }
+      for (const [zone, ids] of byZone) {
+        await this.notifications.notify(ids, {
+          type: 'ROOM_SCHEDULED',
+          title: `${host?.name ?? 'Someone you follow'} scheduled a room`,
+          message: `“${room.name}” · ${when(room.scheduledFor, zone)}`,
+          actionUrl: '/voice',
+          data: { actor: host, roomId: room.id, scheduledFor: room.scheduledFor },
+          dedupeKey: `scheduled:${room.id}`,
+          preference: 'followedLive',
+        });
+      }
     } catch (error) {
       this.logger.warn(`Could not tell followers about a scheduled room: ${(error as Error)?.message}`);
     }

@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { isPermanentSuspension, isSuspended, PERMANENT_SUSPENSION } from '../common/suspension';
+import { effectivePlan, type SubscriptionLike } from '../billing/plans';
 import { AdminAuditService } from './admin-audit.service';
 import { MODERATOR_MAX_SUSPENSION_DAYS, type Actor, type PlatformRoleName } from './admin.roles';
 
@@ -132,7 +133,9 @@ export class AdminUsersService {
     };
   }
 
-  async get(id: string) {
+  /** Payments, devices and IP addresses are for admins; moderators get what they need to judge behaviour */
+  async get(actor: Actor, id: string) {
+    const seesPrivate = actor.role === 'ADMIN';
     const now = new Date();
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -188,7 +191,7 @@ export class AdminUsersService {
       this.prisma.payment.findMany({ where: { userId: id }, orderBy: { createdAt: 'desc' }, take: 5 }),
     ]);
 
-    const { passwordHash: _secret, subscriptions, randomCallProfile, profile, ...account } = user;
+    const { passwordHash: _secret, googleId: _google, subscriptions, randomCallProfile, profile, ...account } = user;
     return {
       ...account,
       signIn: user.googleId ? 'google' : 'password',
@@ -204,7 +207,7 @@ export class AdminUsersService {
           }
         : null,
       plan: this.planOf(subscriptions[0]),
-      subscription: subscriptions[0] ?? null,
+      subscription: seesPrivate ? (subscriptions[0] ?? null) : null,
       randomCall: randomCallProfile,
       stats: {
         xpTotal: xpTotal._sum.amount ?? 0,
@@ -215,7 +218,7 @@ export class AdminUsersService {
         friends,
         reportsMade,
       },
-      sessions,
+      sessions: seesPrivate ? sessions : [],
       reportsAgainst: [
         ...appReportsAgainst.map((r) => ({
           id: r.id,
@@ -236,7 +239,7 @@ export class AdminUsersService {
           reporter: r.reporter,
         })),
       ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
-      payments,
+      payments: seesPrivate ? payments : [],
       history,
     };
   }
@@ -264,14 +267,8 @@ export class AdminUsersService {
 
   async suspend(actor: Actor, id: string, input: { days?: unknown; permanent?: unknown; reason?: unknown }) {
     const target = await this.target(actor, id, 'suspend');
-    if (target.role === 'ADMIN') throw new ForbiddenException('Admins can’t be suspended. Change their role first.');
     const reason = cleanReason(input.reason);
-    const permanent = input.permanent === true;
-    const days = Math.floor(Number(input.days));
-    if (!permanent && !(days >= 1 && days <= 3650)) throw new BadRequestException('Choose how many days (1 or more)');
-    if (actor.role !== 'ADMIN' && (permanent || days > MODERATOR_MAX_SUSPENSION_DAYS)) {
-      throw new ForbiddenException(`Moderators can suspend for up to ${MODERATOR_MAX_SUSPENSION_DAYS} days`);
-    }
+    const { permanent, days } = this.suspensionLength(actor, target.role, input);
     const until = permanent ? PERMANENT_SUSPENSION : new Date(Date.now() + days * DAY_MS);
 
     await this.prisma.user.update({ where: { id }, data: { suspendedUntil: until, suspensionReason: reason } });
@@ -286,6 +283,49 @@ export class AdminUsersService {
       details: { until: until.toISOString(), days: permanent ? null : days, reason },
     });
     return { ok: true, suspendedUntil: until };
+  }
+
+  /** What a suspension would be, or why this person can't give it */
+  private suspensionLength(actor: Actor, targetRole: string, input: { days?: unknown; permanent?: unknown }) {
+    if (targetRole === 'ADMIN') throw new ForbiddenException('Admins can’t be suspended. Change their role first.');
+    const permanent = input.permanent === true;
+    const days = Math.floor(Number(input.days));
+    if (!permanent && !(days >= 1 && days <= 3650)) throw new BadRequestException('Choose how many days (1 or more)');
+    if (actor.role !== 'ADMIN' && (permanent || days > MODERATOR_MAX_SUSPENSION_DAYS)) {
+      throw new ForbiddenException(`Moderators can suspend for up to ${MODERATOR_MAX_SUSPENSION_DAYS} days`);
+    }
+    return { permanent, days };
+  }
+
+  /** Checks a moderation decision before anything changes, so a refused one leaves nothing half done */
+  async assertCanModerate(actor: Actor, id: string, input: { days?: unknown; permanent?: unknown }) {
+    const target = await this.target(actor, id, 'act on');
+    if (input.permanent === true || Number(input.days) > 0) this.suspensionLength(actor, target.role, input);
+  }
+
+  /** Lets someone use random calls again, for a restriction that was wrong or has been served */
+  async liftCallRestriction(actor: Actor, id: string, note?: unknown) {
+    const target = await this.target(actor, id, 'change');
+    const profile = await this.prisma.randomCallProfile.findUnique({
+      where: { userId: id },
+      select: { restrictedUntil: true, permanentlyBanned: true, restrictionCount: true },
+    });
+    const paused = !!profile?.restrictedUntil && profile.restrictedUntil.getTime() > Date.now();
+    if (!profile || (!profile.permanentlyBanned && !paused)) throw new BadRequestException('Random calls are not paused for this account');
+    if (profile.permanentlyBanned && actor.role !== 'ADMIN') throw new ForbiddenException('Only an admin can lift a permanent block');
+    await this.prisma.randomCallProfile.update({
+      where: { userId: id },
+      data: {
+        restrictedUntil: null,
+        permanentlyBanned: false,
+        restrictionReason: null,
+        // A lifted restriction doesn't count towards the next, longer one
+        restrictionCount: Math.max(0, profile.restrictionCount - 1),
+      },
+    });
+    const why = typeof note === 'string' && note.trim() ? `: ${note.trim().slice(0, MAX_REASON)}` : '';
+    await this.audit.record(actor, { action: 'user.calls-lift', targetType: 'user', targetId: id, summary: `Let ${target.name} use random calls again${why}` });
+    return { ok: true };
   }
 
   async unsuspend(actor: Actor, id: string, note?: unknown) {
@@ -415,9 +455,7 @@ export class AdminUsersService {
     }
   }
 
-  private planOf(sub?: { plan: string; status: string; endDate: Date | null } | null): 'FREE' | 'PRO' {
-    if (!sub || sub.plan === 'FREE') return 'FREE';
-    if (sub.endDate && sub.endDate.getTime() <= Date.now()) return 'FREE';
-    return sub.status === 'ACTIVE' || sub.status === 'TRIALING' ? 'PRO' : 'FREE';
+  private planOf(sub?: SubscriptionLike | null): 'FREE' | 'PRO' {
+    return effectivePlan(sub) === 'FREE' ? 'FREE' : 'PRO';
   }
 }

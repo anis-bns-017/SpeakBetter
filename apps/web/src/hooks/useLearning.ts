@@ -39,16 +39,8 @@ export interface GrammarRule {
   examples: string[];
   language: string;
   level: string;
-}
-
-export interface Exercise {
-  id: string;
-  type: string;
-  language: string;
-  title: string;
-  description?: string;
-  content: string; // JSON string
-  difficulty: string;
+  lessonId: string;
+  lessonTitle: string;
 }
 
 export interface Progress {
@@ -110,41 +102,12 @@ export const useReviewFlashcard = () => {
 };
 
 // ---------- Grammar ----------
-export const useGrammar = (params: { language?: string; level?: string; limit?: number }) => {
+export const useGrammar = (params: { level?: string }) => {
   return useQuery({
     queryKey: ['grammar', params],
     queryFn: async () => {
       const response = await apiClient.get<GrammarRule[]>('/learning/grammar', { params });
       return response.data;
-    },
-  });
-};
-
-// ---------- Exercises ----------
-export const useExercises = (params: {
-  language?: string;
-  type?: string;
-  difficulty?: string;
-  limit?: number;
-}) => {
-  return useQuery({
-    queryKey: ['exercises', params],
-    queryFn: async () => {
-      const response = await apiClient.get<Exercise[]>('/learning/exercises', { params });
-      return response.data;
-    },
-  });
-};
-
-export const useSubmitExercise = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: { exerciseId: string; answers: unknown[]; metadata?: Record<string, unknown> }) => {
-      const response = await apiClient.post('/learning/exercises/submit', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['progress'] });
     },
   });
 };

@@ -1,4 +1,4 @@
-import { BillingInterval, SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
+import type { BillingInterval, Prisma, SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 
 /** The plans a learner can choose from. FREE is the default and needs no payment. */
 export type PaidPlan = 'PRO';
@@ -49,6 +49,13 @@ export function effectivePlan(sub: SubscriptionLike | null | undefined, now = ne
   if (!sub.endDate || sub.endDate.getTime() <= now.getTime()) return 'FREE';
   return sub.plan;
 }
+
+/** The same rule as effectivePlan, for database queries */
+export const activeProWhere = (now = new Date()): Prisma.SubscriptionWhereInput => ({
+  plan: 'PRO',
+  status: { in: ACCESS_STATUSES },
+  endDate: { gt: now },
+});
 
 /**
  * When the access paid for now ends. Paying while still subscribed adds to the time left instead of

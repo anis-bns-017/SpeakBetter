@@ -1,21 +1,23 @@
-import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ActivityService } from '../learning/activity.service';
 import { BadgesService } from '../gamification/badges.service';
 import { practiceLevel } from '../pronunciation/pronunciation.service';
+import { averageOf, bestByLine, type AttemptLike } from '../shadowing/shadowing.engine';
+import { sessionStart } from '../shadowing/shadowing.service';
 import { SCENARIOS, SCENARIO_BY_ID, SCENARIO_LEVELS, type ScenarioLevel } from './roleplay.content';
 
 /** XP the first time you finish a scenario */
 export const ROLEPLAY_XP = 8;
 
-/**
- * The average of the scores you got for the replies you said aloud. Scores come from the pronunciation
- * checker on the page; anything that is not a number from 0 to 100 counts as not said.
- */
-export function averageSpoken(scores: unknown, turns: number): { spoken: number; average: number | null } {
-  const list = Array.isArray(scores) ? scores.slice(0, turns) : [];
-  const said = list.filter((s): s is number => typeof s === 'number' && Number.isFinite(s) && s >= 0 && s <= 100);
-  return { spoken: said.length, average: said.length ? Math.round(said.reduce((a, b) => a + b, 0) / said.length) : null };
+const MAX_ATTEMPTS_READ = 300;
+
+/** Your best score at each turn, on either reply offered (null = not said aloud) */
+export function turnScores(exchanges: Array<{ replies: readonly string[] }>, attempts: AttemptLike[]): Array<number | null> {
+  return exchanges.map((exchange) => {
+    const said = bestByLine([...exchange.replies], attempts).filter((s): s is number => s !== null);
+    return said.length ? Math.max(...said) : null;
+  });
 }
 
 @Injectable()
@@ -71,12 +73,22 @@ export class RoleplayService {
     };
   }
 
-  /** Saves a finished conversation. The first finish of each scenario earns XP. */
-  async finish(userId: string, id: string, scores: unknown) {
+  /**
+   * Saves a finished conversation. Scores are not sent by the page: they are your pronunciation attempts on this
+   * scenario's replies since you started, so they cannot be made up. The first finish of each scenario earns XP.
+   */
+  async finish(userId: string, id: string, startedAt: unknown, now = new Date()) {
     const scenario = SCENARIO_BY_ID.get(id);
     if (!scenario) throw new NotFoundException('Scenario not found');
-    if (scores !== undefined && !Array.isArray(scores)) throw new BadRequestException('Send the scores as a list');
-    const { spoken, average } = averageSpoken(scores, scenario.exchanges.length);
+    const attempts = await this.prisma.pronunciationAttempt.findMany({
+      where: { userId, createdAt: { gte: sessionStart(startedAt, now) } },
+      orderBy: { createdAt: 'desc' },
+      take: MAX_ATTEMPTS_READ,
+      select: { target: true, score: true },
+    });
+    const scores = turnScores(scenario.exchanges, attempts);
+    const spoken = scores.filter((s) => s !== null).length;
+    const average = averageOf(scores);
 
     const existing = await this.prisma.roleplayProgress.findUnique({ where: { userId_scenarioId: { userId, scenarioId: id } } });
     const best = average === null ? (existing?.bestScore ?? null) : Math.max(existing?.bestScore ?? 0, average);

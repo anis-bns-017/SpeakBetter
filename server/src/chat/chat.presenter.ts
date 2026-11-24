@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 
 /** Everything the chat UI needs on a message */
 export const MESSAGE_INCLUDE = {
-  sender: { select: { id: true, name: true, email: true, avatarUrl: true } },
+  sender: { select: { id: true, name: true, avatarUrl: true } },
   reactions: {
     include: { user: { select: { id: true, name: true, avatarUrl: true } } },
   },

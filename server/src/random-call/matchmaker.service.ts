@@ -74,6 +74,12 @@ export class MatchmakerService implements OnModuleInit, OnModuleDestroy {
           await this.queue.add(a); // someone else took b: a keeps waiting
           continue;
         }
+        if (await this.calls.isBlockedPair(a.userId, b.userId)) {
+          // One blocked the other while waiting: both keep their place and never meet
+          await this.queue.add({ ...a, blocked: [...a.blocked, b.userId] });
+          await this.queue.add({ ...b, blocked: [...b.blocked, a.userId] });
+          continue;
+        }
         try {
           await this.calls.createCall(a, b);
         } catch (error) {

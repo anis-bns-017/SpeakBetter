@@ -25,12 +25,12 @@ export const AdminBillingPage: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <AdminTitle title="Billing" subtitle="Payments run in sandbox (test) mode until a real payment provider is connected." />
+      <AdminTitle title="Billing" subtitle="Payments run in test mode until a real payment provider is connected. Test payments are not counted as revenue." />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric icon={Crown} tone="violet" label="Pro members" value={formatNumber(t.activePro)} hint={t.byProvider.map((p) => `${p.count} via ${p.provider}`).join(" · ") || "None yet"} />
-        <Metric icon={Banknote} tone="emerald" label="Revenue, 30 days" value={formatMoney(t.revenue30)} hint={`${t.payments30} payments`} />
-        <Metric icon={Receipt} tone="indigo" label="Revenue, all time" value={formatMoney(t.revenueAll)} hint={`${t.paymentsAll} payments`} />
+        <Metric icon={Banknote} tone="emerald" label="Revenue, 30 days" value={formatMoney(t.revenue30)} hint={`${t.payments30} real payments`} />
+        <Metric icon={Receipt} tone="indigo" label="Revenue, all time" value={formatMoney(t.revenueAll)} hint={`${t.paymentsAll} real · ${t.testPayments} test`} />
         <Metric icon={AlertTriangle} tone="amber" label="Failed, 30 days" value={t.failed30} />
       </div>
 
@@ -45,6 +45,7 @@ export const AdminBillingPage: React.FC = () => {
                 <PersonLink person={s.user} />
                 <span className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                   {s.provider === "admin" ? <Badge tone="info">Given by the team</Badge> : <Badge tone="neutral">{s.interval?.toLowerCase() ?? "plan"}</Badge>}
+                  {s.provider === "sandbox" && <Badge tone="neutral">Test</Badge>}
                   {s.cancelAtPeriodEnd && s.provider !== "admin" && <Badge tone="warning">Cancelled</Badge>}
                   until {dateTime(s.endDate)}
                 </span>

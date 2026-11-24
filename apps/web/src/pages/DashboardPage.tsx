@@ -61,6 +61,7 @@ import { useSuggestions, useSendFriendRequest } from "../hooks/useFriends";
 import { getXpLevel, getLevelProgress, getNextLevelXp } from "../lib/xpLevels";
 import { EchoMascot, type EchoMood } from "../components/dashboard/EchoMascot";
 import { FirstStepsCard } from "../components/dashboard/FirstStepsCard";
+import { languageLabel, suggestionReason } from "../lib/languageName";
 import { useT } from "../i18n";
 import { tr, msg } from "../i18n/core";
 
@@ -657,8 +658,8 @@ const DashboardPage: React.FC = () => {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{person.name || t("Learner")}</span>
-                  <span className="block text-xs text-slate-500 truncate" title={person.reason}>
-                    {person.reason || (person.profile?.nativeLanguage ? t("Speaks {language}", { language: person.profile.nativeLanguage }) : t("Language learner"))}
+                  <span className="block text-xs text-slate-500 truncate" title={suggestionReason(person)}>
+                    {suggestionReason(person) || (person.profile?.nativeLanguage ? t("Speaks {language}", { language: languageLabel(person.profile.nativeLanguage, lang) }) : t("Language learner"))}
                   </span>
                 </span>
                 <button

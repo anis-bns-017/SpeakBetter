@@ -17,7 +17,8 @@ import {
   KeyRound,
   Sparkles,
 } from 'lucide-react';
-import { asApiError } from "../lib/api/errors";
+import { inviteCodeFrom } from "../lib/communityRoles";
+import { COMMUNITY_TYPES } from "../components/communities/communityTypes";
 import { tr, msg } from "../i18n/core";
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
@@ -72,40 +73,37 @@ export const CommunitiesPage = () => {
       const community = await createCommunity.mutateAsync(formData);
       setShowCreate(false);
       setFormData({ name: '', description: '', type: 'PUBLIC' });
-      toast.success(tr("Community created"));
       navigate(`/communities/${community.id}`);
-    } catch (caught) {
-      const err = asApiError(caught);
-      toast.error(err?.response?.data?.message || tr("Failed to create community"));
+    } catch {
+      // The mutation shows its own toast; a second one here made every message appear twice
     }
   };
 
   const handleJoin = async (communityId: string) => {
     try {
       await joinCommunity.mutateAsync(communityId);
-      toast.success(tr("Joined community"));
-    } catch (caught) {
-      const err = asApiError(caught);
-      toast.error(err?.response?.data?.message || tr("Failed to join"));
+    } catch {
+      // The mutation shows its own toast; a second one here made every message appear twice
     }
   };
 
   const handleLeave = async (communityId: string) => {
-    if (window.confirm('Leave this community?')) {
+    if (!window.confirm(tr("Are you sure you want to leave this community?"))) return;
+    try {
       await leaveCommunity.mutateAsync(communityId);
-      toast.success(tr("Left community"));
+    } catch {
+      // The mutation shows its own toast
     }
   };
 
   const handleJoinWithCode = () => {
-    const code = inviteCode.trim();
+    // People often paste the whole link
+    const code = inviteCodeFrom(inviteCode);
     if (!code) {
       toast.error(tr("Enter an invite code first"));
       return;
     }
-    // SPA navigation instead of a full page reload — assumes a
-    // /communities/join/:code route handles redemption + redirect.
-    navigate(`/communities/join/${code}`);
+    navigate(`/communities/join/${encodeURIComponent(code)}`);
   };
 
   const owned = useMemo(() => filterCommunities(data?.owned, search), [data?.owned, search]);
@@ -178,7 +176,7 @@ export const CommunitiesPage = () => {
             onClick={() => setShowCreate(false)}
           >
             <div
-              className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+              className="bg-surface rounded-2xl shadow-xl w-full max-w-md p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-5">
@@ -201,6 +199,8 @@ export const CommunitiesPage = () => {
                     placeholder={tr("e.g. Spanish Learners Hub")}
                     className="w-full px-4 py-2.5 rounded-xl border border-line bg-slate-50 focus:bg-surface focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-sm transition-all"
                     required
+                    minLength={2}
+                    maxLength={60}
                   />
                 </div>
 
@@ -212,6 +212,7 @@ export const CommunitiesPage = () => {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder={tr("What's this community about?")}
                     rows={3}
+                    maxLength={500}
                     className="w-full px-4 py-2.5 rounded-xl border border-line bg-slate-50 focus:bg-surface focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-sm resize-none transition-all"
                   />
                 </div>
@@ -240,6 +241,9 @@ export const CommunitiesPage = () => {
                       );
                     })}
                   </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {tr(COMMUNITY_TYPES.find((t) => t.id === formData.type)?.help ?? "")}
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-2">
@@ -466,7 +470,7 @@ const CommunityCard: React.FC<{
         {isJoined && !isOwner && (
           <button
             onClick={() => onLeave(community.id)}
-            className="px-4 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors"
+            className="px-4 py-1.5 bg-surface border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors"
           >
             {tr("Leave")}</button>
         )}

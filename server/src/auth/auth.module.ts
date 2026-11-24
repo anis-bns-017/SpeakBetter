@@ -14,6 +14,8 @@ import { UsersModule } from '../users/users.module';
 import { MailModule } from '../mail/mail.module';
 import { PasswordResetService } from './password-reset.service';
 import { AccountDeletionService } from './account-deletion.service';
+import { AccountExportService } from './account-export.service';
+import { EmailVerificationService } from './email-verification.service';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { AccountDeletionService } from './account-deletion.service';
     SessionCleanupService,
     PasswordResetService,
     AccountDeletionService,
+    AccountExportService,
+    EmailVerificationService,
   ],
 
   exports: [JwtModule, PassportModule, JwtStrategy, AuthService],

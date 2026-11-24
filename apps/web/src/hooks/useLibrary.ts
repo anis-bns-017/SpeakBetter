@@ -52,6 +52,8 @@ export interface LibraryText {
 export interface QuizResult {
   score: number;
   total: number;
+  passed: boolean;
+  passMark: number;
   firstCompletion: boolean;
   xp: number;
   results: Array<{ id: string; type: QuestionType; chosen: number | null; correct: boolean; correctIndex: number; explanation: string; sentence: number }>;
@@ -78,6 +80,7 @@ export const useAnswerLibrary = (id: string) => {
     mutationFn: async (answers: Record<string, number>) => (await apiClient.post<QuizResult>(`/library/${id}/answers`, { answers })).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['library'] });
+      queryClient.invalidateQueries({ queryKey: ['library-text', id] });
       queryClient.invalidateQueries({ queryKey: ['plan-today'] });
       queryClient.invalidateQueries({ queryKey: ['learning-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['quests'] });

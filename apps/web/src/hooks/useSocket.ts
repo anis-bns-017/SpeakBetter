@@ -36,12 +36,10 @@ export const useSocket = () => {
 
     socketInstance.on("connect", () => {
       setIsConnected(true);
-      console.log("🔌 WebSocket connected");
     });
 
     socketInstance.on("disconnect", (reason) => {
       setIsConnected(false);
-      console.log("🔌 WebSocket disconnected");
       // Server-initiated close (expired token, logout): retry only while signed in
       if (reason === "io server disconnect") {
         setTimeout(() => {

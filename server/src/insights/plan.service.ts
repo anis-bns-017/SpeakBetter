@@ -1,12 +1,12 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import { addDays, dayIn, learnerZone, startOfDayKey } from '../common/learner-day';
 import { ActivityService } from '../learning/activity.service';
 import { ReviewService } from '../learning/review.service';
 import { isSoundKey, SOUNDS } from '../pronunciation/pronunciation.data';
 import {
   buildPlan,
-  dayKey,
   DEFAULT_GOAL_MINUTES,
   GOAL_OPTIONS,
   MINUTES_PER,
@@ -21,11 +21,6 @@ export const PLAN_BONUS_XP = 10;
 /** A sound averaging below this counts as weak */
 const WEAK_SOUND_BELOW = 90;
 
-const startOfDay = (date: Date) => {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
 
 export interface PlanTaskProgress extends PlanTask {
   progress: number;
@@ -58,19 +53,25 @@ export class PlanService {
       create: { userId, dailyGoalMinutes: goal },
       update: { dailyGoalMinutes: goal },
     });
-    await this.prisma.dailyPlan.deleteMany({ where: { userId, day: dayKey(new Date()), completedAt: null } });
+    const day = dayIn(new Date(), await learnerZone(this.prisma, userId));
+    await this.prisma.dailyPlan.deleteMany({ where: { userId, day, completedAt: null } });
     return this.getToday(userId);
   }
 
   /** Today's plan with live progress; finishing it gives the bonus once */
   async getToday(userId: string) {
     const now = new Date();
-    const day = dayKey(now);
+    const zone = await learnerZone(this.prisma, userId);
+    const day = dayIn(now, zone);
     let plan = await this.prisma.dailyPlan.findUnique({ where: { userId_day: { userId, day } } });
-    if (!plan) plan = await this.createPlan(userId, day);
+    if (!plan) {
+      // The first visit of a new day: yesterday's plan may have been finished without coming back to see it
+      await this.settleYesterday(userId, day, zone);
+      plan = await this.createPlan(userId, day);
+    }
 
     const tasks = plan.tasks as unknown as PlanTask[];
-    const measured = await this.measure(userId, tasks, startOfDay(now));
+    const measured = await this.measure(userId, tasks, startOfDayKey(day, zone));
     const allDone = measured.length > 0 && measured.every((t) => t.done);
 
     let completedAt = plan.completedAt;
@@ -104,8 +105,31 @@ export class PlanService {
       completedAt,
       bonusXp: PLAN_BONUS_XP,
       bonusJustEarned,
-      streak: planStreak(finished.map((f) => f.day), now),
+      streak: planStreak(finished.map((f) => f.day), day),
     };
+  }
+
+  /**
+   * A plan only ticks over when someone looks at it, so finishing the last task and closing the app would
+   * otherwise lose the day. The bonus still counts, but it does not make today a practice day.
+   */
+  private async settleYesterday(userId: string, todayKey: string, zone: string | undefined) {
+    try {
+      const today = startOfDayKey(todayKey, zone);
+      const yesterday = addDays(todayKey, -1);
+      const start = startOfDayKey(yesterday, zone);
+      const plan = await this.prisma.dailyPlan.findUnique({ where: { userId_day: { userId, day: yesterday } } });
+      if (!plan || plan.completedAt) return;
+      const measured = await this.measure(userId, plan.tasks as unknown as PlanTask[], start, today);
+      if (!measured.length || !measured.every((t) => t.done)) return;
+      const { count } = await this.prisma.dailyPlan.updateMany({
+        where: { id: plan.id, completedAt: null },
+        data: { completedAt: new Date(today.getTime() - 1) },
+      });
+      if (count) await this.activity.grantXp(userId, PLAN_BONUS_XP, 'DAILY_PLAN');
+    } catch (error) {
+      this.logger.warn(`Could not settle yesterday's plan: ${(error as Error)?.message}`);
+    }
   }
 
   private async createPlan(userId: string, day: string) {
@@ -165,22 +189,25 @@ export class PlanService {
   }
 
   /** How far each task got today, from what you actually did anywhere in the app */
-  private async measure(userId: string, tasks: PlanTask[], since: Date): Promise<PlanTaskProgress[]> {
+  private async measure(userId: string, tasks: PlanTask[], since: Date, until?: Date): Promise<PlanTaskProgress[]> {
     const kinds = new Set(tasks.map((t) => t.kind));
-    const [xp, cardReviews, wordReviews, attempts, cardsSaved, wordsSaved, profile, challengeAnswers, textsRead, grammarTries, piecesWritten] = await Promise.all([
-      this.prisma.xpTransaction.findMany({ where: { userId, createdAt: { gte: since } }, select: { reason: true, amount: true } }),
-      kinds.has('REVIEW') ? this.prisma.flashcardReview.count({ where: { userId, lastReviewedAt: { gte: since } } }) : 0,
+    const during = { gte: since, ...(until ? { lt: until } : {}) };
+    const [xp, cardReviews, wordReviews, attempts, cardsSaved, wordsSaved, profile, challengeAnswers, textsRead, grammarTries, exerciseSets, piecesWritten] = await Promise.all([
+      this.prisma.xpTransaction.findMany({ where: { userId, createdAt: during }, select: { reason: true, amount: true } }),
+      kinds.has('REVIEW') ? this.prisma.flashcardReview.count({ where: { userId, lastReviewedAt: during } }) : 0,
       kinds.has('REVIEW')
-        ? this.prisma.voiceSavedWord.count({ where: { userId, reviewCount: { gt: 0 }, updatedAt: { gte: since } } })
+        ? this.prisma.voiceSavedWord.count({ where: { userId, reviewCount: { gt: 0 }, updatedAt: during } })
         : 0,
-      kinds.has('PRONUNCIATION') ? this.prisma.pronunciationAttempt.count({ where: { userId, createdAt: { gte: since } } }) : 0,
-      kinds.has('WORDS') ? this.prisma.flashcard.count({ where: { userId, kind: 'word', createdAt: { gte: since } } }) : 0,
-      kinds.has('WORDS') ? this.prisma.voiceSavedWord.count({ where: { userId, createdAt: { gte: since } } }) : 0,
+      kinds.has('PRONUNCIATION') ? this.prisma.pronunciationAttempt.count({ where: { userId, createdAt: during } }) : 0,
+      kinds.has('WORDS') ? this.prisma.flashcard.count({ where: { userId, kind: 'word', createdAt: during } }) : 0,
+      kinds.has('WORDS') ? this.prisma.voiceSavedWord.count({ where: { userId, createdAt: during } }) : 0,
       kinds.has('LEVEL') ? this.prisma.profile.findUnique({ where: { userId }, select: { level: true } }) : null,
-      kinds.has('CHALLENGE') ? this.prisma.challengeEntry.count({ where: { userId, createdAt: { gte: since } } }) : 0,
-      kinds.has('READ') ? this.prisma.libraryProgress.count({ where: { userId, updatedAt: { gte: since } } }) : 0,
-      kinds.has('EXERCISE') ? this.prisma.grammarProgress.count({ where: { userId, updatedAt: { gte: since } } }) : 0,
-      kinds.has('WRITE') ? this.prisma.writingPiece.count({ where: { userId, submittedAt: { gte: since } } }) : 0,
+      kinds.has('CHALLENGE') ? this.prisma.challengeEntry.count({ where: { userId, createdAt: during } }) : 0,
+      // A text counts once it has been passed, the same rule as the weekly quests
+      kinds.has('READ') ? this.prisma.libraryProgress.count({ where: { userId, completedAt: { not: null }, updatedAt: during } }) : 0,
+      kinds.has('EXERCISE') ? this.prisma.grammarProgress.count({ where: { userId, updatedAt: during } }) : 0,
+      kinds.has('EXERCISE') ? this.prisma.gameResult.count({ where: { userId, game: 'exercises', createdAt: during } }) : 0,
+      kinds.has('WRITE') ? this.prisma.writingPiece.count({ where: { userId, submittedAt: during } }) : 0,
     ]);
 
     const sum = (reason: string) => xp.filter((t) => t.reason === reason).reduce((s, t) => s + t.amount, 0);
@@ -209,8 +236,9 @@ export class PlanService {
         case 'WORDS':
           return cardsSaved + wordsSaved;
         case 'EXERCISE':
-          // A grammar lesson tried today counts, even a repeat that earns no XP
-          return Math.max(count('EXERCISE_COMPLETED'), grammarTries);
+          // A grammar lesson or exercise set tried today counts, even a repeat that earns no XP.
+          // Not the XP reason: dictation shares it and is not grammar practice.
+          return grammarTries + exerciseSets;
         default:
           return 0;
       }

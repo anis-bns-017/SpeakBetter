@@ -10,5 +10,7 @@ import { WritingService } from './writing.service';
   imports: [LearningModule, GamificationModule],
   controllers: [WritingController],
   providers: [WritingService, LanguageToolClient, PrismaService],
+  // Shared with the speaking exam, so both count against the same free-server limit
+  exports: [LanguageToolClient],
 })
 export class WritingModule {}

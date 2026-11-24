@@ -12,22 +12,21 @@ import { LearningService } from './learning.service';
 //mport { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-import {
-  GetVocabularyDto,
-  CreateVocabularyDto,
-  ReviewVocabularyDto,
-} from './dto/vocabulary.dto';
+import { GetVocabularyDto } from './dto/vocabulary.dto';
 import {
   CreateFlashcardDto,
   ReviewFlashcardDto,
   GetFlashcardsDto,
 } from './dto/flashcard.dto';
-import { SubmitExerciseDto, GetExercisesDto } from './dto/exercise.dto';
+import { ExercisesService } from './exercises.service';
 
 @Controller('learning')
 @UseGuards(JwtAuthGuard)
 export class LearningController {
-  constructor(private learningService: LearningService) {}
+  constructor(
+    private learningService: LearningService,
+    private exercises: ExercisesService,
+  ) {}
 
   // ============ VOCABULARY ============
   @Get('vocabulary')
@@ -39,16 +38,6 @@ export class LearningController {
       limit: query.limit ? parseInt(query.limit) : undefined,
       offset: query.offset ? parseInt(query.offset) : undefined,
     });
-  }
-
-  @Post('vocabulary')
-  async createVocabulary(@Body() data: CreateVocabularyDto) {
-    return this.learningService.createVocabulary(data);
-  }
-
-  @Post('vocabulary/review')
-  async reviewVocabulary(@Request() req, @Body() data: ReviewVocabularyDto) {
-    return this.learningService.reviewVocabulary(req.user.id, data);
   }
 
   // ============ FLASHCARDS ============
@@ -72,32 +61,27 @@ export class LearningController {
 
   // ============ GRAMMAR ============
   @Get('grammar')
-  async getGrammar(
-    @Query('language') language?: string,
-    @Query('level') level?: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.learningService.getGrammar({
-      language,
-      level,
-      limit: limit ? parseInt(limit) : undefined,
-    });
+  getGrammar(@Query('level') level?: string) {
+    return this.learningService.getGrammar({ level });
   }
 
   // ============ EXERCISES ============
   @Get('exercises')
-  async getExercises(@Query() query: GetExercisesDto) {
-    return this.learningService.getExercises({
-      language: query.language,
-      type: query.type,
-      difficulty: query.difficulty,
-      limit: query.limit ? parseInt(query.limit) : undefined,
-    });
+  getExercises(@Request() req, @Query('level') level?: string, @Query('skill') skill?: string) {
+    return this.exercises.session(req.user.id, { level, skill });
   }
 
-  @Post('exercises/submit')
-  async submitExercise(@Request() req, @Body() data: SubmitExerciseDto) {
-    return this.learningService.submitExercise(req.user.id, data);
+  @Post('exercises/check')
+  checkExercise(@Request() req, @Body() body: { id?: string; answer?: unknown }) {
+    return this.exercises.check(req.user.id, body?.id, body?.answer);
+  }
+
+  @Post('exercises/finish')
+  finishExercises(
+    @Request() req,
+    @Body() body: { level?: string; skill?: string; day?: string; round?: number; answers?: Record<string, unknown> },
+  ) {
+    return this.exercises.finish(req.user.id, body);
   }
 
   // ============ PROGRESS ============

@@ -1,15 +1,16 @@
 // server/src/admin/admin-reports.service.ts
 // One moderation queue for every kind of report:
-//   - "app" reports (Report table): a person or a message, from chat and from voice rooms
+//   - "app" reports (Report table): a person or a message, from chat, voice rooms and community posts
 //   - "random-call" reports (RandomCallReport table): a person met in a random call
 // Each item shows what was reported (the message text, the person) so a moderator can decide without digging.
 // Resolving can also warn or suspend the person and delete the message, in one step.
 
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminUsersService } from './admin-users.service';
 import { AdminContentService } from './admin-content.service';
+import { RandomCallService } from '../random-call/random-call.service';
 import type { Actor } from './admin.roles';
 
 export type ReportSource = 'app' | 'random-call';
@@ -50,6 +51,10 @@ export interface QueueItem {
 
 const personSelect = { id: true, name: true, avatarUrl: true } as const;
 
+/** What can be removed from a report */
+type MessageKind = 'message' | 'room-message' | 'thread' | 'thread-reply';
+const isMessageKind = (type: string): type is MessageKind => ['message', 'room-message', 'thread', 'thread-reply'].includes(type);
+
 @Injectable()
 export class AdminReportsService {
   constructor(
@@ -57,6 +62,8 @@ export class AdminReportsService {
     private audit: AdminAuditService,
     private users: AdminUsersService,
     private content: AdminContentService,
+    // Upholding a random-call report pauses the person's calls
+    @Optional() private calls?: RandomCallService,
   ) {}
 
   async counts() {
@@ -165,52 +172,85 @@ export class AdminReportsService {
     if (input.decision !== 'dismiss' && input.decision !== 'action') throw new BadRequestException('Choose dismiss or take action');
     const dismiss = input.decision === 'dismiss';
     const note = typeof input.note === 'string' ? input.note.replace(/\s+/g, ' ').trim().slice(0, 300) : '';
+    const wantsSuspension = input.permanent === true || Number(input.suspendDays) > 0;
+    const wantsWarning = typeof input.warn === 'string' && input.warn.trim().length > 0;
 
     let subjectId: string | null = null;
     let label: string;
-    let message: { id: string; kind: 'message' | 'room-message' } | null = null;
+    let message: { id: string; kind: MessageKind } | null = null;
+    let callReason: string | null = null;
+    let close: () => Promise<{ count: number }>;
+    let reopen: () => Promise<unknown>;
 
     if (source === 'random-call') {
       const report = await this.prisma.randomCallReport.findUnique({ where: { id }, include: { reported: { select: { name: true } } } });
       if (!report) throw new NotFoundException('Report not found');
-      await this.prisma.randomCallReport.update({
-        where: { id },
-        data: { status: dismiss ? 'DISMISSED' : 'UPHELD', reviewedById: actor.id },
-      });
+      if (!CALL_OPEN.includes(report.status)) throw new ConflictException('This report has already been handled');
+      const before = report.status;
       subjectId = report.reportedId;
+      callReason = report.reason;
       label = `a random-call report about ${report.reported.name} (${report.reason})`;
+      close = () =>
+        this.prisma.randomCallReport.updateMany({
+          where: { id, status: { in: CALL_OPEN } },
+          data: { status: dismiss ? 'DISMISSED' : 'UPHELD', reviewedById: actor.id },
+        });
+      reopen = () => this.prisma.randomCallReport.update({ where: { id }, data: { status: before, reviewedById: null } });
     } else if (source === 'app') {
       const report = await this.prisma.report.findUnique({ where: { id } });
       if (!report) throw new NotFoundException('Report not found');
+      if (!(APP_OPEN as readonly string[]).includes(report.status)) throw new ConflictException('This report has already been handled');
+      const before = report.status;
       const target = (await this.loadTargets([report])).get(report.id);
-      await this.prisma.report.update({
-        where: { id },
-        data: { status: dismiss ? 'REJECTED' : 'RESOLVED', reviewedById: actor.id, resolution: note || (dismiss ? 'Dismissed' : 'Action taken') },
-      });
       subjectId = target?.subject?.id ?? null;
-      if (target?.type === 'message' || target?.type === 'room-message') message = { id: report.targetId, kind: target.type };
+      // Something already removed can't be removed again
+      if (target && !target.deleted && isMessageKind(target.type)) message = { id: report.targetId, kind: target.type };
       label = `a report about ${target?.subject?.name ?? 'a ' + report.targetType.toLowerCase()} (${report.reason})`;
+      close = () =>
+        this.prisma.report.updateMany({
+          where: { id, status: { in: [...APP_OPEN] } },
+          data: { status: dismiss ? 'REJECTED' : 'RESOLVED', reviewedById: actor.id, resolution: note || (dismiss ? 'Dismissed' : 'Action taken') },
+        });
+      reopen = () => this.prisma.report.update({ where: { id }, data: { status: before, reviewedById: null, resolution: null } });
     } else {
       throw new BadRequestException('Unknown report source');
     }
 
+    // Everything this decision would do is checked first: a refused one must leave nothing half done
+    if (!dismiss && subjectId && (wantsSuspension || wantsWarning || callReason)) {
+      await this.users.assertCanModerate(actor, subjectId, { days: input.suspendDays, permanent: input.permanent });
+    }
+
+    // Two people on the same report: only the first decision counts
+    const { count } = await close();
+    if (!count) throw new ConflictException('This report has already been handled');
+
     const done: string[] = [];
     if (!dismiss) {
-      if (input.deleteContent === true && message) {
-        await this.content.deleteMessage(actor, message.kind, message.id, note || 'Reported and removed');
-        done.push('deleted the message');
-      }
-      if (subjectId && (input.permanent === true || Number(input.suspendDays) > 0)) {
-        await this.users.suspend(actor, subjectId, {
-          days: input.suspendDays,
-          permanent: input.permanent === true,
-          reason: note || 'Broke the community rules (from a report)',
-        });
-        const n = Math.floor(Number(input.suspendDays));
-        done.push(input.permanent === true ? 'closed the account' : `suspended for ${n} day${n === 1 ? '' : 's'}`);
-      } else if (subjectId && typeof input.warn === 'string' && input.warn.trim()) {
-        await this.users.warn(actor, subjectId, input.warn);
-        done.push('sent a warning');
+      try {
+        if (input.deleteContent === true && message) {
+          await this.content.deleteMessage(actor, message.kind, message.id, note || 'Reported and removed');
+          done.push('deleted the message');
+        }
+        if (callReason && subjectId && (await this.calls?.applyRestriction(subjectId, `Report upheld by a moderator (${callReason})`))) {
+          done.push('paused their random calls');
+        }
+        if (subjectId && wantsSuspension) {
+          await this.users.suspend(actor, subjectId, {
+            days: input.suspendDays,
+            permanent: input.permanent === true,
+            reason: note || 'Broke the community rules (from a report)',
+          });
+          const n = Math.floor(Number(input.suspendDays));
+          done.push(input.permanent === true ? 'closed the account' : `suspended for ${n} day${n === 1 ? '' : 's'}`);
+        } else if (subjectId && wantsWarning) {
+          await this.users.warn(actor, subjectId, input.warn);
+          done.push('sent a warning');
+        }
+      } catch (error) {
+        // Nothing happened yet, so the report goes back in the queue
+        if (!done.length) await reopen();
+        throw error;
       }
     }
 
@@ -230,8 +270,11 @@ export class AdminReportsService {
     const userIds = reports.filter((r) => r.targetType === 'USER').map((r) => r.targetId);
     const messageIds = reports.filter((r) => r.targetType === 'MESSAGE').map((r) => r.targetId);
     const communityIds = reports.filter((r) => r.targetType === 'COMMUNITY').map((r) => r.targetId);
+    // A community post or a reply to one
+    const postIds = reports.filter((r) => r.targetType === 'THREAD').map((r) => r.targetId);
+    const postPlace = { channel: { select: { name: true, community: { select: { name: true } } } } } as const;
 
-    const [users, messages, roomMessages, communities] = await Promise.all([
+    const [users, messages, roomMessages, communities, posts, replies] = await Promise.all([
       userIds.length ? this.prisma.user.findMany({ where: { id: { in: userIds } }, select: personSelect }) : [],
       messageIds.length
         ? this.prisma.message.findMany({
@@ -248,12 +291,27 @@ export class AdminReportsService {
       communityIds.length
         ? this.prisma.community.findMany({ where: { id: { in: communityIds } }, select: { id: true, name: true, owner: { select: personSelect } } })
         : [],
+      postIds.length
+        ? this.prisma.thread.findMany({
+            where: { id: { in: postIds } },
+            select: { id: true, title: true, content: true, author: { select: personSelect }, ...postPlace },
+          })
+        : [],
+      postIds.length
+        ? this.prisma.threadMessage.findMany({
+            where: { id: { in: postIds } },
+            select: { id: true, content: true, author: { select: personSelect }, thread: { select: postPlace } },
+          })
+        : [],
     ]);
     const byId = <T extends { id: string }>(list: T[]) => new Map(list.map((x) => [x.id, x]));
     const u = byId(users);
     const m = byId(messages);
     const rm = byId(roomMessages);
     const c = byId(communities);
+    const p = byId(posts);
+    const pr = byId(replies);
+    const placeOf = (channel: { name: string; community: { name: string } }) => `Community “${channel.community.name}” · #${channel.name}`;
 
     for (const r of reports) {
       if (r.targetType === 'USER') {
@@ -277,6 +335,16 @@ export class AdminReportsService {
       } else if (r.targetType === 'COMMUNITY') {
         const community = c.get(r.targetId);
         out.set(r.id, { type: 'community', subject: community?.owner ?? null, content: community ? `Community “${community.name}”` : null, deleted: !community, where: 'Communities' });
+      } else if (r.targetType === 'THREAD') {
+        const post = p.get(r.targetId);
+        const reply = pr.get(r.targetId);
+        if (post) {
+          out.set(r.id, { type: 'thread', subject: post.author, content: post.content ? `${post.title}: ${post.content}` : post.title, deleted: false, where: placeOf(post.channel) });
+        } else if (reply) {
+          out.set(r.id, { type: 'thread-reply', subject: reply.author, content: reply.content, deleted: false, where: placeOf(reply.thread.channel) });
+        } else {
+          out.set(r.id, { type: 'thread', subject: null, content: null, deleted: true, where: 'Communities' });
+        }
       } else {
         out.set(r.id, { type: 'other', subject: null, content: null, deleted: false, where: null });
       }

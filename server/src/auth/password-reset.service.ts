@@ -31,9 +31,9 @@ export function passwordProblem(password: unknown, email?: string): string | nul
   return null;
 }
 
-const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+export const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 
-function emailLayout(title: string, body: string, button?: { label: string; url: string }) {
+export function emailLayout(title: string, body: string, button?: { label: string; url: string }) {
   const action = button
     ? `<p style="margin:28px 0"><a href="${button.url}" style="background:#3B4FB2;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:600;display:inline-block">${escapeHtml(button.label)}</a></p>
        <p style="color:#5E5B53;font-size:13px">Or paste this link into your browser:<br><span style="word-break:break-all">${escapeHtml(button.url)}</span></p>`
@@ -130,7 +130,8 @@ export class PasswordResetService {
     const claimed = await this.prisma.passwordResetToken.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: now } });
     if (claimed.count !== 1) throw new BadRequestException('This link has expired or was already used. Ask for a new one.');
     await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id: row.userId }, data: { passwordHash } }),
+      // Using a link sent to this address also proves they own it
+      this.prisma.user.update({ where: { id: row.userId }, data: { passwordHash, emailVerifiedAt: row.user.emailVerifiedAt ?? now } }),
       this.prisma.passwordResetToken.updateMany({ where: { userId: row.userId, usedAt: null }, data: { usedAt: now } }),
     ]);
     await this.auth.logoutAll(row.userId, 'password_reset');
@@ -154,7 +155,7 @@ export class PasswordResetService {
     if (typeof token !== 'string' || token.length < 20 || token.length > 200) return null;
     const row = await this.prisma.passwordResetToken.findUnique({
       where: { tokenHash: hashResetToken(token) },
-      include: { user: { select: { id: true, email: true, name: true } } },
+      include: { user: { select: { id: true, email: true, name: true, emailVerifiedAt: true } } },
     });
     if (!row || row.usedAt || row.expiresAt.getTime() <= Date.now()) return null;
     return row;

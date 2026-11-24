@@ -1,4 +1,4 @@
-import { IsOptional, IsBoolean, IsString, IsArray } from 'class-validator';
+import { IsOptional, IsBoolean, IsString, Matches, MaxLength } from 'class-validator';
 import { Theme } from '@prisma/client';
 import { IsEnum } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -23,11 +23,18 @@ export class UpdateSettingsDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   language?: string;
 
   @IsOptional()
+  @IsBoolean()
+  dailyReminderEnabled?: boolean;
+
+  /** "HH:mm" on the learner's own clock; null clears it */
+  @IsOptional()
   @IsString()
-  dailyReminderTime?: string;
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'Reminder time must look like 19:30' })
+  dailyReminderTime?: string | null;
 
   @IsOptional()
   @IsBoolean()
@@ -36,4 +43,20 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   showOnlineStatus?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showProfilePublic?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  allowFriendRequests?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  allowDirectMessages?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  autoTranslateMessages?: boolean;
 }

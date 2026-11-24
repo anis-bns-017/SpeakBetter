@@ -25,6 +25,8 @@ export interface RankedSuggestion extends SuggestionCandidate {
   matchScore: number;
   /** One short line explaining why this person was suggested */
   reason: string;
+  /** The same reason as a template and values, so the app can show it in Bangla */
+  reasonParts: { text: string; vars: Record<string, string> };
   sharedInterests: string[];
   isRequested: false;
 }
@@ -99,27 +101,29 @@ export function scoreSuggestion(
   if (idle <= DAY_MS) score += w.activeToday;
   else if (idle <= 7 * DAY_MS) score += w.activeThisWeek;
 
-  let reason: string;
+  let reasonParts: RankedSuggestion['reasonParts'];
   if (theyTeachMe && iTeachThem) {
-    reason = `Perfect language exchange — ${theirNative} for ${myNativeName}`;
+    reasonParts = { text: 'Perfect language exchange — {theirs} for {mine}', vars: { theirs: theirNative as string, mine: myNativeName as string } };
   } else if (theyTeachMe) {
-    reason = `Native ${theirNative} speaker — you're learning it`;
+    reasonParts = { text: "Native {theirs} speaker — you're learning it", vars: { theirs: theirNative as string } };
   } else if (iTeachThem) {
-    reason = `Learning ${myNativeName} — your native language`;
+    reasonParts = { text: 'Learning {mine} — your native language', vars: { mine: myNativeName as string } };
   } else if (sharedLearning.length) {
-    reason = `Also learning ${sharedLearning[0]}`;
+    reasonParts = { text: 'Also learning {language}', vars: { language: sharedLearning[0] } };
   } else if (sharedInterests.length) {
-    reason = `Also into ${sharedInterests.join(", ")}`;
+    reasonParts = { text: 'Also into {interests}', vars: { interests: sharedInterests.join(', ') } };
   } else if (idle <= DAY_MS) {
-    reason = "Active today";
+    reasonParts = { text: 'Active today', vars: {} };
   } else {
-    reason = "New to practice with";
+    reasonParts = { text: 'New to practice with', vars: {} };
   }
+  const reason = reasonParts.text.replace(/\{(\w+)\}/g, (_, key: string) => reasonParts.vars[key] ?? '');
 
   return {
     ...candidate,
     matchScore: Math.round(score * 100) / 100,
     reason,
+    reasonParts,
     sharedInterests,
     isRequested: false,
   };

@@ -85,9 +85,12 @@ export const isChallengeLevel = (value: unknown): value is ChallengeLevel =>
   typeof value === 'string' && (CHALLENGE_LEVELS as readonly string[]).includes(value);
 
 /** The prompt for a level on a given day: everyone at that level gets the same one */
-export function promptFor(level: ChallengeLevel, day: Date): ChallengePrompt {
+/** `day` is a Date (read on the server's clock) or the learner's own day as YYYY-MM-DD */
+export function promptFor(level: ChallengeLevel, day: Date | string): ChallengePrompt {
   const list = CHALLENGE_PROMPTS.filter((x) => x.level === level);
-  const dayNumber = Math.floor(new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime() / 86_400_000);
+  const [y, m, d] = typeof day === 'string' ? day.split('-').map(Number) : [day.getFullYear(), day.getMonth() + 1, day.getDate()];
+  // Same numbering as before for the server's own days, so nobody's question changes mid-day
+  const dayNumber = Math.floor(new Date(y, m - 1, d).getTime() / 86_400_000);
   return list[(dayNumber + CHALLENGE_LEVELS.indexOf(level) * 3) % list.length];
 }
 

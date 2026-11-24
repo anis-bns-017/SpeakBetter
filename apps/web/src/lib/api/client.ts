@@ -70,7 +70,7 @@ const coordinator = createRefreshCoordinator({
 });
 
 // Pages an anonymous visitor may be on; sending them to /login again would loop
-const PUBLIC_PATHS = ['/', '/login', '/register', '/auth/callback', '/forgot-password', '/reset-password', '/terms', '/privacy'];
+const PUBLIC_PATHS = ['/', '/login', '/register', '/auth/callback', '/forgot-password', '/reset-password', '/verify-email', '/terms', '/privacy'];
 
 // Set when this tab is about to leave on purpose (the account was just deleted): late 401s from requests still
 // in flight must not race it to /login
@@ -88,10 +88,16 @@ const sendToLogin = () => {
 const isCredentialEndpoint = (url = '') =>
   /\/auth\/(login|register|refresh|logout)\b/.test(url);
 
+/** The server refused something because the email isn't confirmed: the reminder comes back */
+export const EMAIL_NEEDED_EVENT = 'sb:email-needed';
+
 // ---------- Response interceptor ----------
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (error.response?.status === 403 && error.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+      window.dispatchEvent(new Event(EMAIL_NEEDED_EVENT));
+    }
     const originalRequest = error.config as InternalAxiosRequestConfig | undefined;
 
     if (

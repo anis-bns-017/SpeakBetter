@@ -244,6 +244,7 @@ describeDb('Random calls (PostgreSQL)', () => {
             levelB: 'beginner',
             goal: 'casual',
             liveKitRoomId: `rc-x-${partner.id}`,
+            startedAt: new Date(Date.now() - 120_000),
             endsAt: new Date(),
             endedAt: new Date(),
             endReason: 'COMPLETED',

@@ -28,5 +28,7 @@ import { RandomCallService } from './random-call.service';
     MatchmakerService,
     RandomCallGateway,
   ],
+  // The admin section upholds reports through it
+  exports: [RandomCallService],
 })
 export class RandomCallModule {}

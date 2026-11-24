@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { CHALLENGE_XP, ChallengesService } from './challenges.service';
+import { CHALLENGE_XP, ChallengesService, isOwnUpload } from './challenges.service';
 import { promptFor } from './challenge.prompts';
 import { dayKey } from '../insights/plan.engine';
 
@@ -10,6 +10,7 @@ const TRANSCRIPT =
 function setup() {
   const entries: any[] = [];
   const reactions: any[] = [];
+  const blocks: any[] = [];
   const withIncludes = (e: any) =>
     e && { ...e, user: { id: e.userId, name: `Name ${e.userId}`, avatarUrl: null }, reactions: reactions.filter((r) => r.entryId === e.id) };
   const prisma: any = {
@@ -21,10 +22,11 @@ function setup() {
       }),
       findMany: jest.fn(async ({ where, select }) => {
         let list = entries.filter((e) => (!where.day || e.day === where.day) && (!where.visibility || e.visibility === where.visibility));
-        if (where.userId?.not) list = list.filter((e) => e.userId !== where.userId.not);
+        if (where.userId?.notIn) list = list.filter((e) => !where.userId.notIn.includes(e.userId));
         else if (typeof where.userId === 'string') list = list.filter((e) => e.userId === where.userId);
         return select ? list.map((e) => ({ day: e.day })) : list.map(withIncludes);
       }),
+      count: jest.fn(async ({ where }) => entries.filter((e) => e.userId === where.userId).length),
       create: jest.fn(async ({ data }) => {
         const e = { id: `e${entries.length + 1}`, createdAt: new Date(), ...data };
         entries.push(e);
@@ -53,11 +55,18 @@ function setup() {
       findMany: jest.fn(async ({ where }) => reactions.filter((r) => r.entryId === where.entryId)),
     },
     user: { findUnique: jest.fn(async ({ where }) => ({ id: where.id, name: `Name ${where.id}`, avatarUrl: null })) },
+    block: {
+      findMany: jest.fn(async ({ where }) => blocks.filter((b) => b.blockerId === where.OR[0].blockerId || b.blockedId === where.OR[1].blockedId)),
+      findFirst: jest.fn(async ({ where }) =>
+        blocks.find((b) => where.OR.some((o: any) => o.blockerId === b.blockerId && o.blockedId === b.blockedId)) ?? null,
+      ),
+    },
+    xpTransaction: { count: jest.fn(async () => activity.recordActivity.mock.calls.length) },
   };
   const activity: any = { recordActivity: jest.fn().mockResolvedValue(undefined) };
   const notifications: any = { notify: jest.fn().mockResolvedValue(1) };
   const badges: any = { evaluate: jest.fn().mockResolvedValue([]) };
-  return { service: new ChallengesService(prisma, activity, notifications, badges), entries, reactions, activity, notifications, badges };
+  return { service: new ChallengesService(prisma, activity, notifications, badges), entries, reactions, blocks, activity, notifications, badges };
 }
 
 const todayPrompt = (level: 'A2' | 'B1' = 'A2') => promptFor(level, new Date()).id;
@@ -70,6 +79,33 @@ const answer = (extra: Record<string, unknown> = {}) => ({
 });
 
 describe('ChallengesService', () => {
+  it('gives the XP once a day, even if the answer is deleted and recorded again', async () => {
+    const { service, activity } = setup();
+    expect((await service.submit('me', answer())).xp).toBe(CHALLENGE_XP);
+    await service.removeMine('me');
+    const again = await service.submit('me', answer());
+    expect(again.xp).toBe(0);
+    expect(again.entry).toBeTruthy();
+    expect(activity.recordActivity).toHaveBeenCalledTimes(1);
+  });
+
+  it('only plays recordings uploaded through this app', async () => {
+    const { service } = setup();
+    await expect(service.submit('me', answer({ audioUrl: 'https://evil.example/track.mp3' }))).rejects.toThrow(BadRequestException);
+    await expect(service.submit('me', answer({ audioUrl: 'http://localhost:9000/uploads/a.webm' }))).rejects.toThrow(BadRequestException);
+    expect(isOwnUpload('https://res.cloudinary.com/mine/video/upload/v1/a.webm', 'mine')).toBe(true);
+    expect(isOwnUpload('https://res.cloudinary.com/other/video/upload/v1/a.webm', 'mine')).toBe(false);
+    expect(isOwnUpload('https://res.cloudinary.com.evil.example/mine/video/upload/a.webm', 'mine')).toBe(false);
+  });
+
+  it('keeps blocked people out of the feed and their answers out of reach, both ways', async () => {
+    const { service, blocks } = setup();
+    const theirs = await service.submit('them', answer());
+    blocks.push({ blockerId: 'them', blockedId: 'me' });
+    expect((await service.today('me')).feed).toHaveLength(0);
+    await expect(service.react('me', theirs.entry!.id, '👏')).rejects.toThrow(NotFoundException);
+  });
+
   it("shows today's prompt for your level and every level's title", async () => {
     const { service } = setup();
     const today = await service.today('me');

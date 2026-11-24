@@ -7,6 +7,7 @@ import { asApiError, type ApiError } from "../lib/api/errors";
 import { tr } from "../i18n/core";
 import { getMicrophone, microphoneSupport, microphoneUnavailableMessage } from "../lib/microphone";
 import { SOCKET_ORIGIN } from "../lib/api/serverUrl";
+import { isChatMuted } from "../lib/chatMute";
 
 // ---------- Types ----------
 export interface Chat {
@@ -203,6 +204,12 @@ export interface SendMessagePayload {
 
 // ---------- API Calls ----------
 
+/** A saved message, with the chat it came from */
+export type SavedChatMessage = Message & {
+  savedAt?: string;
+  chat?: { id: string; type: string; name?: string | null } | null;
+};
+
 export const chatApi = {
   getUserChats: () => apiClient.get<Chat[]>("/chat"),
   getChatById: (chatId: string) => apiClient.get<Chat>(`/chat/${chatId}`),
@@ -240,7 +247,7 @@ export const chatApi = {
     communityId: string,
     params?: { limit?: number; before?: string },
   ) =>
-    apiClient.get<Message[]>(`/communities/${communityId}/messages`, {
+    apiClient.get<Message[]>(`/chat/community/${communityId}/messages`, {
       params,
     }),
   sendCommunityMessage: (
@@ -252,7 +259,7 @@ export const chatApi = {
       fileUrl?: string;
       replyToId?: string;
     },
-  ) => apiClient.post<Message>(`/communities/${communityId}/messages`, data),
+  ) => apiClient.post<Message>(`/chat/community/${communityId}/messages`, data),
 
   // ---------- Privacy & chat lock ----------
   getPrivacy: () => apiClient.get<ChatPrivacySettings>("/chat/me/privacy"),
@@ -277,6 +284,7 @@ export const chatApi = {
   getMedia: (chatId: string, kind: "media" | "files" | "links", before?: string) =>
     apiClient.get<Message[]>(`/chat/${chatId}/media`, { params: { kind, ...(before ? { before } : {}) } }),
   getSaved: (chatId: string) => apiClient.get<Message[]>(`/chat/${chatId}/saved`),
+  getAllSaved: () => apiClient.get<SavedChatMessage[]>("/chat/me/saved"),
 
   // ---------- Scheduled ----------
   listScheduled: (chatId: string) => apiClient.get<ScheduledMessage[]>(`/chat/${chatId}/scheduled`),
@@ -509,7 +517,7 @@ export const useSendMessage = () => {
       queryClient.invalidateQueries({ queryKey: ["chats"] });
     },
     onError: (error: ApiError) => {
-      toast.error(error.response?.data?.message || tr("Failed to send message"));
+      toast.error(error.response?.data?.message || tr("Failed to send message"), { id: "chat-send-failed" });
     },
   });
 };
@@ -553,7 +561,7 @@ export const useSendCommunityMessage = () => {
       queryClient.invalidateQueries({ queryKey: ["communities"] });
     },
     onError: (error: ApiError) => {
-      toast.error(error.response?.data?.message || tr("Failed to send message"));
+      toast.error(error.response?.data?.message || tr("Failed to send message"), { id: "chat-send-failed" });
     },
   });
 };
@@ -598,10 +606,10 @@ export const useEditMessage = () => {
         isEdited: true,
         updatedAt: message.updatedAt,
       }));
-      toast.success(tr("Message edited"));
+      toast.success(tr("Message edited"), { id: "chat-edit-ok" });
     },
     onError: (error: ApiError) => {
-      toast.error(error.response?.data?.message || tr("Failed to edit message"));
+      toast.error(error.response?.data?.message || tr("Failed to edit message"), { id: "chat-edit-failed" });
     },
   });
 };
@@ -931,12 +939,10 @@ export const useChatSocket = (
 
     if (!currentSocket?.connected || !chatId) return;
 
-    console.log(`📚 Joining chat room: ${chatId}`);
     currentSocket.emit("chat:join", { chatId });
 
     return () => {
       if (currentSocket.connected) {
-        console.log(`📚 Leaving chat room: ${chatId}`);
         currentSocket.emit("chat:leave", { chatId });
       }
     };
@@ -945,19 +951,16 @@ export const useChatSocket = (
   // Create exactly one socket per userId.
   useEffect(() => {
     if (!userId) {
-      console.log("⏳ Waiting for userId before connecting chat socket");
       return;
     }
 
     if (typeof window === "undefined") return;
 
     if (socketRef.current?.connected) {
-      console.log("✅ Chat socket already connected");
       return;
     }
 
     if (isConnectingRef.current) {
-      console.log("⏳ Chat socket connection already in progress");
       return;
     }
 
@@ -965,13 +968,6 @@ export const useChatSocket = (
 
     const token = getToken();
 
-    console.log(
-      "🔑 Chat authentication:",
-      token
-        ? "stored token present"
-        : "no JS-readable token; using credentials/cookies",
-    );
-    console.log(`🔌 Connecting to: ${SOCKET_URL}${CHAT_SOCKET_NAMESPACE}`);
 
     // Build auth without undefined values. This is the critical difference
     // from the previous implementation, which generated token=undefined.
@@ -1014,7 +1010,6 @@ export const useChatSocket = (
     setSocket(s);
 
     const handleConnect = () => {
-      console.log("✅ Connected to chat socket", s.id);
 
       isConnectingRef.current = false;
       reconnectToastShownRef.current = false;
@@ -1024,19 +1019,16 @@ export const useChatSocket = (
 
       const currentChatId = chatIdRef.current;
       if (currentChatId) {
-        console.log(`📚 Joining chat room: ${currentChatId}`);
         s.emit("chat:join", { chatId: currentChatId });
       }
     };
 
     const handleDisconnect = (reason: string) => {
-      console.log(`❌ Disconnected from chat socket: ${reason}`);
       setIsConnected(false);
 
       // Socket.IO normally reconnects automatically. Do not call connect()
       // manually here because that can create duplicate connection attempts.
       if (reason === "io server disconnect") {
-        console.log("🔄 Server requested disconnect; reconnecting...");
         reconnectTimerRef.current = setTimeout(() => {
           // Only come back if the session is still valid: after a logout or a
           // revoked login the server closes the socket and it must stay closed.
@@ -1078,10 +1070,7 @@ export const useChatSocket = (
       }
     };
 
-    const handleReconnect = (attemptNumber: number) => {
-      console.log(
-        `🔄 Chat socket reconnected after ${attemptNumber} attempt(s)`,
-      );
+    const handleReconnect = () => {
       isConnectingRef.current = false;
       setIsConnected(true);
       attemptsRef.current = 0;
@@ -1105,8 +1094,7 @@ export const useChatSocket = (
     s.io.on("reconnect_error", handleReconnectError);
     s.io.on("reconnect_failed", handleReconnectFailed);
 
-    s.on("connection:established", (data) => {
-      console.log("✅ Connection established:", data);
+    s.on("connection:established", () => {
       setIsConnected(true);
       isConnectingRef.current = false;
     });
@@ -1114,11 +1102,10 @@ export const useChatSocket = (
     // ---------- Message Events ----------
 
     const handleIncomingMessage = (message: Message) => {
-      console.log("📩 New message received:", message);
 
       optionsRef.current?.onNewMessage?.(message);
 
-      if (message.senderId !== userId && message.metadata?.mentions?.includes(userId)) {
+      if (message.senderId !== userId && message.metadata?.mentions?.includes(userId) && !isChatMuted()) {
         toast(tr("{value} mentioned you", { value: message.sender?.name || "Someone" }), {
           description: message.content?.slice(0, 80) || undefined,
         });
@@ -1155,10 +1142,6 @@ export const useChatSocket = (
       },
     );
 
-    s.on("message:sent", (message: Message) => {
-      console.log("✅ Message sent confirmation:", message);
-    });
-
     s.on(
       "message:deleted",
       (data: {
@@ -1167,7 +1150,6 @@ export const useChatSocket = (
         chatId?: string;
         communityId?: string;
       }) => {
-        console.log("🗑️ Message deleted:", data);
 
         optionsRef.current?.onMessageDeleted?.(data);
 
@@ -1196,7 +1178,6 @@ export const useChatSocket = (
     );
 
     s.on("message:edited", (message: Message) => {
-      console.log("✏️ Message edited:", message);
 
       optionsRef.current?.onMessageEdited?.(message);
 
@@ -1273,7 +1254,6 @@ export const useChatSocket = (
     s.on(
       "message:pinned",
       (data: { messageId: string; pinned: boolean; userId: string }) => {
-        console.log("📌 Message pinned:", data);
 
         queryClient.setQueriesData<Message[]>(
           { queryKey: ["messages"] },
@@ -1297,7 +1277,6 @@ export const useChatSocket = (
       (payload: Reaction | { messageId: string; reaction: Reaction }) => {
         const reaction = "reaction" in payload ? payload.reaction : payload;
 
-        console.log("❤️ New reaction:", reaction);
 
         optionsRef.current?.onReaction?.(reaction);
 
@@ -1329,7 +1308,6 @@ export const useChatSocket = (
     s.on(
       "reaction:removed",
       (data: { messageId: string; userId: string; emoji: string }) => {
-        console.log("💔 Reaction removed:", data);
 
         queryClient.setQueriesData<Message[]>(
           { queryKey: ["messages"] },
@@ -1451,7 +1429,6 @@ export const useChatSocket = (
     });
 
     return () => {
-      console.log("🧹 Cleaning up chat socket");
 
       isConnectingRef.current = false;
 
@@ -1531,7 +1508,6 @@ export const useChatSocket = (
         chatId: payload.chatId || chatId || undefined,
       };
 
-      console.log("📤 Sending message via socket:", finalPayload);
       socketRef.current.emit("message:send", finalPayload);
     },
     [isConnected, chatId],
