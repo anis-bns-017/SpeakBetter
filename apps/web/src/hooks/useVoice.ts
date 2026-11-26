@@ -16,8 +16,8 @@ import {
   Participant,
   ConnectionQuality,
   DisconnectReason,
-  AudioPresets,
 } from "livekit-client";
+import { speechRoomOptions } from "../lib/voiceAudio";
 import { type ApiError } from "../lib/api/errors";
 import { tr } from "../i18n/core";
 import { microphoneErrorMessage, microphoneSupport, microphoneUnavailableMessage } from "../lib/microphone";
@@ -1875,23 +1875,8 @@ export const useLiveKitRoom = (
       try {
         setIsConnecting(true);
 
-        livekitRoom = new Room({
-          adaptiveStream: true,
-          dynacast: true,
-          // Echo cancellation must stay on and the mic must be mono: the browser's echo canceller
-          // is tuned for a single voice channel, and stereo capture lets room echo through
-          audioCaptureDefaults: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            channelCount: 1,
-          },
-          // Speech preset (mono, ~24 kbps) + silence suppression: cleaner than the default "music" preset
-          publishDefaults: {
-            audioPreset: AudioPresets.speech,
-            dtx: true,
-          },
-        });
+        // Speech settings shared with random calls and the sound check (lib/voiceAudio.ts)
+        livekitRoom = new Room(speechRoomOptions());
 
         roomRef.current = livekitRoom;
         setRoom(livekitRoom);

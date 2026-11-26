@@ -36,6 +36,8 @@ interface LiveCaptionsProps {
   listening?: boolean;
   /** Start captions again (after allowing the microphone) */
   onRetry?: () => void;
+  /** Turn on captions of your own voice (off by default on phones) */
+  onCaptionMe?: () => void;
 }
 
 /** What to tell you when there are no lines to show */
@@ -46,6 +48,7 @@ const STATUS_HINT: Record<CaptionsStatus, string> = {
   blocked: msg("Captions can't use your microphone. Allow the microphone for this site (the icon in the address bar), then try again."),
   network: msg("Captions can't reach the browser's speech service. Chrome needs an internet connection, and Brave blocks this service. Trying again…"),
   "no-mic": msg("No microphone was found for captions. Plug one in, then try again."),
+  paused: msg("Your own captions are off on this phone, because they can make your voice sound worse. Everyone else's captions still show."),
 };
 
 const STORAGE_KEY = "sb.captions.on";
@@ -144,6 +147,7 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
   status = "listening",
   listening = false,
   onRetry,
+  onCaptionMe,
 }) => {
   const [enabled, setEnabled] = useState(readEnabled);
   const [showTranscript, setShowTranscript] = useState(false);
@@ -419,6 +423,10 @@ export const LiveCaptions: React.FC<LiveCaptionsProps> = ({
             </span>
           )}
           <span>{tr(STATUS_HINT[status])}</span>
+          {status === "paused" && onCaptionMe && (
+            <button type="button" onClick={onCaptionMe} className="shrink-0 rounded-lg px-2 py-1 font-semibold hover:bg-white/10" style={{ color: THEME.colors.accent.primaryLight }}>
+              {tr("Caption me")}</button>
+          )}
           {(status === "blocked" || status === "no-mic") && onRetry && (
             <button type="button" onClick={onRetry} className="shrink-0 rounded-lg px-2 py-1 font-semibold hover:bg-white/10" style={{ color: THEME.colors.accent.primaryLight }}>
               {tr("Try again")}</button>

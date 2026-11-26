@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#4f46e5" />
-    <title>You're offline - SpeakBetter</title>
+    <title>Can't reach SpeakBetter</title>
     <style>
       :root { color-scheme: light dark; }
       body {
@@ -22,12 +22,13 @@
       }
       @media (prefers-color-scheme: dark) {
         body { background: #0b1020; color: #f1f5f9; }
-        p { color: #94a3b8; }
+        p, .bn, .status { color: #94a3b8; }
       }
       main { max-width: 22rem; }
       img { width: 72px; height: 72px; border-radius: 18px; }
-      h1 { font-size: 1.4rem; margin: 1.25rem 0 0.5rem; }
-      p { margin: 0 0 1.5rem; color: #64748b; line-height: 1.5; }
+      h1 { font-size: 1.4rem; margin: 1.25rem 0 0.25rem; }
+      .bn { margin: 0 0 0.75rem; font-size: 1.05rem; font-weight: 600; color: #475569; }
+      p { margin: 0 0 1.25rem; color: #64748b; line-height: 1.5; }
       button {
         font: inherit;
         font-weight: 600;
@@ -38,14 +39,102 @@
         color: #fff;
         cursor: pointer;
       }
+      .status { margin-top: 1rem; font-size: 0.85rem; color: #64748b; min-height: 1.2em; }
     </style>
   </head>
   <body>
     <main>
       <img src="/icons/icon-192.png" alt="" />
-      <h1>You're offline</h1>
-      <p>SpeakBetter needs an internet connection to load. Check your connection, then try again.</p>
-      <button type="button" onclick="location.reload()">Try again</button>
+      <h1 id="title">Can't reach SpeakBetter</h1>
+      <div class="bn" id="title-bn">SpeakBetter-এ পৌঁছানো যাচ্ছে না</div>
+      <p id="text"></p>
+      <button type="button" id="retry">Try again · আবার চেষ্টা করুন</button>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
     </main>
+    <script>
+      // Shown by the service worker when a page could not be loaded. "Offline" is only said when the device
+      // really has no connection; otherwise the internet works and SpeakBetter itself did not answer.
+      (function () {
+        var title = document.getElementById("title");
+        var titleBn = document.getElementById("title-bn");
+        var text = document.getElementById("text");
+        var status = document.getElementById("status");
+
+        function describe() {
+          if (navigator.onLine === false) {
+            document.title = "You're offline - SpeakBetter";
+            title.textContent = "You're offline";
+            titleBn.textContent = "আপনি অফলাইনে আছেন";
+            text.textContent = "Check your Wi-Fi or mobile data. SpeakBetter opens again by itself when you're back online.";
+          } else {
+            document.title = "Can't reach SpeakBetter";
+            title.textContent = "Can't reach SpeakBetter";
+            titleBn.textContent = "SpeakBetter-এ পৌঁছানো যাচ্ছে না";
+            text.textContent = "Your internet seems fine, but SpeakBetter didn't answer. We'll keep trying, or tap the button.";
+          }
+        }
+
+        var delay = 3000;
+        var timer = null;
+        var checking = false;
+
+        // Asks the server for this page again; as soon as it answers, the real page loads
+        function check() {
+          if (checking) return;
+          checking = true;
+          status.textContent = "Trying to connect…";
+          fetch(location.href, { cache: "no-store", credentials: "same-origin" })
+            .then(function (response) {
+              if (response.ok) {
+                status.textContent = "Connected. Opening…";
+                // This page can reach SpeakBetter, so the offline helper (service worker) is what failed to load the
+                // page. Remove it, so the reload goes straight to the network. The app sets it up again afterwards.
+                var cleared = navigator.serviceWorker
+                  ? navigator.serviceWorker.getRegistrations().then(function (list) {
+                      return Promise.all(list.map(function (r) { return r.unregister(); }));
+                    })
+                  : Promise.resolve();
+                cleared.catch(function () {}).then(function () {
+                  // Shown in place of the page that failed, so reloading opens that page. Opened on its own, go home.
+                  if (location.pathname === "/offline.html") location.replace("/");
+                  else location.reload();
+                });
+                return;
+              }
+              throw new Error("status " + response.status);
+            })
+            .catch(function () {
+              checking = false;
+              describe();
+              status.textContent = "Still not answering. Trying again in " + Math.round(delay / 1000) + " s.";
+              schedule();
+            });
+        }
+
+        function schedule() {
+          clearTimeout(timer);
+          timer = setTimeout(check, delay);
+          delay = Math.min(delay * 2, 30000);
+        }
+
+        document.getElementById("retry").addEventListener("click", function () {
+          delay = 3000;
+          clearTimeout(timer);
+          check();
+        });
+        window.addEventListener("online", function () {
+          delay = 3000;
+          describe();
+          check();
+        });
+        window.addEventListener("offline", describe);
+        document.addEventListener("visibilitychange", function () {
+          if (document.visibilityState === "visible") check();
+        });
+
+        describe();
+        schedule();
+      })();
+    </script>
   </body>
 </html>

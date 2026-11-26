@@ -11,7 +11,7 @@
  * calls, anything that is not a GET) goes straight to the network as before.
  */
 
-const VERSION = 'v2';
+const VERSION = 'v4';
 const SHELL_CACHE = `sb-shell-${VERSION}`;
 const ASSET_CACHE = `sb-assets-${VERSION}`;
 const API_CACHE = `sb-api-${VERSION}`;
@@ -29,6 +29,24 @@ const API_ORIGIN = (() => {
   }
 })();
 
+/**
+ * A development site (the dev server on this computer, the Wi-Fi address, or a cloudflared tunnel for phones). Its
+ * pages need the live dev server anyway, so the worker leaves page loads to the browser there: a failure then shows
+ * the real error (or the phone app's own "Can't reach SpeakBetter") instead of a wrong "You're offline".
+ */
+const DEV_SITE = (() => {
+  if (new URL(self.location.href).searchParams.get('dev') === '1') return true;
+  const host = self.location.hostname;
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '[::1]' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.trycloudflare.com') ||
+    /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)
+  );
+})();
+
 /** API reads worth keeping for offline: who you are, and learning content */
 const OFFLINE_API = [
   /^\/auth\/me$/,
@@ -37,6 +55,19 @@ const OFFLINE_API = [
   /^\/vocab-packs(\/[^/]+)?$/,
   /^\/shadowing(\/[^/]+)?$/,
 ];
+/** A page load that fails is tried once more after this long: tunnels and phone networks drop for a moment */
+const NAVIGATE_RETRY_MS = 1500;
+
+/** Fetches a page, trying once more after a short wait when the network fails */
+async function fetchPage(request) {
+  try {
+    return await fetch(request);
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, NAVIGATE_RETRY_MS));
+    return fetch(request);
+  }
+}
+
 /** How long to wait for the network before using the saved copy */
 const API_TIMEOUT_MS = 6000;
 
@@ -74,6 +105,11 @@ self.addEventListener('activate', (event) => {
       for (const key of await caches.keys()) {
         if (key !== SHELL_CACHE && key !== ASSET_CACHE && key !== API_CACHE) await caches.delete(key);
       }
+      // The browser starts loading a page while the worker wakes up, and the worker uses that answer. It is the
+      // browser's own request, so it works wherever a normal page load works.
+      if (self.registration.navigationPreload) {
+        await (DEV_SITE ? self.registration.navigationPreload.disable() : self.registration.navigationPreload.enable()).catch(() => undefined);
+      }
       await self.clients.claim();
     })(),
   );
@@ -95,20 +131,29 @@ self.addEventListener('fetch', (event) => {
   // Opening a page: always the network. Offline, the last app page that loaded (so saved lessons still
   // open), or the offline page when there is none.
   if (request.mode === 'navigate') {
+    if (DEV_SITE) return;
     event.respondWith(
-      fetch(request)
-        .then(async (response) => {
-          if (response.ok) {
-            // Development pages load their code live from the dev server, so they are useless offline
-            const html = await response.clone().text();
-            if (!html.includes('/@vite/client')) {
+      (async () => {
+        let response;
+        try {
+          response = (await event.preloadResponse) || (await fetchPage(request));
+        } catch {
+          return (await caches.match(SHELL_URL)) || (await caches.match(OFFLINE_URL)) || Response.error();
+        }
+        // Keeping a copy for offline must never turn a page that loaded into an error
+        if (response.ok) {
+          event.waitUntil(
+            (async () => {
+              const html = await response.clone().text();
+              // Development pages load their code live from the dev server, so they are useless offline
+              if (html.includes('/@vite/client')) return;
               const shell = await caches.open(SHELL_CACHE);
               await shell.put(SHELL_URL, new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
-            }
-          }
-          return response;
-        })
-        .catch(async () => (await caches.match(SHELL_URL)) || caches.match(OFFLINE_URL)),
+            })().catch(() => undefined),
+          );
+        }
+        return response;
+      })(),
     );
     return;
   }

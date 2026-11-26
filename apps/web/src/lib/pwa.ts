@@ -84,8 +84,19 @@ export async function promptInstall(): Promise<boolean> {
 /** Registers /sw.js once the page has loaded, so it never slows the first paint */
 export function registerServiceWorker(): void {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  // The phone app has its own "Can't reach SpeakBetter" screen and no web push, so the worker only adds a way to
+  // get stuck: some web views can't let it reach the network or update itself. Remove any it has from before.
+  if (isNativeApp()) {
+    void navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((r) => r.unregister())))
+      .catch(() => undefined);
+    return;
+  }
   const register = () => {
-    navigator.serviceWorker.register(`/sw.js?api=${encodeURIComponent(apiOrigin())}`).catch((error) => {
+    // dev=1: the worker leaves page loads to the browser on a development site (see public/sw.js)
+    const dev = import.meta.env.DEV ? "&dev=1" : "";
+    navigator.serviceWorker.register(`/sw.js?api=${encodeURIComponent(apiOrigin())}${dev}`).catch((error) => {
       console.warn("Service worker could not be registered:", error);
     });
   };

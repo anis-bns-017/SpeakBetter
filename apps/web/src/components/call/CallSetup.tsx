@@ -1,5 +1,6 @@
 // apps/web/src/components/call/CallSetup.tsx
 import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Clock, History, Lock, Loader2, Phone, Star, Users } from "lucide-react";
 import { COLORS } from "../voice/lobby/lobbyTheme";
@@ -207,6 +208,12 @@ export const CallSetup: React.FC<{
             </fieldset>
 
             <MicCheck />
+            <p className="mt-2 text-xs" style={{ color: COLORS.textMuted }}>
+              {tr("Want to hear how you sound?")}{" "}
+              <Link to="/sound-check" className="font-semibold underline" style={{ color: COLORS.textSecondary }}>
+                {tr("Open the full sound check")}
+              </Link>
+            </p>
 
             {needsConsent && (
               <label

@@ -33,6 +33,8 @@ interface Options {
   isConnected: boolean;
   /** BCP-47 language tag, e.g. "en-US", "es-ES" */
   language?: string;
+  /** Caption your own voice. Off means others' captions still arrive, but your microphone is left to the call. */
+  listenToMe?: boolean;
 }
 
 /** Lines kept for the room transcript (older ones drop off, so a long room stays light) */
@@ -48,6 +50,7 @@ export const useVoiceTranscription = ({
   socket,
   isConnected,
   language = "en-US",
+  listenToMe = true,
 }: Options) => {
   const [transcriptions, setTranscriptions] = useState<VoiceTranscription[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -224,7 +227,7 @@ export const useVoiceTranscription = ({
   // -----------------------------------------------------------
   useEffect(() => {
     if (!isSupported || !userId) return;
-    if (isMuted) {
+    if (isMuted || !listenToMe) {
       // Stops the browser's recognizer (an outside system) and marks it stopped
       // eslint-disable-next-line react-hooks/set-state-in-effect
       stopRecognition();
@@ -234,7 +237,7 @@ export const useVoiceTranscription = ({
     return () => {
       // Don't stop on every re-render, only on unmount
     };
-  }, [isMuted, isSupported, userId, startRecognition, stopRecognition]);
+  }, [isMuted, listenToMe, isSupported, userId, startRecognition, stopRecognition]);
 
   // Cleanup on unmount
   useEffect(() => {

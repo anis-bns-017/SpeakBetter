@@ -45,6 +45,7 @@ const ProgressPage = lazyPage(() => import("../pages/ProgressPage"), "ProgressPa
 const PlacementPage = lazyPage(() => import("../pages/PlacementPage"), "PlacementPage");
 const AiPartnerPage = lazyPage(() => import("../pages/AiPartnerPage"), "AiPartnerPage");
 const PronunciationPage = lazyPage(() => import("../pages/PronunciationPage"), "PronunciationPage");
+const SoundCheckPage = lazyPage(() => import("../pages/SoundCheckPage"), "SoundCheckPage");
 const LeaguesPage = lazyPage(() => import("../pages/LeaguesPage"), "LeaguesPage");
 const ChallengePage = lazyPage(() => import("../pages/ChallengePage"), "ChallengePage");
 const SpeakingExamPage = lazyPage(() => import("../pages/SpeakingExamPage"), "SpeakingExamPage");
@@ -304,6 +305,7 @@ const AppRoutes = () => {
           <Route path="/placement" element={<PlacementPage />} />
           <Route path="/ai-partner" element={<AiPartnerPage />} />
           <Route path="/pronunciation" element={<PronunciationPage />} />
+          <Route path="/sound-check" element={<SoundCheckPage />} />
           <Route path="/leagues" element={<LeaguesPage />} />
           <Route path="/challenge" element={<ChallengePage />} />
           <Route path="/speaking-test" element={<SpeakingExamPage />} />

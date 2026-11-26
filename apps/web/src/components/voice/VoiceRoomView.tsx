@@ -130,6 +130,7 @@ import {
 import { useSpeakingTimes } from "../../hooks/useSpeakingTimes";
 import { ParticipantGrid } from "./participants/ParticipantGrid";
 import { useVoiceTranscription } from "../../hooks/useVoiceTranscription";
+import { readCaptionMe, saveCaptionMe } from "../../lib/voiceDevice";
 import { ChatPanel } from "./chat/ChatPanel";
 import { ReactionOverlay } from "./shared/ReactionOverlay";
 import { useStageReactions } from "./shared/useStageReactions";
@@ -1874,6 +1875,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         ? "good"
         : "poor";
 
+  // Captioning your own voice uses the microphone a second time: off by default on phones (lib/voiceDevice.ts)
+  const [captionMe, setCaptionMe] = useState(readCaptionMe);
   const {
     transcriptions,
     isSupported: captionsSupported,
@@ -1888,6 +1891,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
     socket,
     isConnected,
     language: "en-US",
+    listenToMe: captionMe,
   });
 
   const allParticipants = useMemo<RoomParticipant[]>(() => {
@@ -2028,6 +2032,7 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
   // Effects run as a LiveKit processor on the published mic, so the whole room hears them
   const voiceEffects = useVoiceEffects({
     localTrack: liveKitResult.localTrack,
+    room: liveKitResult.room,
   });
 
   const journal = usePracticeJournal({ userId: user?.id || "" });
@@ -3377,9 +3382,13 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
             userId={user?.id || ""}
             savedWords={wordBank.savedSet}
             onSave={(input) => wordBank.save({ ...input, roomId })}
-            status={!captionsSupported ? "unsupported" : captionsProblem ?? (isMuted ? "muted" : "listening")}
+            status={!captionsSupported ? "unsupported" : !captionMe ? "paused" : captionsProblem ?? (isMuted ? "muted" : "listening")}
             listening={captionsRecording}
             onRetry={retryCaptions}
+            onCaptionMe={() => {
+              saveCaptionMe(true);
+              setCaptionMe(true);
+            }}
           />
           <div className="pointer-events-none absolute right-3 top-3 z-30 hidden w-[min(88vw,300px)] md:block">
             <div className="pointer-events-auto">
@@ -3859,6 +3868,8 @@ export const VoiceRoomView: React.FC<VoiceRoomViewProps> = ({
         onToggleNoiseSuppression={() =>
           voiceEffects.setNoiseSuppression(!voiceEffects.noiseSuppression)
         }
+        echoGuard={voiceEffects.echoGuard}
+        onToggleEchoGuard={() => voiceEffects.setEchoGuard(!voiceEffects.echoGuard)}
       />
 
       {isModerator && (

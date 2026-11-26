@@ -17,7 +17,8 @@ import type {
 } from "../../../hooks/useRoomCoach";
 import { tr, msg } from "../../../i18n/core";
 
-export type CaptionsStatus = "unsupported" | "muted" | "listening" | "blocked" | "network" | "no-mic";
+/** "paused": captions of your own voice are off (the default on phones, where they hurt the call's sound) */
+export type CaptionsStatus = "unsupported" | "muted" | "listening" | "blocked" | "network" | "no-mic" | "paused";
 export type CoachTab = "me" | "mission" | "room" | "words";
 
 interface CoachDockProps {
@@ -61,6 +62,7 @@ const CAPTION_HINT: Record<CaptionsStatus, string> = {
   blocked: msg("Allow the microphone for captions"),
   network: msg("Captions can't reach the speech service"),
   "no-mic": msg("No microphone found for captions"),
+  paused: msg("Your captions are off on this phone, for clearer sound"),
 };
 
 const Tile: React.FC<{

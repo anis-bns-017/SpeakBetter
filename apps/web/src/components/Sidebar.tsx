@@ -132,6 +132,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: msg("Flashcards"), to: "/flashcards", icon: Layers, keywords: "review cards spaced repetition" },
       { label: msg("Shadowing"), to: "/shadowing", icon: Repeat2, keywords: "shadowing repeat after listen speak echo fluency rhythm" },
       { label: msg("Pronunciation"), to: "/pronunciation", icon: Mic, keywords: "pronounce speaking sounds accent th say aloud score" },
+      { label: msg("Sound check"), to: "/sound-check", icon: Headphones, keywords: "sound check microphone mic test audio quality speaker headphones echo noise hear myself" },
       { label: msg("Grammar"), to: "/grammar", icon: GraduationCap, keywords: "rules tenses lessons articles prepositions conditionals passive exercises drills" },
       { label: msg("Exercises"), to: "/exercises", icon: Dumbbell, keywords: "practice quiz" },
       { label: msg("Progress"), to: "/progress", icon: TrendingUp, keywords: "stats streak xp level" },

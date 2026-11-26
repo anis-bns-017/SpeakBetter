@@ -9,6 +9,7 @@ import {
   type RemoteAudioTrack,
 } from "livekit-client";
 import { ensureFreshSession } from "../../lib/api/client";
+import { speechRoomOptions } from "../../lib/voiceAudio";
 import { isMicrophoneUnavailable, MicrophoneUnavailableError, microphoneErrorMessage, microphoneSupport } from "../../lib/microphone";
 import {
   callApi,
@@ -147,7 +148,8 @@ export function useRandomCall() {
       teardownMedia();
       setMediaState("connecting");
       setMicError(null);
-      const room = new Room({ adaptiveStream: false, dynacast: true });
+      // The same speech settings as voice rooms: echo cancellation, mono, the speech preset
+      const room = new Room(speechRoomOptions({ adaptiveStream: false }));
       roomRef.current = room;
 
       room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {

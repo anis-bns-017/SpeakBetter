@@ -38,6 +38,8 @@ interface VoiceEffectsPanelProps {
   canApply?: boolean;
   noiseSuppression?: boolean;
   onToggleNoiseSuppression?: () => void;
+  echoGuard?: boolean;
+  onToggleEchoGuard?: () => void;
 }
 
 const PRESET_META: Record<
@@ -63,6 +65,8 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
   canApply = true,
   noiseSuppression = true,
   onToggleNoiseSuppression,
+  echoGuard = true,
+  onToggleEchoGuard,
 }) => {
   return (
     <AnimatePresence>
@@ -351,6 +355,33 @@ export const VoiceEffectsPanel: React.FC<VoiceEffectsPanelProps> = ({
                 disabled={state.bypass}
               />
             </div>
+
+            {onToggleEchoGuard && (
+              <button
+                type="button"
+                onClick={onToggleEchoGuard}
+                role="switch"
+                aria-checked={echoGuard}
+                className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors hover:bg-white/[0.03]"
+                style={{ borderColor: THEME.colors.border.primary }}
+              >
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold" style={{ color: THEME.colors.text.primary }}>
+                    {tr("Echo guard")}</span>
+                  <span className="block text-[11px] leading-snug" style={{ color: THEME.colors.text.muted }}>
+                    {echoGuard
+                      ? tr("Turns your mic down while others talk and you're quiet, so their voices don't echo back")
+                      : tr("Off — fine with headphones; on speakers others may hear an echo")}
+                  </span>
+                </span>
+                <span
+                  className="w-9 h-5 rounded-full p-0.5 transition-colors shrink-0"
+                  style={{ background: echoGuard ? THEME.colors.accent.primary : "var(--sx-bg-255-255-255-120)" }}
+                >
+                  <span className={`block w-4 h-4 rounded-full bg-white transition-transform ${echoGuard ? "translate-x-4" : "translate-x-0"}`} />
+                </span>
+              </button>
+            )}
 
             {onToggleNoiseSuppression && (
               <button

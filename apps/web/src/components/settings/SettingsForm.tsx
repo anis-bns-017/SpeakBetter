@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Bell,
@@ -23,6 +24,8 @@ import {
   Radio,
   UserPlus,
   Wand2,
+  Headphones,
+  Mic,
 } from "lucide-react";
 import { useSettings } from "../../hooks/useSettings";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -479,6 +482,24 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ settings }) => {
             <p className="mt-3 text-xs text-slate-500">{tr("Changes apply right away and follow you to your other devices.")}</p>
           </div>
 
+        </Section>
+
+        {/* Microphone and sound */}
+        <Section
+          icon={Headphones}
+          title={tr("Microphone & sound")}
+          description={tr("Check how you sound in voice rooms and calls.")}
+        >
+          <Link
+            to="/sound-check"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"
+          >
+            <span>
+              <span className="block text-sm font-semibold text-slate-900">{tr("Sound check")}</span>
+              <span className="block text-sm text-slate-500">{tr("Record a few seconds, listen back, and get tips for clearer sound.")}</span>
+            </span>
+            <Mic size={18} className="shrink-0 text-indigo-600" />
+          </Link>
         </Section>
 
         {/* Notifications (the bell links here with #notifications) */}
